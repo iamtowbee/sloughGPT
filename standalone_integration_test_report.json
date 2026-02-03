@@ -1,0 +1,179 @@
+{
+  "summary": {
+    "total_tests": 8,
+    "passed_tests": 6,
+    "failed_tests": 2,
+    "success_rate": 75.0,
+    "average_score": 69.0,
+    "total_duration_seconds": 2.707758903503418,
+    "average_duration_ms": 337.77374029159546
+  },
+  "test_results": [
+    {
+      "test_name": "file_structure",
+      "status": "passed",
+      "score": 100,
+      "duration_ms": 0.16379356384277344,
+      "error_message": null,
+      "details": {
+        "missing_files": [],
+        "required_count": 6
+      }
+    },
+    {
+      "test_name": "module_loading",
+      "status": "failed",
+      "score": 0,
+      "duration_ms": 2487.201929092407,
+      "error_message": null,
+      "details": {
+        "failed_modules": [
+          "sloughgpt.core.reasoning: invalid syntax (testing.py, line 440)",
+          "sloughgpt.core.database: invalid syntax (testing.py, line 440)",
+          "sloughgpt.core.security: invalid syntax (testing.py, line 440)",
+          "sloughgpt.core.performance: invalid syntax (testing.py, line 440)"
+        ],
+        "tested_modules": 4
+      }
+    },
+    {
+      "test_name": "mock_reasoning",
+      "status": "passed",
+      "score": 95,
+      "duration_ms": 0.00095367431640625,
+      "error_message": null,
+      "details": {
+        "query": "What is 2 + 2?",
+        "steps": [
+          "First, I need to understand the question: What is 2 + 2?",
+          "The question asks for the sum of two and two",
+          "I should calculate: 2 + 2 = 4",
+          "The answer is 4"
+        ],
+        "final_answer": "4",
+        "confidence": 0.95,
+        "reasoning_type": "step_by_step"
+      }
+    },
+    {
+      "test_name": "mock_training",
+      "status": "passed",
+      "score": 90,
+      "duration_ms": 101.14622116088867,
+      "error_message": null,
+      "details": {
+        "job_id": "test_job_001",
+        "model": {
+          "name": "test_model",
+          "parameters": 1000000
+        },
+        "dataset": {
+          "total_samples": 10000
+        },
+        "epochs": 10,
+        "status": "completed"
+      }
+    },
+    {
+      "test_name": "mock_serving",
+      "status": "passed",
+      "score": 92,
+      "duration_ms": 51.18703842163086,
+      "error_message": null,
+      "details": {
+        "prompt": "Test prompt",
+        "response": "Mock response",
+        "tokens_generated": 50,
+        "response_time": 0.05
+      }
+    },
+    {
+      "test_name": "mock_rag",
+      "status": "passed",
+      "score": 88,
+      "duration_ms": 30.205965042114258,
+      "error_message": null,
+      "details": {
+        "query": "What is artificial intelligence?",
+        "retrieved_documents": 2,
+        "context": "Based on the retrieved documents...",
+        "answer": "Artificial intelligence is a field of computer science...",
+        "response_time": 0.03,
+        "confidence": 0.88
+      }
+    },
+    {
+      "test_name": "mock_monitoring",
+      "status": "passed",
+      "score": 87,
+      "duration_ms": 21.165132522583008,
+      "error_message": null,
+      "details": {
+        "metrics": {
+          "request_count": 1000,
+          "avg_response_time": 0.05,
+          "error_rate": 0.01,
+          "cpu_usage": 65.5,
+          "memory_usage": 70.2
+        },
+        "alerts": {
+          "active_alerts": 1,
+          "total_alerts_today": 5,
+          "last_alert": "High response time detected"
+        },
+        "dashboard_data": {
+          "total_requests": 1000,
+          "success_rate": 99.0
+        }
+      }
+    },
+    {
+      "test_name": "performance",
+      "status": "failed",
+      "score": 0.0,
+      "duration_ms": 11.118888854980469,
+      "error_message": "'score'",
+      "details": null
+    }
+  ],
+  "category_breakdown": {
+    "file": {
+      "total": 1,
+      "passed": 0,
+      "score": 100.0,
+      "success_rate": 100.0
+    },
+    "module": {
+      "total": 1,
+      "passed": 0,
+      "score": 0.0,
+      "success_rate": 0.0
+    },
+    "mock": {
+      "total": 1,
+      "passed": 0,
+      "score": 100.0,
+      "success_rate": 100.0
+    },
+    "performance": {
+      "total": 1,
+      "passed": 0,
+      "score": 0.0,
+      "success_rate": 0.0
+    }
+  },
+  "feature_coverage": {
+    "file_structure": 100.0,
+    "module_loading": 0.0,
+    "reasoning": 0,
+    "training": 0,
+    "serving": 0,
+    "rag": 0,
+    "monitoring": 0,
+    "performance": 0.0
+  },
+  "recommendations": [
+    "\u26a0\ufe0f  Module needs attention (score: 0.0%)",
+    "\u26a0\ufe0f  Performance needs attention (score: 0.0%)"
+  ]
+}

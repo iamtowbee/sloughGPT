@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# TermShell Quick Launcher
+# Interactive terminal dashboard with file browser, process monitor, and system metrics
+
+echo "🚀 Launching TermShell..."
+echo "   Interactive dashboard: h/l tabs, j/k navigate, / search, q quit"
+echo "   File browser: h (parent), l (enter), Enter (open directory)"
+echo ""
+
+# Run the terminal UI
+terminal_ui "$@"
+
+echo ""
+echo "✨ TermShell session ended"

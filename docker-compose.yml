@@ -1,0 +1,289 @@
+version: '3.8'
+
+services:
+  # Production SloughGPT Service
+  sloughgpt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: sloughgpt-prod
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - SLAUGHGPT_ENV=production
+      - SLAUGHGPT_LOG_LEVEL=INFO
+      - SLAUGHGPT_HOST=0.0.0.0
+      - SLAUGHGPT_PORT=8000
+      - DATABASE_URL=postgresql://sloughgpt:${DB_PASSWORD}@postgres:5432/sloughgpt
+      - REDIS_URL=redis://redis:6379/0
+      - SLAUGHGPT_MODEL_PATH=/app/models
+      - SLAUGHGPT_DATA_PATH=/app/data
+      - SLAUGHGPT_CACHE_PATH=/app/cache
+      - CUDA_VISIBLE_DEVICES=0  # Set to empty for CPU-only
+    volumes:
+      - sloughgpt_data:/app/data
+      - sloughgpt_logs:/app/logs
+      - sloughgpt_cache:/app/cache
+      - sloughgpt_models:/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sloughgpt-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+
+  # GPU-enabled SloughGPT Service
+  sloughgpt-gpu:
+    extends: sloughgpt
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4'
+        reservations:
+          memory: 4G
+          cpus: '2'
+    profiles:
+      - gpu
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: sloughgpt-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=sloughgpt
+      - POSTGRES_USER=sloughgpt
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-sloughgpt123}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - sloughgpt-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sloughgpt -d sloughgpt"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: sloughgpt-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - sloughgpt-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
+
+  # Nginx Load Balancer (optional)
+  nginx:
+    image: nginx:alpine
+    container_name: sloughgpt-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - sloughgpt
+    networks:
+      - sloughgpt-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - production
+
+  # Development Service
+  sloughgpt-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: sloughgpt-dev
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      - SLAUGHGPT_ENV=development
+      - SLAUGHGPT_LOG_LEVEL=DEBUG
+      - SLAUGHGPT_RELOAD=true
+      - SLAUGHGPT_HOST=0.0.0.0
+      - DATABASE_URL=postgresql://dev_user:dev_password@postgres-dev:5432/sloughgpt_dev
+      - REDIS_URL=redis://redis-dev:6379/0
+    volumes:
+      - .:/app
+      - dev_logs:/app/logs
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
+      redis-dev:
+        condition: service_healthy
+    networks:
+      - sloughgpt-network
+    command: ["python", "-m", "sloughgpt.api_server", "--reload", "--debug"]
+    profiles:
+      - dev
+
+  # Development Database
+  postgres-dev:
+    image: postgres:15-alpine
+    container_name: sloughgpt-postgres-dev
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=sloughgpt_dev
+      - POSTGRES_USER=dev_user
+      - POSTGRES_PASSWORD=dev_password
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - sloughgpt-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev_user -d sloughgpt_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - dev
+
+  # Development Redis
+  redis-dev:
+    image: redis:7-alpine
+    container_name: sloughgpt-redis-dev
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_dev_data:/data
+    ports:
+      - "6380:6379"
+    networks:
+      - sloughgpt-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    profiles:
+      - dev
+
+  # Testing Service
+  sloughgpt-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: sloughgpt-test
+    environment:
+      - SLAUGHGPT_ENV=testing
+      - SLAUGHGPT_LOG_LEVEL=DEBUG
+      - TESTING=true
+      - DATABASE_URL=sqlite:///memory
+      - REDIS_URL=redis://redis-test:6379/0
+    volumes:
+      - test_results:/app/test_results
+      - coverage_reports:/app/coverage
+    depends_on:
+      redis-test:
+        condition: service_healthy
+    networks:
+      - sloughgpt-network
+    command: ["python", "packages/core/tests/run_tests.py", "--type", "all", "--coverage"]
+    profiles:
+      - test
+
+  # Test Redis
+  redis-test:
+    image: redis:7-alpine
+    container_name: sloughgpt-redis-test
+    restart: unless-stopped
+    networks:
+      - sloughgpt-network
+    profiles:
+      - test
+
+# Network Configuration
+networks:
+  sloughgpt-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Volume Configuration
+volumes:
+  postgres_data:
+    driver: local
+  postgres_dev_data:
+    driver: local
+  redis_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+  sloughgpt_data:
+    driver: local
+  sloughgpt_logs:
+    driver: local
+  sloughgpt_cache:
+    driver: local
+  sloughgpt_models:
+    driver: local
+  nginx_logs:
+    driver: local
+  dev_logs:
+    driver: local
+  test_results:
+    driver: local
+  coverage_reports:
+    driver: local

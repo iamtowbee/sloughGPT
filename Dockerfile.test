@@ -1,0 +1,59 @@
+# SloughGPT Testing Dockerfile
+# Optimized for running tests and CI/CD
+
+FROM python:3.10-slim
+
+# Set environment variables for testing
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    SLAUGHGPT_ENV="testing" \
+    SLAUGHGPT_LOG_LEVEL="DEBUG" \
+    TESTING="true" \
+    DATABASE_URL="sqlite:///:memory:" \
+    CACHE_TYPE="memory"
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    git \
+    libpq-dev \
+    libssl-dev \
+    libffi-dev \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Copy requirements files
+COPY requirements.txt requirements-dev.txt packages/core/tests/requirements-test.txt ./
+
+# Install Python dependencies
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt && \
+    pip install -r requirements-dev.txt && \
+    pip install -r requirements-test.txt
+
+# Copy application code
+COPY . .
+
+# Install application
+RUN pip install -e .
+
+# Create non-root user for testing
+RUN groupadd -r tester && \
+    useradd -r -g tester -d /app -s /bin/bash tester
+
+# Create test directories
+RUN mkdir -p /app/test_results /app/coverage /app/test_data && \
+    chown -R tester:tester /app
+
+# Switch to tester user
+USER tester
+
+# Set working directory for tests
+WORKDIR /app/packages/core/tests
+
+# Default test command
+CMD ["python", "run_tests.py", "--type", "all", "--coverage"]

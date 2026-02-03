@@ -1,0 +1,110 @@
+{
+  "timestamp": "2026-01-30 10:44:13",
+  "total_tests": 20,
+  "passed": 20,
+  "failed": 0,
+  "success_rate": 100.0,
+  "production_ready": true,
+  "test_results": [
+    {
+      "name": "API Health Check",
+      "passed": true,
+      "message": "Status: healthy"
+    },
+    {
+      "name": "Frontend Load",
+      "passed": true,
+      "message": "Title: SloughGPT Enhanced WebUI"
+    },
+    {
+      "name": "SloughGPT Branding",
+      "passed": true,
+      "message": "SloughGPT branding found"
+    },
+    {
+      "name": "Chat Input",
+      "passed": true,
+      "message": "Chat input element found"
+    },
+    {
+      "name": "Chat Input Typing",
+      "passed": true,
+      "message": "Successfully typed message"
+    },
+    {
+      "name": "Send Button",
+      "passed": true,
+      "message": "Send button found"
+    },
+    {
+      "name": "Send Message",
+      "passed": true,
+      "message": "Message sent successfully"
+    },
+    {
+      "name": "Model Selector",
+      "passed": true,
+      "message": "Found with selector: .sloughgpt-model-selector"
+    },
+    {
+      "name": "Models API",
+      "passed": true,
+      "message": "Status: 200"
+    },
+    {
+      "name": "Status API",
+      "passed": true,
+      "message": "Status: 200"
+    },
+    {
+      "name": "SloughGPT Models API",
+      "passed": true,
+      "message": "Status: 200"
+    },
+    {
+      "name": "SloughGPT Status API",
+      "passed": true,
+      "message": "Status: 200"
+    },
+    {
+      "name": "API Endpoints Overall",
+      "passed": true,
+      "message": "Passed: 4/4"
+    },
+    {
+      "name": "Responsive Mobile",
+      "passed": true,
+      "message": "Viewport: 375x667"
+    },
+    {
+      "name": "Responsive Tablet",
+      "passed": true,
+      "message": "Viewport: 768x1024"
+    },
+    {
+      "name": "Responsive Desktop",
+      "passed": true,
+      "message": "Viewport: 1920x1080"
+    },
+    {
+      "name": "Responsive Design Overall",
+      "passed": true,
+      "message": "Passed: 3/3"
+    },
+    {
+      "name": "404 Handling",
+      "passed": true,
+      "message": "404 page handled"
+    },
+    {
+      "name": "Image Alt Text",
+      "passed": true,
+      "message": "Score: 100.0%"
+    },
+    {
+      "name": "Page Load Performance",
+      "passed": true,
+      "message": "Load time: 0.06s"
+    }
+  ]
+}

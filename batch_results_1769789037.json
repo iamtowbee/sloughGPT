@@ -1,0 +1,14 @@
+[
+  {
+    "status": "success",
+    "output": "\u2705 Created dataset 'batch_test2' with direct text input\n\u23f3 Preparing dataset for training...\n\ud83c\udf89 Dataset 'batch_test2' ready for training!\n\ud83d\ude80 Train with: python3 train_simple.py batch_test2\n",
+    "error": null,
+    "dataset": "batch_test2"
+  },
+  {
+    "status": "success",
+    "output": "\u2705 Created dataset 'batch_test1' with direct text input\n\u23f3 Preparing dataset for training...\n\ud83c\udf89 Dataset 'batch_test1' ready for training!\n\ud83d\ude80 Train with: python3 train_simple.py batch_test1\n",
+    "error": null,
+    "dataset": "batch_test1"
+  }
+]

@@ -1,0 +1,1 @@
+packages/core/config/setup.sh

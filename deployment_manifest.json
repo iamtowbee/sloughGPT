@@ -1,0 +1,39 @@
+{
+  "deployment": {
+    "name": "SloughGPT WebUI",
+    "version": "1.0.0",
+    "environment": "production",
+    "timestamp": "2026-01-30 00:47:00",
+    "url": "http://localhost:8080",
+    "api_docs": "http://localhost:8080/docs"
+  },
+  "features": {
+    "webui": "Enhanced FastAPI WebUI",
+    "api": "RESTful API with OpenAPI docs",
+    "branding": "SloughGPT custom branding",
+    "responsive": "Mobile-responsive design",
+    "testing": "Comprehensive E2E testing"
+  },
+  "endpoints": {
+    "health": "/api/health",
+    "models": "/api/models",
+    "chat": "/api/chat",
+    "status": "/api/status",
+    "docs": "/docs",
+    "openapi": "/openapi.json"
+  },
+  "testing": {
+    "e2e_suite": "Python Selenium-based E2E testing",
+    "api_tests": "Comprehensive API endpoint testing",
+    "ui_tests": "Frontend functionality testing",
+    "performance": "Load time and accessibility testing"
+  },
+  "e2e_results": {
+    "total_tests": 19,
+    "passed_tests": 14,
+    "failed_tests": 5,
+    "success_rate": 73.7,
+    "status": "NEEDS_ATTENTION",
+    "production_ready": false
+  }
+}

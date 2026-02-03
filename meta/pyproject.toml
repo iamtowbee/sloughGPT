@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "slo-monorepo"
+version = "0.1.0"
+description = "Monorepo wrapper for slo"
+readme = "README.md"
+requires-python = ">=3.9"
+
+[tool.slo]
+core = "packages/core"
+apps = "packages/apps"

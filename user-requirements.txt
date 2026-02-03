@@ -1,0 +1,5 @@
+# SloughGPT User Management Dependencies
+
+passlib>=1.7.4
+PyJWT>=2.4.0
+bcrypt>=3.2.0

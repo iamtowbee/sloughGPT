@@ -1,0 +1,63 @@
+# SloughGPT Development Dockerfile
+# Optimized for development with hot reloading
+
+FROM python:3.10-slim
+
+# Set environment variables for development
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    SLAUGHGPT_ENV="development" \
+    SLAUGHGPT_LOG_LEVEL="DEBUG" \
+    SLAUGHGPT_RELOAD="true" \
+    SLAUGHGPT_HOST="0.0.0.0" \
+    SLAUGHGPT_PORT="8000"
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    git \
+    vim \
+    htop \
+    libpq-dev \
+    libssl-dev \
+    libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Copy requirements files
+COPY requirements.txt requirements-dev.txt ./
+
+# Install Python dependencies
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt && \
+    pip install -r requirements-dev.txt
+
+# Create non-root user for development
+RUN groupadd -r developer && \
+    useradd -r -g developer -d /app -s /bin/bash developer
+
+# Copy application code (will be mounted in development)
+COPY --chown=developer:developer . .
+
+# Install application in development mode
+RUN pip install -e .
+
+# Create necessary directories
+RUN mkdir -p /app/data /app/logs /app/cache /app/models && \
+    chown -R developer:developer /app
+
+# Switch to developer user
+USER developer
+
+# Expose ports
+EXPOSE 8000 8001
+
+# Health check for development
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=2 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Default development command
+CMD ["python", "-m", "sloughgpt.api_server", "--reload", "--debug"]
