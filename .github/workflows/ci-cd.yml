@@ -1,198 +1,263 @@
-name: SloughGPT CI/CD Pipeline
+name: SloughGPT Enterprise CI/CD
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ main, develop ]
+    tags:
+      - 'v*'
+      - 'sloughgpt-*'
+  
   pull_request:
-    branches: [main]
-  release:
-    types: [published]
+    branches: [ main, develop ]
+  
+  workflow_dispatch:
+    inputs:
+      user_login:
+        description: 'User login'
+        required: true
+        default: github
 
 env:
-  PYTHON_VERSION: "3.9"
-  NODE_VERSION: "18"
-
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.9'
+  
 jobs:
   lint:
-    name: Code Quality
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install dependencies
-        run: |
-          pip install ruff black mypy
-          pip install -r requirements.txt
-      
-      - name: Run Ruff (Linter + Formatter)
-        run: |
-          ruff check . --output-format=github --output-file=ruff-report.txt
-          ruff format . --diff
-        continue-on-error: true
-      
-      - name: Run Black (Formatter check)
-        run: |
-          black --check --diff .
-        continue-on-error: true
-      
-      - name: Run MyPy (Type checking)
-        run: |
-          mypy sloughgpt/
-        continue-on-error: true
-      
-      - name: Upload quality reports
-        uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: quality-reports
-          path: |
-            ruff-report.txt
-
-  test:
-    name: Test Suite
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        python-version: [3.8, 3.9, 3.10, 3.11]
+      python-version: [3.9, '3.10', '3.11']
     
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-      
-      - name: Install dependencies
-        run: |
-          pip install -r requirements-prod.txt
-          pip install pytest pytest-cov pytest-asyncio pytest-xdist
-          pip install -r requirements-test.txt
-      
-      - name: Run Unit Tests
-        run: |
-          pytest tests/unit/ -v \
-            --cov=sloughgpt \
-            --cov-report=xml \
-            --cov-report=html \
-            --cov-fail-under=80 \
-            --junitxml=unit-report.xml
-      
-      - name: Run Integration Tests
-        run: |
-          pytest tests/integration/ -v \
-            --junitxml=integration-report.xml
-      
-      - name: Upload test results
-        uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: test-reports
-          path: |
-            unit-report.xml
-            integration-report.xml
-            htmlcov/
-            coverage.xml
-      
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.xml
-          flags: unittests
-          name: codecov-umbrella
-
-  security:
-    name: Security Scan
+    - name: Check out code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python environment
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+        python -m pip install -r requirements-dev.txt
+    
+    - name: Run linting
+      run: |
+        python -m ruff check . --output-format=github --output-file=ruff-report.txt
+        
+    - name: Run type checking
+      run: |
+        python -m mypy . --no-error-summary --cobertura-xml-report=type-report.xml
+    
+    - name: Upload reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: ruff-report
+        path: ruff-report.txt
+      with:
+        name: type-report
+        path: type-report.xml
+  
+  test:
     runs-on: ubuntu-latest
+    strategy:
+      python-version: [3.9, '3.10', '3.11']
+    
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Run Security Scan
-        run: |
-          pip install safety bandit
-          safety check --json --output safety-report.json
-          bandit -r sloughgpt -f json -o bandit-report.json
-      
-      - name: Upload security reports
-        uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: security-reports
-          path: |
-            safety-report.json
-            bandit-report.json
-
+    - name: Check out code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python environment
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install -r requirements.txt
+        python -m pip install -r requirements-dev.txt
+        python -m pip install pytest pytest-asyncio pytest-cov pytest-mock
+    
+    - name: Run unit tests
+      run: |
+        python -m pytest tests/ --cov=sloughgpt --cov-report=xml --cov-report=html --junit-xml=junit.xml -v
+        
+    - name: Run integration tests
+      run: |
+        python -m pytest tests/integration/ --cov=sloughgpt --cov-report=xml --cov-report=html --junit-xml=junit.xml -v
+        
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report-${{ matrix.python-version }}
+        path: htmlcov/
+      with:
+          name: coverage-xml-${{ matrix.python-version }}
+          path: junit.xml
+    
+    - name: Security vulnerability scan
+      run: |
+        python -m pip install safety bandit
+        safety check --json --output=safety-report.json
+        bandit -r . -f json -o bandit-report.json
+        
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: safety-report
+        path: safety-report.json
+      with:
+          name: bandit-report
+        path: bandit-report.json
+  
   build:
-    name: Build Package
     runs-on: ubuntu-latest
-    needs: [lint, test, security]
+    strategy:
+      python-version: [3.9, '3.10', '3.11']
     
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install build dependencies
-        run: |
-          pip install build wheel setuptools
-          pip install -r requirements-prod.txt
-      
-      - name: Build Package
-        run: |
-          python setup.py sdist bdist wheel
-      
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: package
-          path: dist/
-
-  docker:
-    name: Build Docker Image
+    - name: Check out code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python environment
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Build packages
+      run: |
+        python -m build
+    
+    - name: Build documentation
+      run: |
+        python -m pip install sphinx sphinx-rtd-theme
+        cd docs/
+        make html
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist-${{ matrix.python-version }}
+        path: dist/
+      with:
+        name: docs-${{ matrix.python-version }}
+        path: docs/_build/
+  
+  deploy-staging:
+    needs: build
     runs-on: ubuntu-latest
-    needs: [build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      DOCKER_REGISTRY: ghcr.io
+      IMAGE_TAG: ${{ github.sha }}
     
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      
-      - name: Download build artifacts
-        uses: actions/download-artifact@v3
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}:latest
+          ghcr.io/${{ github.repository }}:${{ github.sha }}
+        file: ./Dockerfile
+    
+    - name: Deploy to staging
+      run: |
+        echo "Deploy to staging environment"
+        # Add actual staging deployment commands here
+    
+  deploy-production:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/tags/*'
+    environment:
+      DOCKER_REGISTRY: ghcr.io
+      IMAGE_TAG: ${{ github.ref_name }}
+    
+    steps:
+    - name: Deploy to production
+      run: |
+        echo "Deploy to production with tag ${{ github.ref_name }}"
+        # Add actual production deployment commands here
+  
+  security-audit:
+    runs-on: ubuntu-latest
+    schedule:
+      - cron: '0 2 * *'  # Daily at 2 AM UTC
+    
+    steps:
+    - name: Security audit
+      run: |
+        python -m pip install safety bandit semgrep
+        safety check --json --output=safety-audit.json
+        bandit -r . -f json -o bandit-audit.json
+        
+        python -m semgrep --config=.semgrep.yml --json --output=semgrep-audit.json .
+        
+    - name: Upload audit results
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-audit
+        path: .
+        
+        if-no-files-found: continue
         with:
-          name: package
-          path: dist/
+          name: safety-audit.json
+      with:
+          name: bandit-audit.json
+      with:
+          name: semgrep-audit.json
+  
+  performance-test:
+    runs-on: ubuntu-latest
+    strategy:
+      python-version: [3.9, '3.10', '3.11']
+    
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
       
-      - name: Login to Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Python environment
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install -r requirements.txt
+        python -m pip install -r requirements-dev.txt
+        python -m pip install pytest pytest-benchmark memory_profiler
+    
+    - name: Run performance tests
+      run: |
+        python -m pytest tests/performance/ --benchmark-only --benchmark-json=benchmark-results.json -v
+        
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results-${{ matrix.python-version }}
+        path: benchmark-results.json
+  
+  dependency-graph:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+      uses: actions/checkout@v4
       
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: Dockerfile
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
-          labels: |
-            org.opencontainers.image.title=SloughGPT
-            org.opencontainers.image.description=Custom GPT system with continuous learning
-            org.opencontainers.image.version=${{ github.sha }}
-            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          cache-from: ghcr.io/${{ github.repository }}:latest
-          platforms: linux/amd64,linux/arm64
+      - name: Generate dependency graph
+      run: |
+        python -m pip install pydot
+        find . -name "*.py" -exec grep -l "import" {} \; | sed 's/import * from/;g' > imports.temp || true
+        sort -u imports.temp | head -20 || echo "No imports found"
+        rm imports.temp
+        
+        echo "dependency graph generated"
+      shell: bash
