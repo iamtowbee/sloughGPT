@@ -314,12 +314,14 @@ class RepoImporter:
         ts_patterns = [
             "interface ", "type ", ": string", ": number", ": boolean",
             "<T>", "extends ", "implements ", "as ", ": void",
+            ": string[]", ": number[]", "readonly ", "Record<",
         ]
         
         js_score = sum(1 for p in js_patterns if p in sample)
         ts_score = sum(1 for p in ts_patterns if p in sample)
         
-        if ts_score >= 2 and js_score >= 1:
+        # TypeScript is a superset of JS, so if TS patterns are present, it's TS
+        if ts_score >= 2:
             return "typescript"
         if js_score >= 3:
             return "javascript"
@@ -374,8 +376,10 @@ class RepoImporter:
             return "go"
         
         # Rust patterns
-        rust_patterns = ["fn ", "let mut", "impl ", "pub fn", "use std::", "struct ", "enum "]
-        if sum(1 for p in rust_patterns if p in sample) >= 3:
+        rust_patterns = ["fn ", "let mut", "impl ", "pub fn", "use std::", 
+                         "struct ", "enum ", "mod ", "crate ", "::<", 
+                         "println!(", "vec![", "Some(", "None", "Ok(", "Err("]
+        if sum(1 for p in rust_patterns if p in sample) >= 2:
             return "rust"
         
         # Java patterns
