@@ -101,7 +101,7 @@ class RepoImporter:
                     "path": str(file_path.relative_to(repo_path)),
                     "content": content,
                     "size": len(content),
-                    "language": self._detect_language(file_path),
+                    "language": self._detect_language(file_path, content),
                 }
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
                 count += 1
@@ -125,27 +125,284 @@ class RepoImporter:
                 
                 yield file_path
     
-    def _detect_language(self, path: Path) -> str:
-        """Detect programming language from file extension."""
+    def _detect_language(self, path: Path, content: str = "") -> str:
+        """Detect programming language using MIME type, extension, and content analysis."""
+        import mimetypes
+        
+        # Initialize mimetypes
+        mimetypes.init()
+        
+        # Step 1: MIME type detection
+        mime_type, _ = mimetypes.guess_type(str(path))
+        if mime_type:
+            mime_to_lang = {
+                "text/x-python": "python",
+                "application/x-python-code": "python",
+                "text/javascript": "javascript",
+                "application/javascript": "javascript",
+                "text/typescript": "typescript",
+                "application/typescript": "typescript",
+                "text/html": "html",
+                "text/css": "css",
+                "text/markdown": "markdown",
+                "application/json": "json",
+                "application/x-yaml": "yaml",
+                "text/x-yaml": "yaml",
+                "text/x-sh": "shell",
+                "application/x-sh": "shell",
+                "text/x-rust": "rust",
+                "text/x-go": "go",
+                "text/x-java-source": "java",
+                "text/x-c": "c",
+                "text/x-c++": "cpp",
+                "text/x-csharp": "csharp",
+                "text/x-ruby": "ruby",
+                "text/x-php": "php",
+                "application/x-httpd-php": "php",
+                "text/x-sql": "sql",
+                "application/sql": "sql",
+                "text/x-perl": "perl",
+                "text/x-lua": "lua",
+                "text/x-r": "r",
+                "text/x-swift": "swift",
+                "text/x-kotlin": "kotlin",
+                "text/x-scala": "scala",
+                "text/xml": "xml",
+                "application/xml": "xml",
+            }
+            if mime_type in mime_to_lang:
+                return mime_to_lang[mime_type]
+        
+        # Step 2: Extension-based detection (expanded)
         ext_map = {
             ".py": "python",
+            ".pyw": "python",
+            ".pyi": "python",
             ".js": "javascript",
             ".jsx": "javascript",
+            ".mjs": "javascript",
+            ".cjs": "javascript",
             ".ts": "typescript",
             ".tsx": "typescript",
+            ".mts": "typescript",
             ".md": "markdown",
+            ".markdown": "markdown",
             ".json": "json",
+            ".jsonl": "json",
             ".yaml": "yaml",
             ".yml": "yaml",
             ".sh": "shell",
+            ".bash": "shell",
+            ".zsh": "shell",
             ".rs": "rust",
             ".go": "go",
             ".java": "java",
             ".cpp": "cpp",
+            ".cc": "cpp",
+            ".cxx": "cpp",
             ".c": "c",
             ".h": "c",
+            ".hpp": "cpp",
+            ".hxx": "cpp",
+            ".cs": "csharp",
+            ".rb": "ruby",
+            ".php": "php",
+            ".sql": "sql",
+            ".pl": "perl",
+            ".pm": "perl",
+            ".lua": "lua",
+            ".r": "r",
+            ".R": "r",
+            ".swift": "swift",
+            ".kt": "kotlin",
+            ".kts": "kotlin",
+            ".scala": "scala",
+            ".sc": "scala",
+            ".xml": "xml",
+            ".html": "html",
+            ".htm": "html",
+            ".xhtml": "html",
+            ".css": "css",
+            ".scss": "scss",
+            ".sass": "sass",
+            ".less": "less",
+            ".vue": "vue",
+            ".svelte": "svelte",
+            ".ex": "elixir",
+            ".exs": "elixir",
+            ".erl": "erlang",
+            ".hs": "haskell",
+            ".lhs": "haskell",
+            ".clj": "clojure",
+            ".cljs": "clojure",
+            ".ml": "ocaml",
+            ".mli": "ocaml",
+            ".fs": "fsharp",
+            ".fsi": "fsharp",
+            ".dart": "dart",
+            ".jl": "julia",
+            ".nim": "nim",
+            ".cr": "crystal",
+            ".d": "d",
+            ".asm": "assembly",
+            ".s": "assembly",
+            ".toml": "toml",
+            ".ini": "ini",
+            ".cfg": "ini",
+            ".conf": "config",
+            ".env": "env",
+            ".txt": "text",
+            ".tex": "latex",
+            ".rst": "restructuredtext",
+            ".org": "org",
+            ".csv": "csv",
+            ".tsv": "tsv",
+            ".dockerfile": "dockerfile",
+            "Dockerfile": "dockerfile",
+            "Makefile": "makefile",
         }
-        return ext_map.get(path.suffix.lower(), "text")
+        
+        ext_result = ext_map.get(path.suffix.lower(), "")
+        
+        # Check for special files without extensions
+        if not ext_result:
+            name_lower = path.name.lower()
+            if name_lower in ("dockerfile", "makefile", "rakefile", "gemfile", "pipfile"):
+                ext_result = name_lower
+            elif name_lower.startswith("readme"):
+                ext_result = "markdown"
+            elif name_lower.startswith("license"):
+                ext_result = "text"
+            elif name_lower.startswith(".env"):
+                ext_result = "env"
+        
+        if ext_result:
+            return ext_result
+        
+        # Step 3: Content-based detection
+        if content:
+            return self._detect_from_content(content)
+        
+        return "text"
+    
+    def _detect_from_content(self, content: str) -> str:
+        """Detect language from file content using pattern matching."""
+        if not content:
+            return "text"
+        
+        # Get first 2000 chars for analysis
+        sample = content[:2000].strip()
+        first_line = sample.split('\n')[0] if sample else ""
+        
+        # Python patterns
+        python_patterns = [
+            "def ", "class ", "import ", "from ", "if __name__",
+            "print(", "self.", "__init__", "lambda ", "async def",
+            "await ", "except ", "raise ", "with open(", "import os",
+        ]
+        if any(p in sample for p in python_patterns[:6]):
+            python_score = sum(1 for p in python_patterns if p in sample)
+            if python_score >= 3:
+                return "python"
+        
+        # JavaScript/TypeScript patterns
+        js_patterns = [
+            "function ", "const ", "let ", "var ", "=> {",
+            "export ", "import {", "require(", "console.log",
+            "async function", "await ", "Promise.", ".then(",
+        ]
+        ts_patterns = [
+            "interface ", "type ", ": string", ": number", ": boolean",
+            "<T>", "extends ", "implements ", "as ", ": void",
+        ]
+        
+        js_score = sum(1 for p in js_patterns if p in sample)
+        ts_score = sum(1 for p in ts_patterns if p in sample)
+        
+        if ts_score >= 2 and js_score >= 1:
+            return "typescript"
+        if js_score >= 3:
+            return "javascript"
+        
+        # HTML patterns
+        if sample.startswith("<!DOCTYPE") or sample.startswith("<html"):
+            return "html"
+        html_tags = ["<div", "<span", "<p>", "<body", "<head", "<script", "<style"]
+        if sum(1 for t in html_tags if t in sample.lower()) >= 2:
+            return "html"
+        
+        # CSS patterns
+        css_patterns = ["{", ":", ";", "px", "rem", "em", "@media", "@import"]
+        if sample.startswith("@") or any(p in sample for p in ["@media", "@keyframes", "@font-face"]):
+            if "body {" in sample or ".class" in sample or "#id" in sample:
+                return "css"
+        
+        # JSON patterns
+        if sample.startswith("{") or sample.startswith("["):
+            try:
+                import json
+                json.loads(sample)
+                return "json"
+            except:
+                pass
+        
+        # YAML patterns
+        yaml_indicators = ["---\n", ": ", "\n  ", "\n    "]
+        if sample.startswith("---") or first_line.endswith(":"):
+            if "---" in sample or sum(1 for i in yaml_indicators if i in sample) >= 2:
+                return "yaml"
+        
+        # Shell/Bash patterns
+        shell_patterns = [
+            "#!/bin/bash", "#!/bin/sh", "#!/usr/bin/env bash",
+            "echo ", "export ", "source ", "cd ", "mkdir ",
+            "chmod ", "sudo ", "apt ", "yum ", "brew ",
+        ]
+        if any(sample.startswith(p) for p in ["#!/bin", "#!/usr/bin/env"]):
+            return "shell"
+        if sum(1 for p in shell_patterns if p in sample) >= 3:
+            return "shell"
+        
+        # SQL patterns
+        sql_keywords = ["SELECT ", "FROM ", "WHERE ", "INSERT ", "UPDATE ", "DELETE ", "CREATE TABLE", "ALTER TABLE"]
+        if any(k in sample.upper() for k in sql_keywords[:3]):
+            return "sql"
+        
+        # Go patterns
+        go_patterns = ["package main", "func main()", "import (", "fmt.", "go func", "goroutine"]
+        if any(p in sample for p in go_patterns[:3]):
+            return "go"
+        
+        # Rust patterns
+        rust_patterns = ["fn ", "let mut", "impl ", "pub fn", "use std::", "struct ", "enum "]
+        if sum(1 for p in rust_patterns if p in sample) >= 3:
+            return "rust"
+        
+        # Java patterns
+        java_patterns = ["public class", "private ", "public static void main", "System.out.println", "import java."]
+        if sum(1 for p in java_patterns if p in sample) >= 2:
+            return "java"
+        
+        # C/C++ patterns
+        c_patterns = ["#include <", "int main(", "printf(", "scanf(", "void *", "malloc(", "free("]
+        cpp_patterns = ["#include <", "std::", "cout <<", "cin >>", "class ", "namespace "]
+        
+        if any(p in sample for p in cpp_patterns[1:]):
+            return "cpp"
+        if any(p in sample for p in c_patterns):
+            return "c"
+        
+        # Markdown patterns
+        md_patterns = ["# ", "## ", "### ", "- ", "* ", "```", "[", "](", "**", "__"]
+        if sum(1 for p in md_patterns if p in sample) >= 3:
+            return "markdown"
+        
+        # XML patterns
+        if sample.startswith("<?xml") or sample.startswith("<"):
+            if "</" in sample and ">" in sample:
+                return "xml"
+        
+        return "text"
     
     def import_from_github(
         self,
