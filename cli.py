@@ -56,6 +56,28 @@ def cmd_dataset(args):
         print(f"  Total words: {stats.total_words:,}")
         print(f"  Vocab size: {stats.vocab_size}")
         print(f"  Location: datasets/{name}/")
+    
+    elif args.action == "import":
+        from domains.training.data_import import import_data
+        
+        source = args.source
+        name = args.name
+        
+        print(f"📦 Importing from: {source}")
+        
+        result = import_data(
+            source=source,
+            name=name,
+            source_type=args.type or "auto",
+        )
+        
+        if result.success:
+            print(f"✓ Imported '{name}':")
+            print(f"  Files: {result.files_imported:,}")
+            print(f"  Chars: {result.total_chars:,}")
+            print(f"  Output: {result.output_path}")
+        else:
+            print(f"✗ Import failed: {result.error}")
             
     elif args.action == "list":
         datasets_dir = Path("datasets")
@@ -382,12 +404,13 @@ def main():
     
     # Dataset command
     dataset_parser = subparsers.add_parser("dataset", help="Dataset operations")
-    dataset_parser.add_argument("action", choices=["create", "list", "score", "prepare"], help="Action")
+    dataset_parser.add_argument("action", choices=["create", "list", "score", "prepare", "import"], help="Action")
     dataset_parser.add_argument("name", nargs="?", help="Dataset name")
     dataset_parser.add_argument("text", nargs="?", help="Text content for dataset")
-    dataset_parser.add_argument("--source", help="Source file/directory for prepare")
+    dataset_parser.add_argument("--source", help="Source file/directory/URL for prepare/import")
     dataset_parser.add_argument("--no-clean", action="store_true", help="Skip text cleaning")
     dataset_parser.add_argument("--split", type=float, help="Train/val split ratio")
+    dataset_parser.add_argument("--type", choices=["github", "huggingface", "url", "local", "auto"], help="Import source type")
     dataset_parser.set_defaults(func=cmd_dataset)
     
     # Train command

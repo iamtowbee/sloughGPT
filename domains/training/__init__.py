@@ -259,6 +259,13 @@ __all__ = [
     "DatasetPreparer",
     "DatasetStats",
     "prepare_dataset",
+    # Data import
+    "DataImporter",
+    "RepoImporter",
+    "HuggingFaceImporter",
+    "URLImporter",
+    "ImportResult",
+    "import_data",
 ]
 
 
@@ -319,6 +326,12 @@ def __getattr__(name):
         'DatasetPreparer': '.dataset_prep',
         'DatasetStats': '.dataset_prep',
         'prepare_dataset': '.dataset_prep',
+        'DataImporter': '.data_import',
+        'RepoImporter': '.data_import',
+        'HuggingFaceImporter': '.data_import',
+        'URLImporter': '.data_import',
+        'ImportResult': '.data_import',
+        'import_data': '.data_import',
     }
     
     if name in lazy_imports:
