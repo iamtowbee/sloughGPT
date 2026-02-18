@@ -228,6 +228,79 @@ def cmd_rag(args):
         for r in results:
             print(f"   - {r['content'][:50]}...")
 
+def cmd_generate(args):
+    """Generate text from a trained model"""
+    import torch
+    from domains.training.models.nanogpt import NanoGPT
+    import json
+    
+    if not args.model_path:
+        print("✗ Please specify --model-path")
+        return
+    
+    model_path = Path(args.model_path)
+    if not model_path.exists():
+        print(f"✗ Model not found: {model_path}")
+        return
+    
+    # Load config
+    config_path = f"{model_path}.json"
+    if Path(config_path).exists():
+        with open(config_path) as f:
+            config = json.load(f)
+        vocab_size = config.get("config", {}).get("vocab_size", 500)
+    else:
+        vocab_size = args.vocab_size or 500
+    
+    # Load model
+    checkpoint = torch.load(model_path, map_location="cpu")
+    
+    n_embed = args.embed or 128
+    n_layer = args.layers or 3
+    n_head = args.heads or 4
+    
+    model = NanoGPT(
+        vocab_size=vocab_size,
+        n_embed=n_embed,
+        n_layer=n_layer,
+        n_head=n_head
+    )
+    model.load_state_dict(checkpoint)
+    model.eval()
+    
+    print(f"🦁 Generating with model: {model_path.name}")
+    print(f"   Parameters: {sum(p.numel() for p in model.parameters()):,}")
+    
+    # Create prompt tokens
+    if args.prompt:
+        prompt_tokens = [ord(c) % vocab_size for c in args.prompt[:20]]
+    else:
+        prompt_tokens = [0]
+    
+    context = torch.tensor([prompt_tokens], dtype=torch.long)
+    
+    # Generate
+    output = model.generate(
+        context,
+        max_new_tokens=args.length or 50,
+        temperature=args.temperature or 0.8,
+        top_k=args.top_k
+    )
+    
+    # Decode
+    tokens = output[0].tolist()
+    
+    if args.raw:
+        print(f"\n📝 Tokens: {tokens}")
+    else:
+        # Try to decode as text
+        try:
+            text = ''.join(chr(t) if 32 <= t < 127 else '·' for t in tokens)
+            print(f"\n📝 Generated:\n{text}")
+        except:
+            print(f"\n📝 Tokens: {tokens}")
+
+
 def cmd_version(args):
     """Show version"""
     print("🦁 SloughGPT CLI v2.0.0")
@@ -320,6 +393,20 @@ def main():
     model_parser.add_argument("--layers", type=int, help="Number of layers")
     model_parser.add_argument("--heads", type=int, help="Number of attention heads")
     model_parser.set_defaults(func=cmd_model)
+    
+    # Generate command
+    gen_parser = subparsers.add_parser("generate", help="Generate text from trained model")
+    gen_parser.add_argument("--model-path", required=True, help="Path to trained model (.pt)")
+    gen_parser.add_argument("--prompt", help="Prompt text to continue")
+    gen_parser.add_argument("--length", type=int, default=50, help="Tokens to generate")
+    gen_parser.add_argument("--temperature", type=float, default=0.8, help="Sampling temperature")
+    gen_parser.add_argument("--top-k", type=int, help="Top-k sampling")
+    gen_parser.add_argument("--vocab-size", type=int, default=500, help="Vocabulary size")
+    gen_parser.add_argument("--embed", type=int, default=128, help="Embedding dimension")
+    gen_parser.add_argument("--layers", type=int, default=3, help="Number of layers")
+    gen_parser.add_argument("--heads", type=int, default=4, help="Number of attention heads")
+    gen_parser.add_argument("--raw", action="store_true", help="Output raw tokens")
+    gen_parser.set_defaults(func=cmd_generate)
     
     # Cognitive command
     cog_parser = subparsers.add_parser("cognitive", help="Cognitive operations")
