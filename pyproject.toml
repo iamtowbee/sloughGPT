@@ -1,1 +1,16 @@
-meta/pyproject.toml
+[project]
+name = "sloughgpt"
+version = "1.0.0"
+description = "Enterprise AI Framework with domain-based architecture"
+requires-python = ">=3.8"
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
