@@ -334,10 +334,19 @@ class RepoImporter:
             return "html"
         
         # CSS patterns
-        css_patterns = ["{", ":", ";", "px", "rem", "em", "@media", "@import"]
-        if sample.startswith("@") or any(p in sample for p in ["@media", "@keyframes", "@font-face"]):
-            if "body {" in sample or ".class" in sample or "#id" in sample:
-                return "css"
+        css_selectors = [":hover", ":focus", ":active", "::before", "::after",
+                         "body {", "html {", ".class", "#id", "div {", "span {"]
+        css_properties = ["margin:", "padding:", "color:", "background:", "font-",
+                          "display:", "position:", "width:", "height:", "flex",
+                          "border:", "text-", "overflow:", "z-index:", "opacity:"]
+        
+        has_selector = any(s in sample for s in css_selectors)
+        has_props = sum(1 for p in css_properties if p in sample)
+        
+        if has_selector or has_props >= 2:
+            return "css"
+        if sample.startswith("@") and any(p in sample for p in ["@media", "@keyframes", "@font-face"]):
+            return "css"
         
         # JSON patterns
         if sample.startswith("{") or sample.startswith("["):
