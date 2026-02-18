@@ -253,6 +253,12 @@ __all__ = [
     # Universal data loading and training
     "load_dataset",
     "UniversalTrainer",
+    # Dataset preparation
+    "TextCleaner",
+    "Tokenizer",
+    "DatasetPreparer",
+    "DatasetStats",
+    "prepare_dataset",
 ]
 
 
@@ -308,6 +314,11 @@ def __getattr__(name):
         'DatasetValidator': '.validator',
         'DatasetVersion': '.validator',
         'DatasetQualityScorer': '.quality_scorer',
+        'TextCleaner': '.dataset_prep',
+        'Tokenizer': '.dataset_prep',
+        'DatasetPreparer': '.dataset_prep',
+        'DatasetStats': '.dataset_prep',
+        'prepare_dataset': '.dataset_prep',
     }
     
     if name in lazy_imports:

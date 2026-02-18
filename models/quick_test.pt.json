@@ -1,0 +1,24 @@
+{
+  "model_id": "nanogpt-nanogpt",
+  "parameters": 140928,
+  "epochs": 1,
+  "final_loss": 5.298126061757405,
+  "total_batches": 3,
+  "history": [
+    {
+      "epoch": 1,
+      "loss": 5.298126061757405,
+      "batches": 3,
+      "timestamp": "2026-02-18T14:43:12.638624"
+    }
+  ],
+  "config": {
+    "data_path": "datasets/big_data/input.txt",
+    "vocab_size": 200,
+    "model_id": "nanogpt-nanogpt",
+    "epochs": 1,
+    "batch_size": 4,
+    "learning_rate": 0.0001,
+    "output_path": "models/quick_test.pt"
+  }
+}

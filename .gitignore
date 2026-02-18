@@ -103,8 +103,7 @@ secrets/
 prometheus_data/
 grafana_data/
 
-# Model artifacts
-models/
+# Model artifacts (binaries only)
 checkpoints/
 *.pt
 *.pth

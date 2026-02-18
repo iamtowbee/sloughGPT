@@ -31,6 +31,31 @@ def cmd_dataset(args):
             print(f"  Train tokens: {result.get('train_tokens', 'N/A')}")
         else:
             print(f"✗ Failed to create dataset")
+    
+    elif args.action == "prepare":
+        from domains.training.dataset_prep import prepare_dataset, TextCleaner
+        import os
+        
+        source = args.source
+        name = args.name
+        
+        if not os.path.exists(source):
+            print(f"✗ Source not found: {source}")
+            return
+        
+        print(f"📦 Preparing dataset '{name}' from {source}")
+        stats = prepare_dataset(
+            source=source,
+            name=name,
+            clean=not args.no_clean,
+            split_ratio=args.split or 0.9
+        )
+        
+        print(f"✓ Dataset prepared:")
+        print(f"  Total chars: {stats.total_chars:,}")
+        print(f"  Total words: {stats.total_words:,}")
+        print(f"  Vocab size: {stats.vocab_size}")
+        print(f"  Location: datasets/{name}/")
             
     elif args.action == "list":
         datasets_dir = Path("datasets")
@@ -39,7 +64,14 @@ def cmd_dataset(args):
             if datasets:
                 print("📊 Available datasets:")
                 for ds in sorted(datasets):
-                    print(f"  - {ds}")
+                    ds_path = datasets_dir / ds
+                    input_file = ds_path / "input.txt"
+                    train_bin = ds_path / "train.bin"
+                    size_info = ""
+                    if train_bin.exists():
+                        size = train_bin.stat().st_size // 2
+                        size_info = f" ({size:,} tokens)"
+                    print(f"  - {ds}{size_info}")
             else:
                 print("No datasets found")
         else:
@@ -350,9 +382,12 @@ def main():
     
     # Dataset command
     dataset_parser = subparsers.add_parser("dataset", help="Dataset operations")
-    dataset_parser.add_argument("action", choices=["create", "list", "score"], help="Action")
+    dataset_parser.add_argument("action", choices=["create", "list", "score", "prepare"], help="Action")
     dataset_parser.add_argument("name", nargs="?", help="Dataset name")
     dataset_parser.add_argument("text", nargs="?", help="Text content for dataset")
+    dataset_parser.add_argument("--source", help="Source file/directory for prepare")
+    dataset_parser.add_argument("--no-clean", action="store_true", help="Skip text cleaning")
+    dataset_parser.add_argument("--split", type=float, help="Train/val split ratio")
     dataset_parser.set_defaults(func=cmd_dataset)
     
     # Train command
