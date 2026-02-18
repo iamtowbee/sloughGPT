@@ -1,0 +1,7346 @@
+{
+  "generated_at": "2026-02-14",
+  "total_files": 562,
+  "domains": {
+    "cognitive": {
+      "count": 35,
+      "categories": {
+        "processor": 31,
+        "demo": 1,
+        "utility": 1,
+        "model": 2
+      }
+    },
+    "enterprise": {
+      "count": 43,
+      "categories": {
+        "processor": 37,
+        "demo": 5,
+        "interface": 1
+      }
+    },
+    "infrastructure": {
+      "count": 50,
+      "categories": {
+        "processor": 41,
+        "utility": 4,
+        "demo": 1,
+        "deployment": 1,
+        "config": 3
+      }
+    },
+    "integration": {
+      "count": 10,
+      "categories": {
+        "processor": 7,
+        "demo": 1,
+        "test": 2
+      }
+    },
+    "pending": {
+      "count": 211,
+      "categories": {
+        "utility": 165,
+        "deprecated": 3,
+        "demo": 3,
+        "test": 22,
+        "deployment": 2,
+        "data": 4,
+        "core": 10,
+        "config": 2
+      }
+    },
+    "shared": {
+      "count": 49,
+      "categories": {
+        "processor": 33,
+        "test": 10,
+        "utility": 6
+      }
+    },
+    "training": {
+      "count": 57,
+      "categories": {
+        "processor": 34,
+        "data": 17,
+        "model": 5,
+        "demo": 1
+      }
+    },
+    "ui": {
+      "count": 107,
+      "categories": {
+        "processor": 76,
+        "interface": 21,
+        "utility": 2,
+        "core": 6,
+        "demo": 2
+      }
+    }
+  },
+  "files": [
+    {
+      "path": "ADVANCED_REASONING_CHECKPOINT.md",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Auto-classified from ADVANCED_REASONING_CHECKPOINT.md",
+      "status": "active",
+      "size_bytes": 3036,
+      "lines": 0,
+      "tags": [
+        "cognitive",
+        "processor"
+      ]
+    },
+    {
+      "path": "FOCUSED_COGNITIVE_COMPLETE.md",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Auto-classified from FOCUSED_COGNITIVE_COMPLETE.md",
+      "status": "active",
+      "size_bytes": 4937,
+      "lines": 0,
+      "tags": [
+        "cognitive",
+        "processor"
+      ]
+    },
+    {
+      "path": "REASONING_ENGINE_DOCUMENTATION.md",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Auto-classified from REASONING_ENGINE_DOCUMENTATION.md",
+      "status": "active",
+      "size_bytes": 7620,
+      "lines": 0,
+      "tags": [
+        "cognitive",
+        "processor"
+      ]
+    },
+    {
+      "path": "advanced_memory_consolidation.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Memory consolidation system",
+      "status": "active",
+      "size_bytes": 23792,
+      "lines": 548,
+      "tags": [
+        "memory",
+        "storage"
+      ]
+    },
+    {
+      "path": "advanced_reasoning_engine.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Advanced reasoning engine for complex problem solving",
+      "status": "active",
+      "size_bytes": 55196,
+      "lines": 1278,
+      "tags": [
+        "reasoning",
+        "logic",
+        "ai"
+      ]
+    },
+    {
+      "path": "analytics_dashboard.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Analytics dashboard for cognitive metrics",
+      "status": "active",
+      "size_bytes": 19058,
+      "lines": 481,
+      "tags": [
+        "analytics",
+        "metrics"
+      ]
+    },
+    {
+      "path": "cross_layer_reasoning.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Cross-layer reasoning system",
+      "status": "active",
+      "size_bytes": 22637,
+      "lines": 503,
+      "tags": [
+        "reasoning",
+        "multi-layer"
+      ]
+    },
+    {
+      "path": "demo_learning.py",
+      "domain": "cognitive",
+      "category": "demo",
+      "description": "Learning system demos",
+      "status": "active",
+      "size_bytes": 6640,
+      "lines": 197,
+      "tags": [
+        "demo",
+        "learning"
+      ]
+    },
+    {
+      "path": "domains/cognitive/__init__.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Auto-classified from domains/cognitive/__init__.py",
+      "status": "active",
+      "size_bytes": 560,
+      "lines": 22,
+      "tags": [
+        "cognitive",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/cognitive/base.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Auto-classified from domains/cognitive/base.py",
+      "status": "active",
+      "size_bytes": 10221,
+      "lines": 275,
+      "tags": [
+        "cognitive",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/cognitive/creativity/__init__.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Auto-classified from domains/cognitive/creativity/__init__.py",
+      "status": "active",
+      "size_bytes": 2080,
+      "lines": 57,
+      "tags": [
+        "cognitive",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/cognitive/learning/__init__.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Auto-classified from domains/cognitive/learning/__init__.py",
+      "status": "active",
+      "size_bytes": 2129,
+      "lines": 57,
+      "tags": [
+        "cognitive",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/cognitive/memory/__init__.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Auto-classified from domains/cognitive/memory/__init__.py",
+      "status": "active",
+      "size_bytes": 20449,
+      "lines": 526,
+      "tags": [
+        "cognitive",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/cognitive/metacognition/__init__.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Auto-classified from domains/cognitive/metacognition/__init__.py",
+      "status": "active",
+      "size_bytes": 34555,
+      "lines": 905,
+      "tags": [
+        "cognitive",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/cognitive/processor.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Auto-classified from domains/cognitive/processor.py",
+      "status": "active",
+      "size_bytes": 15475,
+      "lines": 415,
+      "tags": [
+        "cognitive",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/cognitive/reasoning/__init__.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Auto-classified from domains/cognitive/reasoning/__init__.py",
+      "status": "active",
+      "size_bytes": 8559,
+      "lines": 213,
+      "tags": [
+        "cognitive",
+        "processor"
+      ]
+    },
+    {
+      "path": "epiphany_integration.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Epiphany/insight integration system",
+      "status": "active",
+      "size_bytes": 28024,
+      "lines": 606,
+      "tags": [
+        "insight",
+        "learning"
+      ]
+    },
+    {
+      "path": "ncbi_crawler.py",
+      "domain": "cognitive",
+      "category": "utility",
+      "description": "NCBI data crawler",
+      "status": "active",
+      "size_bytes": 17721,
+      "lines": 408,
+      "tags": [
+        "crawler",
+        "data"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/008_add_memory.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/008_add_memory.py",
+      "status": "active",
+      "size_bytes": 2057,
+      "lines": 53,
+      "tags": [
+        "cognitive",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/tools/slo_rag.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Retrieval-Augmented Generation",
+      "status": "active",
+      "size_bytes": 10759,
+      "lines": 286,
+      "tags": [
+        "rag",
+        "retrieval"
+      ]
+    },
+    {
+      "path": "slo_cognitive_core.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Core cognitive processing module",
+      "status": "active",
+      "size_bytes": 27087,
+      "lines": 655,
+      "tags": [
+        "cognitive",
+        "core"
+      ]
+    },
+    {
+      "path": "slo_focused_cognitive.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Focused cognitive processing",
+      "status": "active",
+      "size_bytes": 11106,
+      "lines": 292,
+      "tags": [
+        "cognitive",
+        "focused"
+      ]
+    },
+    {
+      "path": "slo_four_component_integration.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Four-component cognitive integration",
+      "status": "active",
+      "size_bytes": 8914,
+      "lines": 212,
+      "tags": [
+        "cognitive",
+        "integration"
+      ]
+    },
+    {
+      "path": "slo_knowledge_graph.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Knowledge graph implementation",
+      "status": "active",
+      "size_bytes": 26519,
+      "lines": 694,
+      "tags": [
+        "knowledge",
+        "graph"
+      ]
+    },
+    {
+      "path": "slo_metacognitive.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Metacognition module - thinking about thinking",
+      "status": "active",
+      "size_bytes": 22139,
+      "lines": 554,
+      "tags": [
+        "metacognition",
+        "self-awareness"
+      ]
+    },
+    {
+      "path": "slo_multi_agent.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Multi-agent coordination",
+      "status": "active",
+      "size_bytes": 32095,
+      "lines": 787,
+      "tags": [
+        "multi-agent",
+        "coordination"
+      ]
+    },
+    {
+      "path": "slo_rag.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Retrieval-Augmented Generation",
+      "status": "active",
+      "size_bytes": 10755,
+      "lines": 286,
+      "tags": [
+        "rag",
+        "retrieval"
+      ]
+    },
+    {
+      "path": "slo_spaced_repetition.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Spaced repetition learning system",
+      "status": "active",
+      "size_bytes": 24061,
+      "lines": 606,
+      "tags": [
+        "learning",
+        "spaced-repetition"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/reasoning.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/core/reasoning.py",
+      "status": "active",
+      "size_bytes": 27946,
+      "lines": 697,
+      "tags": [
+        "cognitive",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/data_learning.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/data_learning.py",
+      "status": "active",
+      "size_bytes": 21835,
+      "lines": 558,
+      "tags": [
+        "cognitive",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/neural_network.py",
+      "domain": "cognitive",
+      "category": "model",
+      "description": "Neural network implementation",
+      "status": "active",
+      "size_bytes": 19234,
+      "lines": 444,
+      "tags": [
+        "neural",
+        "ml",
+        "model"
+      ]
+    },
+    {
+      "path": "sloughgpt/reasoning_engine.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/reasoning_engine.py",
+      "status": "active",
+      "size_bytes": 1045,
+      "lines": 29,
+      "tags": [
+        "cognitive",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt_learning_system.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Learning system for SloughGPT",
+      "status": "active",
+      "size_bytes": 21356,
+      "lines": 541,
+      "tags": [
+        "learning",
+        "adaptive"
+      ]
+    },
+    {
+      "path": "sloughgpt_neural_network.py",
+      "domain": "cognitive",
+      "category": "model",
+      "description": "Neural network implementation",
+      "status": "active",
+      "size_bytes": 9541,
+      "lines": 270,
+      "tags": [
+        "neural",
+        "ml",
+        "model"
+      ]
+    },
+    {
+      "path": "stage2_cognitive_architecture.py",
+      "domain": "cognitive",
+      "category": "processor",
+      "description": "Stage 2 cognitive architecture",
+      "status": "active",
+      "size_bytes": 29353,
+      "lines": 781,
+      "tags": [
+        "cognitive",
+        "architecture"
+      ]
+    },
+    {
+      "path": "SECURITY.md",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from SECURITY.md",
+      "status": "active",
+      "size_bytes": 140,
+      "lines": 0,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "demo_cost_optimization.py",
+      "domain": "enterprise",
+      "category": "demo",
+      "description": "Cost optimization demos",
+      "status": "active",
+      "size_bytes": 11372,
+      "lines": 285,
+      "tags": [
+        "cost",
+        "demo"
+      ]
+    },
+    {
+      "path": "demo_database.py",
+      "domain": "enterprise",
+      "category": "demo",
+      "description": "Database demos",
+      "status": "active",
+      "size_bytes": 4576,
+      "lines": 143,
+      "tags": [
+        "database",
+        "demo"
+      ]
+    },
+    {
+      "path": "demo_error_handling.py",
+      "domain": "enterprise",
+      "category": "demo",
+      "description": "Error handling demos",
+      "status": "active",
+      "size_bytes": 11553,
+      "lines": 337,
+      "tags": [
+        "error-handling",
+        "demo"
+      ]
+    },
+    {
+      "path": "demo_security_validation.py",
+      "domain": "enterprise",
+      "category": "demo",
+      "description": "Security validation demos",
+      "status": "active",
+      "size_bytes": 12583,
+      "lines": 362,
+      "tags": [
+        "security",
+        "demo"
+      ]
+    },
+    {
+      "path": "demo_user_management.py",
+      "domain": "enterprise",
+      "category": "demo",
+      "description": "User management demos",
+      "status": "active",
+      "size_bytes": 10620,
+      "lines": 262,
+      "tags": [
+        "users",
+        "demo"
+      ]
+    },
+    {
+      "path": "docs/policies/SECURITY.md",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from docs/policies/SECURITY.md",
+      "status": "active",
+      "size_bytes": 140,
+      "lines": 0,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/enterprise/auth/__init__.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Authentication and authorization",
+      "status": "active",
+      "size_bytes": 22496,
+      "lines": 658,
+      "tags": [
+        "auth",
+        "security",
+        "oauth"
+      ]
+    },
+    {
+      "path": "domains/enterprise/cost/__init__.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from domains/enterprise/cost/__init__.py",
+      "status": "active",
+      "size_bytes": 5974,
+      "lines": 173,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/enterprise/monitoring/__init__.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from domains/enterprise/monitoring/__init__.py",
+      "status": "active",
+      "size_bytes": 6831,
+      "lines": 191,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/enterprise/security/__init__.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from domains/enterprise/security/__init__.py",
+      "status": "active",
+      "size_bytes": 2477,
+      "lines": 70,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/monitoring/__init__.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/api_server/monitoring/__init__.py",
+      "status": "active",
+      "size_bytes": 19,
+      "lines": 1,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/monitoring/metrics_collector.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/api_server/monitoring/metrics_collector.py",
+      "status": "active",
+      "size_bytes": 13923,
+      "lines": 374,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/routes/monitoring.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/api_server/routes/monitoring.py",
+      "status": "active",
+      "size_bytes": 9960,
+      "lines": 261,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/007_add_user_last_active_at.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/007_add_user_last_active_at.py",
+      "status": "active",
+      "size_bytes": 3342,
+      "lines": 79,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/011_add_user_settings.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/011_add_user_settings.py",
+      "status": "active",
+      "size_bytes": 1895,
+      "lines": 48,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/013_add_user_info.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/013_add_user_info.py",
+      "status": "active",
+      "size_bytes": 1883,
+      "lines": 48,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/017_add_user_oauth_sub.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/017_add_user_oauth_sub.py",
+      "status": "active",
+      "size_bytes": 1849,
+      "lines": 45,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/38d63c18f30f_add_oauth_session_table.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/38d63c18f30f_add_oauth_session_table.py",
+      "status": "active",
+      "size_bytes": 2870,
+      "lines": 80,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/3af16a1c9fb6_update_user_table.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/3af16a1c9fb6_update_user_table.py",
+      "status": "active",
+      "size_bytes": 941,
+      "lines": 32,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/b10670c03dd5_update_user_table.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/b10670c03dd5_update_user_table.py",
+      "status": "active",
+      "size_bytes": 8189,
+      "lines": 251,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/auths.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/auths.py",
+      "status": "active",
+      "size_bytes": 45956,
+      "lines": 1285,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/users.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/users.py",
+      "status": "active",
+      "size_bytes": 19607,
+      "lines": 684,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/test/apps/webui/routers/test_auths.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/test/apps/webui/routers/test_auths.py",
+      "status": "active",
+      "size_bytes": 7271,
+      "lines": 200,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/test/apps/webui/routers/test_users.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/test/apps/webui/routers/test_users.py",
+      "status": "active",
+      "size_bytes": 5717,
+      "lines": 167,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/auth.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/auth.py",
+      "status": "active",
+      "size_bytes": 13965,
+      "lines": 460,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/oauth.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/oauth.py",
+      "status": "active",
+      "size_bytes": 70109,
+      "lines": 1709,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/security_headers.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/security_headers.py",
+      "status": "active",
+      "size_bytes": 4581,
+      "lines": 133,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/admin_dashboard.py",
+      "domain": "enterprise",
+      "category": "interface",
+      "description": "Admin dashboard",
+      "status": "active",
+      "size_bytes": 20983,
+      "lines": 562,
+      "tags": [
+        "admin",
+        "dashboard"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/auth/__init__.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Authentication and authorization",
+      "status": "active",
+      "size_bytes": 7760,
+      "lines": 219,
+      "tags": [
+        "auth",
+        "security",
+        "oauth"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/monitoring/__init__.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/core/src/sloughgpt/monitoring/__init__.py",
+      "status": "active",
+      "size_bytes": 13067,
+      "lines": 354,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/security_advanced.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Advanced security features",
+      "status": "active",
+      "size_bytes": 25070,
+      "lines": 703,
+      "tags": [
+        "security",
+        "encryption"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/user_management/__init__.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "User management system",
+      "status": "active",
+      "size_bytes": 4753,
+      "lines": 154,
+      "tags": [
+        "users",
+        "management"
+      ]
+    },
+    {
+      "path": "packages/core/tests/security/test_vulnerability_scanning.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from packages/core/tests/security/test_vulnerability_scanning.py",
+      "status": "active",
+      "size_bytes": 22300,
+      "lines": 505,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/admin/__init__.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/admin/__init__.py",
+      "status": "active",
+      "size_bytes": 645,
+      "lines": 21,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/admin/admin_app.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/admin/admin_app.py",
+      "status": "active",
+      "size_bytes": 21360,
+      "lines": 489,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/admin/admin_routes.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/admin/admin_routes.py",
+      "status": "active",
+      "size_bytes": 13452,
+      "lines": 411,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/admin/admin_utils.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/admin/admin_utils.py",
+      "status": "active",
+      "size_bytes": 14917,
+      "lines": 418,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/auth.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/auth.py",
+      "status": "active",
+      "size_bytes": 965,
+      "lines": 27,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/monitoring.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/core/monitoring.py",
+      "status": "active",
+      "size_bytes": 29867,
+      "lines": 832,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/security.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/core/security.py",
+      "status": "active",
+      "size_bytes": 25725,
+      "lines": 634,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/cost_optimization.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/cost_optimization.py",
+      "status": "active",
+      "size_bytes": 29265,
+      "lines": 700,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/user_management.py",
+      "domain": "enterprise",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/user_management.py",
+      "status": "active",
+      "size_bytes": 26038,
+      "lines": 692,
+      "tags": [
+        "enterprise",
+        "processor"
+      ]
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from .pre-commit-config.yaml",
+      "status": "active",
+      "size_bytes": 152,
+      "lines": 0,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "DEPLOYMENT.md",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from DEPLOYMENT.md",
+      "status": "active",
+      "size_bytes": 11884,
+      "lines": 0,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "DOCKER.md",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from DOCKER.md",
+      "status": "active",
+      "size_bytes": 11807,
+      "lines": 0,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "DOCKER_DEPLOYMENT.md",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from DOCKER_DEPLOYMENT.md",
+      "status": "active",
+      "size_bytes": 6856,
+      "lines": 0,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "PRODUCTION_DEPLOYMENT_COMPLETE.md",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from PRODUCTION_DEPLOYMENT_COMPLETE.md",
+      "status": "active",
+      "size_bytes": 9649,
+      "lines": 0,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "bin/configurator.py",
+      "domain": "infrastructure",
+      "category": "utility",
+      "description": "Configuration utility",
+      "status": "active",
+      "size_bytes": 2031,
+      "lines": 52,
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "path": "configurator.py",
+      "domain": "infrastructure",
+      "category": "utility",
+      "description": "Configuration utility",
+      "status": "active",
+      "size_bytes": 2031,
+      "lines": 52,
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "path": "configurator_v2.py",
+      "domain": "infrastructure",
+      "category": "utility",
+      "description": "Configuration utility v2",
+      "status": "active",
+      "size_bytes": 5092,
+      "lines": 160,
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "path": "demo_performance_optimization.py",
+      "domain": "infrastructure",
+      "category": "demo",
+      "description": "Performance optimization demos",
+      "status": "active",
+      "size_bytes": 14099,
+      "lines": 417,
+      "tags": [
+        "demo",
+        "performance"
+      ]
+    },
+    {
+      "path": "deployment_system.py",
+      "domain": "infrastructure",
+      "category": "deployment",
+      "description": "Deployment infrastructure",
+      "status": "active",
+      "size_bytes": 26781,
+      "lines": 775,
+      "tags": [
+        "deployment",
+        "infrastructure"
+      ]
+    },
+    {
+      "path": "docker-compose.yml",
+      "domain": "infrastructure",
+      "category": "config",
+      "description": "Docker compose configuration",
+      "status": "active",
+      "size_bytes": 6843,
+      "lines": 0,
+      "tags": [
+        "docker",
+        "deployment"
+      ]
+    },
+    {
+      "path": "docker-test.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from docker-test.py",
+      "status": "active",
+      "size_bytes": 9062,
+      "lines": 286,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "docs/integration/CONFIG_README.md",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from docs/integration/CONFIG_README.md",
+      "status": "active",
+      "size_bytes": 2487,
+      "lines": 0,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/infrastructure/cache/__init__.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from domains/infrastructure/cache/__init__.py",
+      "status": "active",
+      "size_bytes": 7084,
+      "lines": 233,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/infrastructure/config/__init__.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from domains/infrastructure/config/__init__.py",
+      "status": "active",
+      "size_bytes": 13543,
+      "lines": 391,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/infrastructure/database/__init__.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from domains/infrastructure/database/__init__.py",
+      "status": "active",
+      "size_bytes": 18034,
+      "lines": 498,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/infrastructure/deployment/__init__.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from domains/infrastructure/deployment/__init__.py",
+      "status": "active",
+      "size_bytes": 10543,
+      "lines": 297,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "hauls_store.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Data storage implementation",
+      "status": "active",
+      "size_bytes": 15657,
+      "lines": 453,
+      "tags": [
+        "storage",
+        "data"
+      ]
+    },
+    {
+      "path": "meta/.pre-commit-config.yaml",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from meta/.pre-commit-config.yaml",
+      "status": "active",
+      "size_bytes": 152,
+      "lines": 0,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "model_optimizer.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Model optimization utilities",
+      "status": "active",
+      "size_bytes": 16902,
+      "lines": 439,
+      "tags": [
+        "model",
+        "optimization"
+      ]
+    },
+    {
+      "path": "optimized_hauls_store.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Optimized data storage",
+      "status": "active",
+      "size_bytes": 15964,
+      "lines": 458,
+      "tags": [
+        "storage",
+        "optimized"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/core/cache_manager.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/api_server/core/cache_manager.py",
+      "status": "active",
+      "size_bytes": 14568,
+      "lines": 410,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/core/config.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/api_server/core/config.py",
+      "status": "active",
+      "size_bytes": 1496,
+      "lines": 58,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/config.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/config.py",
+      "status": "active",
+      "size_bytes": 124905,
+      "lines": 4024,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/db.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/db.py",
+      "status": "active",
+      "size_bytes": 5338,
+      "lines": 172,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/af906e964978_add_feedback_table.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/af906e964978_add_feedback_table.py",
+      "status": "active",
+      "size_bytes": 1552,
+      "lines": 51,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/c0fbf31ca0db_update_file_table.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/c0fbf31ca0db_update_file_table.py",
+      "status": "active",
+      "size_bytes": 930,
+      "lines": 32,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/c69f45358db4_add_folder_table.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/c69f45358db4_add_folder_table.py",
+      "status": "active",
+      "size_bytes": 1271,
+      "lines": 50,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/ca81bd47c050_add_config_table.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/ca81bd47c050_add_config_table.py",
+      "status": "active",
+      "size_bytes": 1005,
+      "lines": 41,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/configs.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/configs.py",
+      "status": "active",
+      "size_bytes": 20597,
+      "lines": 540,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/storage/provider.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/storage/provider.py",
+      "status": "active",
+      "size_bytes": 14444,
+      "lines": 374,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/test/apps/webui/storage/test_provider.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/test/apps/webui/storage/test_provider.py",
+      "status": "active",
+      "size_bytes": 18927,
+      "lines": 435,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/db/access_control.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/db/access_control.py",
+      "status": "active",
+      "size_bytes": 4507,
+      "lines": 124,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/telemetry/setup.py",
+      "domain": "infrastructure",
+      "category": "config",
+      "description": "Package setup",
+      "status": "active",
+      "size_bytes": 2181,
+      "lines": 58,
+      "tags": [
+        "setup",
+        "package"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/cache.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Caching layer",
+      "status": "active",
+      "size_bytes": 17149,
+      "lines": 505,
+      "tags": [
+        "cache",
+        "performance"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/database.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Database management and connections",
+      "status": "active",
+      "size_bytes": 21953,
+      "lines": 563,
+      "tags": [
+        "database",
+        "sql",
+        "storage"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/database_simple.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Simple database interface",
+      "status": "active",
+      "size_bytes": 17225,
+      "lines": 474,
+      "tags": [
+        "database"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/deployment/__init__.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from packages/core/src/sloughgpt/deployment/__init__.py",
+      "status": "active",
+      "size_bytes": 9784,
+      "lines": 313,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/logging_system.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Logging infrastructure",
+      "status": "active",
+      "size_bytes": 26130,
+      "lines": 736,
+      "tags": [
+        "logging",
+        "monitoring"
+      ]
+    },
+    {
+      "path": "packages/tools/configurator_v2.py",
+      "domain": "infrastructure",
+      "category": "utility",
+      "description": "Configuration utility v2",
+      "status": "active",
+      "size_bytes": 5092,
+      "lines": 160,
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "path": "performance_optimizer.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Performance optimization utilities",
+      "status": "active",
+      "size_bytes": 15322,
+      "lines": 406,
+      "tags": [
+        "performance",
+        "optimization"
+      ]
+    },
+    {
+      "path": "production_ready/core/performance_optimizer.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Performance optimization utilities",
+      "status": "active",
+      "size_bytes": 15322,
+      "lines": 406,
+      "tags": [
+        "performance",
+        "optimization"
+      ]
+    },
+    {
+      "path": "production_server.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from production_server.py",
+      "status": "active",
+      "size_bytes": 2349,
+      "lines": 73,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "setup.py",
+      "domain": "infrastructure",
+      "category": "config",
+      "description": "Package setup",
+      "status": "active",
+      "size_bytes": 2333,
+      "lines": 70,
+      "tags": [
+        "setup",
+        "package"
+      ]
+    },
+    {
+      "path": "sloughgpt/admin/admin_config.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/admin/admin_config.py",
+      "status": "active",
+      "size_bytes": 6926,
+      "lines": 196,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/config.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/config.py",
+      "status": "active",
+      "size_bytes": 11413,
+      "lines": 301,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/config.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/core/config.py",
+      "status": "active",
+      "size_bytes": 10310,
+      "lines": 243,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/database.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Database management and connections",
+      "status": "active",
+      "size_bytes": 11013,
+      "lines": 254,
+      "tags": [
+        "database",
+        "sql",
+        "storage"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/db_manager.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/core/db_manager.py",
+      "status": "active",
+      "size_bytes": 14096,
+      "lines": 373,
+      "tags": [
+        "infrastructure",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/logging_system.py",
+      "domain": "infrastructure",
+      "category": "processor",
+      "description": "Logging infrastructure",
+      "status": "active",
+      "size_bytes": 16519,
+      "lines": 452,
+      "tags": [
+        "logging",
+        "monitoring"
+      ]
+    },
+    {
+      "path": "FOUR_COMPONENT_INTEGRATION_COMPLETE.md",
+      "domain": "integration",
+      "category": "processor",
+      "description": "Auto-classified from FOUR_COMPONENT_INTEGRATION_COMPLETE.md",
+      "status": "active",
+      "size_bytes": 6339,
+      "lines": 0,
+      "tags": [
+        "integration",
+        "processor"
+      ]
+    },
+    {
+      "path": "HUGGINGFACE_INTEGRATION_COMPLETE.md",
+      "domain": "integration",
+      "category": "processor",
+      "description": "Auto-classified from HUGGINGFACE_INTEGRATION_COMPLETE.md",
+      "status": "active",
+      "size_bytes": 8306,
+      "lines": 0,
+      "tags": [
+        "integration",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/integration/__init__.py",
+      "domain": "integration",
+      "category": "processor",
+      "description": "Auto-classified from domains/integration/__init__.py",
+      "status": "active",
+      "size_bytes": 163,
+      "lines": 11,
+      "tags": [
+        "integration",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/integration/base.py",
+      "domain": "integration",
+      "category": "processor",
+      "description": "Auto-classified from domains/integration/base.py",
+      "status": "active",
+      "size_bytes": 1434,
+      "lines": 47,
+      "tags": [
+        "integration",
+        "processor"
+      ]
+    },
+    {
+      "path": "final_integration_test.py",
+      "domain": "integration",
+      "category": "processor",
+      "description": "Auto-classified from final_integration_test.py",
+      "status": "active",
+      "size_bytes": 6067,
+      "lines": 198,
+      "tags": [
+        "integration",
+        "processor"
+      ]
+    },
+    {
+      "path": "integration_demo.py",
+      "domain": "integration",
+      "category": "demo",
+      "description": "Integration demos",
+      "status": "active",
+      "size_bytes": 8196,
+      "lines": 252,
+      "tags": [
+        "demo",
+        "integration"
+      ]
+    },
+    {
+      "path": "llm_integration.py",
+      "domain": "integration",
+      "category": "processor",
+      "description": "LLM integration utilities",
+      "status": "active",
+      "size_bytes": 10528,
+      "lines": 297,
+      "tags": [
+        "llm",
+        "integration"
+      ]
+    },
+    {
+      "path": "packages/core/tests/integration/test_end_to_end.py",
+      "domain": "integration",
+      "category": "processor",
+      "description": "Auto-classified from packages/core/tests/integration/test_end_to_end.py",
+      "status": "active",
+      "size_bytes": 14750,
+      "lines": 405,
+      "tags": [
+        "integration",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/tests/test_integration.py",
+      "domain": "integration",
+      "category": "test",
+      "description": "Integration tests",
+      "status": "active",
+      "size_bytes": 23987,
+      "lines": 700,
+      "tags": [
+        "test",
+        "integration"
+      ]
+    },
+    {
+      "path": "test_integration.py",
+      "domain": "integration",
+      "category": "test",
+      "description": "Integration tests",
+      "status": "active",
+      "size_bytes": 13193,
+      "lines": 363,
+      "tags": [
+        "test",
+        "integration"
+      ]
+    },
+    {
+      "path": "CHANGELOG.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from CHANGELOG.md",
+      "status": "active",
+      "size_bytes": 142,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "CICD.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from CICD.md",
+      "status": "active",
+      "size_bytes": 18395,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "CLEANUP_SUMMARY.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from CLEANUP_SUMMARY.md",
+      "status": "active",
+      "size_bytes": 3340,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "CODE_OF_CONDUCT.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from CODE_OF_CONDUCT.md",
+      "status": "active",
+      "size_bytes": 134,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from CONTRIBUTING.md",
+      "status": "active",
+      "size_bytes": 238,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "ENTERPRISE_COMPLETE.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from ENTERPRISE_COMPLETE.md",
+      "status": "active",
+      "size_bytes": 8704,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "ENTERPRISE_SHOWCASE.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from ENTERPRISE_SHOWCASE.md",
+      "status": "active",
+      "size_bytes": 14616,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "FINAL_COMPLETE_STATUS_REPORT.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from FINAL_COMPLETE_STATUS_REPORT.md",
+      "status": "active",
+      "size_bytes": 9574,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "FINAL_STATUS_REPORT.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from FINAL_STATUS_REPORT.md",
+      "status": "active",
+      "size_bytes": 5500,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "FINAL_SUMMARY.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from FINAL_SUMMARY.md",
+      "status": "active",
+      "size_bytes": 11797,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "IMPROVEMENTS_EXECUTED.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from IMPROVEMENTS_EXECUTED.md",
+      "status": "active",
+      "size_bytes": 10516,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "INSTALL.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from INSTALL.md",
+      "status": "active",
+      "size_bytes": 6363,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "MISSION_ACCOMPLISHED.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from MISSION_ACCOMPLISHED.md",
+      "status": "active",
+      "size_bytes": 6170,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "PROJECT_STATUS.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from PROJECT_STATUS.md",
+      "status": "active",
+      "size_bytes": 15233,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "PROJECT_SUMMARY.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from PROJECT_SUMMARY.md",
+      "status": "active",
+      "size_bytes": 7601,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "README.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from README.md",
+      "status": "active",
+      "size_bytes": 12186,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "README_COMPLETE.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from README_COMPLETE.md",
+      "status": "active",
+      "size_bytes": 8125,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "RELEASE.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from RELEASE.md",
+      "status": "active",
+      "size_bytes": 139,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "SLO_EVOLUTION_MAP.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from SLO_EVOLUTION_MAP.md",
+      "status": "active",
+      "size_bytes": 4902,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "THE_GRAND_FINALE.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from THE_GRAND_FINALE.md",
+      "status": "active",
+      "size_bytes": 14377,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "TREE_STRUCTURE.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from TREE_STRUCTURE.md",
+      "status": "active",
+      "size_bytes": 6152,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "ULTIMATE_COMPLETE.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from ULTIMATE_COMPLETE.md",
+      "status": "active",
+      "size_bytes": 10755,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "ULTIMATE_FINAL_STATUS.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from ULTIMATE_FINAL_STATUS.md",
+      "status": "active",
+      "size_bytes": 12138,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "ULTIMATE_SYSTEM_STATUS.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from ULTIMATE_SYSTEM_STATUS.md",
+      "status": "active",
+      "size_bytes": 10724,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "advanced_dataset_features.py",
+      "domain": "pending",
+      "category": "deprecated",
+      "description": "Advanced dataset features (deprecated)",
+      "status": "deprecated",
+      "size_bytes": 18328,
+      "lines": 475,
+      "tags": []
+    },
+    {
+      "path": "bench.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from bench.py",
+      "status": "active",
+      "size_bytes": 303,
+      "lines": 12,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "bin/awl.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from bin/awl.py",
+      "status": "active",
+      "size_bytes": 149,
+      "lines": 7,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "bin/bench.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from bin/bench.py",
+      "status": "active",
+      "size_bytes": 303,
+      "lines": 12,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "bin/export_gguf.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from bin/export_gguf.py",
+      "status": "active",
+      "size_bytes": 309,
+      "lines": 12,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "bin/finetune_scheduler.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from bin/finetune_scheduler.py",
+      "status": "active",
+      "size_bytes": 316,
+      "lines": 12,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "bin/genomics.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from bin/genomics.py",
+      "status": "active",
+      "size_bytes": 58,
+      "lines": 1,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "bin/repo_obtainer.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from bin/repo_obtainer.py",
+      "status": "active",
+      "size_bytes": 311,
+      "lines": 12,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "bin/sample.py",
+      "domain": "pending",
+      "category": "demo",
+      "description": "Auto-classified from bin/sample.py",
+      "status": "active",
+      "size_bytes": 319,
+      "lines": 12,
+      "tags": [
+        "pending",
+        "demo"
+      ]
+    },
+    {
+      "path": "bin/swarm.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from bin/swarm.py",
+      "status": "active",
+      "size_bytes": 303,
+      "lines": 12,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "bin/war.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from bin/war.py",
+      "status": "active",
+      "size_bytes": 301,
+      "lines": 12,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "cleanup_production.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from cleanup_production.py",
+      "status": "active",
+      "size_bytes": 16903,
+      "lines": 511,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "comprehensive_test_framework.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from comprehensive_test_framework.py",
+      "status": "active",
+      "size_bytes": 31281,
+      "lines": 831,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "deploy_production.py",
+      "domain": "pending",
+      "category": "deployment",
+      "description": "Auto-classified from deploy_production.py",
+      "status": "active",
+      "size_bytes": 8445,
+      "lines": 256,
+      "tags": [
+        "pending",
+        "deployment"
+      ]
+    },
+    {
+      "path": "docs/DATA_STRUCTURE.md",
+      "domain": "pending",
+      "category": "data",
+      "description": "Auto-classified from docs/DATA_STRUCTURE.md",
+      "status": "active",
+      "size_bytes": 1530,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "data"
+      ]
+    },
+    {
+      "path": "docs/MIGRATION.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from docs/MIGRATION.md",
+      "status": "active",
+      "size_bytes": 449,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "docs/OPENCODE_SKILLS.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from docs/OPENCODE_SKILLS.md",
+      "status": "active",
+      "size_bytes": 27088,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "docs/PORTING_ASM_WASM.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from docs/PORTING_ASM_WASM.md",
+      "status": "active",
+      "size_bytes": 1086,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "docs/README.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from docs/README.md",
+      "status": "active",
+      "size_bytes": 12186,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "docs/ROADMAP.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from docs/ROADMAP.md",
+      "status": "active",
+      "size_bytes": 1361,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "docs/STRUCTURE.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from docs/STRUCTURE.md",
+      "status": "active",
+      "size_bytes": 727,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "docs/policies/CHANGELOG.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from docs/policies/CHANGELOG.md",
+      "status": "active",
+      "size_bytes": 142,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "docs/policies/CODE_OF_CONDUCT.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from docs/policies/CODE_OF_CONDUCT.md",
+      "status": "active",
+      "size_bytes": 134,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "docs/policies/CONTRIBUTING.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from docs/policies/CONTRIBUTING.md",
+      "status": "active",
+      "size_bytes": 238,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "docs/policies/RELEASE.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from docs/policies/RELEASE.md",
+      "status": "active",
+      "size_bytes": 139,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "docs/reports/STAGE1_BATCH_OPTIMIZATION_COMPLETE.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from docs/reports/STAGE1_BATCH_OPTIMIZATION_COMPLETE.md",
+      "status": "active",
+      "size_bytes": 4143,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "docs/reports/STAGE1_EXTENSIVE_TEST_REPORT.md",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from docs/reports/STAGE1_EXTENSIVE_TEST_REPORT.md",
+      "status": "active",
+      "size_bytes": 4749,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "docs/reports/STAGE1_FINAL_VALIDATION.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from docs/reports/STAGE1_FINAL_VALIDATION.md",
+      "status": "active",
+      "size_bytes": 2666,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "docs/reports/STAGE1_REAL_TEST_RESULTS.md",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from docs/reports/STAGE1_REAL_TEST_RESULTS.md",
+      "status": "active",
+      "size_bytes": 2492,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "docs/reports/STAGE1_TEST_RESULTS.md",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from docs/reports/STAGE1_TEST_RESULTS.md",
+      "status": "active",
+      "size_bytes": 1556,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "domains/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from domains/__init__.py",
+      "status": "active",
+      "size_bytes": 10322,
+      "lines": 450,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "domains/enterprise/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from domains/enterprise/__init__.py",
+      "status": "active",
+      "size_bytes": 485,
+      "lines": 20,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "domains/enterprise/users/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from domains/enterprise/users/__init__.py",
+      "status": "active",
+      "size_bytes": 5751,
+      "lines": 174,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "domains/infrastructure/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from domains/infrastructure/__init__.py",
+      "status": "active",
+      "size_bytes": 497,
+      "lines": 20,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "domains/shared/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from domains/shared/__init__.py",
+      "status": "active",
+      "size_bytes": 148,
+      "lines": 8,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "domains/training/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from domains/training/__init__.py",
+      "status": "active",
+      "size_bytes": 6306,
+      "lines": 219,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "dset/README.md",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from dset/README.md",
+      "status": "active",
+      "size_bytes": 1991,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "dset/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from dset/__init__.py",
+      "status": "active",
+      "size_bytes": 86,
+      "lines": 5,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "dset/__main__.py",
+      "domain": "pending",
+      "category": "core",
+      "description": "Auto-classified from dset/__main__.py",
+      "status": "active",
+      "size_bytes": 22,
+      "lines": 1,
+      "tags": [
+        "pending",
+        "core"
+      ]
+    },
+    {
+      "path": "dset/core_improvements.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from dset/core_improvements.py",
+      "status": "active",
+      "size_bytes": 11509,
+      "lines": 310,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "dset/repo_obtainer.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from dset/repo_obtainer.py",
+      "status": "active",
+      "size_bytes": 20989,
+      "lines": 612,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "dset/stats.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from dset/stats.py",
+      "status": "active",
+      "size_bytes": 3877,
+      "lines": 113,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "examples/rag_demo.py",
+      "domain": "pending",
+      "category": "demo",
+      "description": "Auto-classified from examples/rag_demo.py",
+      "status": "active",
+      "size_bytes": 15731,
+      "lines": 379,
+      "tags": [
+        "pending",
+        "demo"
+      ]
+    },
+    {
+      "path": "export_gguf.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from export_gguf.py",
+      "status": "active",
+      "size_bytes": 309,
+      "lines": 12,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "final_stage1_test.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from final_stage1_test.py",
+      "status": "active",
+      "size_bytes": 6274,
+      "lines": 184,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "final_system_test.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from final_system_test.py",
+      "status": "active",
+      "size_bytes": 11863,
+      "lines": 346,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "finetune_scheduler.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from finetune_scheduler.py",
+      "status": "active",
+      "size_bytes": 316,
+      "lines": 12,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "genomics.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from genomics.py",
+      "status": "active",
+      "size_bytes": 58,
+      "lines": 1,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/api_server/__init__.py",
+      "status": "active",
+      "size_bytes": 0,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/__main__.py",
+      "domain": "pending",
+      "category": "core",
+      "description": "Auto-classified from packages/apps/apps/api_server/__main__.py",
+      "status": "active",
+      "size_bytes": 362,
+      "lines": 13,
+      "tags": [
+        "pending",
+        "core"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/core/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/api_server/core/__init__.py",
+      "status": "active",
+      "size_bytes": 17,
+      "lines": 1,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/dependencies.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/api_server/dependencies.py",
+      "status": "active",
+      "size_bytes": 907,
+      "lines": 28,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/main.py",
+      "domain": "pending",
+      "category": "core",
+      "description": "Auto-classified from packages/apps/apps/api_server/main.py",
+      "status": "active",
+      "size_bytes": 5711,
+      "lines": 180,
+      "tags": [
+        "pending",
+        "core"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/middleware/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/api_server/middleware/__init__.py",
+      "status": "active",
+      "size_bytes": 12626,
+      "lines": 329,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/routes/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/api_server/routes/__init__.py",
+      "status": "active",
+      "size_bytes": 8,
+      "lines": 1,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/routes/health.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/api_server/routes/health.py",
+      "status": "active",
+      "size_bytes": 5330,
+      "lines": 177,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/__init__.py",
+      "status": "active",
+      "size_bytes": 1490,
+      "lines": 48,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/__main__.py",
+      "domain": "pending",
+      "category": "core",
+      "description": "Auto-classified from packages/apps/apps/cerebro/__main__.py",
+      "status": "active",
+      "size_bytes": 57,
+      "lines": 4,
+      "tags": [
+        "pending",
+        "core"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/__init__.py",
+      "status": "active",
+      "size_bytes": 2832,
+      "lines": 103,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/constants.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/constants.py",
+      "status": "active",
+      "size_bytes": 6446,
+      "lines": 126,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/env.py",
+      "domain": "pending",
+      "category": "config",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/env.py",
+      "status": "active",
+      "size_bytes": 29014,
+      "lines": 926,
+      "tags": [
+        "pending",
+        "config"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/functions.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/functions.py",
+      "status": "active",
+      "size_bytes": 11709,
+      "lines": 352,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/001_initial_schema.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/001_initial_schema.py",
+      "status": "active",
+      "size_bytes": 8273,
+      "lines": 254,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/002_add_local_sharing.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/002_add_local_sharing.py",
+      "status": "active",
+      "size_bytes": 1857,
+      "lines": 48,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/004_add_archived.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/004_add_archived.py",
+      "status": "active",
+      "size_bytes": 1821,
+      "lines": 46,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/005_add_updated_at.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/005_add_updated_at.py",
+      "status": "active",
+      "size_bytes": 5259,
+      "lines": 130,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/006_migrate_timestamps_and_charfields.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/006_migrate_timestamps_and_charfields.py",
+      "status": "active",
+      "size_bytes": 3811,
+      "lines": 130,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/012_add_tools.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/012_add_tools.py",
+      "status": "active",
+      "size_bytes": 2137,
+      "lines": 61,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/014_add_files.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/014_add_files.py",
+      "status": "active",
+      "size_bytes": 2022,
+      "lines": 55,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/015_add_functions.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/015_add_functions.py",
+      "status": "active",
+      "size_bytes": 2148,
+      "lines": 61,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/016_add_valves_and_is_active.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/016_add_valves_and_is_active.py",
+      "status": "active",
+      "size_bytes": 2050,
+      "lines": 50,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/018_add_function_is_global.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/018_add_function_is_global.py",
+      "status": "active",
+      "size_bytes": 1855,
+      "lines": 49,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/wrappers.py",
+      "domain": "pending",
+      "category": "core",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/wrappers.py",
+      "status": "active",
+      "size_bytes": 3038,
+      "lines": 86,
+      "tags": [
+        "pending",
+        "core"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/main.py",
+      "domain": "pending",
+      "category": "core",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/main.py",
+      "status": "active",
+      "size_bytes": 85218,
+      "lines": 2428,
+      "tags": [
+        "pending",
+        "core"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/env.py",
+      "domain": "pending",
+      "category": "config",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/env.py",
+      "status": "active",
+      "size_bytes": 3401,
+      "lines": 108,
+      "tags": [
+        "pending",
+        "config"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/util.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/util.py",
+      "status": "active",
+      "size_bytes": 309,
+      "lines": 15,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/018012973d35_add_indexes.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/018012973d35_add_indexes.py",
+      "status": "active",
+      "size_bytes": 1340,
+      "lines": 46,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/1af9b942657b_migrate_tags.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/1af9b942657b_migrate_tags.py",
+      "status": "active",
+      "size_bytes": 5299,
+      "lines": 151,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/2f1211949ecc_update_message_and_channel_member_table.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/2f1211949ecc_update_message_and_channel_member_table.py",
+      "status": "active",
+      "size_bytes": 2886,
+      "lines": 103,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/3781e22d8b01_update_message_table.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/3781e22d8b01_update_message_table.py",
+      "status": "active",
+      "size_bytes": 1987,
+      "lines": 70,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/37f288994c47_add_group_member_table.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/37f288994c47_add_group_member_table.py",
+      "status": "active",
+      "size_bytes": 3938,
+      "lines": 146,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/3ab32c4b8f59_update_tags.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/3ab32c4b8f59_update_tags.py",
+      "status": "active",
+      "size_bytes": 3034,
+      "lines": 81,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/3e0e00844bb0_add_knowledge_file_table.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/3e0e00844bb0_add_knowledge_file_table.py",
+      "status": "active",
+      "size_bytes": 4839,
+      "lines": 169,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/4ace53fd72c8_update_folder_table_datetime.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/4ace53fd72c8_update_folder_table_datetime.py",
+      "status": "active",
+      "size_bytes": 2239,
+      "lines": 67,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/57c599a3cb57_add_channel_table.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/57c599a3cb57_add_channel_table.py",
+      "status": "active",
+      "size_bytes": 1429,
+      "lines": 48,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/6283dc0e4d8d_add_channel_file_table.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/6283dc0e4d8d_add_channel_file_table.py",
+      "status": "active",
+      "size_bytes": 1535,
+      "lines": 54,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/6a39f3d8e55c_add_knowledge_table.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/6a39f3d8e55c_add_knowledge_table.py",
+      "status": "active",
+      "size_bytes": 2442,
+      "lines": 80,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/7826ab40b532_update_file_table.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/7826ab40b532_update_file_table.py",
+      "status": "active",
+      "size_bytes": 445,
+      "lines": 26,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/7e5b5dc7342b_init.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/7e5b5dc7342b_init.py",
+      "status": "active",
+      "size_bytes": 8191,
+      "lines": 204,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/81cc2ce44d79_update_channel_file_and_knowledge_table.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/81cc2ce44d79_update_channel_file_and_knowledge_table.py",
+      "status": "active",
+      "size_bytes": 1462,
+      "lines": 49,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/90ef40d4714e_update_channel_and_channel_members_table.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/90ef40d4714e_update_channel_and_channel_members_table.py",
+      "status": "active",
+      "size_bytes": 2726,
+      "lines": 81,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/922e7a387820_add_group_table.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/922e7a387820_add_group_table.py",
+      "status": "active",
+      "size_bytes": 2362,
+      "lines": 85,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/9f0c9cd09105_add_note_table.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/9f0c9cd09105_add_note_table.py",
+      "status": "active",
+      "size_bytes": 854,
+      "lines": 33,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/a5c220713937_add_reply_to_id_column_to_message.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/a5c220713937_add_reply_to_id_column_to_message.py",
+      "status": "active",
+      "size_bytes": 800,
+      "lines": 34,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/c29facfe716b_update_file_table_path.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/c29facfe716b_update_file_table_path.py",
+      "status": "active",
+      "size_bytes": 2518,
+      "lines": 79,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/d31026856c01_update_folder_table_data.py",
+      "domain": "pending",
+      "category": "data",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/d31026856c01_update_folder_table_data.py",
+      "status": "active",
+      "size_bytes": 413,
+      "lines": 23,
+      "tags": [
+        "pending",
+        "data"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/loaders/datalab_marker.py",
+      "domain": "pending",
+      "category": "data",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/loaders/datalab_marker.py",
+      "status": "active",
+      "size_bytes": 11285,
+      "lines": 278,
+      "tags": [
+        "pending",
+        "data"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/loaders/external_document.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/loaders/external_document.py",
+      "status": "active",
+      "size_bytes": 2766,
+      "lines": 89,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/loaders/main.py",
+      "domain": "pending",
+      "category": "core",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/loaders/main.py",
+      "status": "active",
+      "size_bytes": 14288,
+      "lines": 403,
+      "tags": [
+        "pending",
+        "core"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/loaders/mineru.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/loaders/mineru.py",
+      "status": "active",
+      "size_bytes": 18999,
+      "lines": 524,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/loaders/mistral.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/loaders/mistral.py",
+      "status": "active",
+      "size_bytes": 30024,
+      "lines": 769,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/loaders/tavily.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/loaders/tavily.py",
+      "status": "active",
+      "size_bytes": 3970,
+      "lines": 91,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/loaders/youtube.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/loaders/youtube.py",
+      "status": "active",
+      "size_bytes": 5807,
+      "lines": 164,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/chroma.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/chroma.py",
+      "status": "active",
+      "size_bytes": 7140,
+      "lines": 201,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/elasticsearch.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/elasticsearch.py",
+      "status": "active",
+      "size_bytes": 10422,
+      "lines": 306,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/milvus.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/milvus.py",
+      "status": "active",
+      "size_bytes": 15633,
+      "lines": 395,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/milvus_multitenancy.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/milvus_multitenancy.py",
+      "status": "active",
+      "size_bytes": 10316,
+      "lines": 291,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/opengauss.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/opengauss.py",
+      "status": "active",
+      "size_bytes": 14764,
+      "lines": 427,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/opensearch.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/opensearch.py",
+      "status": "active",
+      "size_bytes": 9317,
+      "lines": 271,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/oracle23ai.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/oracle23ai.py",
+      "status": "active",
+      "size_bytes": 33776,
+      "lines": 945,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/pgvector.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/pgvector.py",
+      "status": "active",
+      "size_bytes": 29426,
+      "lines": 753,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/pinecone.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/pinecone.py",
+      "status": "active",
+      "size_bytes": 21624,
+      "lines": 585,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/qdrant.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/qdrant.py",
+      "status": "active",
+      "size_bytes": 9288,
+      "lines": 256,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/qdrant_multitenancy.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/qdrant_multitenancy.py",
+      "status": "active",
+      "size_bytes": 13873,
+      "lines": 374,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/s3vector.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/s3vector.py",
+      "status": "active",
+      "size_bytes": 30850,
+      "lines": 778,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/weaviate.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/dbs/weaviate.py",
+      "status": "active",
+      "size_bytes": 12553,
+      "lines": 344,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/factory.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/factory.py",
+      "status": "active",
+      "size_bytes": 2961,
+      "lines": 82,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/main.py",
+      "domain": "pending",
+      "category": "core",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/main.py",
+      "status": "active",
+      "size_bytes": 2564,
+      "lines": 90,
+      "tags": [
+        "pending",
+        "core"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/type.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/type.py",
+      "status": "active",
+      "size_bytes": 348,
+      "lines": 15,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/audio.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/audio.py",
+      "status": "active",
+      "size_bytes": 50050,
+      "lines": 1386,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/cerebro.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/cerebro.py",
+      "status": "active",
+      "size_bytes": 10576,
+      "lines": 299,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/channels.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/channels.py",
+      "status": "active",
+      "size_bytes": 68366,
+      "lines": 2128,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/evaluations.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/evaluations.py",
+      "status": "active",
+      "size_bytes": 14087,
+      "lines": 466,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/files.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/files.py",
+      "status": "active",
+      "size_bytes": 26402,
+      "lines": 850,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/folders.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/folders.py",
+      "status": "active",
+      "size_bytes": 10686,
+      "lines": 352,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/functions.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/functions.py",
+      "status": "active",
+      "size_bytes": 18407,
+      "lines": 599,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/groups.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/groups.py",
+      "status": "active",
+      "size_bytes": 7924,
+      "lines": 272,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/images.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/images.py",
+      "status": "active",
+      "size_bytes": 44362,
+      "lines": 1141,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/knowledge.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/knowledge.py",
+      "status": "active",
+      "size_bytes": 30057,
+      "lines": 980,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/memories.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/memories.py",
+      "status": "active",
+      "size_bytes": 9146,
+      "lines": 332,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/notes.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/notes.py",
+      "status": "active",
+      "size_bytes": 9160,
+      "lines": 336,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/ollama.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/ollama.py",
+      "status": "active",
+      "size_bytes": 57757,
+      "lines": 1828,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/openai.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/openai.py",
+      "status": "active",
+      "size_bytes": 38983,
+      "lines": 1160,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/pipelines.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/pipelines.py",
+      "status": "active",
+      "size_bytes": 14348,
+      "lines": 509,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/prompts.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/prompts.py",
+      "status": "active",
+      "size_bytes": 6163,
+      "lines": 205,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/retrieval.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/retrieval.py",
+      "status": "active",
+      "size_bytes": 114837,
+      "lines": 2707,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/scim.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/scim.py",
+      "status": "active",
+      "size_bytes": 28600,
+      "lines": 948,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/tasks.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/tasks.py",
+      "status": "active",
+      "size_bytes": 26674,
+      "lines": 750,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/tools.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/tools.py",
+      "status": "active",
+      "size_bytes": 22320,
+      "lines": 717,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/socket/main.py",
+      "domain": "pending",
+      "category": "core",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/socket/main.py",
+      "status": "active",
+      "size_bytes": 25500,
+      "lines": 842,
+      "tags": [
+        "pending",
+        "core"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/tasks.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/tasks.py",
+      "status": "active",
+      "size_bytes": 5738,
+      "lines": 185,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/test/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/test/__init__.py",
+      "status": "active",
+      "size_bytes": 0,
+      "lines": 0,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/test/apps/webui/routers/test_prompts.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/test/apps/webui/routers/test_prompts.py",
+      "status": "active",
+      "size_bytes": 3399,
+      "lines": 91,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/test/util/test_redis.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/test/util/test_redis.py",
+      "status": "active",
+      "size_bytes": 29476,
+      "lines": 793,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/tools/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/tools/__init__.py",
+      "status": "active",
+      "size_bytes": 146,
+      "lines": 6,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/core/src/sloughgpt/__init__.py",
+      "status": "active",
+      "size_bytes": 3352,
+      "lines": 126,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/cost_optimization/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/core/src/sloughgpt/cost_optimization/__init__.py",
+      "status": "active",
+      "size_bytes": 5522,
+      "lines": 153,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/data_learning/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/core/src/sloughgpt/data_learning/__init__.py",
+      "status": "active",
+      "size_bytes": 11492,
+      "lines": 329,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/ml_pipeline.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/core/src/sloughgpt/ml_pipeline.py",
+      "status": "active",
+      "size_bytes": 30679,
+      "lines": 798,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/performance.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/core/src/sloughgpt/performance.py",
+      "status": "active",
+      "size_bytes": 23103,
+      "lines": 586,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/reasoning_engine/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/core/src/sloughgpt/reasoning_engine/__init__.py",
+      "status": "active",
+      "size_bytes": 13233,
+      "lines": 325,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/core/tests/conftest.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from packages/core/tests/conftest.py",
+      "status": "active",
+      "size_bytes": 10095,
+      "lines": 332,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "packages/core/tests/performance/test_benchmarks.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from packages/core/tests/performance/test_benchmarks.py",
+      "status": "active",
+      "size_bytes": 20763,
+      "lines": 498,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "packages/core/tests/run_tests.py",
+      "domain": "pending",
+      "category": "core",
+      "description": "Auto-classified from packages/core/tests/run_tests.py",
+      "status": "active",
+      "size_bytes": 9152,
+      "lines": 332,
+      "tags": [
+        "pending",
+        "core"
+      ]
+    },
+    {
+      "path": "packages/core/tests/unit/test_core_modules.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from packages/core/tests/unit/test_core_modules.py",
+      "status": "active",
+      "size_bytes": 14018,
+      "lines": 377,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "packages/core/tests/validate_infrastructure.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/core/tests/validate_infrastructure.py",
+      "status": "active",
+      "size_bytes": 3611,
+      "lines": 130,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/tests/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from packages/tests/__init__.py",
+      "status": "active",
+      "size_bytes": 23,
+      "lines": 1,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "packages/tests/unit/test_backend_components.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from packages/tests/unit/test_backend_components.py",
+      "status": "active",
+      "size_bytes": 19729,
+      "lines": 526,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "performance_test.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from performance_test.py",
+      "status": "active",
+      "size_bytes": 16559,
+      "lines": 446,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "production_deploy.py",
+      "domain": "pending",
+      "category": "deployment",
+      "description": "Auto-classified from production_deploy.py",
+      "status": "active",
+      "size_bytes": 10160,
+      "lines": 316,
+      "tags": [
+        "pending",
+        "deployment"
+      ]
+    },
+    {
+      "path": "production_finalizer.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from production_finalizer.py",
+      "status": "active",
+      "size_bytes": 11964,
+      "lines": 391,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "production_finalizer_fixed.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from production_finalizer_fixed.py",
+      "status": "active",
+      "size_bytes": 7605,
+      "lines": 249,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "production_ready/core/advanced_dataset_features.py",
+      "domain": "pending",
+      "category": "deprecated",
+      "description": "Advanced dataset features (deprecated)",
+      "status": "deprecated",
+      "size_bytes": 18328,
+      "lines": 475,
+      "tags": []
+    },
+    {
+      "path": "repo_obtainer.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from repo_obtainer.py",
+      "status": "active",
+      "size_bytes": 311,
+      "lines": 12,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "sample.py",
+      "domain": "pending",
+      "category": "demo",
+      "description": "Auto-classified from sample.py",
+      "status": "active",
+      "size_bytes": 319,
+      "lines": 12,
+      "tags": [
+        "pending",
+        "demo"
+      ]
+    },
+    {
+      "path": "simple_corpus_converter.py",
+      "domain": "pending",
+      "category": "data",
+      "description": "Auto-classified from simple_corpus_converter.py",
+      "status": "active",
+      "size_bytes": 3100,
+      "lines": 80,
+      "tags": [
+        "pending",
+        "data"
+      ]
+    },
+    {
+      "path": "simple_ux_analysis.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from simple_ux_analysis.py",
+      "status": "active",
+      "size_bytes": 7406,
+      "lines": 245,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "sloughgpt/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from sloughgpt/__init__.py",
+      "status": "active",
+      "size_bytes": 8981,
+      "lines": 285,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from sloughgpt/core/__init__.py",
+      "status": "active",
+      "size_bytes": 264,
+      "lines": 11,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/error_handling.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from sloughgpt/core/error_handling.py",
+      "status": "active",
+      "size_bytes": 20308,
+      "lines": 540,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/exceptions.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from sloughgpt/core/exceptions.py",
+      "status": "active",
+      "size_bytes": 7340,
+      "lines": 218,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/migration.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from sloughgpt/core/migration.py",
+      "status": "active",
+      "size_bytes": 17071,
+      "lines": 407,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/performance.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from sloughgpt/core/performance.py",
+      "status": "active",
+      "size_bytes": 24195,
+      "lines": 654,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/rag_system.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from sloughgpt/core/rag_system.py",
+      "status": "active",
+      "size_bytes": 26375,
+      "lines": 685,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/testing.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from sloughgpt/core/testing.py",
+      "status": "active",
+      "size_bytes": 25454,
+      "lines": 705,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "sloughgpt/optimizations.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from sloughgpt/optimizations.py",
+      "status": "active",
+      "size_bytes": 13360,
+      "lines": 378,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "sloughgpt/tests/__init__.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from sloughgpt/tests/__init__.py",
+      "status": "active",
+      "size_bytes": 30,
+      "lines": 1,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "sloughgpt/tests/conftest.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from sloughgpt/tests/conftest.py",
+      "status": "active",
+      "size_bytes": 8058,
+      "lines": 269,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "sloughgpt_production.py",
+      "domain": "pending",
+      "category": "deprecated",
+      "description": "Production version (superseded)",
+      "status": "deprecated",
+      "size_bytes": 21692,
+      "lines": 673,
+      "tags": []
+    },
+    {
+      "path": "test_advanced_features.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from test_advanced_features.py",
+      "status": "active",
+      "size_bytes": 28460,
+      "lines": 729,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "test_hf_basic.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from test_hf_basic.py",
+      "status": "active",
+      "size_bytes": 10361,
+      "lines": 299,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "test_optimizations.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from test_optimizations.py",
+      "status": "active",
+      "size_bytes": 8523,
+      "lines": 240,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "test_package.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from test_package.py",
+      "status": "active",
+      "size_bytes": 2862,
+      "lines": 89,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "test_package_simple.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from test_package_simple.py",
+      "status": "active",
+      "size_bytes": 3262,
+      "lines": 103,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "test_simple_distributed.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from test_simple_distributed.py",
+      "status": "active",
+      "size_bytes": 9167,
+      "lines": 288,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "ux_testing_framework.py",
+      "domain": "pending",
+      "category": "test",
+      "description": "Auto-classified from ux_testing_framework.py",
+      "status": "active",
+      "size_bytes": 23045,
+      "lines": 623,
+      "tags": [
+        "pending",
+        "test"
+      ]
+    },
+    {
+      "path": "war.py",
+      "domain": "pending",
+      "category": "utility",
+      "description": "Auto-classified from war.py",
+      "status": "active",
+      "size_bytes": 301,
+      "lines": 12,
+      "tags": [
+        "pending",
+        "utility"
+      ]
+    },
+    {
+      "path": "CODEBASE_ANALYSIS.md",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from CODEBASE_ANALYSIS.md",
+      "status": "active",
+      "size_bytes": 10552,
+      "lines": 0,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "CODEBASE_ANALYSIS_AND_IMPROVEMENT_PLAN.md",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from CODEBASE_ANALYSIS_AND_IMPROVEMENT_PLAN.md",
+      "status": "active",
+      "size_bytes": 20786,
+      "lines": 0,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "benchmark_suite.py",
+      "domain": "shared",
+      "category": "test",
+      "description": "Benchmark suite",
+      "status": "active",
+      "size_bytes": 14193,
+      "lines": 354,
+      "tags": [
+        "benchmark"
+      ]
+    },
+    {
+      "path": "benchmark_system.py",
+      "domain": "shared",
+      "category": "test",
+      "description": "Benchmarking system",
+      "status": "active",
+      "size_bytes": 27235,
+      "lines": 647,
+      "tags": [
+        "benchmark",
+        "performance"
+      ]
+    },
+    {
+      "path": "bin/toolkit.py",
+      "domain": "shared",
+      "category": "utility",
+      "description": "General toolkit utilities",
+      "status": "active",
+      "size_bytes": 305,
+      "lines": 12,
+      "tags": [
+        "util",
+        "toolkit"
+      ]
+    },
+    {
+      "path": "domains/enterprise/base.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from domains/enterprise/base.py",
+      "status": "active",
+      "size_bytes": 12786,
+      "lines": 343,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/infrastructure/base.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from domains/infrastructure/base.py",
+      "status": "active",
+      "size_bytes": 7853,
+      "lines": 213,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "e2e_test_suite.py",
+      "domain": "shared",
+      "category": "test",
+      "description": "Test suite",
+      "status": "active",
+      "size_bytes": 16811,
+      "lines": 451,
+      "tags": [
+        "test"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/utils.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/utils.py",
+      "status": "active",
+      "size_bytes": 46725,
+      "lines": 1337,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/vector/utils.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/vector/utils.py",
+      "status": "active",
+      "size_bytes": 776,
+      "lines": 28,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/utils.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/utils.py",
+      "status": "active",
+      "size_bytes": 3681,
+      "lines": 124,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/socket/utils.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/socket/utils.py",
+      "status": "active",
+      "size_bytes": 7563,
+      "lines": 227,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/access_control.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/access_control.py",
+      "status": "active",
+      "size_bytes": 6263,
+      "lines": 177,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/audit.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/audit.py",
+      "status": "active",
+      "size_bytes": 9187,
+      "lines": 283,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/channels.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/channels.py",
+      "status": "active",
+      "size_bytes": 1067,
+      "lines": 31,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/code_interpreter.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/code_interpreter.py",
+      "status": "active",
+      "size_bytes": 7438,
+      "lines": 208,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/embeddings.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/embeddings.py",
+      "status": "active",
+      "size_bytes": 2866,
+      "lines": 89,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/files.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/files.py",
+      "status": "active",
+      "size_bytes": 5572,
+      "lines": 177,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/filter.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/filter.py",
+      "status": "active",
+      "size_bytes": 4379,
+      "lines": 134,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/groups.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/groups.py",
+      "status": "active",
+      "size_bytes": 704,
+      "lines": 25,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/headers.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/headers.py",
+      "status": "active",
+      "size_bytes": 308,
+      "lines": 11,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/logger.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/logger.py",
+      "status": "active",
+      "size_bytes": 5793,
+      "lines": 166,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/middleware.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/middleware.py",
+      "status": "active",
+      "size_bytes": 152541,
+      "lines": 3713,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/misc.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/misc.py",
+      "status": "active",
+      "size_bytes": 22587,
+      "lines": 719,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/payload.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/payload.py",
+      "status": "active",
+      "size_bytes": 13768,
+      "lines": 393,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/pdf_generator.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/pdf_generator.py",
+      "status": "active",
+      "size_bytes": 5055,
+      "lines": 146,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/plugin.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/plugin.py",
+      "status": "active",
+      "size_bytes": 11184,
+      "lines": 315,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/rate_limit.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/rate_limit.py",
+      "status": "active",
+      "size_bytes": 4115,
+      "lines": 139,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/redis.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/redis.py",
+      "status": "active",
+      "size_bytes": 9406,
+      "lines": 265,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/response.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/response.py",
+      "status": "active",
+      "size_bytes": 6351,
+      "lines": 189,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/task.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/task.py",
+      "status": "active",
+      "size_bytes": 11704,
+      "lines": 348,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/telemetry/__init__.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/telemetry/__init__.py",
+      "status": "active",
+      "size_bytes": 0,
+      "lines": 0,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/telemetry/constants.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/telemetry/constants.py",
+      "status": "active",
+      "size_bytes": 623,
+      "lines": 26,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/telemetry/instrumentors.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/telemetry/instrumentors.py",
+      "status": "active",
+      "size_bytes": 5994,
+      "lines": 200,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/telemetry/logs.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/telemetry/logs.py",
+      "status": "active",
+      "size_bytes": 1818,
+      "lines": 53,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/telemetry/metrics.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/telemetry/metrics.py",
+      "status": "active",
+      "size_bytes": 6711,
+      "lines": 206,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/tools.py",
+      "domain": "shared",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/tools.py",
+      "status": "active",
+      "size_bytes": 37171,
+      "lines": 1031,
+      "tags": [
+        "shared",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/core/tests/test_comprehensive.py",
+      "domain": "shared",
+      "category": "test",
+      "description": "Comprehensive test suite",
+      "status": "active",
+      "size_bytes": 18204,
+      "lines": 513,
+      "tags": [
+        "test"
+      ]
+    },
+    {
+      "path": "quality_scorer.py",
+      "domain": "shared",
+      "category": "utility",
+      "description": "Quality scoring utility",
+      "status": "active",
+      "size_bytes": 16168,
+      "lines": 430,
+      "tags": [
+        "quality",
+        "scoring"
+      ]
+    },
+    {
+      "path": "sloughgpt/benchmark_suite.py",
+      "domain": "shared",
+      "category": "test",
+      "description": "Benchmark suite",
+      "status": "active",
+      "size_bytes": 19983,
+      "lines": 466,
+      "tags": [
+        "benchmark"
+      ]
+    },
+    {
+      "path": "stress_test_stage1.py",
+      "domain": "shared",
+      "category": "test",
+      "description": "Stress testing",
+      "status": "active",
+      "size_bytes": 8115,
+      "lines": 222,
+      "tags": [
+        "test",
+        "stress"
+      ]
+    },
+    {
+      "path": "test_comprehensive.py",
+      "domain": "shared",
+      "category": "test",
+      "description": "Comprehensive test suite",
+      "status": "active",
+      "size_bytes": 12017,
+      "lines": 350,
+      "tags": [
+        "test"
+      ]
+    },
+    {
+      "path": "test_runner.py",
+      "domain": "shared",
+      "category": "test",
+      "description": "Test runner utility",
+      "status": "active",
+      "size_bytes": 9320,
+      "lines": 306,
+      "tags": [
+        "test"
+      ]
+    },
+    {
+      "path": "test_standalone_integration.py",
+      "domain": "shared",
+      "category": "test",
+      "description": "Standalone integration tests",
+      "status": "active",
+      "size_bytes": 19941,
+      "lines": 540,
+      "tags": [
+        "test"
+      ]
+    },
+    {
+      "path": "test_suite.py",
+      "domain": "shared",
+      "category": "test",
+      "description": "Test suite",
+      "status": "active",
+      "size_bytes": 6608,
+      "lines": 173,
+      "tags": [
+        "test"
+      ]
+    },
+    {
+      "path": "toolkit.py",
+      "domain": "shared",
+      "category": "utility",
+      "description": "General toolkit utilities",
+      "status": "active",
+      "size_bytes": 305,
+      "lines": 12,
+      "tags": [
+        "util",
+        "toolkit"
+      ]
+    },
+    {
+      "path": "ux_analysis_runner.py",
+      "domain": "shared",
+      "category": "utility",
+      "description": "UX analysis runner",
+      "status": "active",
+      "size_bytes": 13122,
+      "lines": 377,
+      "tags": [
+        "ux",
+        "analysis"
+      ]
+    },
+    {
+      "path": "ux_analysis_tool.py",
+      "domain": "shared",
+      "category": "utility",
+      "description": "UX analysis tool",
+      "status": "active",
+      "size_bytes": 10727,
+      "lines": 286,
+      "tags": [
+        "ux",
+        "analysis"
+      ]
+    },
+    {
+      "path": "verify_implementation.py",
+      "domain": "shared",
+      "category": "utility",
+      "description": "Implementation verification",
+      "status": "active",
+      "size_bytes": 11798,
+      "lines": 343,
+      "tags": [
+        "verify",
+        "test"
+      ]
+    },
+    {
+      "path": "DATASET_STANDARDIZATION.md",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from DATASET_STANDARDIZATION.md",
+      "status": "active",
+      "size_bytes": 5073,
+      "lines": 0,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "SLOGHPT_CUSTOM_GPT_COMPLETE.md",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from SLOGHPT_CUSTOM_GPT_COMPLETE.md",
+      "status": "active",
+      "size_bytes": 8891,
+      "lines": 0,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "SLUGHGPT_COMPLETE.md",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from SLUGHGPT_COMPLETE.md",
+      "status": "active",
+      "size_bytes": 3172,
+      "lines": 0,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "batch_processor.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Batch data processing",
+      "status": "active",
+      "size_bytes": 20615,
+      "lines": 542,
+      "tags": [
+        "batch",
+        "data"
+      ]
+    },
+    {
+      "path": "bin/chat_buffer_to_dataset.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Convert chat buffers to training datasets",
+      "status": "active",
+      "size_bytes": 320,
+      "lines": 12,
+      "tags": [
+        "dataset",
+        "chat"
+      ]
+    },
+    {
+      "path": "bin/corpus_to_dataset.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Convert corpus to dataset format",
+      "status": "active",
+      "size_bytes": 322,
+      "lines": 12,
+      "tags": [
+        "dataset",
+        "corpus"
+      ]
+    },
+    {
+      "path": "bin/model.py",
+      "domain": "training",
+      "category": "model",
+      "description": "Model definition",
+      "status": "active",
+      "size_bytes": 21729,
+      "lines": 508,
+      "tags": [
+        "model"
+      ]
+    },
+    {
+      "path": "bin/train.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Main training script",
+      "status": "active",
+      "size_bytes": 318,
+      "lines": 12,
+      "tags": [
+        "train"
+      ]
+    },
+    {
+      "path": "chat_buffer_to_dataset.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Convert chat buffers to training datasets",
+      "status": "active",
+      "size_bytes": 320,
+      "lines": 12,
+      "tags": [
+        "dataset",
+        "chat"
+      ]
+    },
+    {
+      "path": "corpus_to_dataset.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Convert corpus to dataset format",
+      "status": "active",
+      "size_bytes": 322,
+      "lines": 12,
+      "tags": [
+        "dataset",
+        "corpus"
+      ]
+    },
+    {
+      "path": "create_dataset.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Dataset creation utility",
+      "status": "active",
+      "size_bytes": 4154,
+      "lines": 122,
+      "tags": [
+        "dataset",
+        "data"
+      ]
+    },
+    {
+      "path": "create_dataset_fixed.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Fixed dataset creation",
+      "status": "active",
+      "size_bytes": 5022,
+      "lines": 139,
+      "tags": [
+        "dataset"
+      ]
+    },
+    {
+      "path": "dataset_manager.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Dataset management",
+      "status": "active",
+      "size_bytes": 14712,
+      "lines": 390,
+      "tags": [
+        "dataset",
+        "data"
+      ]
+    },
+    {
+      "path": "dataset_manager_old.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Old dataset manager (deprecated)",
+      "status": "active",
+      "size_bytes": 14508,
+      "lines": 387,
+      "tags": [
+        "dataset",
+        "deprecated"
+      ]
+    },
+    {
+      "path": "datasets.yaml",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from datasets.yaml",
+      "status": "active",
+      "size_bytes": 1622,
+      "lines": 0,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "demo_huggingface.py",
+      "domain": "training",
+      "category": "demo",
+      "description": "HuggingFace integration demos",
+      "status": "active",
+      "size_bytes": 10631,
+      "lines": 327,
+      "tags": [
+        "demo",
+        "huggingface"
+      ]
+    },
+    {
+      "path": "distributed_training.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Advanced distributed training",
+      "status": "active",
+      "size_bytes": 23570,
+      "lines": 611,
+      "tags": [
+        "train",
+        "distributed"
+      ]
+    },
+    {
+      "path": "dset.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Dataset utility",
+      "status": "active",
+      "size_bytes": 13892,
+      "lines": 403,
+      "tags": [
+        "dataset"
+      ]
+    },
+    {
+      "path": "enhanced_distributed_training.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Enhanced distributed training",
+      "status": "active",
+      "size_bytes": 18701,
+      "lines": 501,
+      "tags": [
+        "train",
+        "distributed"
+      ]
+    },
+    {
+      "path": "huggingface_integration.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "HuggingFace model integration",
+      "status": "active",
+      "size_bytes": 40202,
+      "lines": 950,
+      "tags": [
+        "huggingface",
+        "ml",
+        "model"
+      ]
+    },
+    {
+      "path": "lmtrain/cli.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Language model training utilities",
+      "status": "active",
+      "size_bytes": 1210,
+      "lines": 45,
+      "tags": [
+        "train",
+        "lm"
+      ]
+    },
+    {
+      "path": "lmtrain/repo.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Language model training utilities",
+      "status": "active",
+      "size_bytes": 91,
+      "lines": 1,
+      "tags": [
+        "train",
+        "lm"
+      ]
+    },
+    {
+      "path": "lmtrain/web.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Language model training utilities",
+      "status": "active",
+      "size_bytes": 91,
+      "lines": 1,
+      "tags": [
+        "train",
+        "lm"
+      ]
+    },
+    {
+      "path": "model.py",
+      "domain": "training",
+      "category": "model",
+      "description": "Model definition",
+      "status": "active",
+      "size_bytes": 21729,
+      "lines": 508,
+      "tags": [
+        "model"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/core/async_dataset_manager.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Dataset management",
+      "status": "active",
+      "size_bytes": 12155,
+      "lines": 315,
+      "tags": [
+        "dataset",
+        "data"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/core/batch_processor.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Batch data processing",
+      "status": "active",
+      "size_bytes": 14343,
+      "lines": 377,
+      "tags": [
+        "batch",
+        "data"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/core/model_manager.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/api_server/core/model_manager.py",
+      "status": "active",
+      "size_bytes": 8505,
+      "lines": 222,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/model.py",
+      "domain": "training",
+      "category": "model",
+      "description": "Model definition",
+      "status": "active",
+      "size_bytes": 647,
+      "lines": 23,
+      "tags": [
+        "model"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/routes/dataset.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/api_server/routes/dataset.py",
+      "status": "active",
+      "size_bytes": 10641,
+      "lines": 293,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/routes/model.py",
+      "domain": "training",
+      "category": "model",
+      "description": "Model definition",
+      "status": "active",
+      "size_bytes": 6383,
+      "lines": 180,
+      "tags": [
+        "model"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/009_add_models.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/009_add_models.py",
+      "status": "active",
+      "size_bytes": 2156,
+      "lines": 61,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/010_migrate_modelfiles_to_models.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/010_migrate_modelfiles_to_models.py",
+      "status": "active",
+      "size_bytes": 4714,
+      "lines": 130,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/models.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/models.py",
+      "status": "active",
+      "size_bytes": 14279,
+      "lines": 492,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/test/apps/webui/routers/test_models.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/test/apps/webui/routers/test_models.py",
+      "status": "active",
+      "size_bytes": 2129,
+      "lines": 61,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/models.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/models.py",
+      "status": "active",
+      "size_bytes": 13153,
+      "lines": 380,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/distributed_training.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Advanced distributed training",
+      "status": "active",
+      "size_bytes": 17155,
+      "lines": 497,
+      "tags": [
+        "train",
+        "distributed"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/model_serving.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from packages/core/src/sloughgpt/model_serving.py",
+      "status": "active",
+      "size_bytes": 16612,
+      "lines": 445,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/tools/dset.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Dataset utility",
+      "status": "active",
+      "size_bytes": 13892,
+      "lines": 403,
+      "tags": [
+        "dataset"
+      ]
+    },
+    {
+      "path": "production_ready/core/DATASET_STANDARDIZATION.md",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from production_ready/core/DATASET_STANDARDIZATION.md",
+      "status": "active",
+      "size_bytes": 5073,
+      "lines": 0,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "production_ready/core/batch_processor.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Batch data processing",
+      "status": "active",
+      "size_bytes": 20615,
+      "lines": 542,
+      "tags": [
+        "batch",
+        "data"
+      ]
+    },
+    {
+      "path": "production_ready/core/create_dataset_fixed.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Fixed dataset creation",
+      "status": "active",
+      "size_bytes": 4554,
+      "lines": 134,
+      "tags": [
+        "dataset"
+      ]
+    },
+    {
+      "path": "production_ready/core/simple_trainer.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Simple training loop",
+      "status": "active",
+      "size_bytes": 8506,
+      "lines": 219,
+      "tags": [
+        "train",
+        "model"
+      ]
+    },
+    {
+      "path": "production_ready/core/train_simple.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Simple training script",
+      "status": "active",
+      "size_bytes": 7615,
+      "lines": 216,
+      "tags": [
+        "train"
+      ]
+    },
+    {
+      "path": "production_ready/core/universal_prepare.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Universal data preparation",
+      "status": "active",
+      "size_bytes": 12420,
+      "lines": 322,
+      "tags": [
+        "data",
+        "preprocess"
+      ]
+    },
+    {
+      "path": "simple_distributed_training.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Advanced distributed training",
+      "status": "active",
+      "size_bytes": 11156,
+      "lines": 297,
+      "tags": [
+        "train",
+        "distributed"
+      ]
+    },
+    {
+      "path": "simple_gpt_model.py",
+      "domain": "training",
+      "category": "model",
+      "description": "Model definition",
+      "status": "active",
+      "size_bytes": 9042,
+      "lines": 275,
+      "tags": [
+        "model"
+      ]
+    },
+    {
+      "path": "simple_trainer.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Simple training loop",
+      "status": "active",
+      "size_bytes": 8506,
+      "lines": 219,
+      "tags": [
+        "train",
+        "model"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/distributed_training.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Advanced distributed training",
+      "status": "active",
+      "size_bytes": 29689,
+      "lines": 767,
+      "tags": [
+        "train",
+        "distributed"
+      ]
+    },
+    {
+      "path": "sloughgpt/core/model_serving.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/core/model_serving.py",
+      "status": "active",
+      "size_bytes": 28914,
+      "lines": 769,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/distributed_training.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Advanced distributed training",
+      "status": "active",
+      "size_bytes": 23976,
+      "lines": 608,
+      "tags": [
+        "train",
+        "distributed"
+      ]
+    },
+    {
+      "path": "sloughgpt/model_zoo.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/model_zoo.py",
+      "status": "active",
+      "size_bytes": 17996,
+      "lines": 507,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/trainer.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/trainer.py",
+      "status": "active",
+      "size_bytes": 16533,
+      "lines": 452,
+      "tags": [
+        "training",
+        "processor"
+      ]
+    },
+    {
+      "path": "test_distributed_training.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Advanced distributed training",
+      "status": "active",
+      "size_bytes": 10948,
+      "lines": 353,
+      "tags": [
+        "train",
+        "distributed"
+      ]
+    },
+    {
+      "path": "test_huggingface_integration.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "HuggingFace model integration",
+      "status": "active",
+      "size_bytes": 9006,
+      "lines": 266,
+      "tags": [
+        "huggingface",
+        "ml",
+        "model"
+      ]
+    },
+    {
+      "path": "train.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Main training script",
+      "status": "active",
+      "size_bytes": 318,
+      "lines": 12,
+      "tags": [
+        "train"
+      ]
+    },
+    {
+      "path": "train_simple.py",
+      "domain": "training",
+      "category": "processor",
+      "description": "Simple training script",
+      "status": "active",
+      "size_bytes": 7615,
+      "lines": 216,
+      "tags": [
+        "train"
+      ]
+    },
+    {
+      "path": "universal_prepare.py",
+      "domain": "training",
+      "category": "data",
+      "description": "Universal data preparation",
+      "status": "active",
+      "size_bytes": 12420,
+      "lines": 322,
+      "tags": [
+        "data",
+        "preprocess"
+      ]
+    },
+    {
+      "path": "API.md",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from API.md",
+      "status": "active",
+      "size_bytes": 11493,
+      "lines": 0,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "COMPLETE_USER_GUIDE.md",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from COMPLETE_USER_GUIDE.md",
+      "status": "active",
+      "size_bytes": 9142,
+      "lines": 0,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "DEPLOYMENT_GUIDE.md",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from DEPLOYMENT_GUIDE.md",
+      "status": "active",
+      "size_bytes": 5231,
+      "lines": 0,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "QUICKSTART.md",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from QUICKSTART.md",
+      "status": "active",
+      "size_bytes": 3891,
+      "lines": 0,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "WEBUI_README.md",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from WEBUI_README.md",
+      "status": "active",
+      "size_bytes": 3912,
+      "lines": 0,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "api_server.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "REST API server for SloughGPT",
+      "status": "active",
+      "size_bytes": 301,
+      "lines": 12,
+      "tags": [
+        "api",
+        "http",
+        "rest"
+      ]
+    },
+    {
+      "path": "bin/api_server.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "REST API server for SloughGPT",
+      "status": "active",
+      "size_bytes": 301,
+      "lines": 12,
+      "tags": [
+        "api",
+        "http",
+        "rest"
+      ]
+    },
+    {
+      "path": "bin/chat.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Chat interface",
+      "status": "active",
+      "size_bytes": 317,
+      "lines": 12,
+      "tags": [
+        "chat",
+        "cli"
+      ]
+    },
+    {
+      "path": "bin/genomics_chat.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Chat interface",
+      "status": "active",
+      "size_bytes": 304,
+      "lines": 12,
+      "tags": [
+        "chat",
+        "cli"
+      ]
+    },
+    {
+      "path": "bin/genomics_webui.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from bin/genomics_webui.py",
+      "status": "active",
+      "size_bytes": 305,
+      "lines": 12,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "bin/train_ui.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from bin/train_ui.py",
+      "status": "active",
+      "size_bytes": 299,
+      "lines": 12,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "bin/webui.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from bin/webui.py",
+      "status": "active",
+      "size_bytes": 298,
+      "lines": 12,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "build_webui.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "WebUI builder",
+      "status": "active",
+      "size_bytes": 12534,
+      "lines": 489,
+      "tags": [
+        "web",
+        "build"
+      ]
+    },
+    {
+      "path": "chat.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Chat interface",
+      "status": "active",
+      "size_bytes": 317,
+      "lines": 12,
+      "tags": [
+        "chat",
+        "cli"
+      ]
+    },
+    {
+      "path": "cli_shortcuts.py",
+      "domain": "ui",
+      "category": "utility",
+      "description": "CLI shortcuts",
+      "status": "active",
+      "size_bytes": 12423,
+      "lines": 365,
+      "tags": [
+        "cli",
+        "shortcuts"
+      ]
+    },
+    {
+      "path": "deploy_sloughgpt.py",
+      "domain": "ui",
+      "category": "core",
+      "description": "Main SloughGPT application - unified AI assistant interface",
+      "status": "active",
+      "size_bytes": 5145,
+      "lines": 175,
+      "tags": []
+    },
+    {
+      "path": "docs/API.md",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from docs/API.md",
+      "status": "active",
+      "size_bytes": 13127,
+      "lines": 0,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "docs/DEVELOPER_GUIDE.md",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from docs/DEVELOPER_GUIDE.md",
+      "status": "active",
+      "size_bytes": 20224,
+      "lines": 0,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "docs/OPENWEBUI_INTEGRATION.md",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from docs/OPENWEBUI_INTEGRATION.md",
+      "status": "active",
+      "size_bytes": 1336,
+      "lines": 0,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "docs/integration/CLI_README.md",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from docs/integration/CLI_README.md",
+      "status": "active",
+      "size_bytes": 3072,
+      "lines": 0,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "docs/integration/OPENWEBUI_INTEGRATION_README.md",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from docs/integration/OPENWEBUI_INTEGRATION_README.md",
+      "status": "active",
+      "size_bytes": 2654,
+      "lines": 0,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "docs/integration/UI_INTEGRATION_README.md",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from docs/integration/UI_INTEGRATION_README.md",
+      "status": "active",
+      "size_bytes": 2951,
+      "lines": 0,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/ui/__init__.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from domains/ui/__init__.py",
+      "status": "active",
+      "size_bytes": 438,
+      "lines": 20,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/ui/api/__init__.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from domains/ui/api/__init__.py",
+      "status": "active",
+      "size_bytes": 10734,
+      "lines": 317,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/ui/chat/__init__.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from domains/ui/chat/__init__.py",
+      "status": "active",
+      "size_bytes": 14663,
+      "lines": 445,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/ui/cli/__init__.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from domains/ui/cli/__init__.py",
+      "status": "active",
+      "size_bytes": 15500,
+      "lines": 459,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/ui/components/__init__.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from domains/ui/components/__init__.py",
+      "status": "active",
+      "size_bytes": 6635,
+      "lines": 184,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "domains/ui/web/__init__.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from domains/ui/web/__init__.py",
+      "status": "active",
+      "size_bytes": 10734,
+      "lines": 312,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "dset/cli.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from dset/cli.py",
+      "status": "active",
+      "size_bytes": 5597,
+      "lines": 193,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "enhanced_webui.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Enhanced web UI with more features",
+      "status": "active",
+      "size_bytes": 16859,
+      "lines": 488,
+      "tags": [
+        "web",
+        "ui"
+      ]
+    },
+    {
+      "path": "enhanced_webui_monitored.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Enhanced web UI with monitoring",
+      "status": "active",
+      "size_bytes": 20253,
+      "lines": 585,
+      "tags": [
+        "web",
+        "monitoring"
+      ]
+    },
+    {
+      "path": "examples/chat_app.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from examples/chat_app.py",
+      "status": "active",
+      "size_bytes": 13239,
+      "lines": 337,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "genomics_chat.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Chat interface",
+      "status": "active",
+      "size_bytes": 304,
+      "lines": 12,
+      "tags": [
+        "chat",
+        "cli"
+      ]
+    },
+    {
+      "path": "genomics_webui.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from genomics_webui.py",
+      "status": "active",
+      "size_bytes": 305,
+      "lines": 12,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "launch_domains.py",
+      "domain": "ui",
+      "category": "core",
+      "description": "Domain-based launcher",
+      "status": "active",
+      "size_bytes": 7266,
+      "lines": 220,
+      "tags": []
+    },
+    {
+      "path": "launch_webui.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "WebUI launcher",
+      "status": "active",
+      "size_bytes": 2405,
+      "lines": 91,
+      "tags": [
+        "web",
+        "launch"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/api_server/routes/chat.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Chat interface",
+      "status": "active",
+      "size_bytes": 6196,
+      "lines": 165,
+      "tags": [
+        "chat",
+        "cli"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/internal/migrations/003_add_auth_api_key.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/internal/migrations/003_add_auth_api_key.py",
+      "status": "active",
+      "size_bytes": 1855,
+      "lines": 48,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/242a2047eae0_update_chat_table.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/242a2047eae0_update_chat_table.py",
+      "status": "active",
+      "size_bytes": 3357,
+      "lines": 107,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/migrations/versions/c440947495f3_add_chat_file_table.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/migrations/versions/c440947495f3_add_chat_file_table.py",
+      "status": "active",
+      "size_bytes": 1602,
+      "lines": 57,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/loaders/external_web.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/loaders/external_web.py",
+      "status": "active",
+      "size_bytes": 1827,
+      "lines": 51,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/azure.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/azure.py",
+      "status": "active",
+      "size_bytes": 4171,
+      "lines": 126,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/bing.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/bing.py",
+      "status": "active",
+      "size_bytes": 2040,
+      "lines": 71,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/bocha.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/bocha.py",
+      "status": "active",
+      "size_bytes": 2112,
+      "lines": 63,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/brave.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/brave.py",
+      "status": "active",
+      "size_bytes": 1594,
+      "lines": 51,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/duckduckgo.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/duckduckgo.py",
+      "status": "active",
+      "size_bytes": 1636,
+      "lines": 52,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/exa.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/exa.py",
+      "status": "active",
+      "size_bytes": 1964,
+      "lines": 74,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/external.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/external.py",
+      "status": "active",
+      "size_bytes": 1646,
+      "lines": 60,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/firecrawl.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/firecrawl.py",
+      "status": "active",
+      "size_bytes": 1127,
+      "lines": 39,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/google_pse.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/google_pse.py",
+      "status": "active",
+      "size_bytes": 2500,
+      "lines": 72,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/jina_search.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/jina_search.py",
+      "status": "active",
+      "size_bytes": 1389,
+      "lines": 50,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/kagi.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/kagi.py",
+      "status": "active",
+      "size_bytes": 1335,
+      "lines": 46,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/main.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/main.py",
+      "status": "active",
+      "size_bytes": 1097,
+      "lines": 46,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/mojeek.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/mojeek.py",
+      "status": "active",
+      "size_bytes": 1153,
+      "lines": 38,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/ollama.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/ollama.py",
+      "status": "active",
+      "size_bytes": 1592,
+      "lines": 52,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/perplexity.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/perplexity.py",
+      "status": "active",
+      "size_bytes": 3191,
+      "lines": 103,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/perplexity_search.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/perplexity_search.py",
+      "status": "active",
+      "size_bytes": 2149,
+      "lines": 74,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/searchapi.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/searchapi.py",
+      "status": "active",
+      "size_bytes": 1306,
+      "lines": 48,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/searxng.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/searxng.py",
+      "status": "active",
+      "size_bytes": 3218,
+      "lines": 89,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/serpapi.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/serpapi.py",
+      "status": "active",
+      "size_bytes": 1288,
+      "lines": 48,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/serper.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/serper.py",
+      "status": "active",
+      "size_bytes": 1213,
+      "lines": 41,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/serply.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/serply.py",
+      "status": "active",
+      "size_bytes": 1953,
+      "lines": 67,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/serpstack.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/serpstack.py",
+      "status": "active",
+      "size_bytes": 1358,
+      "lines": 46,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/sougou.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/sougou.py",
+      "status": "active",
+      "size_bytes": 1918,
+      "lines": 58,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/tavily.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/tavily.py",
+      "status": "active",
+      "size_bytes": 1330,
+      "lines": 49,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/utils.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/utils.py",
+      "status": "active",
+      "size_bytes": 29371,
+      "lines": 733,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/retrieval/web/yacy.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/retrieval/web/yacy.py",
+      "status": "active",
+      "size_bytes": 2699,
+      "lines": 85,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/routers/chats.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/routers/chats.py",
+      "status": "active",
+      "size_bytes": 46040,
+      "lines": 1511,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/tools/builtin.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/tools/builtin.py",
+      "status": "active",
+      "size_bytes": 57480,
+      "lines": 1671,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/chat.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Chat interface",
+      "status": "active",
+      "size_bytes": 14923,
+      "lines": 458,
+      "tags": [
+        "chat",
+        "cli"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/images/comfyui.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/images/comfyui.py",
+      "status": "active",
+      "size_bytes": 11145,
+      "lines": 314,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/mcp/client.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/mcp/client.py",
+      "status": "active",
+      "size_bytes": 3869,
+      "lines": 115,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/apps/cerebro/open_webui/utils/webhook.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/apps/cerebro/open_webui/utils/webhook.py",
+      "status": "active",
+      "size_bytes": 2219,
+      "lines": 64,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/ui/README.md",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/ui/README.md",
+      "status": "active",
+      "size_bytes": 1760,
+      "lines": 0,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/apps/ui/__init__.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/apps/ui/__init__.py",
+      "status": "active",
+      "size_bytes": 130,
+      "lines": 7,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/api.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/core/src/sloughgpt/api.py",
+      "status": "active",
+      "size_bytes": 14895,
+      "lines": 526,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/core/src/sloughgpt/websocket.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/core/src/sloughgpt/websocket.py",
+      "status": "active",
+      "size_bytes": 20765,
+      "lines": 540,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/core/tests/api/test_endpoints.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/core/tests/api/test_endpoints.py",
+      "status": "active",
+      "size_bytes": 24191,
+      "lines": 568,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "packages/tests/e2e/test_api_optimization.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from packages/tests/e2e/test_api_optimization.py",
+      "status": "active",
+      "size_bytes": 21027,
+      "lines": 554,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "production_ready/core/COMPLETE_USER_GUIDE.md",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from production_ready/core/COMPLETE_USER_GUIDE.md",
+      "status": "active",
+      "size_bytes": 9142,
+      "lines": 0,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "production_ready/core/cli_shortcuts.py",
+      "domain": "ui",
+      "category": "utility",
+      "description": "CLI shortcuts",
+      "status": "active",
+      "size_bytes": 12423,
+      "lines": 365,
+      "tags": [
+        "cli",
+        "shortcuts"
+      ]
+    },
+    {
+      "path": "quick_stage1_validation.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from quick_stage1_validation.py",
+      "status": "active",
+      "size_bytes": 3264,
+      "lines": 112,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "quick_start_datasets.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from quick_start_datasets.py",
+      "status": "active",
+      "size_bytes": 5945,
+      "lines": 183,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "run_core_app.py",
+      "domain": "ui",
+      "category": "core",
+      "description": "Core application launcher",
+      "status": "active",
+      "size_bytes": 6772,
+      "lines": 186,
+      "tags": []
+    },
+    {
+      "path": "run_ui.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from run_ui.py",
+      "status": "active",
+      "size_bytes": 728,
+      "lines": 23,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "simple_api_server.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Simple API server",
+      "status": "active",
+      "size_bytes": 2278,
+      "lines": 98,
+      "tags": [
+        "api"
+      ]
+    },
+    {
+      "path": "simple_launcher.py",
+      "domain": "ui",
+      "category": "core",
+      "description": "Simple launcher for SloughGPT",
+      "status": "active",
+      "size_bytes": 3568,
+      "lines": 118,
+      "tags": []
+    },
+    {
+      "path": "simple_webui.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Simple WebUI implementation",
+      "status": "active",
+      "size_bytes": 8808,
+      "lines": 239,
+      "tags": [
+        "web",
+        "ui"
+      ]
+    },
+    {
+      "path": "slogpt_system_demo.py",
+      "domain": "ui",
+      "category": "demo",
+      "description": "System demonstration",
+      "status": "active",
+      "size_bytes": 15038,
+      "lines": 475,
+      "tags": [
+        "demo"
+      ]
+    },
+    {
+      "path": "sloughgpt.py",
+      "domain": "ui",
+      "category": "core",
+      "description": "Main SloughGPT application - unified AI assistant interface",
+      "status": "active",
+      "size_bytes": 13129,
+      "lines": 361,
+      "tags": []
+    },
+    {
+      "path": "sloughgpt/CLI_DOCUMENTATION.md",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/CLI_DOCUMENTATION.md",
+      "status": "active",
+      "size_bytes": 8735,
+      "lines": 0,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/DISTRIBUTED_TRAINING_GUIDE.md",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/DISTRIBUTED_TRAINING_GUIDE.md",
+      "status": "active",
+      "size_bytes": 12378,
+      "lines": 0,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/api_server.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "REST API server for SloughGPT",
+      "status": "active",
+      "size_bytes": 14438,
+      "lines": 429,
+      "tags": [
+        "api",
+        "http",
+        "rest"
+      ]
+    },
+    {
+      "path": "sloughgpt/cli.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/cli.py",
+      "status": "active",
+      "size_bytes": 11123,
+      "lines": 311,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/monitoring_dashboard.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/monitoring_dashboard.py",
+      "status": "active",
+      "size_bytes": 18869,
+      "lines": 472,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt/web_server.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from sloughgpt/web_server.py",
+      "status": "active",
+      "size_bytes": 1256,
+      "lines": 48,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "sloughgpt_integrated.py",
+      "domain": "ui",
+      "category": "core",
+      "description": "Integrated version of SloughGPT with all features",
+      "status": "active",
+      "size_bytes": 18001,
+      "lines": 422,
+      "tags": []
+    },
+    {
+      "path": "system_showcase.py",
+      "domain": "ui",
+      "category": "demo",
+      "description": "System showcase",
+      "status": "active",
+      "size_bytes": 15927,
+      "lines": 440,
+      "tags": [
+        "demo"
+      ]
+    },
+    {
+      "path": "terminal_ui/DEVELOPMENT_SUMMARY.md",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Terminal UI components",
+      "status": "active",
+      "size_bytes": 3083,
+      "lines": 0,
+      "tags": [
+        "terminal",
+        "cli"
+      ]
+    },
+    {
+      "path": "terminal_ui/FEATURE_UPDATE.md",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Terminal UI components",
+      "status": "active",
+      "size_bytes": 2994,
+      "lines": 0,
+      "tags": [
+        "terminal",
+        "cli"
+      ]
+    },
+    {
+      "path": "terminal_ui/FINAL_DEVELOPMENT_REPORT.md",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Terminal UI components",
+      "status": "active",
+      "size_bytes": 6656,
+      "lines": 0,
+      "tags": [
+        "terminal",
+        "cli"
+      ]
+    },
+    {
+      "path": "terminal_ui/FINAL_SUCCESS_REPORT.md",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Terminal UI components",
+      "status": "active",
+      "size_bytes": 4219,
+      "lines": 0,
+      "tags": [
+        "terminal",
+        "cli"
+      ]
+    },
+    {
+      "path": "terminal_ui/README.md",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Terminal UI components",
+      "status": "active",
+      "size_bytes": 2700,
+      "lines": 0,
+      "tags": [
+        "terminal",
+        "cli"
+      ]
+    },
+    {
+      "path": "test_suite_demo.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from test_suite_demo.py",
+      "status": "active",
+      "size_bytes": 5412,
+      "lines": 139,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "train_ui.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from train_ui.py",
+      "status": "active",
+      "size_bytes": 299,
+      "lines": 12,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    },
+    {
+      "path": "web_interface.py",
+      "domain": "ui",
+      "category": "interface",
+      "description": "Web interface implementation for SloughGPT",
+      "status": "active",
+      "size_bytes": 23497,
+      "lines": 550,
+      "tags": [
+        "web",
+        "frontend",
+        "http"
+      ]
+    },
+    {
+      "path": "webui.py",
+      "domain": "ui",
+      "category": "processor",
+      "description": "Auto-classified from webui.py",
+      "status": "active",
+      "size_bytes": 298,
+      "lines": 12,
+      "tags": [
+        "ui",
+        "processor"
+      ]
+    }
+  ]
+}
