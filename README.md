@@ -17,14 +17,13 @@ cd sloughgpt
 # Install dependencies
 pip install -r requirements.txt
 
-# Initialize the framework
-python -m sloughgpt setup
+# Launch domain architecture
+python launch.py
 
-# Start the API server
-python -m sloughgpt serve --host 0.0.0.0 --port 8000
-
-# Launch admin dashboard
-python -m sloughgpt admin --port 8080
+# Use CLI for operations
+python cli.py --help
+python cli.py dataset list
+python cli.py train --epochs 3
 ```
 
 ## ✨ Features
@@ -133,74 +132,55 @@ LOG_LEVEL=INFO
 ### Basic Usage
 
 ```python
-from sloughgpt import SloughGPTConfig, SloughGPT, SloughGPTTrainer
-from sloughgpt.auth import AuthManager
-from sloughgpt.cost_optimization import CostOptimizer
+# Training domain
+from domains.training import DatasetCreator, NanoGPT, Trainer
 
-# Initialize configuration
-config = SloughGPTConfig(
-    model_config={
-        "model_name": "gpt2-medium",
-        "hidden_size": 1024,
-        "num_attention_heads": 16,
-        "num_hidden_layers": 24
-    }
-)
+# Create dataset from text
+dc = DatasetCreator()
+result = dc.create_from_text("mydata", "Your training text here...")
 
-# Create model
-model = SloughGPT(config)
+# Train model
+trainer = Trainer(config)
+trainer.train(model, data)
 
-# Initialize trainer
-trainer = SloughGPTTrainer(config)
+# Cognitive domain
+from domains.cognitive import CognitiveCore, KnowledgeGraph
 
-# Start training
-trainer.train(model, data="your_training_data")
+# Infrastructure domain
+from domains.infrastructure import HaulsStore, RAGSystem
 
-# Setup authentication
-auth = AuthManager()
-user = await auth.create_user(
-    email="user@example.com",
-    password="secure_password"
-)
+# UI domain
+from domains.ui import CLIInterface, WebInterface
 
-# Track costs
-cost_optimizer = CostOptimizer()
-await cost_optimizer.set_user_budget(
-    user_id=user.id,
-    monthly_budget=500.0
-)
+# Enterprise domain
+from domains.enterprise import AuthenticationService
 ```
 
-### API Integration
+### CLI Usage
 
-```python
-import requests
+```bash
+# Dataset operations
+python cli.py dataset list
+python cli.py dataset create mydata "text here"
+python cli.py dataset score mydata
 
-# Health check
-response = requests.get("http://localhost:8000/health")
-print(response.json())
+# Training
+python cli.py train --epochs 3 --batch-size 32
 
-# Generate text
-headers = {"Authorization": "Bearer your_token"}
-data = {
-    "prompt": "Explain artificial intelligence",
-    "max_tokens": 100,
-    "temperature": 0.7
-}
-response = requests.post("http://localhost:8000/generate", 
-                        json=data, headers=headers)
-print(response.json())
+# Model operations
+python cli.py model list
+python cli.py model load gpt2
+
+# Cognitive operations
+python cli.py cognitive reason "question"
+
+# Interactive mode
+python cli.py interactive
 ```
 
 ### Admin Dashboard
 
-Access the admin dashboard at `http://localhost:8080`:
-
-- **Real-time Metrics** - Monitor system health and performance
-- **User Management** - Manage users, roles, and permissions  
-- **Cost Analytics** - Track usage and optimize spending
-- **Model Management** - Deploy and monitor AI models
-- **Audit Logs** - Review system activity and security events
+Web UI available for monitoring and management (see `domains/ui/`).
 
 ## 🔧 Development
 
@@ -212,45 +192,36 @@ git clone https://github.com/sloughgpt/sloughgpt.git
 cd sloughgpt
 
 # Create virtual environment
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install development dependencies
-pip install -r requirements-dev.txt
+# Install dependencies
+pip install -r requirements.txt
 
-# Run tests
-python -m pytest sloughgpt/tests/ -v
+# Test domains
+python launch.py
 
-# Run with coverage
-python -m pytest --cov=sloughgpt --cov-report=html
+# Run CLI
+python cli.py --help
 ```
 
 ### Project Structure
 
 ```
 sloughgpt/
-├── sloughgpt/              # Main package
-│   ├── core/              # Core infrastructure
-│   │   ├── database.py    # Database management
-│   │   ├── security.py    # Security middleware
-│   │   ├── performance.py # Performance optimization
-│   │   └── logging_system.py # Structured logging
-│   ├── admin/             # Admin dashboard
-│   │   ├── admin_app.py   # FastAPI admin server
-│   │   ├── admin_routes.py # API endpoints
-│   │   └── admin_utils.py # Dashboard utilities
-│   ├── tests/             # Test suite
-│   │   ├── test_integration.py # Integration tests
-│   │   └── conftest.py    # Test configuration
-│   ├── config.py          # Configuration management
-│   ├── neural_network.py   # Transformer model
-│   ├── trainer.py         # Training framework
-│   ├── api_server.py      # Main API server
-│   └── ...                # Other modules
+├── domains/                # Domain-based architecture
+│   ├── cognitive/         # Memory, Reasoning, Metacognition
+│   ├── enterprise/        # Auth, Users, Monitoring, Cost
+│   ├── infrastructure/    # Database, Cache, Config, RAG
+│   ├── integration/       # Cross-domain integration
+│   ├── shared/            # Shared utilities
+│   ├── training/          # Datasets, Models, Training
+│   └── ui/                # Web, API, Chat, CLI
 ├── docs/                  # Documentation
-├── scripts/               # Utility scripts
-├── requirements.txt       # Dependencies
-└── README.md             # This file
+├── datasets/              # Training datasets
+├── cli.py                 # Command-line interface
+├── launch.py              # Domain launcher
+└── requirements.txt       # Dependencies
 ```
 
 ### Contributing
