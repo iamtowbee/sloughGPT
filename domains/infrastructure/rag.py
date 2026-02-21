@@ -1,11 +1,27 @@
 """
 RAG System - Ported from recovered slo_rag.py
 Retrieval-Augmented Generation for knowledge retrieval
+
+Advanced Patterns:
+- Chain-of-Thought RAG: Decompose queries, retrieve per sub-query, synthesize
+- Self-Reflective RAG: Generate, critique, refine
+- Multi-Hop RAG: Sequential retrieval with context expansion
+
+Performance:
+- Batch processing
+- In-memory indexing (EndicIndex)
+- SQLite persistence
 """
 
 import json
-from typing import List, Dict, Optional, Any
+import sqlite3
+import hashlib
+import math
+import re
+from typing import List, Dict, Optional, Any, Callable, Tuple
 from pathlib import Path
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 
 
 class RAGSystem:
@@ -135,4 +151,944 @@ class VectorStore:
         return dot / (norm_a * norm_b)
 
 
-__all__ = ["RAGSystem", "VectorStore"]
+__all__ = ["RAGSystem", "VectorStore", "ChainOfThoughtRAG", "SelfReflectiveRAG", "MultiHopRAG", "EndicIndex", "RAGEngine"]
+
+
+class EndicIndex:
+    """
+    In-memory inverted index for fast keyword search.
+    Maps terms to document IDs for O(1) lookup.
+    """
+    
+    def __init__(self):
+        self.index: Dict[str, set] = defaultdict(set)
+        self.doc_mapping: Dict[int, Dict] = {}
+        self.term_freq: Dict[int, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    
+    def add_document(self, doc_id: int, content: str, metadata: Optional[Dict] = None) -> None:
+        """Add a document to the index."""
+        self.doc_mapping[doc_id] = {
+            "content": content,
+            "metadata": metadata or {}
+        }
+        
+        terms = self._tokenize(content)
+        for term in terms:
+            self.index[term].add(doc_id)
+            self.term_freq[doc_id][term] += 1
+    
+    def _tokenize(self, text: str) -> List[str]:
+        """Tokenize text into terms."""
+        text = text.lower()
+        terms = re.findall(r'\b\w+\b', text)
+        return terms
+    
+    def search(self, query: str, top_k: int = 10) -> List[Dict]:
+        """Search for documents matching query."""
+        query_terms = self._tokenize(query)
+        if not query_terms:
+            return []
+        
+        doc_scores: Dict[int, float] = defaultdict(float)
+        
+        num_docs = max(len(self.doc_mapping), 1)
+        
+        for term in query_terms:
+            matching_docs = self.index.get(term, set())
+            if not matching_docs:
+                continue
+            
+            doc_count = len(matching_docs)
+            idf = math.log(num_docs / doc_count) + 1  # Add 1 to avoid negative
+            
+            for doc_id in matching_docs:
+                tf = self.term_freq[doc_id].get(term, 0)
+                if tf > 0:
+                    tf_score = 1 + math.log(tf)  # log(tf) + 1
+                    tf_idf = tf_score * idf
+                    doc_scores[doc_id] += tf_idf
+        
+        ranked = sorted(doc_scores.items(), key=lambda x: x[1], reverse=True)
+        
+        results = []
+        for doc_id, score in ranked[:top_k]:
+            doc = self.doc_mapping[doc_id]
+            results.append({
+                "id": doc_id,
+                "content": doc["content"],
+                "metadata": doc["metadata"],
+                "score": score
+            })
+        
+        return results
+    
+    def clear(self) -> None:
+        """Clear the index."""
+        self.index.clear()
+        self.doc_mapping.clear()
+        self.term_freq.clear()
+
+
+class ChainOfThoughtRAG:
+    """
+    Chain-of-Thought RAG: Decompose complex queries, retrieve per sub-query, synthesize.
+    
+    Flow:
+    1. Decompose query into sub-queries
+    2. Retrieve context for each sub-query
+    3. Synthesize final response from all contexts
+    """
+    
+    def __init__(self, base_rag: 'RAGSystem', decompose_fn: Optional[Callable] = None):
+        self.rag = base_rag
+        self.decompose_fn = decompose_fn or self._default_decompose
+    
+    def _default_decompose(self, query: str) -> List[str]:
+        """Default query decomposition using sentence splitting."""
+        sentences = re.split(r'[.!?]+', query)
+        sub_queries = [s.strip() for s in sentences if s.strip()]
+        
+        if len(sub_queries) <= 1:
+            keywords = query.split()
+            if len(keywords) > 3:
+                sub_queries = [
+                    " ".join(keywords[:len(keywords)//2]),
+                    " ".join(keywords[len(keywords)//2:])
+                ]
+        
+        return sub_queries if sub_queries else [query]
+    
+    def _synthesize(self, contexts: List[str], original_query: str) -> str:
+        """Synthesize response from multiple contexts."""
+        if not contexts:
+            return "No relevant information found."
+        
+        combined = "\n\n".join(contexts)
+        return combined
+    
+    def retrieve(self, query: str) -> Dict[str, Any]:
+        """
+        Execute chain-of-thought retrieval.
+        
+        Returns:
+            Dict with sub_queries, contexts, synthesized_response
+        """
+        sub_queries = self.decompose_fn(query)
+        
+        contexts = []
+        for sq in sub_queries:
+            context = self.rag.get_context(sq, max_length=1000)
+            if context:
+                contexts.append(context)
+        
+        return {
+            "original_query": query,
+            "sub_queries": sub_queries,
+            "contexts": contexts,
+            "synthesized": self._synthesize(contexts, query)
+        }
+
+
+class SelfReflectiveRAG:
+    """
+    Self-Reflective RAG: Generate, self-critique, refine.
+    
+    Flow:
+    1. Generate initial response with context
+    2. Self-critique the response
+    3. If critique found, refine the response
+    """
+    
+    def __init__(self, base_rag: 'RAGSystem', generate_fn: Optional[Callable] = None):
+        self.rag = base_rag
+        self.generate_fn = generate_fn
+    
+    def retrieve(self, query: str, initial_response: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Execute self-reflective retrieval.
+        
+        Returns:
+            Dict with initial_response, critique, refined_response
+        """
+        context = self.rag.get_context(query)
+        
+        initial = initial_response
+        if not initial and self.generate_fn:
+            initial = self.generate_fn(query, context)
+        elif not initial:
+            initial = f"Based on context: {context[:200]}..."
+        
+        critique_query = f"Is this correct and complete? {initial}"
+        critique_context = self.rag.get_context(critique_query, max_length=500)
+        
+        refined = None
+        if critique_context and len(critique_context) > 20:
+            refined = f"{initial}\n\nRefinement: {critique_context}"
+        
+        return {
+            "query": query,
+            "context": context,
+            "initial_response": initial,
+            "critique_context": critique_context,
+            "refined_response": refined or initial
+        }
+
+
+class MultiHopRAG:
+    """
+    Multi-Hop RAG: Sequential retrieval with context expansion.
+    
+    Flow:
+    1. First hop: Get initial context
+    2. Second hop: Use context to find related info
+    3. Combine all contexts
+    """
+    
+    def __init__(self, base_rag: 'RAGSystem', max_hops: int = 2):
+        self.rag = base_rag
+        self.max_hops = max_hops
+    
+    def retrieve(self, query: str) -> Dict[str, Any]:
+        """
+        Execute multi-hop retrieval.
+        
+        Returns:
+            Dict with hops, contexts, combined_response
+        """
+        all_contexts = []
+        current_query = query
+        hop_results = []
+        
+        for hop in range(self.max_hops):
+            context = self.rag.get_context(current_query, max_length=800)
+            
+            if not context:
+                break
+            
+            all_contexts.append(context)
+            hop_results.append({
+                "hop": hop + 1,
+                "query": current_query,
+                "context": context
+            })
+            
+            if hop < self.max_hops - 1:
+                key_terms = self._extract_key_terms(context)
+                current_query = f"{query} {' '.join(key_terms[:5])}"
+        
+        combined = "\n\n---\n\n".join(all_contexts)
+        
+        return {
+            "original_query": query,
+            "hops": hop_results,
+            "contexts": all_contexts,
+            "combined": combined
+        }
+    
+    def _extract_key_terms(self, text: str, n: int = 5) -> List[str]:
+        """Extract key terms from text."""
+        words = re.findall(r'\b[a-z]{4,}\b', text.lower())
+        freq = defaultdict(int)
+        for w in words:
+            freq[w] += 1
+        sorted_terms = sorted(freq.items(), key=lambda x: x[1], reverse=True)
+        return [t[0] for t in sorted_terms[:n]]
+
+
+class RAGEngine:
+    """
+    Complete RAG Engine with all advanced patterns and optimizations.
+    
+    Features:
+    - Chain-of-Thought, Self-Reflective, Multi-Hop RAG
+    - Batch processing
+    - SQLite persistence
+    - Conversation learning
+    """
+    
+    def __init__(self, store_path: str = "runs/store/rag_store.db", enable_persistence: bool = True):
+        self.rag = RAGSystem(store_path)
+        self.endic_index = EndicIndex()
+        self.enable_persistence = enable_persistence
+        self.store_path = store_path
+        
+        self.cot_rag = ChainOfThoughtRAG(self.rag)
+        self.reflective_rag = SelfReflectiveRAG(self.rag)
+        self.multi_hop_rag = MultiHopRAG(self.rag)
+        
+        if enable_persistence:
+            self._init_db()
+            self._load_from_db()
+    
+    def _init_db(self) -> None:
+        """Initialize SQLite database."""
+        Path(self.store_path).parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(self.store_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS documents (
+                id INTEGER PRIMARY KEY,
+                content TEXT NOT NULL,
+                metadata TEXT,
+                indexed BOOLEAN DEFAULT 0
+            )
+        ''')
+        conn.commit()
+        conn.close()
+    
+    def _load_from_db(self) -> None:
+        """Load documents from SQLite."""
+        try:
+            conn = sqlite3.connect(self.store_path)
+            cursor = conn.cursor()
+            cursor.execute('SELECT id, content, metadata FROM documents WHERE indexed = 0')
+            for row in cursor.fetchall():
+                doc_id, content, metadata_json = row
+                metadata = json.loads(metadata_json) if metadata_json else {}
+                self.rag.documents.append({
+                    "id": doc_id,
+                    "content": content,
+                    "metadata": metadata
+                })
+                self.endic_index.add_document(doc_id, content, metadata)
+                cursor.execute('UPDATE documents SET indexed = 1 WHERE id = ?', (doc_id,))
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+    
+    def add_document(self, content: str, metadata: Optional[Dict] = None) -> int:
+        """Add a single document."""
+        doc_id = len(self.rag.documents)
+        self.rag.add_document(content, metadata)
+        self.endic_index.add_document(doc_id, content, metadata)
+        
+        if self.enable_persistence:
+            self._save_to_db(doc_id, content, metadata)
+        
+        return doc_id
+    
+    def add_batch_documents(self, documents: List[Dict[str, Any]]) -> int:
+        """
+        Add multiple documents efficiently using batch processing.
+        
+        Args:
+            documents: List of {"content": str, "metadata": dict}
+        
+        Returns:
+            Number of documents added
+        """
+        added = 0
+        start_id = len(self.rag.documents)
+        
+        for i, doc in enumerate(documents):
+            content = doc.get("content", "")
+            metadata = doc.get("metadata", {})
+            
+            if content:
+                doc_id = start_id + i
+                self.rag.documents.append({
+                    "id": doc_id,
+                    "content": content,
+                    "metadata": metadata
+                })
+                self.endic_index.add_document(doc_id, content, metadata)
+                added += 1
+        
+        if self.enable_persistence and added > 0:
+            self._batch_save_to_db(start_id, documents[:added])
+        
+        return added
+    
+    def _save_to_db(self, doc_id: int, content: str, metadata: Optional[Dict]) -> None:
+        """Save single document to SQLite."""
+        try:
+            conn = sqlite3.connect(self.store_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                'INSERT OR REPLACE INTO documents (id, content, metadata, indexed) VALUES (?, ?, ?, 1)',
+                (doc_id, content, json.dumps(metadata))
+            )
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+    
+    def _batch_save_to_db(self, start_id: int, documents: List[Dict]) -> None:
+        """Batch save documents to SQLite."""
+        try:
+            conn = sqlite3.connect(self.store_path)
+            cursor = conn.cursor()
+            data = [
+                (start_id + i, doc.get("content", ""), json.dumps(doc.get("metadata", {})), 1)
+                for i, doc in enumerate(documents) if doc.get("content")
+            ]
+            cursor.executemany(
+                'INSERT OR REPLACE INTO documents (id, content, metadata, indexed) VALUES (?, ?, ?, ?)',
+                data
+            )
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+    
+    def search(self, query: str, top_k: int = 5, use_index: bool = True) -> List[Dict]:
+        """Search using in-memory index for speed."""
+        if use_index:
+            return self.endic_index.search(query, top_k)
+        return self.rag.search(query, top_k)
+    
+    def cot_retrieve(self, query: str) -> Dict[str, Any]:
+        """Chain-of-Thought retrieval."""
+        return self.cot_rag.retrieve(query)
+    
+    def reflective_retrieve(self, query: str, initial_response: Optional[str] = None) -> Dict[str, Any]:
+        """Self-Reflective retrieval."""
+        return self.reflective_rag.retrieve(query, initial_response)
+    
+    def multi_hop_retrieve(self, query: str, max_hops: int = 2) -> Dict[str, Any]:
+        """Multi-Hop retrieval."""
+        self.multi_hop_rag.max_hops = max_hops
+        return self.multi_hop_rag.retrieve(query)
+    
+    def learn_from_interaction(self, user_input: str, slo_response: str, feedback: str = "neutral") -> None:
+        """
+        Learn from user interaction for continuous improvement.
+        
+        Args:
+            user_input: User's message
+            slo_response: SLO's response
+            feedback: "good", "bad", or "neutral"
+        """
+        if feedback == "good":
+            conversation_memory = [
+                {"role": "user", "content": user_input},
+                {"role": "assistant", "content": slo_response},
+                {"role": "feedback", "content": "positive"}
+            ]
+            self.add_document(
+                f"User asked: {user_input}. SLO responded: {slo_response}",
+                {"source": "conversation_feedback", "type": "positive_example"}
+            )
+        
+        elif feedback == "bad":
+            self.add_document(
+                f"Poor response to: {user_input}. Response was: {slo_response}",
+                {"source": "conversation_feedback", "type": "negative_example"}
+            )
+    
+    def get_knowledge_stats(self) -> Dict[str, Any]:
+        """Get knowledge base statistics."""
+        source_counts = defaultdict(int)
+        type_counts = defaultdict(int)
+        
+        for doc in self.rag.documents:
+            meta = doc.get("metadata", {})
+            source_counts[meta.get("source", "unknown")] += 1
+            type_counts[meta.get("type", "unknown")] += 1
+        
+        total = len(self.rag.documents)
+        source_pct = {k: round(v/total*100, 1) for k, v in source_counts.items()} if total > 0 else {}
+        
+        return {
+            "total_documents": total,
+            "by_source": dict(source_counts),
+            "by_source_percent": source_pct,
+            "by_type": dict(type_counts)
+        }
+    
+    def clear(self) -> None:
+        """Clear all documents."""
+        self.rag.clear()
+        self.endic_index.clear()
+        
+        if self.enable_persistence:
+            try:
+                conn = sqlite3.connect(self.store_path)
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM documents')
+                conn.commit()
+                conn.close()
+            except Exception:
+                pass
+    
+    def hybrid_search(
+        self,
+        query: str,
+        top_k: int = 10,
+        alpha: float = 0.7,
+        use_index: bool = True
+    ) -> List[Dict]:
+        """
+        Hybrid Search: Combine semantic and keyword search.
+        
+        Args:
+            query: Search query
+            top_k: Number of results
+            alpha: Weight for semantic (1-alpha for keyword)
+            use_index: Use in-memory index for keyword search
+        
+        Returns:
+            Combined and ranked results
+        """
+        semantic_results = self.endic_index.search(query, top_k * 2)
+        
+        if use_index:
+            keyword_results = self.rag.search(query, top_k * 2)
+        else:
+            keyword_results = semantic_results
+        
+        doc_scores: Dict[int, float] = {}
+        
+        for result in semantic_results:
+            doc_id = result["id"]
+            semantic_score = result.get("score", 0.0)
+            doc_scores[doc_id] = alpha * semantic_score
+        
+        for result in keyword_results:
+            doc_id = result.get("id", result.get("key"))
+            if doc_id is None:
+                continue
+            keyword_score = result.get("score", 0.0)
+            if doc_id in doc_scores:
+                doc_scores[doc_id] += (1 - alpha) * keyword_score
+            else:
+                doc_scores[doc_id] = (1 - alpha) * keyword_score
+        
+        ranked = sorted(doc_scores.items(), key=lambda x: x[1], reverse=True)
+        
+        results = []
+        for doc_id, score in ranked[:top_k]:
+            doc = self.rag.documents[doc_id] if doc_id < len(self.rag.documents) else None
+            if doc:
+                results.append({
+                    "id": doc_id,
+                    "content": doc["content"],
+                    "metadata": doc["metadata"],
+                    "score": score,
+                    "semantic_score": next((r["score"] for r in semantic_results if r["id"] == doc_id), 0),
+                    "keyword_score": next((r["score"] for r in keyword_results if r.get("id") == doc_id or r.get("key") == doc_id), 0),
+                })
+        
+        return results
+    
+    def temporal_search(
+        self,
+        query: str,
+        top_k: int = 10,
+        decay_factor: float = 0.95,
+        time_field: str = "timestamp"
+    ) -> List[Dict]:
+        """
+        Temporal Weighting: Weight results by recency.
+        
+        Args:
+            query: Search query
+            top_k: Number of results
+            decay_factor: Daily decay factor (0.95 = 5% decay per day)
+            time_field: Metadata field containing timestamp
+        
+        Returns:
+            Results with temporal weighting applied
+        """
+        import time as time_module
+        
+        base_results = self.endic_index.search(query, top_k * 3)
+        current_time = time_module.time()
+        
+        for result in base_results:
+            metadata = result.get("metadata", {})
+            doc_time = metadata.get(time_field)
+            
+            if doc_time:
+                try:
+                    if isinstance(doc_time, str):
+                        from datetime import datetime
+                        doc_timestamp = datetime.fromisoformat(doc_time).timestamp()
+                    else:
+                        doc_timestamp = doc_time
+                    
+                    doc_age_days = (current_time - doc_timestamp) / (24 * 3600)
+                    temporal_weight = decay_factor ** doc_age_days
+                    result["score"] = result.get("score", 1.0) * temporal_weight
+                    result["temporal_weight"] = temporal_weight
+                    result["doc_age_days"] = round(doc_age_days, 1)
+                except Exception:
+                    result["temporal_weight"] = 1.0
+            else:
+                result["temporal_weight"] = 1.0
+        
+        ranked = sorted(base_results, key=lambda x: x.get("score", 0), reverse=True)
+        return ranked[:top_k]
+    
+    def personalized_search(
+        self,
+        query: str,
+        user_profile: Dict[str, Any],
+        top_k: int = 10,
+        interest_boost: float = 1.5,
+        level_boost: float = 1.3
+    ) -> List[Dict]:
+        """
+        Personalized Ranking: Boost results based on user profile.
+        
+        Args:
+            query: Search query
+            user_profile: Dict with 'interests', 'level', 'preferences'
+            top_k: Number of results
+            interest_boost: Multiplier for matching interests
+            level_boost: Multiplier for matching difficulty level
+        
+        Returns:
+            Results personalized for the user
+        """
+        base_results = self.endic_index.search(query, top_k * 2)
+        
+        interests = user_profile.get("interests", [])
+        user_level = user_profile.get("level", "intermediate")
+        
+        for result in base_results:
+            metadata = result.get("metadata", {})
+            original_score = result.get("score", 1.0)
+            
+            boost_multiplier = 1.0
+            boost_reasons = []
+            
+            topic = metadata.get("topic")
+            if topic and topic in interests:
+                boost_multiplier *= interest_boost
+                boost_reasons.append(f"interest_match:{topic}")
+            
+            difficulty = metadata.get("difficulty")
+            if difficulty and difficulty == user_level:
+                boost_multiplier *= level_boost
+                boost_reasons.append(f"level_match:{difficulty}")
+            
+            source = metadata.get("source")
+            preferred_sources = user_profile.get("preferred_sources", [])
+            if source and source in preferred_sources:
+                boost_multiplier *= 1.2
+                boost_reasons.append(f"source_match:{source}")
+            
+            tags = metadata.get("tags", [])
+            user_tags = user_profile.get("preferred_tags", [])
+            matching_tags = set(tags) & set(user_tags)
+            if matching_tags:
+                boost_multiplier *= 1.1 ** len(matching_tags)
+                boost_reasons.append(f"tags:{matching_tags}")
+            
+            result["score"] = original_score * boost_multiplier
+            result["boost_multiplier"] = boost_multiplier
+            result["boost_reasons"] = boost_reasons
+        
+        ranked = sorted(base_results, key=lambda x: x.get("score", 0), reverse=True)
+        return ranked[:top_k]
+    
+    def advanced_search(
+        self,
+        query: str,
+        strategy: str = "hybrid",
+        user_profile: Optional[Dict[str, Any]] = None,
+        top_k: int = 10,
+        **kwargs
+    ) -> List[Dict]:
+        """
+        Unified advanced search interface.
+        
+        Args:
+            query: Search query
+            strategy: "hybrid", "temporal", "personalized", or "adaptive"
+            user_profile: User profile for personalized search
+            top_k: Number of results
+            **kwargs: Additional parameters
+        
+        Returns:
+            Search results based on strategy
+        """
+        if strategy == "hybrid":
+            return self.hybrid_search(query, top_k, alpha=kwargs.get("alpha", 0.7))
+        
+        elif strategy == "temporal":
+            return self.temporal_search(
+                query, top_k,
+                decay_factor=kwargs.get("decay_factor", 0.95)
+            )
+        
+        elif strategy == "personalized":
+            if not user_profile:
+                user_profile = {"interests": [], "level": "intermediate"}
+            return self.personalized_search(query, user_profile, top_k)
+        
+        elif strategy == "adaptive":
+            results = self.hybrid_search(query, top_k, alpha=0.5)
+            
+            if user_profile:
+                for result in results:
+                    metadata = result.get("metadata", {})
+                    interests = user_profile.get("interests", [])
+                    if metadata.get("topic") in interests:
+                        result["score"] *= 1.2
+            
+            return sorted(results, key=lambda x: x.get("score", 0), reverse=True)[:top_k]
+        
+        else:
+            return self.search(query, top_k)
+
+
+class SpacedRepetitionScheduler:
+    """
+    Spaced Repetition Learning System.
+    
+    Schedules reviews based on performance:
+    - Good performance (≥80%) → longer interval (up to 1 week)
+    - Poor performance (<80%) → shorter interval (down to 1 day)
+    """
+    
+    def __init__(self):
+        self.review_schedule: Dict[str, float] = {}
+        self.performance_history: Dict[str, List[float]] = defaultdict(list)
+        self.intervals = {
+            "day": 1 * 24 * 3600,
+            "week": 7 * 24 * 3600,
+            "month": 30 * 24 * 3600,
+        }
+    
+    def schedule_review(self, doc_id: str, performance: float) -> float:
+        """
+        Schedule next review based on performance.
+        
+        Args:
+            doc_id: Document ID
+            performance: Score 0-1
+        
+        Returns:
+            Next review timestamp
+        """
+        self.performance_history[doc_id].append(performance)
+        
+        avg_performance = sum(self.performance_history[doc_id]) / len(self.performance_history[doc_id])
+        
+        if avg_performance >= 0.9:
+            interval = self.intervals["month"]
+        elif avg_performance >= 0.8:
+            interval = self.intervals["week"]
+        elif avg_performance >= 0.6:
+            interval = 3 * 24 * 3600
+        else:
+            interval = self.intervals["day"]
+        
+        import time as time_module
+        next_review = time_module.time() + interval
+        self.review_schedule[doc_id] = next_review
+        
+        return next_review
+    
+    def get_due_reviews(self) -> List[str]:
+        """Get list of documents due for review."""
+        import time as time_module
+        current_time = time_module.time()
+        return [
+            doc_id for doc_id, review_time in self.review_schedule.items()
+            if current_time >= review_time
+        ]
+    
+    def get_next_review_time(self, doc_id: str) -> Optional[float]:
+        """Get next review time for a document."""
+        return self.review_schedule.get(doc_id)
+    
+    def get_review_stats(self) -> Dict[str, Any]:
+        """Get spaced repetition statistics."""
+        import time as time_module
+        current_time = time_module.time()
+        due = self.get_due_reviews()
+        
+        upcoming = {}
+        for doc_id, review_time in self.review_schedule.items():
+            if review_time > current_time:
+                days_until = (review_time - current_time) / (24 * 3600)
+                upcoming[doc_id] = round(days_until, 1)
+        
+        return {
+            "due_count": len(due),
+            "due_documents": due,
+            "total_scheduled": len(self.review_schedule),
+            "upcoming_reviews": upcoming,
+        }
+
+
+class SLOKnowledgeGraph:
+    """
+    Knowledge Graph for semantic relationship tracking.
+    
+    Tracks concepts and their relationships to:
+    - Expand queries with related concepts
+    - Build deeper understanding of domain
+    - Enable graph-based reasoning
+    """
+    
+    def __init__(self):
+        self.concepts: Dict[str, List[float]] = {}
+        self.concept_metadata: Dict[str, Dict[str, Any]] = {}
+        self.relations: Dict[Tuple[str, str, str], float] = {}
+        self.concept_definitions: Dict[str, str] = {}
+    
+    def _simple_embedding(self, text: str) -> List[float]:
+        """Generate simple embedding from text hash."""
+        import hashlib
+        h = hashlib.sha256(text.encode()).hexdigest()
+        vec = [int(h[i:i+2], 16) / 255.0 for i in range(0, 64, 2)]
+        while len(vec) < 32:
+            vec.append(0.0)
+        return vec[:32]
+    
+    def add_concept(self, concept: str, definition: str, metadata: Optional[Dict] = None) -> None:
+        """Add a concept to the knowledge graph."""
+        embedding = self._simple_embedding(definition)
+        
+        self.concepts[concept] = embedding
+        self.concept_definitions[concept] = definition
+        self.concept_metadata[concept] = metadata or {}
+        self.concept_metadata[concept]["definition"] = definition
+    
+    def add_relation(
+        self,
+        source: str,
+        relation: str,
+        target: str,
+        weight: float = 1.0
+    ) -> None:
+        """
+        Add a relation between concepts.
+        
+        Args:
+            source: Source concept
+            relation: Type of relation (e.g., "is_a", "related_to", "part_of")
+            target: Target concept
+            weight: Relation strength (0-1)
+        """
+        self.relations[(source, relation, target)] = weight
+    
+    def expand_query(self, query: str, max_concepts: int = 5) -> str:
+        """
+        Expand query with related concepts from the graph.
+        
+        Args:
+            query: Original query
+            max_concepts: Maximum related concepts to add
+        
+        Returns:
+            Expanded query
+        """
+        query_lower = query.lower()
+        query_terms = set(query_lower.split())
+        
+        related_concepts = []
+        
+        for (source, relation, target) in self.relations:
+            if source in query_terms:
+                related_concepts.append(target)
+            if target in query_terms:
+                related_concepts.append(source)
+        
+        related_concepts = related_concepts[:max_concepts]
+        
+        expanded = f"{query} {' '.join(related_concepts)}"
+        return expanded
+    
+    def find_related(self, concept: str, max_results: int = 5) -> List[Dict]:
+        """Find related concepts with partial/fuzzy matching."""
+        concept_lower = concept.lower()
+        
+        matching_concepts = [c for c in self.concepts if concept_lower in c.lower() or c.lower() in concept_lower]
+        
+        if not matching_concepts and self.concepts:
+            matching_concepts = list(self.concepts.keys())[:3]
+        
+        related = []
+        
+        for match in matching_concepts:
+            for (source, relation, target), weight in self.relations.items():
+                if source == match:
+                    related.append({
+                        "concept": target,
+                        "relation": relation,
+                        "weight": weight
+                    })
+                elif target == match:
+                    related.append({
+                        "concept": source,
+                        "relation": relation,
+                        "weight": weight
+                    })
+        
+        seen = set()
+        unique_related = []
+        for r in related:
+            if r["concept"] not in seen:
+                seen.add(r["concept"])
+                unique_related.append(r)
+        
+        unique_related.sort(key=lambda x: x["weight"], reverse=True)
+        return unique_related[:max_results]
+    
+    def get_concept_info(self, concept: str) -> Optional[Dict]:
+        """Get full concept information."""
+        if concept not in self.concepts:
+            return None
+        
+        return {
+            "concept": concept,
+            "definition": self.concept_definitions.get(concept, ""),
+            "metadata": self.concept_metadata.get(concept, {}),
+            "related": self.find_related(concept)
+        }
+    
+    def build_from_documents(self, documents: List[Dict], auto_relations: bool = True) -> None:
+        """
+        Build knowledge graph from documents.
+        
+        Args:
+            documents: List of {"content": str, "metadata": dict}
+            auto_relations: Auto-generate relations based on co-occurrence
+        """
+        concept_documents: Dict[str, List[str]] = defaultdict(list)
+        
+        for doc in documents:
+            content = doc.get("content", "")
+            metadata = doc.get("metadata", {})
+            
+            words = content.lower().split()
+            unique_words = set(w for w in words if len(w) > 4)
+            
+            for word in unique_words:
+                concept_documents[word].append(content)
+        
+        for concept, contents in concept_documents.items():
+            if len(contents) >= 1:
+                definition = contents[0][:200]
+                self.add_concept(concept, definition)
+        
+        if auto_relations:
+            concepts = list(self.concepts.keys())
+            for i, c1 in enumerate(concepts):
+                for c2 in concepts[i+1:i+4]:
+                    self.add_relation(c1, "related_to", c2, weight=0.5)
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get knowledge graph statistics."""
+        relation_types = defaultdict(int)
+        for (_, relation, _) in self.relations:
+            relation_types[relation] += 1
+        
+        return {
+            "total_concepts": len(self.concepts),
+            "total_relations": len(self.relations),
+            "relation_types": dict(relation_types),
+        }
+
+
+__all__ = [
+    "RAGSystem", "VectorStore", "ChainOfThoughtRAG", "SelfReflectiveRAG",
+    "MultiHopRAG", "EndicIndex", "RAGEngine",
+    "SpacedRepetitionScheduler", "SLOKnowledgeGraph"
+]

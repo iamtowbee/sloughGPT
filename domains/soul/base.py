@@ -85,6 +85,8 @@ class Thought:
     reasoning: List[str] = field(default_factory=list)
     insights: List[str] = field(default_factory=list)
     timestamp: datetime = field(default_factory=datetime.now)
+    rag_context: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -93,6 +95,8 @@ class Thought:
             "confidence": self.confidence,
             "reasoning": self.reasoning,
             "insights": self.insights,
+            "rag_context": self.rag_context,
+            "metadata": self.metadata,
         }
 
 

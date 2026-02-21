@@ -1,0 +1,11 @@
+{
+  "vocab_size": 5000,
+  "n_embed": 256,
+  "n_layer": 6,
+  "n_head": 8,
+  "block_size": 128,
+  "epochs": 10,
+  "batch_size": 64,
+  "lr": 0.001,
+  "data_file": "datasets/karpathy/corpus.jsonl"
+}
