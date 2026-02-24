@@ -23,7 +23,7 @@ from collections import defaultdict
 import logging
 
 from .foundation import FoundationSLO, SLOConfig, Experience, Thought, EvolutionStage
-from ..infrastructure.rag import RAGEngine, SpacedRepetitionScheduler, SLOKnowledgeGraph
+from ..infrastructure import RAGEngine, SpacedRepetitionScheduler, SLOKnowledgeGraph
 
 logger = logging.getLogger("slo.cognitive")
 

@@ -24,7 +24,7 @@ import sqlite3
 import hashlib
 import math
 import re
-from typing import List, Dict, Optional, Any, Callable, Tuple
+from typing import List, Dict, Optional, Any, Callable, Tuple, Union
 from pathlib import Path
 from collections import defaultdict, Counter
 from concurrent.futures import ThreadPoolExecutor
@@ -151,6 +151,254 @@ class QueryExpander:
         return list(set(expanded))
 
 
+class HybridSearchEngine:
+    """
+    Hybrid Search Engine: Combines semantic and keyword search.
+    
+    Combines vector/embedding-based search with keyword-based search
+    using a weighted scoring approach.
+    """
+    
+    def __init__(self, alpha: float = 0.7):
+        """
+        Args:
+            alpha: Weight for semantic search (1-alpha for keyword).
+                   Higher = more semantic, lower = more keyword matching.
+        """
+        self.alpha = alpha
+    
+    def search(
+        self,
+        semantic_search_fn: Callable[[str, int], List[Dict]],
+        keyword_search_fn: Callable[[str, int], List[Dict]],
+        query: str,
+        top_k: int = 10
+    ) -> List[Dict]:
+        """
+        Execute hybrid search combining semantic and keyword results.
+        
+        Args:
+            semantic_search_fn: Function that takes (query, top_k) returns semantic results
+            keyword_search_fn: Function that takes (query, top_k) returns keyword results
+            query: Search query
+            top_k: Number of results to return
+            
+        Returns:
+            Combined and ranked results with scores from both methods
+        """
+        semantic_results = semantic_search_fn(query, top_k * 2)
+        keyword_results = keyword_search_fn(query, top_k * 2)
+        
+        doc_scores: Dict[int, Tuple[float, float, float]] = {}
+        
+        for result in semantic_results:
+            doc_id = result["id"]
+            semantic_score = result.get("score", 0.0)
+            doc_scores[doc_id] = (semantic_score, 0.0, 0.0)
+        
+        for result in keyword_results:
+            doc_id = result.get("id", result.get("key"))
+            if doc_id is None:
+                continue
+            keyword_score = result.get("score", 0.0)
+            
+            if doc_id in doc_scores:
+                sem, kw, _ = doc_scores[doc_id]
+                doc_scores[doc_id] = (sem, keyword_score, 0.0)
+            else:
+                doc_scores[doc_id] = (0.0, keyword_score, 0.0)
+        
+        ranked = []
+        for doc_id, (semantic_score, keyword_score, _) in doc_scores.items():
+            combined = self.alpha * semantic_score + (1 - self.alpha) * keyword_score
+            ranked.append((doc_id, combined, semantic_score, keyword_score))
+        
+        ranked.sort(key=lambda x: x[1], reverse=True)
+        
+        results = []
+        for doc_id, score, sem_score, kw_score in ranked[:top_k]:
+            results.append({
+                "id": doc_id,
+                "score": score,
+                "semantic_score": sem_score,
+                "keyword_score": kw_score,
+            })
+        
+        return results
+    
+    def set_alpha(self, alpha: float) -> None:
+        """Update the semantic/keyword weight balance."""
+        self.alpha = max(0.0, min(1.0, alpha))
+
+
+class TemporalRankingEngine:
+    """
+    Temporal Ranking Engine: Weights results by recency.
+    
+    Applies exponential decay to older documents, prioritizing
+    fresh content while still retaining valuable older knowledge.
+    """
+    
+    def __init__(self, decay_factor: float = 0.95, time_field: str = "timestamp"):
+        """
+        Args:
+            decay_factor: Daily decay factor (0.95 = 5% decay per day)
+            time_field: Metadata field containing timestamp
+        """
+        self.decay_factor = decay_factor
+        self.time_field = time_field
+    
+    def rank(
+        self,
+        results: List[Dict],
+        current_time: Optional[float] = None
+    ) -> List[Dict]:
+        """
+        Apply temporal weighting to search results.
+        
+        Args:
+            results: Base search results
+            current_time: Current timestamp (defaults to now)
+            
+        Returns:
+            Results with temporal weights and adjusted scores
+        """
+        import time as time_module
+        
+        if current_time is None:
+            current_time = time_module.time()
+        
+        for result in results:
+            metadata = result.get("metadata", {})
+            doc_time = metadata.get(self.time_field)
+            
+            if doc_time:
+                temporal_weight, doc_age = self._calculate_weight(doc_time, current_time)
+                result["temporal_weight"] = temporal_weight
+                result["doc_age_days"] = round(doc_age, 1)
+                result["score"] = result.get("score", 1.0) * temporal_weight
+            else:
+                result["temporal_weight"] = 1.0
+                result["doc_age_days"] = 0.0
+        
+        ranked = sorted(results, key=lambda x: x.get("score", 0), reverse=True)
+        return ranked
+    
+    def _calculate_weight(self, doc_time: Any, current_time: float) -> Tuple[float, float]:
+        """Calculate temporal weight for a document."""
+        try:
+            if isinstance(doc_time, str):
+                from datetime import datetime
+                doc_timestamp = datetime.fromisoformat(doc_time).timestamp()
+            else:
+                doc_timestamp = doc_time
+            
+            doc_age_days = (current_time - doc_timestamp) / (24 * 3600)
+            temporal_weight = self.decay_factor ** doc_age_days
+            return temporal_weight, doc_age_days
+        except Exception:
+            return 1.0, 0.0
+    
+    def set_decay_factor(self, decay_factor: float) -> None:
+        """Update the decay factor."""
+        self.decay_factor = max(0.0, min(1.0, decay_factor))
+
+
+class PersonalizedRankingEngine:
+    """
+    Personalized Ranking Engine: Boosts results based on user profile.
+    
+    Applies relevance boosting based on user interests, expertise level,
+    and content preferences.
+    """
+    
+    def __init__(
+        self,
+        interest_boost: float = 1.5,
+        level_boost: float = 1.3,
+        tag_boost: float = 1.2
+    ):
+        """
+        Args:
+            interest_boost: Multiplier for matching interests
+            level_boost: Multiplier for matching difficulty level
+            tag_boost: Multiplier for matching preferred tags
+        """
+        self.interest_boost = interest_boost
+        self.level_boost = level_boost
+        self.tag_boost = tag_boost
+    
+    def rank(
+        self,
+        results: List[Dict],
+        user_profile: Dict[str, Any]
+    ) -> List[Dict]:
+        """
+        Apply personalization to search results.
+        
+        Args:
+            results: Base search results
+            user_profile: Dict with 'interests', 'level', 'preferred_tags'
+            
+        Returns:
+            Results with personalization boosts applied
+        """
+        interests = user_profile.get("interests", [])
+        user_level = user_profile.get("level", "intermediate")
+        preferred_tags = user_profile.get("preferred_tags", [])
+        
+        for result in results:
+            boost_multiplier = 1.0
+            boost_reasons = []
+            
+            metadata = result.get("metadata", {})
+            doc_tags = metadata.get("tags", [])
+            doc_topics = metadata.get("topics", [])
+            doc_level = metadata.get("level", "intermediate")
+            
+            if interests:
+                matched_interests = [
+                    i for i in interests
+                    if i.lower() in (doc_tags + doc_topics)
+                ]
+                if matched_interests:
+                    boost_multiplier *= self.interest_boost
+                    boost_reasons.append(f"interest_match:{matched_interests}")
+            
+            if preferred_tags and doc_tags:
+                matched_tags = [t for t in doc_tags if t in preferred_tags]
+                if matched_tags:
+                    boost_multiplier *= self.tag_boost
+                    boost_reasons.append(f"tag_match:{matched_tags}")
+            
+            if doc_level == user_level:
+                boost_multiplier *= self.level_boost
+                boost_reasons.append(f"level_match:{doc_level}")
+            
+            result["personalization"] = {
+                "boost_multiplier": boost_multiplier,
+                "boost_reasons": boost_reasons,
+            }
+            result["score"] = result.get("score", 1.0) * boost_multiplier
+        
+        ranked = sorted(results, key=lambda x: x.get("score", 0), reverse=True)
+        return ranked
+    
+    def set_boost_factors(
+        self,
+        interest_boost: Optional[float] = None,
+        level_boost: Optional[float] = None,
+        tag_boost: Optional[float] = None
+    ) -> None:
+        """Update boost factors."""
+        if interest_boost is not None:
+            self.interest_boost = interest_boost
+        if level_boost is not None:
+            self.level_boost = level_boost
+        if tag_boost is not None:
+            self.tag_boost = tag_boost
+
+
 class RAGSystem:
     """RAG system for knowledge retrieval"""
     
@@ -168,15 +416,15 @@ class RAGSystem:
         }
         self.documents.append(doc)
     
-    def add_training_knowledge(self, dataset_path: str, metadata: Optional[Dict] = None) -> int:
+    def add_training_knowledge(self, dataset_path: Union[str, Path], metadata: Optional[Dict] = None) -> int:
         """Add dataset information to knowledge base."""
-        dataset_path = Path(dataset_path)
-        if not dataset_path.exists():
+        path_obj = Path(dataset_path) if not isinstance(dataset_path, Path) else dataset_path
+        if not path_obj.exists():
             return 0
         
         added = 0
-        if dataset_path.suffix == '.jsonl':
-            with open(dataset_path, 'r') as f:
+        if path_obj.suffix == '.jsonl':
+            with open(path_obj, 'r') as f:
                 for i, line in enumerate(f):
                     if line.strip():
                         try:
@@ -186,7 +434,7 @@ class RAGSystem:
                                 doc_metadata = {
                                     **(metadata or {}),
                                     'source': 'training_dataset',
-                                    'dataset_name': dataset_path.name,
+                                    'dataset_name': path_obj.name,
                                     'line_number': i
                                 }
                                 self.add_document(content, doc_metadata)
@@ -650,7 +898,7 @@ class RAGEngine:
     - Conversation learning
     """
     
-    def __init__(self, store_path: str = "runs/store/rag_store.db", enable_persistence: bool = True):
+    def __init__(self, store_path: Union[str, Path] = "runs/store/rag_store.db", enable_persistence: bool = True):
         self.rag = RAGSystem(store_path)
         self.endic_index = EndicIndex()
         self.enable_persistence = enable_persistence
@@ -659,6 +907,14 @@ class RAGEngine:
         self.cot_rag = ChainOfThoughtRAG(self.rag)
         self.reflective_rag = SelfReflectiveRAG(self.rag)
         self.multi_hop_rag = MultiHopRAG(self.rag)
+        
+        self.hybrid_search_engine = HybridSearchEngine(alpha=0.7)
+        self.temporal_ranking_engine = TemporalRankingEngine(decay_factor=0.95)
+        self.personalized_ranking_engine = PersonalizedRankingEngine(
+            interest_boost=1.5,
+            level_boost=1.3,
+            tag_boost=1.2
+        )
         
         if enable_persistence:
             self._init_db()
@@ -875,43 +1131,28 @@ class RAGEngine:
         Returns:
             Combined and ranked results
         """
-        semantic_results = self.endic_index.search(query, top_k * 2)
+        if alpha != self.hybrid_search_engine.alpha:
+            self.hybrid_search_engine.set_alpha(alpha)
         
-        if use_index:
-            keyword_results = self.rag.search(query, top_k * 2)
-        else:
-            keyword_results = semantic_results
-        
-        doc_scores: Dict[int, float] = {}
-        
-        for result in semantic_results:
-            doc_id = result["id"]
-            semantic_score = result.get("score", 0.0)
-            doc_scores[doc_id] = alpha * semantic_score
-        
-        for result in keyword_results:
-            doc_id = result.get("id", result.get("key"))
-            if doc_id is None:
-                continue
-            keyword_score = result.get("score", 0.0)
-            if doc_id in doc_scores:
-                doc_scores[doc_id] += (1 - alpha) * keyword_score
-            else:
-                doc_scores[doc_id] = (1 - alpha) * keyword_score
-        
-        ranked = sorted(doc_scores.items(), key=lambda x: x[1], reverse=True)
+        merged_results = self.hybrid_search_engine.search(
+            semantic_search_fn=lambda q, k: self.endic_index.search(q, k),
+            keyword_search_fn=lambda q, k: self.rag.search(q, k) if use_index else self.endic_index.search(q, k),
+            query=query,
+            top_k=top_k
+        )
         
         results = []
-        for doc_id, score in ranked[:top_k]:
+        for result in merged_results:
+            doc_id = result["id"]
             doc = self.rag.documents[doc_id] if doc_id < len(self.rag.documents) else None
             if doc:
                 results.append({
                     "id": doc_id,
                     "content": doc["content"],
                     "metadata": doc["metadata"],
-                    "score": score,
-                    "semantic_score": next((r["score"] for r in semantic_results if r["id"] == doc_id), 0),
-                    "keyword_score": next((r["score"] for r in keyword_results if r.get("id") == doc_id or r.get("key") == doc_id), 0),
+                    "score": result["score"],
+                    "semantic_score": result["semantic_score"],
+                    "keyword_score": result["keyword_score"],
                 })
         
         return results
@@ -935,34 +1176,14 @@ class RAGEngine:
         Returns:
             Results with temporal weighting applied
         """
-        import time as time_module
+        if decay_factor != self.temporal_ranking_engine.decay_factor:
+            self.temporal_ranking_engine.set_decay_factor(decay_factor)
+        self.temporal_ranking_engine.time_field = time_field
         
         base_results = self.endic_index.search(query, top_k * 3)
-        current_time = time_module.time()
         
-        for result in base_results:
-            metadata = result.get("metadata", {})
-            doc_time = metadata.get(time_field)
-            
-            if doc_time:
-                try:
-                    if isinstance(doc_time, str):
-                        from datetime import datetime
-                        doc_timestamp = datetime.fromisoformat(doc_time).timestamp()
-                    else:
-                        doc_timestamp = doc_time
-                    
-                    doc_age_days = (current_time - doc_timestamp) / (24 * 3600)
-                    temporal_weight = decay_factor ** doc_age_days
-                    result["score"] = result.get("score", 1.0) * temporal_weight
-                    result["temporal_weight"] = temporal_weight
-                    result["doc_age_days"] = round(doc_age_days, 1)
-                except Exception:
-                    result["temporal_weight"] = 1.0
-            else:
-                result["temporal_weight"] = 1.0
+        ranked = self.temporal_ranking_engine.rank(base_results)
         
-        ranked = sorted(base_results, key=lambda x: x.get("score", 0), reverse=True)
         return ranked[:top_k]
     
     def personalized_search(
@@ -971,7 +1192,8 @@ class RAGEngine:
         user_profile: Dict[str, Any],
         top_k: int = 10,
         interest_boost: float = 1.5,
-        level_boost: float = 1.3
+        level_boost: float = 1.3,
+        tag_boost: float = 1.2
     ) -> List[Dict]:
         """
         Personalized Ranking: Boost results based on user profile.
@@ -982,50 +1204,24 @@ class RAGEngine:
             top_k: Number of results
             interest_boost: Multiplier for matching interests
             level_boost: Multiplier for matching difficulty level
+            tag_boost: Multiplier for matching preferred tags
         
         Returns:
             Results personalized for the user
         """
+        if (interest_boost != self.personalized_ranking_engine.interest_boost or
+            level_boost != self.personalized_ranking_engine.level_boost or
+            tag_boost != self.personalized_ranking_engine.tag_boost):
+            self.personalized_ranking_engine.set_boost_factors(
+                interest_boost=interest_boost,
+                level_boost=level_boost,
+                tag_boost=tag_boost
+            )
+        
         base_results = self.endic_index.search(query, top_k * 2)
         
-        interests = user_profile.get("interests", [])
-        user_level = user_profile.get("level", "intermediate")
+        ranked = self.personalized_ranking_engine.rank(base_results, user_profile)
         
-        for result in base_results:
-            metadata = result.get("metadata", {})
-            original_score = result.get("score", 1.0)
-            
-            boost_multiplier = 1.0
-            boost_reasons = []
-            
-            topic = metadata.get("topic")
-            if topic and topic in interests:
-                boost_multiplier *= interest_boost
-                boost_reasons.append(f"interest_match:{topic}")
-            
-            difficulty = metadata.get("difficulty")
-            if difficulty and difficulty == user_level:
-                boost_multiplier *= level_boost
-                boost_reasons.append(f"level_match:{difficulty}")
-            
-            source = metadata.get("source")
-            preferred_sources = user_profile.get("preferred_sources", [])
-            if source and source in preferred_sources:
-                boost_multiplier *= 1.2
-                boost_reasons.append(f"source_match:{source}")
-            
-            tags = metadata.get("tags", [])
-            user_tags = user_profile.get("preferred_tags", [])
-            matching_tags = set(tags) & set(user_tags)
-            if matching_tags:
-                boost_multiplier *= 1.1 ** len(matching_tags)
-                boost_reasons.append(f"tags:{matching_tags}")
-            
-            result["score"] = original_score * boost_multiplier
-            result["boost_multiplier"] = boost_multiplier
-            result["boost_reasons"] = boost_reasons
-        
-        ranked = sorted(base_results, key=lambda x: x.get("score", 0), reverse=True)
         return ranked[:top_k]
     
     def advanced_search(
@@ -1079,85 +1275,7 @@ class RAGEngine:
             return self.search(query, top_k)
 
 
-class SpacedRepetitionScheduler:
-    """
-    Spaced Repetition Learning System.
-    
-    Schedules reviews based on performance:
-    - Good performance (≥80%) → longer interval (up to 1 week)
-    - Poor performance (<80%) → shorter interval (down to 1 day)
-    """
-    
-    def __init__(self):
-        self.review_schedule: Dict[str, float] = {}
-        self.performance_history: Dict[str, List[float]] = defaultdict(list)
-        self.intervals = {
-            "day": 1 * 24 * 3600,
-            "week": 7 * 24 * 3600,
-            "month": 30 * 24 * 3600,
-        }
-    
-    def schedule_review(self, doc_id: str, performance: float) -> float:
-        """
-        Schedule next review based on performance.
-        
-        Args:
-            doc_id: Document ID
-            performance: Score 0-1
-        
-        Returns:
-            Next review timestamp
-        """
-        self.performance_history[doc_id].append(performance)
-        
-        avg_performance = sum(self.performance_history[doc_id]) / len(self.performance_history[doc_id])
-        
-        if avg_performance >= 0.9:
-            interval = self.intervals["month"]
-        elif avg_performance >= 0.8:
-            interval = self.intervals["week"]
-        elif avg_performance >= 0.6:
-            interval = 3 * 24 * 3600
-        else:
-            interval = self.intervals["day"]
-        
-        import time as time_module
-        next_review = time_module.time() + interval
-        self.review_schedule[doc_id] = next_review
-        
-        return next_review
-    
-    def get_due_reviews(self) -> List[str]:
-        """Get list of documents due for review."""
-        import time as time_module
-        current_time = time_module.time()
-        return [
-            doc_id for doc_id, review_time in self.review_schedule.items()
-            if current_time >= review_time
-        ]
-    
-    def get_next_review_time(self, doc_id: str) -> Optional[float]:
-        """Get next review time for a document."""
-        return self.review_schedule.get(doc_id)
-    
-    def get_review_stats(self) -> Dict[str, Any]:
-        """Get spaced repetition statistics."""
-        import time as time_module
-        current_time = time_module.time()
-        due = self.get_due_reviews()
-        
-        upcoming = {}
-        for doc_id, review_time in self.review_schedule.items():
-            if review_time > current_time:
-                days_until = (review_time - current_time) / (24 * 3600)
-                upcoming[doc_id] = round(days_until, 1)
-        
-        return {
-            "due_count": len(due),
-            "due_documents": due,
-            "total_scheduled": len(self.review_schedule),
-            "upcoming_reviews": upcoming,
-        }
+
 
 
 class SLOKnowledgeGraph:
