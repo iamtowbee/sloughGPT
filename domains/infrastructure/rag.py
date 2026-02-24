@@ -11,6 +11,12 @@ Performance:
 - Batch processing
 - In-memory indexing (EndicIndex)
 - SQLite persistence
+
+Search Quality Improvements:
+- BM25 ranking
+- Fuzzy matching
+- Query expansion
+- Re-ranking
 """
 
 import json
@@ -20,8 +26,129 @@ import math
 import re
 from typing import List, Dict, Optional, Any, Callable, Tuple
 from pathlib import Path
-from collections import defaultdict
+from collections import defaultdict, Counter
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
+
+
+class BM25:
+    """BM25 ranking algorithm for better search quality."""
+    
+    def __init__(self, k1: float = 1.5, b: float = 0.75):
+        self.k1 = k1
+        self.b = b
+        self.doc_lengths = []
+        self.avgdl = 0
+        self.doc_freqs = []
+        self.idf = {}
+        self.corpus_size = 0
+        
+    def fit(self, corpus: List[str]):
+        """Fit BM25 on corpus."""
+        self.corpus_size = len(corpus)
+        self.doc_lengths = []
+        self.doc_freqs = []
+        
+        nd = defaultdict(int)
+        
+        for document in corpus:
+            self.doc_lengths.append(len(document))
+            frequencies = Counter(document.split())
+            self.doc_freqs.append(frequencies)
+            
+            for term in frequencies:
+                nd[term] += 1
+        
+        self.avgdl = sum(self.doc_lengths) / max(1, self.corpus_size)
+        
+        for term, df in nd.items():
+            self.idf[term] = math.log((self.corpus_size - df + 0.5) / (df + 0.5) + 1)
+    
+    def get_scores(self, query: str) -> List[float]:
+        """Get BM25 scores for all documents."""
+        scores = [0.0] * self.corpus_size
+        query_terms = query.lower().split()
+        
+        for i, doc in enumerate(self.doc_freqs):
+            doc_len = self.doc_lengths[i]
+            
+            for term in query_terms:
+                if term not in self.idf:
+                    continue
+                
+                tf = doc.get(term, 0)
+                idf = self.idf[term]
+                
+                numerator = tf * (self.k1 + 1)
+                denominator = tf + self.k1 * (1 - self.b + self.b * doc_len / max(1, self.avgdl))
+                
+                scores[i] += idf * (numerator / max(0.001, denominator))
+        
+        return scores
+
+
+class FuzzyMatcher:
+    """Fuzzy string matching for better search."""
+    
+    @staticmethod
+    def levenshtein(s1: str, s2: str) -> int:
+        """Calculate Levenshtein distance."""
+        if len(s1) < len(s2):
+            return FuzzyMatcher.levenshtein(s2, s1)
+        
+        if len(s2) == 0:
+            return len(s1)
+        
+        previous_row = range(len(s2) + 1)
+        for i, c1 in enumerate(s1):
+            current_row = [i + 1]
+            for j, c2 in enumerate(s2):
+                insertions = previous_row[j + 1] + 1
+                deletions = current_row[j] + 1
+                substitutions = previous_row[j] + (c1 != c2)
+                current_row.append(min(insertions, deletions, substitutions))
+            previous_row = current_row
+        
+        return previous_row[-1]
+    
+    @staticmethod
+    def similarity(s1: str, s2: str) -> float:
+        """Calculate similarity ratio 0-1."""
+        max_len = max(len(s1), len(s2))
+        if max_len == 0:
+            return 1.0
+        return 1 - FuzzyMatcher.levenshtein(s1.lower(), s2.lower()) / max_len
+
+
+class QueryExpander:
+    """Expand queries with synonyms and related terms."""
+    
+    def __init__(self):
+        self.synonyms = {
+            "ai": ["artificial intelligence", "machine intelligence", "AI"],
+            "ml": ["machine learning", "ML", "statistical learning"],
+            "dl": ["deep learning", "neural networks", "DL"],
+            "nlp": ["natural language processing", "text processing", "NLP"],
+            "llm": ["large language model", "language model", "GPT"],
+            "rag": ["retrieval augmented", "retrieval-augmented", "RAG"],
+            "learn": ["study", "train", "understand", "acquire"],
+            "model": ["network", "system", "architecture"],
+            "data": ["information", "dataset", "corpus", "examples"],
+            "memory": ["storage", "recall", "persistence", "context"],
+            "think": ["reason", "process", "analyze", "reasoning"],
+        }
+    
+    def expand(self, query: str) -> List[str]:
+        """Expand query with synonyms."""
+        expanded = [query]
+        query_lower = query.lower()
+        
+        for term, syns in self.synonyms.items():
+            if term in query_lower:
+                for syn in syns:
+                    expanded.append(query_lower.replace(term, syn))
+        
+        return list(set(expanded))
 
 
 class RAGSystem:
@@ -84,6 +211,123 @@ class RAGSystem:
                     "score": score
                 })
         
+        results.sort(key=lambda x: x["score"], reverse=True)
+        return results[:top_k]
+    
+    def search_bm25(self, query: str, top_k: int = 5) -> List[Dict]:
+        """BM25-based search for better ranking."""
+        if not self.documents:
+            return []
+        
+        corpus = [doc["content"].lower() for doc in self.documents]
+        
+        try:
+            bm25 = BM25()
+            bm25.fit(corpus)
+            scores = bm25.get_scores(query.lower())
+            
+            results = []
+            for i, score in enumerate(scores):
+                if score > 0:
+                    results.append({
+                        "content": self.documents[i]["content"],
+                        "metadata": self.documents[i]["metadata"],
+                        "score": score
+                    })
+            
+            results.sort(key=lambda x: x["score"], reverse=True)
+            return results[:top_k]
+        except:
+            return self.search(query, top_k)
+    
+    def search_fuzzy(self, query: str, top_k: int = 5, threshold: float = 0.6) -> List[Dict]:
+        """Fuzzy search for partial matches."""
+        if not self.documents:
+            return []
+        
+        query_lower = query.lower()
+        query_words = query_lower.split()
+        
+        results = []
+        for doc in self.documents:
+            content_lower = doc["content"].lower()
+            content_words = content_lower.split()
+            
+            max_score = 0
+            for qw in query_words:
+                for cw in content_words:
+                    sim = FuzzyMatcher.similarity(qw, cw)
+                    if sim >= threshold:
+                        max_score = max(max_score, sim)
+            
+            if max_score > 0:
+                results.append({
+                    "content": doc["content"],
+                    "metadata": doc["metadata"],
+                    "score": max_score
+                })
+        
+        results.sort(key=lambda x: x["score"], reverse=True)
+        return results[:top_k]
+    
+    def search_expanded(self, query: str, top_k: int = 5) -> List[Dict]:
+        """Search with query expansion."""
+        expander = QueryExpander()
+        expanded_queries = expander.expand(query)
+        
+        all_results = []
+        seen_content = set()
+        
+        for q in expanded_queries:
+            results = self.search(q, top_k * 2)
+            for r in results:
+                content_hash = hash(r["content"][:50])
+                if content_hash not in seen_content:
+                    seen_content.add(content_hash)
+                    all_results.append(r)
+        
+        all_results.sort(key=lambda x: x["score"], reverse=True)
+        return all_results[:top_k]
+    
+    def search_hybrid(self, query: str, top_k: int = 5) -> List[Dict]:
+        """Combine BM25, fuzzy, and keyword search."""
+        bm25_results = self.search_bm25(query, top_k * 2)
+        fuzzy_results = self.search_fuzzy(query, top_k * 2)
+        keyword_results = self.search(query, top_k * 2)
+        
+        combined = {}
+        
+        for r in bm25_results:
+            key = r["content"][:50]
+            combined[key] = {
+                "content": r["content"],
+                "metadata": r["metadata"],
+                "score": r.get("score", 0) * 0.4
+            }
+        
+        for r in fuzzy_results:
+            key = r["content"][:50]
+            if key in combined:
+                combined[key]["score"] += r.get("score", 0) * 0.3
+            else:
+                combined[key] = {
+                    "content": r["content"],
+                    "metadata": r["metadata"],
+                    "score": r.get("score", 0) * 0.3
+                }
+        
+        for r in keyword_results:
+            key = r["content"][:50]
+            if key in combined:
+                combined[key]["score"] += r.get("score", 0) * 0.3
+            else:
+                combined[key] = {
+                    "content": r["content"],
+                    "metadata": r["metadata"],
+                    "score": r.get("score", 0) * 0.3
+                }
+        
+        results = list(combined.values())
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:top_k]
     
