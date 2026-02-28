@@ -1,0 +1,41 @@
+{
+  "f586dcb82694": {
+    "model_id": "f586dcb82694",
+    "name": "test-model",
+    "description": "",
+    "model_type": "transformer",
+    "versions": [
+      {
+        "version_id": "50a28b16-0c0",
+        "model_name": "test-model",
+        "version": "v0.1.0",
+        "description": "",
+        "stage": "none",
+        "status": "pending",
+        "metrics": {
+          "accuracy": null,
+          "precision": null,
+          "recall": null,
+          "f1_score": null,
+          "loss": null,
+          "perplexity": null,
+          "latency_ms": null,
+          "throughput": null,
+          "custom": {}
+        },
+        "parameters": {},
+        "artifacts": {},
+        "metadata": {},
+        "parent_version": null,
+        "created_at": 1772185560.823858,
+        "updated_at": 1772185560.823858,
+        "created_by": "system",
+        "tags": {}
+      }
+    ],
+    "current_stage": "none",
+    "tags": {},
+    "created_at": 1772185560.822378,
+    "updated_at": 1772185560.823894
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "04b5e592-272": {
+    "job_id": "04b5e592-272",
+    "name": "test-tuning",
+    "objective_metric": "val_loss",
+    "objective": "minimize",
+    "strategy": "random",
+    "max_trials": 5,
+    "max_iterations": 1000,
+    "max_parallel": 4,
+    "early_stopping_patience": 10,
+    "early_stopping_threshold": 0.01,
+    "specs": {
+      "lr": {
+        "name": "lr",
+        "hp_type": "float",
+        "min_value": 0.0001,
+        "max_value": 0.01,
+        "values": null,
+        "default": 0.0001,
+        "log_scale": false
+      },
+      "batch_size": {
+        "name": "batch_size",
+        "hp_type": "int",
+        "min_value": 8.0,
+        "max_value": 64.0,
+        "values": null,
+        "default": 8,
+        "log_scale": false
+      }
+    },
+    "trials": [],
+    "status": "pending",
+    "best_trial": null,
+    "best_value": null,
+    "created_at": 1772182716.710568,
+    "updated_at": 1772182716.710568
+  },
+  "8ea1081e-616": {
+    "job_id": "8ea1081e-616",
+    "name": "lr-tuning",
+    "objective_metric": "val_loss",
+    "objective": "minimize",
+    "strategy": "random",
+    "max_trials": 10,
+    "max_iterations": 1000,
+    "max_parallel": 4,
+    "early_stopping_patience": 10,
+    "early_stopping_threshold": 0.01,
+    "specs": {
+      "lr": {
+        "name": "lr",
+        "hp_type": "float",
+        "min_value": 1e-05,
+        "max_value": 0.1,
+        "values": null,
+        "default": 1e-05,
+        "log_scale": true
+      },
+      "layers": {
+        "name": "layers",
+        "hp_type": "int",
+        "min_value": 2.0,
+        "max_value": 12.0,
+        "values": null,
+        "default": 2,
+        "log_scale": false
+      }
+    },
+    "trials": [],
+    "status": "pending",
+    "best_trial": null,
+    "best_value": null,
+    "created_at": 1772184308.801269,
+    "updated_at": 1772184308.80127
+  },
+  "9eab5b05-b8a": {
+    "job_id": "9eab5b05-b8a",
+    "name": "test",
+    "objective_metric": "val_loss",
+    "objective": "minimize",
+    "strategy": "random",
+    "max_trials": 100,
+    "max_iterations": 1000,
+    "max_parallel": 4,
+    "early_stopping_patience": 10,
+    "early_stopping_threshold": 0.01,
+    "specs": {
+      "lr": {
+        "name": "lr",
+        "hp_type": "float",
+        "min_value": 0.0001,
+        "max_value": 0.01,
+        "values": null,
+        "default": 0.0001,
+        "log_scale": false
+      }
+    },
+    "trials": [],
+    "status": "pending",
+    "best_trial": null,
+    "best_value": null,
+    "created_at": 1772185560.829896,
+    "updated_at": 1772185560.829897
+  }
+}

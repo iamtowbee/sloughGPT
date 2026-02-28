@@ -52,6 +52,20 @@ class TrainingConfig:
     learning_rate: float = 1e-4
     max_batches: int = 100
     
+    # Learning Rate Scheduler
+    scheduler: str = "none"  # none, cosine, warmup, onecycle, cyclic, polynomial
+    warmup_steps: int = 100
+    min_lr: float = 1e-6
+    max_lr: float = 1e-3
+    
+    # Mixed Precision Training
+    precision: str = "fp32"  # fp32, fp16, bf16, mixed
+    amp_dtype: str = "bf16"  # bf16 or fp16 for amp
+    
+    # Gradient Accumulation (simulate larger batch sizes)
+    gradient_accumulation_steps: int = 1  # 1 = no accumulation
+    max_grad_norm: float = 1.0  # Gradient clipping
+    
     # Output
     output_path: Optional[str] = None
     checkpoint_interval: int = 100
@@ -75,6 +89,14 @@ class TrainingConfig:
             "epochs": self.epochs,
             "batch_size": self.batch_size,
             "learning_rate": self.learning_rate,
+            "scheduler": self.scheduler,
+            "warmup_steps": self.warmup_steps,
+            "min_lr": self.min_lr,
+            "max_lr": self.max_lr,
+            "precision": self.precision,
+            "amp_dtype": self.amp_dtype,
+            "gradient_accumulation_steps": self.gradient_accumulation_steps,
+            "max_grad_norm": self.max_grad_norm,
             "output_path": self.output_path,
         }
 
@@ -325,6 +347,9 @@ class Trainer:
         self.model: Optional[ModelWrapper] = None
         self.data_loader: Optional[DataLoader] = None
         self.optimizer: Optional[Any] = None
+        self.scheduler: Optional[Any] = None
+        self.scaler: Optional[Any] = None  # Mixed precision GradScaler
+        self.autocast_device_type: str = "cpu"
         self.history: List[Dict[str, Any]] = []
         self._initialized = False
     
@@ -360,8 +385,71 @@ class Trainer:
             lr=self.config.learning_rate
         )
         
+        # Setup LR scheduler
+        from domains.training.lr_schedulers import create_scheduler
+        
+        total_steps = self.config.max_batches * self.config.epochs
+        self.scheduler = create_scheduler(
+            self.optimizer,
+            scheduler_type=self.config.scheduler,
+            total_steps=total_steps,
+            warmup_steps=self.config.warmup_steps,
+            min_lr=self.config.min_lr,
+            max_lr=self.config.max_lr
+        )
+        
+        logger.info(f"Scheduler: {self.config.scheduler} (warmup={self.config.warmup_steps}, min_lr={self.config.min_lr})")
+        
+        # Setup mixed precision training
+        import torch
+        self._setup_mixed_precision()
+        
         self._initialized = True
         return self
+    
+    def _setup_mixed_precision(self):
+        """Setup mixed precision training (AMP)."""
+        import torch
+        from torch.cuda import amp as torch_amp
+        
+        precision = self.config.precision.lower()
+        
+        if precision == "fp32":
+            logger.info("Using FP32 (full precision)")
+            self.autocast_device_type = "cpu"
+            self.scaler = None
+        elif precision in ("fp16", "mixed"):
+            if not torch.cuda.is_available():
+                logger.warning("FP16 requested but CUDA not available, falling back to FP32")
+                self.autocast_device_type = "cpu"
+                self.scaler = None
+                return
+            self.autocast_device_type = "cuda"
+            self.scaler = torch_amp.GradScaler()
+            logger.info("Using FP16 mixed precision training")
+        elif precision == "bf16":
+            if not torch.cuda.is_available():
+                logger.warning("BF16 requested but CUDA not available, falling back to FP32")
+                self.autocast_device_type = "cpu"
+                self.scaler = None
+                return
+            self.autocast_device_type = "cuda"
+            self.scaler = torch_amp.GradScaler()
+            logger.info("Using BF16 mixed precision training")
+        else:
+            logger.warning(f"Unknown precision: {precision}, using FP32")
+            self.autocast_device_type = "cpu"
+            self.scaler = None
+        
+        # Log gradient accumulation config
+        if self.config.gradient_accumulation_steps > 1:
+            effective_batch_size = self.config.batch_size * self.config.gradient_accumulation_steps
+            logger.info(f"Gradient accumulation: {self.config.gradient_accumulation_steps} steps, effective batch size: {effective_batch_size}")
+        else:
+            logger.info(f"Gradient accumulation: disabled (batch_size={self.config.batch_size})")
+        
+        # Log gradient clipping
+        logger.info(f"Gradient clipping: max_norm={self.config.max_grad_norm}")
     
     def train(self) -> Dict[str, Any]:
         """Execute training loop."""
@@ -391,16 +479,59 @@ class Trainer:
                 x = torch.tensor(batch_x.astype(np.int64), dtype=torch.long)
                 y = torch.tensor(batch_y.astype(np.int64), dtype=torch.long)
                 
-                # Forward pass
-                self.optimizer.zero_grad()
-                logits, loss = self.model.forward(x, y)
+                # Forward pass with mixed precision
+                self.optimizer.zero_grad(set_to_none=True)
                 
-                # Backward pass
-                if loss is not None:
-                    loss.backward()
-                    self.optimizer.step()
-                    epoch_loss += loss.item()
-                    epoch_batches += 1
+                # Determine dtype for autocast
+                if self.config.precision in ("fp16", "mixed"):
+                    amp_dtype = torch.float16
+                elif self.config.precision == "bf16":
+                    amp_dtype = torch.bfloat16
+                else:
+                    amp_dtype = None
+                
+                # Use autocast if mixed precision is enabled
+                if amp_dtype and self.scaler is not None:
+                    with torch.autocast(device_type=self.autocast_device_type, dtype=amp_dtype):
+                        logits, loss = self.model.forward(x, y)
+                    
+                    # Backward with GradScaler
+                    if loss is not None:
+                        self.scaler.scale(loss).backward()
+                        
+                        # Gradient accumulation
+                        if (epoch_batches + 1) % self.config.gradient_accumulation_steps == 0:
+                            # Unscale gradients for clipping
+                            self.scaler.unscale_(self.optimizer)
+                            # Gradient clipping
+                            torch.nn.utils.clip_grad_norm_(
+                                self.model.parameters(), 
+                                self.config.max_grad_norm
+                            )
+                            self.scaler.step(self.optimizer)
+                            self.scaler.update()
+                            if self.scheduler is not None:
+                                self.scheduler.step()
+                        epoch_loss += loss.item()
+                        epoch_batches += 1
+                else:
+                    # Standard FP32 training
+                    logits, loss = self.model.forward(x, y)
+                    if loss is not None:
+                        loss.backward()
+                        
+                        # Gradient accumulation
+                        if (epoch_batches + 1) % self.config.gradient_accumulation_steps == 0:
+                            # Gradient clipping
+                            torch.nn.utils.clip_grad_norm_(
+                                self.model.parameters(), 
+                                self.config.max_grad_norm
+                            )
+                            self.optimizer.step()
+                            if self.scheduler is not None:
+                                self.scheduler.step()
+                        epoch_loss += loss.item()
+                        epoch_batches += 1
                 
                 # Safety limit
                 if epoch_batches >= self.config.max_batches:

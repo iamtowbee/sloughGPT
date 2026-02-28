@@ -1,0 +1,25 @@
+{
+  "aa374f235deb": {
+    "experiment_id": "aa374f235deb",
+    "name": "test",
+    "description": "",
+    "status": "completed",
+    "parameters": {
+      "lr": 0.001
+    },
+    "metrics": {
+      "loss": [
+        {
+          "timestamp": 1772185560.820193,
+          "step": 0,
+          "value": 0.5
+        }
+      ]
+    },
+    "artifacts": {},
+    "start_time": 1772185560.8186471,
+    "end_time": 1772185560.821287,
+    "tags": {},
+    "run_id": "2a1541f5"
+  }
+}

@@ -50,11 +50,11 @@ class DeploymentManager:
                     'deploy': {
                         'resources': {
                             'reservations': {
-                                'devices': [{
-                                    'driver': 'nvidia',
-                                    'count': 1,
-                                    'capabilities': ['gpu']
-                                ]} if config.gpu_enabled else []
+'devices': [{
+                        'driver': 'nvidia',
+                        'count': 1,
+                        'capabilities': ['gpu']
+                    }] if config.gpu_enabled else []
                             }
                         }
                     } if config.gpu_enabled else {},
