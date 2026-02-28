@@ -43,6 +43,10 @@ SloughGPT is an enterprise-grade AI framework with:
 | `domains/training/unified_training.py` | ✅ Complete | **Production-ready**: OOP design, TrainingConfig dataclass, UniversalDataLoader (txt/jsonl/json/csv/bin/dir), TorchModelWrapper, Trainer class with setup/train/evaluate, TrainingPipeline |
 | `domains/training/model_registry.py` | ✅ Complete | Dynamic model loading |
 | `domains/training/lr_schedulers.py` | ✅ Complete | **Industry-standard LR schedulers**: CosineAnnealing, Warmup, OneCycle, Cyclic, Polynomial with factory function |
+| `domains/training/huggingface/__init__.py` | ✅ Complete | HF integration module |
+| `domains/training/huggingface/api_loader.py` | ✅ Complete | HF Inference API (no download) |
+| `domains/training/huggingface/local_loader.py` | ✅ Complete | Download + load locally |
+| `domains/training/huggingface/model_map.py` | ✅ Complete | Model registry with 20+ models |
 | `domains/training/models/gpt2.py` | ✅ Complete | GPT-2 model implementation |
 | `domains/training/models/nanogpt.py` | ✅ Complete | NanoGPT implementation |
 | `domains/training/models/llama.py` | ✅ Complete | LLaMA implementation |
@@ -299,17 +303,14 @@ domains/inference/
 | Create sou_format.py | HIGH | ✅ DONE |
 | Implement quantization (Q4, Q8, F16) | HIGH | ✅ DONE |
 | Build inference loader | HIGH | ✅ DONE |
-| Create sou_format.py | HIGH | TODO |
-| Implement quantization (Q4, Q8, F16) | HIGH | TODO |
-| Build inference loader | HIGH | TODO |
 
 ### Sprint 3: HuggingFace Integration (Week 4-5)
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Create api_loader.py | HIGH | TODO |
-| Create local_loader.py | HIGH | TODO |
-| Create model_map.py | MEDIUM | TODO |
+| Create api_loader.py | HIGH | ✅ DONE |
+| Create local_loader.py | HIGH | ✅ DONE |
+| Create model_map.py | MEDIUM | ✅ DONE |
 | Integrate with model registry | MEDIUM | TODO |
 
 ### Sprint 4: Memory Optimization (Week 6)
