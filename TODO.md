@@ -329,10 +329,10 @@ domains/inference/
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Create personality dataset loader | HIGH | TODO |
-| Implement personality contrastive loss | HIGH | TODO |
-| Add archetype alignment metrics | HIGH | TODO |
-| Create personality fine-tuning pipeline | HIGH | TODO |
+| Create personality dataset loader | HIGH | ✅ DONE |
+| Implement personality contrastive loss | HIGH | ✅ DONE |
+| Add archetype alignment metrics | HIGH | ✅ DONE |
+| Create personality fine-tuning pipeline | HIGH | ✅ DONE |
 
 ### Sprint 6: Production Features (Week 9)
 
