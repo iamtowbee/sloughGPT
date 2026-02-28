@@ -312,6 +312,7 @@ domains/inference/
 | Create api_loader.py | HIGH | ✅ DONE |
 | Create local_loader.py | HIGH | ✅ DONE |
 | Create model_map.py | MEDIUM | ✅ DONE |
+| Create HFClient (easy API) | HIGH | ✅ DONE |
 | Integrate with model registry | MEDIUM | TODO |
 
 ### Sprint 4: Memory Optimization (Week 6)
