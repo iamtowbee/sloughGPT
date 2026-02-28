@@ -58,13 +58,14 @@ def apply_rotary_pos_emb(q: torch.Tensor, k: torch.Tensor, cos: torch.Tensor, si
 
 
 class LLaMAAttention(nn.Module):
-    """LLaMA style attention with RoPE."""
+    """LLaMA style attention with RoPE and SDPA support."""
     
-    def __init__(self, n_embed: int, n_head: int, dropout: float = 0.0):
+    def __init__(self, n_embed: int, n_head: int, dropout: float = 0.0, use_sdpa: bool = True):
         super().__init__()
         
         self.n_head = n_head
         self.head_dim = n_embed // n_head
+        self.use_sdpa = use_sdpa and self._sdpa_available()
         
         self.wq = nn.Linear(n_embed, n_embed, bias=False)
         self.wk = nn.Linear(n_embed, n_embed, bias=False)
@@ -74,6 +75,15 @@ class LLaMAAttention(nn.Module):
         self.rotary_emb = RotaryEmbedding(self.head_dim)
         self.dropout = nn.Dropout(dropout)
         
+        if self.use_sdpa:
+            self._attention_backend = "sdpa"
+        else:
+            self._attention_backend = "standard"
+    
+    def _sdpa_available(self) -> bool:
+        """Check if SDPA is available."""
+        return hasattr(F, 'scaled_dot_product_attention')
+    
     def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         B, T, C = x.size()
         
@@ -84,18 +94,42 @@ class LLaMAAttention(nn.Module):
         cos, sin = self.rotary_emb(x, T)
         q, k = apply_rotary_pos_emb(q, k, cos, sin)
         
+        if self.use_sdpa:
+            y = self._forward_sdpa(q, k, v, B, T)
+        else:
+            y = self._forward_standard(q, k, v, B, T, mask)
+        
+        y = y.transpose(1, 2).contiguous().view(B, T, C)
+        return self.wo(y)
+    
+    def _forward_sdpa(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, B: int, T: int) -> torch.Tensor:
+        """Forward pass using SDPA."""
+        causal_mask = torch.triu(
+            torch.ones(T, T, device=q.device, dtype=torch.bool),
+            diagonal=1
+        )
+        
+        y = F.scaled_dot_product_attention(
+            q, k, v,
+            attn_mask=causal_mask,
+            dropout_p=self.dropout.p if self.training else 0.0,
+            scale=1.0 / math.sqrt(self.head_dim),
+        )
+        return y
+    
+    def _forward_standard(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, B: int, T: int, mask: Optional[torch.Tensor]) -> torch.Tensor:
+        """Standard attention forward pass."""
         att = (q @ k.transpose(-2, -1)) / math.sqrt(self.head_dim)
         
         if mask is None:
-            mask = torch.triu(torch.ones(T, T, device=x.device), diagonal=1).bool()
+            mask = torch.triu(torch.ones(T, T, device=q.device), diagonal=1).bool()
         att = att.masked_fill(mask.unsqueeze(0).unsqueeze(0), float('-inf'))
         
         att = F.softmax(att, dim=-1)
         att = self.dropout(att)
         
         y = att @ v
-        y = y.transpose(1, 2).contiguous().view(B, T, C)
-        return self.wo(y)
+        return y
 
 
 class SwiGLU(nn.Module):
@@ -118,9 +152,9 @@ class SwiGLU(nn.Module):
 class LLaMABlock(nn.Module):
     """LLaMA transformer block with RMSNorm and SwiGLU."""
     
-    def __init__(self, n_embed: int, n_head: int, dropout: float = 0.0):
+    def __init__(self, n_embed: int, n_head: int, dropout: float = 0.0, use_sdpa: bool = True):
         super().__init__()
-        self.attention = LLaMAAttention(n_embed, n_head, dropout)
+        self.attention = LLaMAAttention(n_embed, n_head, dropout, use_sdpa=use_sdpa)
         self.feed_forward = SwiGLU(n_embed, dropout=dropout)
         self.attention_norm = RMSNorm(n_embed)
         self.ffn_norm = RMSNorm(n_embed)
@@ -132,7 +166,7 @@ class LLaMABlock(nn.Module):
 
 
 class LLaMA(nn.Module):
-    """LLaMA Style Language Model."""
+    """LLaMA Style Language Model with SDPA support."""
     
     def __init__(
         self,
@@ -142,6 +176,7 @@ class LLaMA(nn.Module):
         n_head: int = 8,
         dropout: float = 0.0,
         block_size: int = 256,
+        use_sdpa: bool = True,
     ):
         super().__init__()
         
@@ -150,12 +185,13 @@ class LLaMA(nn.Module):
         
         self.tok_embeddings = nn.Embedding(vocab_size, n_embed)
         self.layers = nn.ModuleList([
-            LLaMABlock(n_embed, n_head, dropout) for _ in range(n_layer)
+            LLaMABlock(n_embed, n_head, dropout, use_sdpa=use_sdpa) for _ in range(n_layer)
         ])
         self.norm = RMSNorm(n_embed)
         self.output = nn.Linear(n_embed, vocab_size, bias=False)
         
         self.tok_embeddings.weight = self.output.weight
+        self.use_sdpa = use_sdpa
         
         self.apply(self._init_weights)
         

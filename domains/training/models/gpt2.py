@@ -1,6 +1,7 @@
 """
 GPT-2 Style Model Implementation
 Standard GPT-2 architecture with LayerNorm, GELU, learned position embeddings
+With SDPA/Flash Attention support
 """
 
 import torch
@@ -11,15 +12,16 @@ from typing import Optional, Tuple
 
 
 class GPT2Attention(nn.Module):
-    """GPT-2 style multi-head attention with causal mask."""
+    """GPT-2 style multi-head attention with causal mask and SDPA support."""
     
-    def __init__(self, n_embed: int, n_head: int, dropout: float = 0.1):
+    def __init__(self, n_embed: int, n_head: int, dropout: float = 0.1, use_sdpa: bool = True):
         super().__init__()
         assert n_embed % n_head == 0
         
         self.n_embed = n_embed
         self.n_head = n_head
         self.head_dim = n_embed // n_head
+        self.use_sdpa = use_sdpa and self._sdpa_available()
         
         self.c_attn = nn.Linear(n_embed, 3 * n_embed)
         self.c_proj = nn.Linear(n_embed, n_embed)
@@ -32,24 +34,58 @@ class GPT2Attention(nn.Module):
             torch.tril(torch.ones(256, 256)).view(1, 1, 256, 256)
         )
         
+        if self.use_sdpa:
+            self._attention_backend = "sdpa"
+        else:
+            self._attention_backend = "standard"
+    
+    def _sdpa_available(self) -> bool:
+        """Check if SDPA is available."""
+        return hasattr(F, 'scaled_dot_product_attention')
+    
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, T, C = x.size()
         
         qkv = self.c_attn(x)
         q, k, v = qkv.split(self.n_embed, dim=2)
         
-        k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
+        k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         
+        if self.use_sdpa:
+            y = self._forward_sdpa(q, k, v, B, T)
+        else:
+            y = self._forward_standard(q, k, v, B, T)
+        
+        y = y.transpose(1, 2).contiguous().view(B, T, C)
+        y = self.resid_dropout(self.c_proj(y))
+        return y
+    
+    def _forward_sdpa(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, B: int, T: int) -> torch.Tensor:
+        """Forward pass using SDPA (Scaled Dot Product Attention)."""
+        # Create causal mask
+        causal_mask = torch.triu(
+            torch.ones(T, T, device=q.device, dtype=torch.bool),
+            diagonal=1
+        )
+        
+        # Use SDPA with causal mask
+        y = F.scaled_dot_product_attention(
+            q, k, v,
+            attn_mask=causal_mask,
+            dropout_p=self.attn_dropout.p if self.training else 0.0,
+            scale=1.0 / math.sqrt(self.head_dim),
+        )
+        return y
+    
+    def _forward_standard(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, B: int, T: int) -> torch.Tensor:
+        """Standard attention forward pass."""
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(self.head_dim))
         att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf'))
         att = F.softmax(att, dim=-1)
         att = self.attn_dropout(att)
-        
         y = att @ v
-        y = y.transpose(1, 2).contiguous().view(B, T, C)
-        y = self.resid_dropout(self.c_proj(y))
         return y
 
 
@@ -74,10 +110,10 @@ class GPT2MLP(nn.Module):
 class GPT2Block(nn.Module):
     """GPT-2 transformer block with pre-norm."""
     
-    def __init__(self, n_embed: int, n_head: int, dropout: float = 0.1):
+    def __init__(self, n_embed: int, n_head: int, dropout: float = 0.1, use_sdpa: bool = True):
         super().__init__()
         self.ln_1 = nn.LayerNorm(n_embed)
-        self.attn = GPT2Attention(n_embed, n_head, dropout)
+        self.attn = GPT2Attention(n_embed, n_head, dropout, use_sdpa=use_sdpa)
         self.ln_2 = nn.LayerNorm(n_embed)
         self.mlp = GPT2MLP(n_embed, dropout)
         
@@ -88,7 +124,7 @@ class GPT2Block(nn.Module):
 
 
 class GPT2(nn.Module):
-    """GPT-2 Style Language Model."""
+    """GPT-2 Style Language Model with SDPA support."""
     
     def __init__(
         self,
@@ -98,6 +134,7 @@ class GPT2(nn.Module):
         n_head: int = 12,
         dropout: float = 0.1,
         block_size: int = 256,
+        use_sdpa: bool = True,
     ):
         super().__init__()
         
@@ -108,13 +145,14 @@ class GPT2(nn.Module):
         self.wpe = nn.Embedding(block_size, n_embed)
         
         self.blocks = nn.ModuleList([
-            GPT2Block(n_embed, n_head, dropout) for _ in range(n_layer)
+            GPT2Block(n_embed, n_head, dropout, use_sdpa=use_sdpa) for _ in range(n_layer)
         ])
         
         self.ln_f = nn.LayerNorm(n_embed)
         self.lm_head = nn.Linear(n_embed, vocab_size, bias=False)
         
         self.wte.weight = self.lm_head.weight
+        self.use_sdpa = use_sdpa
         
         self.apply(self._init_weights)
         
