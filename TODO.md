@@ -50,7 +50,8 @@ SloughGPT is an enterprise-grade AI framework with:
 | `domains/training/models/gpt2.py` | ✅ Complete | GPT-2 model implementation |
 | `domains/training/models/nanogpt.py` | ✅ Complete | NanoGPT implementation |
 | `domains/training/models/llama.py` | ✅ Complete | LLaMA implementation |
-| `domains/training/distributed.py` | ⚠️ Partial | Distributed training skeleton |
+| `domains/training/distributed.py` | ✅ Complete | DDP + FSDP distributed training |
+| `domains/training/memory_optimization.py` | ✅ Complete | Activation/gradient checkpointing, flash attention, memory calculator |
 
 ### 1.4 Neural Network (From Scratch)
 
@@ -319,10 +320,10 @@ domains/inference/
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Add activation checkpointing | MEDIUM | TODO |
+| Add activation checkpointing | MEDIUM | ✅ DONE |
 | Implement LoRA in training loop | HIGH | TODO |
-| Add gradient checkpointing | MEDIUM | TODO |
-| Add flash attention support | HIGH | TODO |
+| Add gradient checkpointing | MEDIUM | ✅ DONE |
+| Add flash attention support | HIGH | ✅ DONE |
 
 ### Sprint 5: Personality Training (Week 7-8)
 
