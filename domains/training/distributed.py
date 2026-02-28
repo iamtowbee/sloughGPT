@@ -682,4 +682,155 @@ __all__ = [
     "get_rank",
     "is_main_process",
     "get_gpu_memory_info",
+    "FSDPTrainer",
+    "ShardingStrategy",
+    "CPUOffload",
 ]
+
+
+# =============================================================================
+# FSDP (Fully Sharded Data Parallel) - For Very Large Models
+# =============================================================================
+
+class ShardingStrategy(Enum):
+    """FSDP sharding strategies."""
+    FULL_SHARD = "full_shard"      # Shard params, grads, optimizer states
+    SHARD_GRAD_OP = "shard_grad_op" # Shard grads and optimizer states
+    NO_SHARD = "no_shard"          # Replicate params (like DDP)
+
+
+class CPUOffload(Enum):
+    """CPU offloading options."""
+    NONE = "none"           # No offloading
+    PARAM = "param"         # Offload params to CPU
+    PARAM_AND_OPTIM = "param_and_optim"  # Offload params and optimizer states
+
+
+class FSDPTrainer:
+    """
+    Fully Sharded Data Parallel Trainer.
+    
+    For training very large models that don't fit in GPU memory.
+    """
+    
+    def __init__(
+        self,
+        config: DistributedConfig,
+        model: torch.nn.Module,
+        optimizer: Optional[torch.optim.Optimizer] = None,
+        sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD,
+        cpu_offload: CPUOffload = CPUOffload.NONE,
+        mixed_precision: bool = True,
+    ):
+        self.config = config
+        self.model = model
+        self.optimizer = optimizer
+        self.fsdp_model = None
+        self._initialized = False
+        
+        if config.use_distributed:
+            self._init_fsdp(sharding_strategy, cpu_offload, mixed_precision)
+    
+    def _init_fsdp(
+        self,
+        sharding_strategy: ShardingStrategy,
+        cpu_offload: CPUOffload,
+        mixed_precision: bool,
+    ):
+        """Initialize FSDP."""
+        try:
+            from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+            from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
+            from torch.distributed.fsdp.fully_sharded_data_parallel import MixedPrecision
+            from torch.distributed.fsdp.fully_sharded_data_parallel import CPUOffload as FSDPCPUOffload
+        except ImportError:
+            logger.error("FSDP not available. Use PyTorch 2.0+")
+            return
+        
+        # Initialize distributed if needed
+        if not dist.is_initialized():
+            dist.init_process_group(backend="nccl")
+        
+        # Auto wrap policy for transformers
+        auto_wrap_policy = transformer_auto_wrap_policy
+        
+        # Mixed precision config
+        mixed_precision_config = None
+        if mixed_precision:
+            mixed_precision_config = MixedPrecision(
+                param_dtype=torch.bfloat16,
+                reduce_dtype=torch.float32,
+                buffer_dtype=torch.bfloat16,
+            )
+        
+        # CPU offload config
+        cpu_offload_config = None
+        if cpu_offload == CPUOffload.PARAM:
+            cpu_offload_config = FSDPCPUOffload(offload_params=True)
+        elif cpu_offload == CPUOffload.PARAM_AND_OPTIM:
+            cpu_offload_config = FSDPCPUOffload(offload_params=True, offload_optimizer=True)
+        
+        # Wrap model with FSDP
+        self.model = self.model.to(self.config.local_rank)
+        
+        self.fsdp_model = FSDP(
+            self.model,
+            sharding_strategy=self._get_sharding_strategy(sharding_strategy),
+            cpu_offload=cpu_offload_config,
+            auto_wrap_policy=auto_wrap_policy,
+            mixed_precision=mixed_precision_config,
+            device_id=self.config.local_rank,
+        )
+        
+        self._initialized = True
+        logger.info(f"FSDP initialized: rank={self.config.rank}, world_size={self.config.world_size}")
+    
+    def _get_sharding_strategy(self, strategy: ShardingStrategy):
+        """Get FSDP sharding strategy."""
+        try:
+            from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+            
+            strategy_map = {
+                ShardingStrategy.FULL_SHARD: FSDP.ShardingStrategy.FULL_SHARD,
+                ShardingStrategy.SHARD_GRAD_OP: FSDP.ShardingStrategy.SHARD_GRAD_OP,
+                ShardingStrategy.NO_SHARD: FSDP.ShardingStrategy.NO_SHARD,
+            }
+            return strategy_map.get(strategy, FSDP.ShardingStrategy.FULL_SHARD)
+        except:
+            return None
+    
+    @property
+    def training_model(self):
+        """Get model for training."""
+        return self.fsdp_model if self.fsdp_model is not None else self.model
+    
+    def train_step(self, batch, loss_fn, **kwargs):
+        """Execute training step."""
+        model = self.training_model
+        model.train()
+        
+        # Forward pass
+        loss = loss_fn(batch)
+        
+        # Backward
+        loss.backward()
+        
+        # FSDP step
+        model.clip_grad_norm_(max_norm=1.0)
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+        
+        return {"loss": loss.item()}
+    
+    def save_checkpoint(self, path: str, **kwargs):
+        """Save FSDP checkpoint."""
+        if self.config.rank == 0:
+            state_dict = self.fsdp_model.state_dict()
+            torch.save(state_dict, path)
+            logger.info(f"FSDP checkpoint saved: {path}")
+    
+    def load_checkpoint(self, path: str):
+        """Load FSDP checkpoint."""
+        state_dict = torch.load(path, map_location=self.device)
+        self.fsdp_model.load_state_dict(state_dict)
+        logger.info(f"FSDP checkpoint loaded: {path}")

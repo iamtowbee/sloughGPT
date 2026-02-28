@@ -293,7 +293,8 @@ domains/inference/
 | Add LR schedulers (cosine, warmup) | HIGH | ✅ DONE |
 | Implement mixed precision (torch.amp) | HIGH | ✅ DONE |
 | Implement gradient accumulation | HIGH | ✅ DONE |
-| Add distributed training (DDP) | HIGH | TODO |
+| Add distributed training (DDP) | HIGH | ✅ DONE |
+| Add FSDP support | HIGH | ✅ DONE |
 
 ### Sprint 2: Custom .sou Format (Week 3)
 
