@@ -126,10 +126,10 @@ def cmd_train(args):
             )
             tracker = ExperimentTracker(config=tracking_config)
             tracker.start_run(run_name=f"run_{args.dataset}_{args.epochs}ep")
-            tracker.log_config({
-                "model": config.model.__dict__,
-                "training": config.training.__dict__,
-                "lora": config.lora.__dict__,
+            tracker.log_params({
+                "model": str(config.model.__dict__),
+                "training": str(config.training.__dict__),
+                "lora": str(config.lora.__dict__),
             })
             print(f"Tracking enabled: {config.tracking.backend}")
         
