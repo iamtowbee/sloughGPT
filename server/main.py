@@ -28,6 +28,7 @@ app = FastAPI(
 model = None
 tokenizer = None
 model_type = "none"
+checkpoint = None
 
 
 class GenerateRequest(BaseModel):
@@ -42,16 +43,15 @@ class GenerateRequest(BaseModel):
 
 def load_model():
     """Load model - prefers local, falls back to HuggingFace."""
-    global model, tokenizer, model_type
+    global model, tokenizer, model_type, checkpoint
     
     # Try loading local model first
     local_model_path = "models/sloughgpt.pt"
     if os.path.exists(local_model_path):
         print(f"Loading local model from {local_model_path}...")
-        # Load local NanoGPT model
-        from domains.training.inference_engine import load_model_for_inference
         try:
-            model = load_model_for_inference(local_model_path, device="cpu")
+            checkpoint = torch.load(local_model_path, weights_only=False, map_location='cpu')
+            model = checkpoint.get('model', checkpoint)
             model_type = "nanogpt"
             print("Local NanoGPT model loaded!")
             return
@@ -97,7 +97,7 @@ async def health():
 
 @app.post("/generate")
 async def generate(request: GenerateRequest):
-    if model is None or tokenizer is None:
+    if model is None:
         # Return demo response if no model
         return {
             "text": f"Demo response to: {request.prompt[:50]}... (No model loaded)",
@@ -116,6 +116,28 @@ async def generate(request: GenerateRequest):
                 do_sample=True,
             )
         text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return {"text": text, "model": model_type}
+    
+    if model_type == "nanogpt":
+        # Generate using local NanoGPT
+        import numpy as np
+        stoi = checkpoint.get('stoi', {})
+        itos = checkpoint.get('itos', {})
+        
+        idx = torch.tensor([[stoi.get(c, 0) for c in request.prompt]], dtype=torch.long)
+        
+        model.eval()
+        with torch.no_grad():
+            for _ in range(request.max_new_tokens):
+                idx_cond = idx[:, -128:]
+                logits, _ = model(idx_cond)
+                logits = logits[:, -1, :] / request.temperature
+                probs = torch.softmax(logits, dim=-1)
+                idx_next = torch.multinomial(probs, num_samples=1)
+                idx = torch.cat([idx, idx_next], dim=1)
+        
+        generated = ''.join([itos.get(i, '') for i in idx[0].tolist()])
+        text = generated[len(request.prompt):]
         return {"text": text, "model": model_type}
     
     return {"text": "Model type not supported", "model": model_type}
