@@ -51,22 +51,53 @@ def cmd_chat(args):
 
 
 def cmd_models(args):
-    """List available models."""
-    import requests
+    """List available models - local version."""
+    print("=" * 50)
+    print("Available Models")
+    print("=" * 50)
+    print("  nanogpt: NanoGPT - Custom GPT model")
+    print("  gpt2: GPT-2 - HuggingFace model")
+    print("  llama: LLaMA - Meta model")
+    print("\nNote: Use 'quick' command to train a custom model")
+
+
+def cmd_quick(args):
+    """Quick training and generation - no API needed."""
+    import sys
+    sys.path.insert(0, '.')
     
-    base_url = f"http://{args.host}:{args.port}"
+    from domains.training.train_pipeline import SloughGPTTrainer
     
-    try:
-        response = requests.get(f"{base_url}/models")
-        if response.status_code == 200:
-            data = response.json()
-            print("Available Models:")
-            for model in data.get('models', []):
-                print(f"  - {model['id']}: {model['name']}")
-        else:
-            print(f"Error: {response.text}")
-    except Exception as e:
-        print(f"Error: {e}")
+    print("=" * 50)
+    print("SloughGPT Quick Start")
+    print("=" * 50)
+    
+    # Create trainer
+    trainer = SloughGPTTrainer(
+        data_path=args.dataset,
+        n_embed=args.embed,
+        n_layer=args.layers,
+        n_head=args.heads,
+        block_size=args.block,
+        batch_size=args.batch,
+        epochs=args.epochs,
+        lr=args.lr,
+        max_steps=args.steps,
+    )
+    
+    # Train
+    print("\nTraining...")
+    trainer.train()
+    
+    # Generate
+    print("\nGenerating text...")
+    text = trainer.generate(args.prompt, max_tokens=args.max_tokens, temperature=args.temperature)
+    print(f"\nPrompt: {args.prompt}")
+    print(f"Generated: {text[:200]}...")
+    
+    # Save
+    trainer.save(args.output)
+    print(f"\nModel saved to {args.output}")
 
 
 def cmd_train(args):
@@ -172,20 +203,36 @@ def cmd_train(args):
 
 
 def cmd_status(args):
-    """Get system status."""
-    import requests
+    """Get system status - local version."""
+    from pathlib import Path
     
-    base_url = f"http://{args.host}:{args.port}"
+    print("=" * 50)
+    print("SloughGPT System Status")
+    print("=" * 50)
     
-    try:
-        response = requests.get(f"{base_url}/status")
-        if response.status_code == 200:
-            data = response.json()
-            print(json.dumps(data, indent=2))
-        else:
-            print(f"Error: {response.text}")
-    except Exception as e:
-        print(f"Error: {e}")
+    # Check models
+    models_dir = Path("models")
+    if models_dir.exists():
+        models = list(models_dir.rglob("*.pt")) + list(models_dir.rglob("*.pth"))
+        print(f"\nModels: {len(models)} found")
+        for m in models[:5]:
+            print(f"  - {m}")
+    else:
+        print("\nModels: directory not found")
+    
+    # Check datasets
+    datasets_dir = Path("datasets")
+    if datasets_dir.exists():
+        datasets = list(datasets_dir.iterdir())
+        print(f"\nDatasets: {len(datasets)} found")
+        for d in datasets[:5]:
+            print(f"  - {d.name}")
+    else:
+        print("\nDatasets: directory not found")
+    
+    print("\n" + "=" * 50)
+    print("Run 'python3 cli.py quick --help' to train a model")
+    print("=" * 50)
 
 
 def cmd_health(args):
@@ -233,22 +280,25 @@ def cmd_generate(args):
 
 
 def cmd_datasets(args):
-    """List datasets."""
-    import requests
+    """List datasets - local version."""
+    from pathlib import Path
     
-    base_url = f"http://{args.host}:{args.port}"
+    datasets_dir = Path("datasets")
     
-    try:
-        response = requests.get(f"{base_url}/datasets")
-        if response.status_code == 200:
-            data = response.json()
-            print("Datasets:")
-            for ds in data.get('datasets', []):
-                print(f"  - {ds['name']}: {ds.get('size', 0)} bytes")
+    if not datasets_dir.exists():
+        print("No datasets directory found")
+        return
+    
+    print("=" * 50)
+    print("Datasets")
+    print("=" * 50)
+    
+    for ds in sorted(datasets_dir.iterdir()):
+        if ds.is_dir():
+            size = sum(f.stat().st_size for f in ds.rglob("*") if f.is_file())
+            print(f"  {ds.name}: {size / 1024:.1f} KB")
         else:
-            print(f"Error: {response.text}")
-    except Exception as e:
-        print(f"Error: {e}")
+            print(f"  {ds.name}: {ds.stat().st_size} bytes")
 
 
 def cmd_export(args):
@@ -289,6 +339,23 @@ def main():
     chat_parser.add_argument("--max-tokens", type=int, default=100, help="Max tokens")
     chat_parser.add_argument("--temperature", type=float, default=0.8, help="Temperature")
     chat_parser.set_defaults(func=cmd_chat)
+    
+    # Quick command - train and generate locally
+    quick_parser = subparsers.add_parser("quick", help="Quick train & generate (no API)")
+    quick_parser.add_argument("--dataset", default="datasets/shakespeare/input.txt", help="Training data")
+    quick_parser.add_argument("--prompt", default="The king", help="Generation prompt")
+    quick_parser.add_argument("--epochs", type=int, default=1, help="Training epochs")
+    quick_parser.add_argument("--steps", type=int, default=50, help="Max training steps")
+    quick_parser.add_argument("--embed", type=int, default=128, help="Embedding size")
+    quick_parser.add_argument("--layers", type=int, default=4, help="Number of layers")
+    quick_parser.add_argument("--heads", type=int, default=4, help="Number of heads")
+    quick_parser.add_argument("--block", type=int, default=128, help="Block size")
+    quick_parser.add_argument("--batch", type=int, default=32, help="Batch size")
+    quick_parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
+    quick_parser.add_argument("--max-tokens", type=int, default=100, help="Max tokens to generate")
+    quick_parser.add_argument("--temperature", type=float, default=0.8, help="Generation temperature")
+    quick_parser.add_argument("--output", default="models/quick.pt", help="Output model path")
+    quick_parser.set_defaults(func=cmd_quick)
     
     # Models command
     models_parser = subparsers.add_parser("models", help="List models")
