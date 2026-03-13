@@ -162,19 +162,31 @@ async def generate(request: GenerateRequest):
             "model": model_type
         }
     
+    # Apply personality adjustment to temperature
+    temperature = request.temperature
+    if request.personality:
+        try:
+            from domains.ai_personality import PERSONALITIES, PersonalityType
+            ptype = PersonalityType(request.personality.lower())
+            if ptype in PERSONALITIES:
+                personality = PERSONALITIES[ptype]
+                temperature = personality.modify_temperature(temperature)
+        except Exception:
+            pass  # Ignore personality errors
+    
     if model_type == "gpt2":
         inputs = tokenizer(request.prompt, return_tensors="pt")
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
                 max_new_tokens=request.max_new_tokens,
-                temperature=request.temperature,
+                temperature=temperature,
                 top_k=request.top_k,
                 top_p=request.top_p,
                 do_sample=True,
             )
         text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        return {"text": text, "model": model_type}
+        return {"text": text, "model": model_type, "personality": request.personality}
     
     if model_type == "nanogpt":
         # Generate using local NanoGPT
@@ -189,14 +201,14 @@ async def generate(request: GenerateRequest):
             for _ in range(request.max_new_tokens):
                 idx_cond = idx[:, -128:]
                 logits, _ = model(idx_cond)
-                logits = logits[:, -1, :] / request.temperature
+                logits = logits[:, -1, :] / temperature
                 probs = torch.softmax(logits, dim=-1)
                 idx_next = torch.multinomial(probs, num_samples=1)
                 idx = torch.cat([idx, idx_next], dim=1)
         
         generated = ''.join([itos.get(i, '') for i in idx[0].tolist()])
         text = generated[len(request.prompt):]
-        return {"text": text, "model": model_type}
+        return {"text": text, "model": model_type, "personality": request.personality}
     
     return {"text": "Model type not supported", "model": model_type}
 
