@@ -363,25 +363,74 @@ def cmd_serve(args):
 
 
 def cmd_generate(args):
-    """Generate text from prompt."""
+    """Generate text from prompt - tries local first, then API."""
+    import torch
+    from pathlib import Path
+    from domains.training.models.nanogpt import NanoGPT
+    
+    # Try local first
+    model_path = Path("models/sloughgpt.pt")
+    if model_path.exists():
+        try:
+            checkpoint = torch.load(model_path, weights_only=False, map_location='cpu')
+            
+            # Get config from checkpoint
+            training_info = checkpoint.get('training_info', {})
+            vocab_size = training_info.get('vocab_size', 65)
+            n_embed = training_info.get('n_embed', 128)
+            n_layer = training_info.get('n_layer', 4)
+            n_head = training_info.get('n_head', 4)
+            block_size = training_info.get('block_size', 64)
+            
+            # Create model and load weights
+            model = NanoGPT(vocab_size=vocab_size, n_embed=n_embed, n_layer=n_layer, n_head=n_head, block_size=block_size)
+            
+            # Load state dict if present
+            if 'model' in checkpoint:
+                model.load_state_dict(checkpoint['model'])
+            elif isinstance(checkpoint, dict):
+                model.load_state_dict(checkpoint)
+            
+            stoi = checkpoint.get('stoi', {})
+            itos = checkpoint.get('itos', {})
+            
+            idx = torch.tensor([[stoi.get(c, 0) for c in args.prompt]], dtype=torch.long)
+            
+            model.eval()
+            with torch.no_grad():
+                for _ in range(args.max_tokens):
+                    idx_cond = idx[:, -128:]
+                    logits, _ = model(idx_cond)
+                    logits = logits[:, -1, :] / args.temperature
+                    probs = torch.softmax(logits, dim=-1)
+                    idx_next = torch.multinomial(probs, num_samples=1)
+                    idx = torch.cat([idx, idx_next], dim=1)
+            
+            generated = ''.join([itos.get(i, '') for i in idx[0].tolist()])
+            result = generated[len(args.prompt):]
+            print(f"Generated: {result[:500]}")
+            return
+        except Exception as e:
+            print(f"Local generation failed: {e}")
+    
+    # Fall back to API
     import requests
     
     base_url = f"http://{args.host}:{args.port}"
     
     try:
         response = requests.post(
-            f"{base_url}/infer",
+            f"{base_url}/generate",
             json={
                 "prompt": args.prompt,
-                "max_length": args.max_tokens,
+                "max_new_tokens": args.max_tokens,
                 "temperature": args.temperature,
-                "model": args.model or "sloughgpt"
             }
         )
         
         if response.status_code == 200:
             data = response.json()
-            print(data['text'])
+            print(f"Generated: {data['text'][:500]}")
         else:
             print(f"Error: {response.text}")
     except Exception as e:
@@ -408,6 +457,20 @@ def cmd_datasets(args):
             print(f"  {ds.name}: {size / 1024:.1f} KB")
         else:
             print(f"  {ds.name}: {ds.stat().st_size} bytes")
+
+
+def cmd_personalities(args):
+    """List available personalities."""
+    from domains.ai_personality import PERSONALITIES, PersonalityType
+    
+    print("=" * 50)
+    print("Available Personalities")
+    print("=" * 50)
+    
+    for ptype, personality in PERSONALITIES.items():
+        print(f"\n{ptype.value.upper()}: {personality.name}")
+        print(f"  Description: {personality.description}")
+        print(f"  Traits: {personality.traits}")
 
 
 def cmd_export(args):
@@ -469,6 +532,10 @@ def main():
     # Models command
     models_parser = subparsers.add_parser("models", help="List models")
     models_parser.set_defaults(func=cmd_models)
+    
+    # Personalities command
+    personalities_parser = subparsers.add_parser("personalities", help="List available personalities")
+    personalities_parser.set_defaults(func=cmd_personalities)
     
     # Train command
     train_parser = subparsers.add_parser("train", help="Start training")
