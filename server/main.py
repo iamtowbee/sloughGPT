@@ -400,6 +400,64 @@ async def list_datasets():
     return {"datasets": datasets}
 
 
+class TrainRequest(BaseModel):
+    dataset: str
+    epochs: Optional[int] = 3
+    batch_size: Optional[int] = 32
+    learning_rate: Optional[float] = 1e-3
+    n_embed: Optional[int] = 128
+    n_layer: Optional[int] = 4
+    n_head: Optional[int] = 4
+    block_size: Optional[int] = 128
+    max_steps: Optional[int] = None
+
+
+@app.post("/train")
+async def train(request: TrainRequest):
+    """Start a training job."""
+    import threading
+    from domains.training.train_pipeline import SloughGPTTrainer
+    
+    def train_model():
+        try:
+            trainer = SloughGPTTrainer(
+                data_path=f"datasets/{request.dataset}/input.txt",
+                n_embed=request.n_embed,
+                n_layer=request.n_layer,
+                n_head=request.n_head,
+                block_size=request.block_size,
+                batch_size=request.batch_size,
+                epochs=request.epochs,
+                lr=request.learning_rate,
+                max_steps=request.max_steps,
+            )
+            trainer.train()
+            trainer.save(f"models/{request.dataset}_trained.pt")
+        except Exception as e:
+            print(f"Training error: {e}")
+    
+    # Run training in background thread
+    thread = threading.Thread(target=train_model, daemon=True)
+    thread.start()
+    
+    return {
+        "status": "started",
+        "dataset": request.dataset,
+        "epochs": request.epochs,
+        "message": "Training started in background"
+    }
+
+
+@app.get("/train/status")
+async def train_status():
+    """Get training status."""
+    # Simple status - could be enhanced with proper job tracking
+    return {
+        "status": "ready",
+        "message": "Use /train endpoint to start training"
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
