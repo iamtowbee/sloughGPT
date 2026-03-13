@@ -39,6 +39,7 @@ class GenerateRequest(BaseModel):
     top_p: Optional[float] = 0.9
     repetition_penalty: Optional[float] = 1.0
     seed: Optional[int] = None
+    personality: Optional[str] = None
 
 
 def load_model():
@@ -182,6 +183,67 @@ async def generate_stream(request: GenerateRequest):
         yield "data: [DONE]\n\n"
     
     return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+@app.get("/personalities")
+async def list_personalities():
+    """List available personalities."""
+    try:
+        from domains.ai_personality import PERSONALITIES, PersonalityType
+        return {
+            "personalities": [
+                {
+                    "type": ptype.value,
+                    "name": p.name,
+                    "description": p.description,
+                    "traits": p.traits
+                }
+                for ptype, p in PERSONALITIES.items()
+            ]
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/models")
+async def list_models():
+    """List available models."""
+    from pathlib import Path
+    
+    models_dir = Path("models")
+    models = []
+    
+    if models_dir.exists():
+        for m in models_dir.glob("*.pt"):
+            size = m.stat().st_size / (1024 * 1024)  # MB
+            models.append({
+                "name": m.name,
+                "path": str(m),
+                "size_mb": round(size, 2)
+            })
+    
+    return {"models": models}
+
+
+@app.get("/datasets")
+async def list_datasets():
+    """List available datasets."""
+    from pathlib import Path
+    
+    datasets_dir = Path("datasets")
+    datasets = []
+    
+    if datasets_dir.exists():
+        for d in datasets_dir.iterdir():
+            if d.is_dir():
+                size = sum(f.stat().st_size for f in d.rglob("*") if f.is_file())
+                datasets.append({
+                    "name": d.name,
+                    "path": str(d),
+                    "size_kb": round(size / 1024, 2)
+                })
+    
+    return {"datasets": datasets}
 
 
 if __name__ == "__main__":
