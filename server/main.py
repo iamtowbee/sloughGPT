@@ -10,12 +10,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List
 import torch
 import json
+import asyncio
 
 app = FastAPI(
     title="SloughGPT API",
@@ -23,6 +24,23 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
 )
+
+# WebSocket connection manager
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+    
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+    
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+    
+    async def send_message(self, message: str, websocket: WebSocket):
+        await websocket.send_text(message)
+
+manager = ConnectionManager()
 
 # Global model
 model = None
@@ -83,8 +101,47 @@ async def root():
         "name": "SloughGPT API",
         "version": "1.0.0",
         "status": "running",
-        "model": model_type
+        "model": model_type,
+        "endpoints": {
+            "generate": "/generate (POST)",
+            "generate_stream": "/generate/stream (POST)",
+            "generate_ws": "/ws/generate (WebSocket)",
+            "personalities": "/personalities (GET)",
+            "models": "/models (GET)",
+            "datasets": "/datasets (GET)",
+            "info": "/info (GET)",
+        }
     }
+
+
+@app.get("/info")
+async def info():
+    """Get detailed server info."""
+    import torch
+    
+    info = {
+        "api_version": "1.0.0",
+        "model": {
+            "type": model_type,
+            "loaded": model is not None,
+        },
+        "pytorch_version": torch.__version__,
+        "cuda_available": torch.cuda.is_available(),
+    }
+    
+    if checkpoint:
+        info["model"].update({
+            "vocab_size": len(checkpoint.get('stoi', {})),
+            "chars": len(checkpoint.get('chars', [])),
+        })
+    
+    if torch.cuda.is_available():
+        info["cuda"] = {
+            "device": torch.cuda.get_device_name(0),
+            "memory_total": torch.cuda.get_device_properties(0).total_memory / 1e9,
+        }
+    
+    return info
 
 
 @app.get("/health")
@@ -183,6 +240,91 @@ async def generate_stream(request: GenerateRequest):
         yield "data: [DONE]\n\n"
     
     return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+@app.websocket("/ws/generate")
+async def websocket_generate(websocket: WebSocket):
+    """WebSocket endpoint for real-time text generation."""
+    await manager.connect(websocket)
+    
+    try:
+        while True:
+            data = await websocket.receive_text()
+            request_data = json.loads(data)
+            
+            prompt = request_data.get("prompt", "")
+            max_tokens = request_data.get("max_tokens", 100)
+            temperature = request_data.get("temperature", 0.8)
+            
+            # Send status
+            await websocket.send_json({"status": "generating", "prompt": prompt})
+            
+            if model_type == "nanogpt" and checkpoint:
+                stoi = checkpoint.get('stoi', {})
+                itos = checkpoint.get('itos', {})
+                
+                idx = torch.tensor([[stoi.get(c, 0) for c in prompt]], dtype=torch.long)
+                
+                model.eval()
+                generated = ""
+                
+                with torch.no_grad():
+                    for _ in range(max_tokens):
+                        idx_cond = idx[:, -128:]
+                        logits, _ = model(idx_cond)
+                        logits = logits[:, -1, :] / temperature
+                        probs = torch.softmax(logits, dim=-1)
+                        idx_next = torch.multinomial(probs, num_samples=1)
+                        idx = torch.cat([idx, idx_next], dim=1)
+                        
+                        char = itos.get(idx_next.item(), '')
+                        generated += char
+                        
+                        # Stream each character
+                        await websocket.send_json({"token": char, "generated": generated})
+                        
+                        if len(generated) > max_tokens:
+                            break
+                
+                await websocket.send_json({"status": "done", "text": generated})
+            
+            elif model_type == "gpt2" and tokenizer:
+                inputs = tokenizer(prompt, return_tensors="pt")
+                
+                model.eval()
+                generated = ""
+                
+                with torch.no_grad():
+                    for _ in range(max_tokens):
+                        outputs = model.generate(
+                            **inputs,
+                            max_new_tokens=1,
+                            temperature=temperature,
+                            do_sample=True,
+                            return_dict_in_generate=True,
+                        )
+                        token = tokenizer.decode(outputs.sequences[0][-1])
+                        generated += token
+                        
+                        await websocket.send_json({"token": token, "generated": generated})
+                        
+                        inputs = tokenizer(token, return_tensors="pt")
+                
+                await websocket.send_json({"status": "done", "text": generated})
+            
+            else:
+                # Demo mode
+                demo_text = f"Demo response to: {prompt}"
+                for char in demo_text:
+                    await websocket.send_json({"token": char, "generated": char})
+                    await asyncio.sleep(0.05)
+                await websocket.send_json({"status": "done", "text": demo_text})
+    
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception as e:
+        await websocket.send_json({"status": "error", "error": str(e)})
+        manager.disconnect(websocket)
 
 
 @app.get("/personalities")
