@@ -67,6 +67,7 @@ class SloughGPTTrainer:
         batch_size=64,
         epochs=10,
         lr=1e-3,
+        max_steps=None,
         # Quantization
         quantize=False,
         quantize_bits=8,
@@ -76,6 +77,7 @@ class SloughGPTTrainer:
         self.batch_size = batch_size
         self.epochs = epochs
         self.lr = lr
+        self.max_steps = max_steps
         
         # Prepare data
         self.data, self.vocab_size, self.stoi, self.itos = prepare_data(
@@ -174,11 +176,17 @@ class SloughGPTTrainer:
             steps_per_epoch = len(self.train_data) // self.block_size // self.batch_size
             
             for step in range(steps_per_epoch):
+                if self.max_steps and step >= self.max_steps:
+                    break
+                    
                 loss = self.train_step()
                 train_loss += loss
                 
                 if step % 50 == 0:
                     print(f"Epoch {epoch+1}/{self.epochs} | Step {step}/{steps_per_epoch} | Loss: {loss:.4f}")
+            
+            if self.max_steps and sum(1 for _ in range(epoch * steps_per_epoch)) >= self.max_steps:
+                break
             
             # Validation
             self.model.eval()
@@ -246,6 +254,7 @@ def main():
     parser.add_argument('--n_layer', type=int, default=4)
     parser.add_argument('--n_head', type=int, default=4)
     parser.add_argument('--block_size', type=int, default=64)
+    parser.add_argument('--max_steps', type=int, default=None, help='Max training steps (for quick testing)')
     parser.add_argument('--lora', action='store_true', help='Use LoRA')
     parser.add_argument('--lora_rank', type=int, default=4)
     parser.add_argument('--quantize', action='store_true', help='Quantize model')
@@ -261,6 +270,7 @@ def main():
         batch_size=args.batch_size,
         epochs=args.epochs,
         lr=args.lr,
+        max_steps=args.max_steps,
         use_lora=args.lora,
         lora_rank=args.lora_rank,
         quantize=args.quantize,
