@@ -253,6 +253,115 @@ def cmd_health(args):
         print(f"Error: {e}")
 
 
+def cmd_info(args):
+    """Show model checkpoint info."""
+    import torch
+    from pathlib import Path
+    
+    model_path = Path(args.model)
+    if not model_path.exists():
+        print(f"Error: Model not found: {model_path}")
+        return
+    
+    print("=" * 50)
+    print(f"Model: {model_path}")
+    print("=" * 50)
+    
+    checkpoint = torch.load(model_path, weights_only=False, map_location='cpu')
+    
+    if 'model' in checkpoint:
+        model = checkpoint['model']
+        if hasattr(model, 'state_dict'):
+            state = model.state_dict()
+            print(f"\nState dict keys: {len(state)}")
+            total_params = sum(p.numel() for p in state.values() if isinstance(p, torch.Tensor))
+            print(f"Total parameters: {total_params:,}")
+        elif isinstance(model, dict):
+            print(f"Model dict keys: {len(model)}")
+            total_params = sum(p.numel() for p in model.values() if isinstance(p, torch.Tensor))
+            print(f"Total parameters: {total_params:,}")
+    
+    if 'chars' in checkpoint:
+        print(f"Vocab size: {len(checkpoint['chars'])}")
+    if 'stoi' in checkpoint:
+        print(f"Char-to-int map size: {len(checkpoint['stoi'])}")
+    if 'itos' in checkpoint:
+        print(f"Int-to-char map size: {len(checkpoint['itos'])}")
+    if 'training_info' in checkpoint:
+        print(f"Training info: {checkpoint['training_info']}")
+    
+    print("=" * 50)
+
+
+def cmd_serve(args):
+    """Start a simple HTTP inference server."""
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    import json
+    import torch
+    
+    model = None
+    stoi = {}
+    itos = {}
+    
+    # Try to load model
+    model_path = args.model or "models/sloughgpt.pt"
+    if Path(model_path).exists():
+        print(f"Loading model from {model_path}...")
+        try:
+            checkpoint = torch.load(model_path, weights_only=False, map_location='cpu')
+            stoi = checkpoint.get('stoi', {})
+            itos = checkpoint.get('itos', {})
+            print("Model loaded!")
+        except Exception as e:
+            print(f"Warning: Could not load model: {e}")
+    
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == '/health':
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "ok", "model": "sloughgpt"}).encode())
+            else:
+                self.send_response(404)
+                self.end_headers()
+        
+        def do_POST(self):
+            if self.path == '/generate':
+                content_length = int(self.headers['Content-Length'])
+                body = self.rfile.read(content_length)
+                data = json.loads(body)
+                
+                prompt = data.get('prompt', '')
+                max_tokens = data.get('max_tokens', 100)
+                temperature = data.get('temperature', 0.8)
+                
+                # Simple generation (placeholder)
+                text = f"Generated: {prompt[:50]}... (model not fully loaded)"
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"text": text}).encode())
+            else:
+                self.send_response(404)
+                self.end_headers()
+        
+        def log_message(self, format, *args):
+            print(f"[Server] {args[0]}")
+    
+    print("=" * 50)
+    print(f"Starting server on {args.host}:{args.port}")
+    print("=" * 50)
+    
+    server = HTTPServer((args.host, args.port), Handler)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nServer stopped")
+        server.shutdown()
+
+
 def cmd_generate(args):
     """Generate text from prompt."""
     import requests
@@ -380,6 +489,18 @@ def main():
     # Health command
     health_parser = subparsers.add_parser("health", help="Check API health")
     health_parser.set_defaults(func=cmd_health)
+    
+    # Info command
+    info_parser = subparsers.add_parser("info", help="Show model checkpoint info")
+    info_parser.add_argument("model", nargs="?", default="models/sloughgpt.pt", help="Model path")
+    info_parser.set_defaults(func=cmd_info)
+    
+    # Serve command
+    serve_parser = subparsers.add_parser("serve", help="Start HTTP inference server")
+    serve_parser.add_argument("--host", default="localhost", help="Host")
+    serve_parser.add_argument("--port", type=int, default=8080, help="Port")
+    serve_parser.add_argument("--model", help="Model path")
+    serve_parser.set_defaults(func=cmd_serve)
     
     # Generate command
     gen_parser = subparsers.add_parser("generate", help="Generate text")
