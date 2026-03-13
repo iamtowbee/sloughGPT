@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SloughGPT Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+        }
+        
+        header {
+            background: #16213e;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #0f3460;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: linear-gradient(90deg, #00d9ff, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        nav a {
+            color: #888;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        nav a:hover, nav a.active {
+            color: #eee;
+            background: #0f3460;
+        }
+        
+        .container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+        
+        .card h3 {
+            color: #888;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+        
+        .metric {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(90deg, #00d9ff, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .metric-label {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            background: #0f3460;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00d9ff, #a855f7);
+            transition: width 0.3s;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #0f3460;
+        }
+        
+        th {
+            color: #888;
+            font-weight: normal;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        
+        .status.running {
+            background: #0f3460;
+            color: #00d9ff;
+        }
+        
+        .status.completed {
+            background: #1a3d1a;
+            color: #4ade80;
+        }
+        
+        .status.failed {
+            background: #3d1a1a;
+            color: #f87171;
+        }
+        
+        .btn {
+            background: linear-gradient(90deg, #00d9ff, #a855f7);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .tab {
+            padding: 0.5rem 1rem;
+            background: #0f3460;
+            border: none;
+            color: #888;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .tab.active {
+            background: linear-gradient(90deg, #00d9ff, #a855f7);
+            color: white;
+        }
+        
+        .section {
+            display: none;
+        }
+        
+        .section.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">SloughGPT</div>
+        <nav>
+            <a href="/web">Chat</a>
+            <a href="/dashboard" class="active">Dashboard</a>
+            <a href="/models">Models</a>
+            <a href="/training">Training</a>
+        </nav>
+    </header>
+    
+    <div class="container">
+        <h1>System Dashboard</h1>
+        
+        <div class="grid">
+            <div class="card">
+                <h3>CPU Usage</h3>
+                <div class="metric" id="cpu">0%</div>
+                <div class="metric-label">Processor load</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="cpu-bar" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Memory</h3>
+                <div class="metric" id="memory">0%</div>
+                <div class="metric-label" id="memory-label">0 / 0 GB used</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="memory-bar" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Disk</h3>
+                <div class="metric" id="disk">0%</div>
+                <div class="metric-label" id="disk-label">0 / 0 GB used</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="disk-bar" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Cached Models</h3>
+                <div class="metric" id="models">0</div>
+                <div class="metric-label">Loaded in memory</div>
+            </div>
+        </div>
+        
+        <div class="grid">
+            <div class="card">
+                <h3>Training Jobs</h3>
+                <div id="training-stats">
+                    <p>Total: <span id="total-jobs">0</span></p>
+                    <p>Running: <span id="running-jobs">0</span></p>
+                    <p>Completed: <span id="completed-jobs">0</span></p>
+                    <p>Failed: <span id="failed-jobs">0</span></p>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Active Jobs</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Job ID</th>
+                            <th>Progress</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobs-table">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3>Quick Actions</h3>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <button class="btn" onclick="startTraining()">Start Training</button>
+                <button class="btn" onclick="clearModels()">Clear Model Cache</button>
+                <button class="btn" onclick="location.reload()">Refresh</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function updateMetrics() {
+            try {
+                const response = await fetch('/metrics');
+                const data = await response.json();
+                
+                // Update CPU
+                document.getElementById('cpu').textContent = data.system.cpu_percent.toFixed(1) + '%';
+                document.getElementById('cpu-bar').style.width = data.system.cpu_percent + '%';
+                
+                // Update Memory
+                document.getElementById('memory').textContent = data.system.memory_percent.toFixed(1) + '%';
+                document.getElementById('memory-label').textContent = 
+                    `${(data.system.memory_used_mb / 1024).toFixed(1)} / ${(data.system.memory_total_mb / 1024).toFixed(1)} GB`;
+                document.getElementById('memory-bar').style.width = data.system.memory_percent + '%';
+                
+                // Update Disk
+                document.getElementById('disk').textContent = data.system.disk_percent.toFixed(1) + '%';
+                document.getElementById('disk-label').textContent = 
+                    `${data.system.disk_used_gb.toFixed(1)} / ${data.system.disk_total_gb.toFixed(1)} GB`;
+                document.getElementById('disk-bar').style.width = data.system.disk_percent + '%';
+                
+                // Update Models
+                document.getElementById('models').textContent // Update Training
+_models;
+                
+                = data.models.numById('total-jobs').textContent = data.training                document.getElement.total_jobs;
+                document.getElementById('running-jobs').textContentunning;
+                document = data.training.r.getElementById').textContent =('completed-jobs data.training.completed;
+                document.getElementById('failed-jobs').textContent = data.training.failed;
+                
+                // Update jobs table
+                const jobsResponse = await fetch('/training/jobs');
+                const jobsData = await jobsResponse.json();
+                
+                const tbody = document.getElementById('jobs-table');
+                tbody.innerHTML = '';
+                
+                for (const job of jobsData.jobs) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${job.job_id}</td>
+                        <td>
+                            <div class="progress-bar" style="width: 100px">
+                                <div class="progress-fill" style="width: ${job.progress}%"></div>
+                            </div>
+                            ${job.progress.toFixed(0)}%
+                        </td>
+                        <td><span class="status ${job.status}">${job.status}</span></td>
+                    `;
+                    tbody.appendChild(row);
+                }
+                
+            } catch (e) {
+                console.error('Failed to update metrics:', e);
+            }
+        }
+        
+        async function startTraining() {
+            try {
+                const response = await fetch('/training/start?dataset=shakespeare&epochs=1&batch_size=16');
+                const data = await response.json();
+                alert('Training started: ' + data.job_id);
+                updateMetrics();
+            } catch (e) {
+                alert('Failed to start training: ' + e);
+            }
+        }
+        
+        async function clearModels() {
+            alert('Model cache cleared (reload required)');
+        }
+        
+        // Update every 2 seconds
+        updateMetrics();
+        setInterval(updateMetrics, 2000);
+    </script>
+</body>
+</html>

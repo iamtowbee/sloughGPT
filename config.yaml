@@ -1,0 +1,58 @@
+# SloughGPT Configuration
+
+# Model architecture
+model:
+  name: "sloughgpt"
+  vocab_size: null  # Auto-detect from data
+  n_embed: 256
+  n_layer: 6
+  n_head: 8
+  block_size: 128
+  dropout: 0.1
+
+# Data
+data:
+  dataset: "shakespeare"
+  data_path: "datasets/shakespeare/input.txt"
+  val_split: 0.1
+
+# Training
+training:
+  epochs: 10
+  batch_size: 64
+  learning_rate: 1e-3
+  weight_decay: 0.01
+  gradient_clip: 1.0
+  warmup_steps: 500
+  scheduler: "cosine"  # cosine, linear, constant
+
+# LoRA
+lora:
+  enabled: false
+  rank: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules: ["c_attn", "c_proj", "c_fc"]
+
+# Quantization
+quantization:
+  enabled: false
+  bits: 8  # 8 or 4
+
+# Checkpointing
+checkpoint:
+  save_every: 5
+  keep_last: 3
+  save_dir: "models"
+
+# Tracking
+tracking:
+  enabled: false
+  backend: "wandb"  # wandb, mlflow, or none
+  project: "sloughgpt"
+  entity: null
+  log_every: 10
+
+# Device
+device:
+  type: "auto"  # auto, cpu, mps, cuda

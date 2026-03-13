@@ -41,9 +41,7 @@ class CausalSelfAttention(nn.Module):
         
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(self.head_dim))
         
-        causal_mask = torch.triu(torch.ones(T, T), diagonal=1).bool()
-        if x.is_cuda:
-            causal_mask = causal_mask.cuda()
+        causal_mask = torch.triu(torch.ones(T, T, device=x.device, dtype=torch.bool), diagonal=1)
         att = att.masked_fill(causal_mask.unsqueeze(0).unsqueeze(0), float('-inf'))
         
         att = F.softmax(att, dim=-1)

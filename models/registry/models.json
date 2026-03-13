@@ -10,7 +10,7 @@
         "model_name": "test-model",
         "version": "v0.1.0",
         "description": "",
-        "stage": "none",
+        "stage": "deleted",
         "status": "pending",
         "metrics": {
           "accuracy": null,
@@ -33,9 +33,20 @@
         "tags": {}
       }
     ],
-    "current_stage": "none",
+    "current_stage": "deleted",
     "tags": {},
     "created_at": 1772185560.822378,
     "updated_at": 1772185560.823894
+  },
+  "c6cdd30ca245": {
+    "model_id": "c6cdd30ca245",
+    "name": "test-model-new",
+    "description": "Test model",
+    "model_type": "test-type",
+    "versions": [],
+    "current_stage": "deleted",
+    "tags": {},
+    "created_at": 1772617308.8922071,
+    "updated_at": 1772617308.892208
   }
 }

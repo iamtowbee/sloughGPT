@@ -1,0 +1,10 @@
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+pydantic>=2.0.0
+torch>=2.0.0
+transformers>=4.30.0
+datasets>=2.0.0
+accelerate>=0.20.0
+python-multipart>=0.0.6
+pynvml>=11.0.0
+requests>=2.28.0

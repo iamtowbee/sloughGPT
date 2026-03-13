@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #000000;
+  --foreground: #fafafa;
+  --card: #09090b;
+  --card-foreground: #fafafa;
+  --popover: #09090b;
+  --popover-foreground: #fafafa;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #1e1e2e;
+  --secondary-foreground: #cdd6f4;
+  --muted: #1e1e2e;
+  --muted-foreground: #6c7086;
+  --accent: #1e1e2e;
+  --accent-foreground: #cdd6f4;
+  --destructive: #f38ba8;
+  --destructive-foreground: #1e1e2e;
+  --border: #313244;
+  --input: #313244;
+  --ring: #89b4fa;
+  --radius: 0.5rem;
+  
+  /* Catppuccin colors */
+  --rosewater: #f5e0dc;
+  --flamingo: #f2cdcd;
+  --pink: #f5c2e7;
+  --mauve: #cba6f7;
+  --red: #f38ba8;
+  --maroon: #eba0ac;
+  --peach: #fab387;
+  --yellow: #f9e2af;
+  --green: #a6e3a1;
+  --teal: #94e2d5;
+  --sky: #89dceb;
+  --sapphire: #74c7ec;
+  --blue: #89b4fa;
+  --lavender: #b4befe;
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #45475a;
+  border-radius: 3px;
+}
+
+::selection {
+  background: #89b4fa;
+  color: #1e1e2e;
+}
+
+input, textarea, select {
+  font-size: 14px;
+}
+
+button {
+  font-size: 14px;
+}
+
+/* Theme classes */
+.theme-blue { --primary: #3b82f6; --ring: #60a5fa; }
+.theme-purple { --primary: #a855f7; --ring: #c084fc; }
+.theme-pink { --primary: #ec4899; --ring: #f472b6; }
+.theme-red { --primary: #ef4444; --ring: #f87171; }
+.theme-orange { --primary: #f97316; --ring: #fb923c; }
+.theme-green { --primary: #22c55e; --ring: #4ade80; }
+.theme-teal { --primary: #14b8a6; --ring: #2dd4bf; }
+
+.gradient-bg {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--ring) 100%);
+}

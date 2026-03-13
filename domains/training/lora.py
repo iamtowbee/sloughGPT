@@ -256,7 +256,7 @@ def get_lora_parameters(model: nn.Module) -> Dict[str, torch.Tensor]:
 
 def count_lora_parameters(model: nn.Module) -> int:
     """Count number of trainable LoRA parameters."""
-    return sum(p.numel() for p in model.parameters() if 'lora_' in p.name)
+    return sum(p.numel() for n, p in model.named_parameters() if 'lora_' in n)
 
 
 def print_lora_summary(model: nn.Module):
@@ -383,12 +383,16 @@ class QuantizedLinear(nn.Module):
         return F.linear(x, effective_weight, self.bias)
 
 
+# Alias for backward compatibility
+inject_lora = apply_lora_to_model
+
 __all__ = [
     "LoRAConfig",
     "LoRAType",
     "LoRALinear",
     "LoRAEmbedding",
     "apply_lora_to_model",
+    "inject_lora",
     "get_lora_parameters",
     "count_lora_parameters",
     "print_lora_summary",

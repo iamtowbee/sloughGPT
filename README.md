@@ -10,20 +10,41 @@ A **comprehensive enterprise-grade AI framework** for training, deploying, and m
 ## 🚀 Quick Start
 
 ```bash
-# Clone the repository
+# Clone and start
 git clone https://github.com/sloughgpt/sloughgpt.git
 cd sloughgpt
 
+# One command to start everything
+./start.sh
+
+# Or manually:
+# Web UI:   http://localhost:3000
+# API:      http://localhost:8000
+# API Docs: http://localhost:8000/docs
+```
+
+## Development
+
+```bash
 # Install dependencies
 pip install -r requirements.txt
+cd web && npm install
 
-# Launch domain architecture
-python launch.py
+# Start web UI
+cd web && npm run dev
 
-# Use CLI for operations
-python cli.py --help
-python cli.py dataset list
-python cli.py train --epochs 3
+# Start API server
+cd server && python3 main.py
+```
+
+## Training
+
+```bash
+# Train a model
+python3 cli.py train --epochs 3
+
+# List datasets
+python3 cli.py dataset list
 ```
 
 ## ✨ Features
@@ -166,6 +187,16 @@ python cli.py dataset score mydata
 
 # Training
 python cli.py train --epochs 3 --batch-size 32
+
+# Training with config
+python cli.py train  # Uses config.yaml defaults
+python cli.py train --epochs 5 --use-lora  # Override with CLI args
+
+# Training with tracking (edit config.yaml first)
+# Set tracking.enabled: true and tracking.backend: wandb
+
+# Inference
+python -c "from domains.training.inference_engine import load_model_for_inference; e = load_model_for_inference('models/sloughgpt.pt'); print(e.generate('First', max_new_tokens=100))"
 
 # Model operations
 python cli.py model list

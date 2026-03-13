@@ -1,0 +1,53 @@
+# SloughGPT Monitoring Dashboard Configuration
+# Comprehensive AI system monitoring dashboard
+
+apiVersion: 1
+
+dashboards:
+  - name: "SloughGPT Overview"
+    type: file
+    folder: "/etc/grafana/provisioning/dashboards"
+    options:
+      path: "/app/grafana/dashboards/sloughgpt-overview.json"
+
+  - name: "Model Performance"
+    type: file
+    folder: "/etc/grafana/provisioning/dashboards"
+    options:
+      path: "/app/grafana/dashboards/model-performance.json"
+
+  - name: "Training Metrics"
+    type: file
+    folder: "/etc/grafana/provisioning/dashboards"
+    options:
+      path: "/app/grafana/dashboards/training-metrics.json"
+
+  - name: "System Health"
+    type: file
+    folder: "/etc/grafana/provisioning/dashboards"
+    options:
+      path: "/app/grafana/dashboards/system-health.json"
+
+  - name: "GPU Monitoring"
+    type: file
+    folder: "/etc/grafana/provisioning/dashboards"
+    options:
+      path: "/app/grafana/dashboards/gpu-monitoring.json"
+
+  - name: "Multi-Modal Performance"
+    type: file
+    folder: "/etc/grafana/provisioning/dashboards"
+    options:
+      path: "/app/grafana/dashboards/multimodal-performance.json"
+
+  - name: "API Performance"
+    type: file
+    folder: "/etc/grafana/provisioning/dashboards"
+    options:
+      path: "/app/grafana/dashboards/api-performance.json"
+
+  - name: "Resource Usage"
+    type: file
+    folder: "/etc/grafana/provisioning/dashboards"
+    options:
+      path: "/app/grafana/dashboards/resource-usage.json"

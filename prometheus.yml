@@ -1,0 +1,54 @@
+# Prometheus Configuration for SloughGPT
+# Multi-service monitoring with auto-discovery
+
+sca_version: 2
+
+scrape_configs:
+  # SloughGPT API metrics
+  - job_name: 'sloughgpt-api'
+    static_configs:
+      - targets: ['api:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+
+  # System metrics (node exporter)
+  - job_name: 'system-metrics'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # GPU metrics (if available)
+  - job_name: 'gpu-metrics'
+    static_configs:
+      - targets: ['nvidia-exporter:9445']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    enabled: false  # Enable only if GPU is available
+
+# Global settings
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+# Alerting configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Rule files (if any)
+rule_files:
+  - "rules/*.yml"
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /prometheus/data
+    retention: 30d
+    retention_size: 50GB
