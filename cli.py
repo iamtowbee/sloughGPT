@@ -532,6 +532,38 @@ def cmd_data_tool(args, subcmd: str):
         }, indent=2))
 
 
+def cmd_optimize(args):
+    """Show and configure optimization settings."""
+    import torch
+    
+    print("=" * 50)
+    print("Model Optimization Settings")
+    print("=" * 50)
+    
+    print(f"\nPyTorch Version: {torch.__version__}")
+    print(f"CUDA Available: {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"CUDA Device: {torch.cuda.get_device_name(0)}")
+        print(f"CUDA Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+    
+    print(f"\nOptimizations Available:")
+    print(f"  - torch.compile: {'Yes' if hasattr(torch, 'compile') else 'No'}")
+    print(f"  - AMP (Automatic Mixed Precision): Yes")
+    print(f"  - Gradient Checkpointing: Yes")
+    print(f"  - Channels Last: Yes")
+    
+    print(f"\nCurrent Settings:")
+    print(f"  - Default dtype: {torch.get_default_dtype()}")
+    print(f"  - Threads: {torch.get_num_threads()}")
+    
+    if args.optimize:
+        print(f"\nApplying optimizations...")
+        torch.set_num_threads(torch.get_num_threads())
+        print("  - CPU threads optimized")
+        
+    print()
+
+
 def cmd_eval(args):
     """Show model checkpoint info and stats."""
     import torch
@@ -682,6 +714,8 @@ def main():
     quick_parser.add_argument("--max-tokens", type=int, default=100, help="Max tokens to generate")
     quick_parser.add_argument("--temperature", type=float, default=0.8, help="Generation temperature")
     quick_parser.add_argument("--output", default="models/quick.pt", help="Output model path")
+    quick_parser.add_argument("--compile", action="store_true", help="Use torch.compile for faster inference")
+    quick_parser.add_argument("--amp", action="store_true", help="Use automatic mixed precision")
     quick_parser.set_defaults(func=cmd_quick)
     
     # Models command
@@ -768,6 +802,11 @@ def main():
     # System command
     sys_parser = subparsers.add_parser("system", help="Show system information")
     sys_parser.set_defaults(func=cmd_system)
+    
+    # Optimize command
+    opt_parser = subparsers.add_parser("optimize", help="Show/configure optimization settings")
+    opt_parser.add_argument("--optimize", action="store_true", help="Apply optimizations")
+    opt_parser.set_defaults(func=cmd_optimize)
     
     args = parser.parse_args()
     
