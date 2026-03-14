@@ -9,6 +9,7 @@ JWT tokens, password management, and session handling.
 import asyncio
 import hashlib
 import logging
+import os
 import secrets
 import time
 import uuid
@@ -68,7 +69,7 @@ class AuthenticationService(BaseComponent, IAuthenticationService):
         self.api_keys: Dict[str, Dict[str, Any]] = {}
 
         # Security configuration
-        self.jwt_secret = secrets.token_urlsafe(32)
+        self.jwt_secret = os.environ.get("JWT_SECRET_KEY", secrets.token_urlsafe(32))
         self.jwt_algorithm = "HS256"
         self.token_expiry = 3600  # 1 hour
         self.refresh_token_expiry = 86400  # 24 hours

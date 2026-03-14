@@ -369,18 +369,24 @@ def cmd_generate(args):
     from domains.training.models.nanogpt import NanoGPT
     
     # Try local first
-    model_path = Path("models/sloughgpt.pt")
+    model_path = Path("models/sloughgpt_finetuned.pt")
+    if not model_path.exists():
+        model_path = Path("models/sloughgpt.pt")
     if model_path.exists():
         try:
             checkpoint = torch.load(model_path, weights_only=False, map_location='cpu')
             
             # Get config from checkpoint
             training_info = checkpoint.get('training_info', {})
-            vocab_size = training_info.get('vocab_size', 65)
+            vocab_size = training_info.get('vocab_size', len(checkpoint.get('stoi', {})))
             n_embed = training_info.get('n_embed', 128)
             n_layer = training_info.get('n_layer', 4)
             n_head = training_info.get('n_head', 4)
             block_size = training_info.get('block_size', 64)
+            
+            # Fallback defaults
+            if vocab_size == 0:
+                vocab_size = 65
             
             # Create model and load weights
             model = NanoGPT(vocab_size=vocab_size, n_embed=n_embed, n_layer=n_layer, n_head=n_head, block_size=block_size)
@@ -399,7 +405,7 @@ def cmd_generate(args):
             model.eval()
             with torch.no_grad():
                 for _ in range(args.max_tokens):
-                    idx_cond = idx[:, -128:]
+                    idx_cond = idx[:, -block_size:]
                     logits, _ = model(idx_cond)
                     logits = logits[:, -1, :] / args.temperature
                     probs = torch.softmax(logits, dim=-1)
