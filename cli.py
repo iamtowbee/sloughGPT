@@ -576,6 +576,40 @@ def cmd_export(args):
         print(f"Error: {e}")
 
 
+def cmd_monitor(args):
+    """Monitor training jobs."""
+    import requests
+    import time
+    
+    base_url = f"http://{args.host}:{args.port}"
+    
+    print("=" * 50)
+    print("Training Monitor")
+    print("=" * 50)
+    
+    while True:
+        try:
+            response = requests.get(f"{base_url}/training", timeout=5)
+            if response.status_code == 200:
+                jobs = response.json()
+                if isinstance(jobs, dict) and 'jobs' in jobs:
+                    jobs = jobs['jobs']
+                if jobs:
+                    print(f"\nActive Jobs: {len(jobs)}")
+                    for job in jobs:
+                        print(f"  - {job.get('name', 'unknown')}: {job.get('status', 'unknown')}")
+                else:
+                    print("No active training jobs")
+            else:
+                print(f"Error: {response.status_code}")
+        except Exception as e:
+            print(f"Error: {e}")
+        
+        if not args.watch:
+            break
+        time.sleep(args.interval)
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -687,6 +721,12 @@ def main():
     export_parser = subparsers.add_parser("export", help="Export model")
     export_parser.add_argument("model", help="Model name")
     export_parser.set_defaults(func=cmd_export)
+    
+    # Monitor command
+    monitor_parser = subparsers.add_parser("monitor", help="Monitor training jobs")
+    monitor_parser.add_argument("--watch", action="store_true", help="Watch continuously")
+    monitor_parser.add_argument("--interval", type=int, default=5, help="Update interval (seconds)")
+    monitor_parser.set_defaults(func=cmd_monitor)
     
     args = parser.parse_args()
     
