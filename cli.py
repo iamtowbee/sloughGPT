@@ -479,6 +479,84 @@ def cmd_personalities(args):
         print(f"  Traits: {personality.traits}")
 
 
+def cmd_data_tool(args, subcmd: str):
+    """Dataset utilities - stats, validate."""
+    import json
+    
+    path = Path(args.path)
+    if not path.exists():
+        print(f"Error: Path not found: {path}")
+        return
+    
+    if subcmd == "stats":
+        total_lines = 0
+        total_chars = 0
+        
+        if path.is_file():
+            with open(path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        total_lines += 1
+                        total_chars += len(line)
+            
+            print(json.dumps({
+                "path": str(path),
+                "total_lines": total_lines,
+                "total_chars": total_chars,
+                "avg_line_length": total_chars // max(total_lines, 1)
+            }, indent=2))
+        else:
+            files = list(path.rglob('*'))
+            total_size = sum(f.stat().st_size for f in files if f.is_file())
+            print(json.dumps({
+                "path": str(path),
+                "file_count": len([f for f in files if f.is_file()]),
+                "total_size": total_size
+            }, indent=2))
+    
+    elif subcmd == "validate":
+        issues = []
+        if path.is_file():
+            with open(path, 'r') as f:
+                for i, line in enumerate(f, 1):
+                    if not line.strip():
+                        issues.append(f"Line {i}: Empty")
+        else:
+            files = [f for f in path.rglob('*') if f.is_file()]
+        
+        print(json.dumps({
+            "valid": len(issues) == 0,
+            "path": str(path),
+            "issues": issues[:10]
+        }, indent=2))
+
+
+def cmd_eval(args):
+    """Show model checkpoint info and stats."""
+    import torch
+    
+    print(f"Checkpoint: {args.checkpoint}")
+    
+    try:
+        checkpoint = torch.load(args.checkpoint, map_location='cpu', weights_only=False)
+        
+        print(f"\nKeys: {list(checkpoint.keys())}")
+        
+        if 'training_info' in checkpoint:
+            info = checkpoint['training_info']
+            print(f"\nTraining Info:")
+            for k, v in info.items():
+                print(f"  {k}: {v}")
+        
+        if 'model' in checkpoint:
+            state_dict = checkpoint['model']
+            print(f"\nModel params: {len(state_dict)}")
+        
+    except Exception as e:
+        print(f"Error: {e}")
+
+
 def cmd_export(args):
     """Export a model."""
     import requests
@@ -586,6 +664,24 @@ def main():
     # Datasets command
     datasets_parser = subparsers.add_parser("datasets", help="List datasets")
     datasets_parser.set_defaults(func=cmd_datasets)
+    
+    # Data tools command
+    data_parser = subparsers.add_parser("data", help="Dataset utilities")
+    data_sub = data_parser.add_subparsers(dest="data_cmd", help="Data commands")
+    
+    stats_parser = data_sub.add_parser("stats", help="Get dataset statistics")
+    stats_parser.add_argument("path", help="Dataset or file path")
+    stats_parser.set_defaults(func=lambda a: cmd_data_tool(a, "stats"))
+    
+    validate_parser = data_sub.add_parser("validate", help="Validate dataset")
+    validate_parser.add_argument("path", help="Dataset path")
+    validate_parser.set_defaults(func=lambda a: cmd_data_tool(a, "validate"))
+    
+    # Eval command
+    eval_parser = subparsers.add_parser("eval", help="Model evaluation utilities")
+    eval_parser.add_argument("--checkpoint", default="models/sloughgpt.pt", help="Model checkpoint")
+    eval_parser.add_argument("--data", default="datasets/shakespeare/input.txt", help="Eval data")
+    eval_parser.set_defaults(func=cmd_eval)
     
     # Export command
     export_parser = subparsers.add_parser("export", help="Export model")
