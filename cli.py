@@ -610,6 +610,43 @@ def cmd_monitor(args):
         time.sleep(args.interval)
 
 
+def cmd_system(args):
+    """Show system information."""
+    import platform
+    import psutil
+    
+    print("=" * 50)
+    print("System Information")
+    print("=" * 50)
+    
+    # Python & Platform
+    print(f"\nPlatform: {platform.platform()}")
+    print(f"Python: {platform.python_version()}")
+    
+    # CPU
+    print(f"\nCPU:")
+    print(f"  Cores: {psutil.cpu_count()}")
+    print(f"  Usage: {psutil.cpu_percent()}%")
+    
+    # Memory
+    mem = psutil.virtual_memory()
+    print(f"\nMemory:")
+    print(f"  Total: {mem.total / (1024**3):.1f} GB")
+    print(f"  Used: {mem.used / (1024**3):.1f} GB")
+    print(f"  Available: {mem.available / (1024**3):.1f} GB")
+    print(f"  Usage: {mem.percent}%")
+    
+    # Disk
+    disk = psutil.disk_usage('/')
+    print(f"\nDisk:")
+    print(f"  Total: {disk.total / (1024**3):.1f} GB")
+    print(f"  Used: {disk.used / (1024**3):.1f} GB")
+    print(f"  Free: {disk.free / (1024**3):.1f} GB")
+    print(f"  Usage: {disk.percent}%")
+    
+    print()
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -727,6 +764,10 @@ def main():
     monitor_parser.add_argument("--watch", action="store_true", help="Watch continuously")
     monitor_parser.add_argument("--interval", type=int, default=5, help="Update interval (seconds)")
     monitor_parser.set_defaults(func=cmd_monitor)
+    
+    # System command
+    sys_parser = subparsers.add_parser("system", help="Show system information")
+    sys_parser.set_defaults(func=cmd_system)
     
     args = parser.parse_args()
     
