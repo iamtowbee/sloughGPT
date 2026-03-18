@@ -10,6 +10,7 @@ from enum import Enum
 
 class QuantizationType(Enum):
     """Quantization types."""
+
     NONE = "none"
     Q4_0 = "q4_0"
     Q4_1 = "q4_1"
@@ -35,12 +36,13 @@ def get_quantization_preset(name: str) -> Optional[Dict[str, Any]]:
 @dataclass
 class QuantizationInfo:
     """Quantization information."""
+
     quantization_type: QuantizationType
     bits: int
     group_size: int
     original_size_mb: float
     quantized_size_mb: float
-    
+
     @property
     def compression_ratio(self) -> float:
         return self.original_size_mb / self.quantized_size_mb
@@ -48,7 +50,7 @@ class QuantizationInfo:
 
 class Quantizer:
     """Base quantizer class."""
-    
+
     def __init__(self, quantization_type: QuantizationType):
         self.quantization_type = quantization_type
         preset = get_quantization_preset(quantization_type.value)
@@ -58,11 +60,11 @@ class Quantizer:
         else:
             self.bits = 8
             self.group_size = 32
-    
+
     def quantize(self, weights):
         """Quantize weights."""
         raise NotImplementedError
-    
+
     def dequantize(self, weights):
         """Dequantize weights."""
         raise NotImplementedError
@@ -70,22 +72,21 @@ class Quantizer:
 
 class SouModelQuantizer:
     """Model quantizer for .sou models."""
-    
+
     def __init__(self, quantization_type: QuantizationType = QuantizationType.Q4_0):
         self.quantizer = Quantizer(quantization_type)
         self.quantization_type = quantization_type
-    
+
     def quantize_model(self, model):
         """Quantize a model."""
         # Placeholder - real implementation would use bitsandbytes or similar
         return model
-    
+
     def get_quantization_info(self, model) -> QuantizationInfo:
         """Get quantization info."""
-        import torch
         total_params = sum(p.numel() for p in model.parameters())
         param_size = sum(p.numel() * p.element_size() for p in model.parameters()) / (1024 * 1024)
-        
+
         return QuantizationInfo(
             quantization_type=self.quantization_type,
             bits=self.quantizer.bits,

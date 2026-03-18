@@ -7,12 +7,12 @@ from collections import defaultdict
 
 class SpacedRepetitionScheduler:
     """Spaced Repetition Learning System.
-    
+
     Schedules reviews based on performance:
     - Good performance (≥80%) → longer interval (up to 1 week)
     - Poor performance (<80%) → shorter interval (down to 1 day)
     """
-    
+
     def __init__(self):
         self.review_schedule: Dict[str, float] = {}
         self.performance_history: Dict[str, List[float]] = defaultdict(list)
@@ -21,19 +21,21 @@ class SpacedRepetitionScheduler:
             "week": 7 * 24 * 3600,
             "month": 30 * 24 * 3600,
         }
-    
+
     def schedule_review(self, doc_id: str, performance: float) -> float:
         """Schedule next review based on performance.
-        
+
         Args:
             doc_id: Document ID
             performance: Score 0-1
-        
+
         Returns:
             Next review timestamp
         """
         self.performance_history[doc_id].append(performance)
-        avg_performance = sum(self.performance_history[doc_id]) / len(self.performance_history[doc_id])
+        avg_performance = sum(self.performance_history[doc_id]) / len(
+            self.performance_history[doc_id]
+        )
         if avg_performance >= 0.9:
             interval = self.intervals["month"]
         elif avg_performance >= 0.8:
@@ -45,16 +47,20 @@ class SpacedRepetitionScheduler:
         next_review = time_module.time() + interval
         self.review_schedule[doc_id] = next_review
         return next_review
-    
+
     def get_due_reviews(self) -> List[str]:
         """Get list of documents due for review."""
         current_time = time_module.time()
-        return [doc_id for doc_id, review_time in self.review_schedule.items() if current_time >= review_time]
-    
+        return [
+            doc_id
+            for doc_id, review_time in self.review_schedule.items()
+            if current_time >= review_time
+        ]
+
     def get_next_review_time(self, doc_id: str) -> Optional[float]:
         """Get next review time for a document."""
         return self.review_schedule.get(doc_id)
-    
+
     def get_review_stats(self) -> Dict[str, any]:
         """Get spaced repetition statistics."""
         current_time = time_module.time()

@@ -5,11 +5,10 @@ Provides seamless integration with MLflow for experiment tracking.
 Supports both local MLflow server and MLflow cloud.
 """
 
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from dataclasses import dataclass
 from enum import Enum
 import logging
-import os
 
 logger = logging.getLogger("sloughgpt.mlflow")
 
@@ -49,6 +48,7 @@ class MLflowIntegration:
     def is_available(self) -> bool:
         try:
             import mlflow
+
             return True
         except ImportError:
             return False
@@ -93,6 +93,7 @@ class MLflowIntegration:
         if not self.is_available() or not self._run:
             return
         import mlflow
+
         mlflow.log_param(key, value)
 
     def log_params(self, params: Dict[str, Any]):
@@ -100,6 +101,7 @@ class MLflowIntegration:
         if not self.is_available() or not self._run:
             return
         import mlflow
+
         mlflow.log_params(params)
 
     def log_metric(self, key: str, value: float, step: Optional[int] = None):
@@ -107,6 +109,7 @@ class MLflowIntegration:
         if not self.is_available() or not self._run:
             return
         import mlflow
+
         mlflow.log_metric(key, value, step or 0)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
@@ -114,6 +117,7 @@ class MLflowIntegration:
         if not self.is_available() or not self._run:
             return
         import mlflow
+
         mlflow.log_metrics(metrics, step or 0)
 
     def log_artifact(self, local_path: str):
@@ -121,6 +125,7 @@ class MLflowIntegration:
         if not self.is_available() or not self._run:
             return
         import mlflow
+
         mlflow.log_artifact(local_path)
 
     def end_run(self, status: str = "FINISHED"):
@@ -128,6 +133,7 @@ class MLflowIntegration:
         if not self.is_available():
             return
         import mlflow
+
         mlflow.end_run(status)
 
 

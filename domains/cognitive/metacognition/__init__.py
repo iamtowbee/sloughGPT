@@ -548,15 +548,11 @@ class MetacognitiveMonitor(BaseComponent, IMetacognitiveMonitor):
 
         if high_load_processes:
             high_load_str = ", ".join(high_load_processes)
-            recommendations.append(
-                f"High cognitive load in: {high_load_str}. Consider breaks."
-            )
+            recommendations.append(f"High cognitive load in: {high_load_str}. Consider breaks.")
 
         if low_confidence_processes:
             low_conf_str = ", ".join(low_confidence_processes)
-            recommendations.append(
-                f"Low confidence in: {low_conf_str}. Seek more info."
-            )
+            recommendations.append(f"Low confidence in: {low_conf_str}. Seek more info.")
 
         if not recommendations:
             recommendations.append(

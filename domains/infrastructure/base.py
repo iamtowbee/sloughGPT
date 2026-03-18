@@ -4,7 +4,6 @@ Infrastructure Domain Base Class
 This module contains the base infrastructure domain implementation.
 """
 
-
 import asyncio
 import logging
 from typing import Any, Dict, Optional

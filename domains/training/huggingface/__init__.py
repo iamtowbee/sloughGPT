@@ -7,11 +7,11 @@ Load models from HuggingFace in two modes:
 
 Quick Start:
     from domains.training.huggingface import HFClient
-    
+
     # Use HF Inference API (no download)
     client = HFClient("meta-llama/Llama-2-7b-chat-hf", mode="api")
     print(client("Hello!"))
-    
+
     # Or load locally
     client = HFClient("mistralai/Mistral-7B-Instruct-v0.2", mode="local")
     print(client("Tell me a story"))

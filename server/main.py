@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -44,20 +44,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # WebSocket connection manager
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
-    
+
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-    
+
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
-    
+
     async def send_message(self, message: str, websocket: WebSocket):
         await websocket.send_text(message)
+
 
 manager = ConnectionManager()
 
@@ -82,24 +84,25 @@ class GenerateRequest(BaseModel):
 def load_model():
     """Load model - prefers local, falls back to HuggingFace."""
     global model, tokenizer, model_type, checkpoint
-    
+
     # Try loading local model first
     local_model_path = "models/sloughgpt.pt"
     if os.path.exists(local_model_path):
         print(f"Loading local model from {local_model_path}...")
         try:
-            checkpoint = torch.load(local_model_path, weights_only=False, map_location='cpu')
-            model = checkpoint.get('model', checkpoint)
+            checkpoint = torch.load(local_model_path, weights_only=False, map_location="cpu")
+            model = checkpoint.get("model", checkpoint)
             model_type = "nanogpt"
             print("Local NanoGPT model loaded!")
             return
         except Exception as e:
             print(f"Failed to load local model: {e}")
-    
+
     # Fall back to HuggingFace GPT-2
     print("Loading GPT-2 from HuggingFace...")
     try:
         from transformers import GPT2LMHeadModel, GPT2Tokenizer
+
         tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
         model = GPT2LMHeadModel.from_pretrained("gpt2")
         model_type = "gpt2"
@@ -124,7 +127,7 @@ async def root():
             "models": "/models (GET)",
             "datasets": "/datasets (GET)",
             "info": "/info (GET)",
-        }
+        },
     }
 
 
@@ -132,7 +135,7 @@ async def root():
 async def info():
     """Get detailed server info."""
     import torch
-    
+
     info = {
         "api_version": "1.0.0",
         "model": {
@@ -142,29 +145,27 @@ async def info():
         "pytorch_version": torch.__version__,
         "cuda_available": torch.cuda.is_available(),
     }
-    
+
     if checkpoint:
-        info["model"].update({
-            "vocab_size": len(checkpoint.get('stoi', {})),
-            "chars": len(checkpoint.get('chars', [])),
-        })
-    
+        info["model"].update(
+            {
+                "vocab_size": len(checkpoint.get("stoi", {})),
+                "chars": len(checkpoint.get("chars", [])),
+            }
+        )
+
     if torch.cuda.is_available():
         info["cuda"] = {
             "device": torch.cuda.get_device_name(0),
             "memory_total": torch.cuda.get_device_properties(0).total_memory / 1e9,
         }
-    
+
     return info
 
 
 @app.get("/health")
 async def health():
-    return {
-        "status": "healthy",
-        "model_loaded": model is not None,
-        "model_type": model_type
-    }
+    return {"status": "healthy", "model_loaded": model is not None, "model_type": model_type}
 
 
 @app.post("/generate")
@@ -173,21 +174,22 @@ async def generate(request: GenerateRequest):
         # Return demo response if no model
         return {
             "text": f"Demo response to: {request.prompt[:50]}... (No model loaded)",
-            "model": model_type
+            "model": model_type,
         }
-    
+
     # Apply personality adjustment to temperature
     temperature = request.temperature
     if request.personality:
         try:
             from domains.ai_personality import PERSONALITIES, PersonalityType
+
             ptype = PersonalityType(request.personality.lower())
             if ptype in PERSONALITIES:
                 personality = PERSONALITIES[ptype]
                 temperature = personality.modify_temperature(temperature)
         except Exception:
             pass  # Ignore personality errors
-    
+
     if model_type == "gpt2":
         inputs = tokenizer(request.prompt, return_tensors="pt")
         with torch.no_grad():
@@ -201,15 +203,14 @@ async def generate(request: GenerateRequest):
             )
         text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         return {"text": text, "model": model_type, "personality": request.personality}
-    
+
     if model_type == "nanogpt":
         # Generate using local NanoGPT
-        import numpy as np
-        stoi = checkpoint.get('stoi', {})
-        itos = checkpoint.get('itos', {})
-        
+        stoi = checkpoint.get("stoi", {})
+        itos = checkpoint.get("itos", {})
+
         idx = torch.tensor([[stoi.get(c, 0) for c in request.prompt]], dtype=torch.long)
-        
+
         model.eval()
         with torch.no_grad():
             for _ in range(request.max_new_tokens):
@@ -219,31 +220,30 @@ async def generate(request: GenerateRequest):
                 probs = torch.softmax(logits, dim=-1)
                 idx_next = torch.multinomial(probs, num_samples=1)
                 idx = torch.cat([idx, idx_next], dim=1)
-        
-        generated = ''.join([itos.get(i, '') for i in idx[0].tolist()])
-        text = generated[len(request.prompt):]
+
+        generated = "".join([itos.get(i, "") for i in idx[0].tolist()])
+        text = generated[len(request.prompt) :]
         return {"text": text, "model": model_type, "personality": request.personality}
-    
+
     return {"text": "Model type not supported", "model": model_type}
 
 
 @app.post("/generate/stream")
 async def generate_stream(request: GenerateRequest):
     if model is None or tokenizer is None:
+
         async def demo_stream():
             demo = f"Demo streaming response to: {request.prompt}..."
             for char in demo:
                 yield f"data: {json.dumps({'token': char})}\n\n"
             yield "data: [DONE]\n\n"
+
         return StreamingResponse(demo_stream(), media_type="text/event-stream")
-    
+
     async def stream():
         if model_type == "gpt2":
             inputs = tokenizer(request.prompt, return_tensors="pt")
-            
-            from transformers import GenerationMixin
-            from typing import Iterator
-            
+
             # Stream tokens
             with torch.no_grad():
                 for i in range(request.max_new_tokens):
@@ -259,12 +259,12 @@ async def generate_stream(request: GenerateRequest):
                     token = tokenizer.decode(outputs.sequences[0][-1])
                     yield f"data: {json.dumps({'token': token})}\n\n"
                     inputs = tokenizer(token, return_tensors="pt")
-                    
+
                     if i >= request.max_new_tokens - 1:
                         break
-        
+
         yield "data: [DONE]\n\n"
-    
+
     return StreamingResponse(stream(), media_type="text/event-stream")
 
 
@@ -272,28 +272,28 @@ async def generate_stream(request: GenerateRequest):
 async def websocket_generate(websocket: WebSocket):
     """WebSocket endpoint for real-time text generation."""
     await manager.connect(websocket)
-    
+
     try:
         while True:
             data = await websocket.receive_text()
             request_data = json.loads(data)
-            
+
             prompt = request_data.get("prompt", "")
             max_tokens = request_data.get("max_tokens", 100)
             temperature = request_data.get("temperature", 0.8)
-            
+
             # Send status
             await websocket.send_json({"status": "generating", "prompt": prompt})
-            
+
             if model_type == "nanogpt" and checkpoint:
-                stoi = checkpoint.get('stoi', {})
-                itos = checkpoint.get('itos', {})
-                
+                stoi = checkpoint.get("stoi", {})
+                itos = checkpoint.get("itos", {})
+
                 idx = torch.tensor([[stoi.get(c, 0) for c in prompt]], dtype=torch.long)
-                
+
                 model.eval()
                 generated = ""
-                
+
                 with torch.no_grad():
                     for _ in range(max_tokens):
                         idx_cond = idx[:, -128:]
@@ -302,24 +302,24 @@ async def websocket_generate(websocket: WebSocket):
                         probs = torch.softmax(logits, dim=-1)
                         idx_next = torch.multinomial(probs, num_samples=1)
                         idx = torch.cat([idx, idx_next], dim=1)
-                        
-                        char = itos.get(idx_next.item(), '')
+
+                        char = itos.get(idx_next.item(), "")
                         generated += char
-                        
+
                         # Stream each character
                         await websocket.send_json({"token": char, "generated": generated})
-                        
+
                         if len(generated) > max_tokens:
                             break
-                
+
                 await websocket.send_json({"status": "done", "text": generated})
-            
+
             elif model_type == "gpt2" and tokenizer:
                 inputs = tokenizer(prompt, return_tensors="pt")
-                
+
                 model.eval()
                 generated = ""
-                
+
                 with torch.no_grad():
                     for _ in range(max_tokens):
                         outputs = model.generate(
@@ -331,13 +331,13 @@ async def websocket_generate(websocket: WebSocket):
                         )
                         token = tokenizer.decode(outputs.sequences[0][-1])
                         generated += token
-                        
+
                         await websocket.send_json({"token": token, "generated": generated})
-                        
+
                         inputs = tokenizer(token, return_tensors="pt")
-                
+
                 await websocket.send_json({"status": "done", "text": generated})
-            
+
             else:
                 # Demo mode
                 demo_text = f"Demo response to: {prompt}"
@@ -345,7 +345,7 @@ async def websocket_generate(websocket: WebSocket):
                     await websocket.send_json({"token": char, "generated": char})
                     await asyncio.sleep(0.05)
                 await websocket.send_json({"status": "done", "text": demo_text})
-    
+
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception as e:
@@ -357,14 +357,15 @@ async def websocket_generate(websocket: WebSocket):
 async def list_personalities():
     """List available personalities."""
     try:
-        from domains.ai_personality import PERSONALITIES, PersonalityType
+        from domains.ai_personality import PERSONALITIES
+
         return {
             "personalities": [
                 {
                     "type": ptype.value,
                     "name": p.name,
                     "description": p.description,
-                    "traits": p.traits
+                    "traits": p.traits,
                 }
                 for ptype, p in PERSONALITIES.items()
             ]
@@ -377,19 +378,15 @@ async def list_personalities():
 async def list_models():
     """List available models."""
     from pathlib import Path
-    
+
     models_dir = Path("models")
     models = []
-    
+
     if models_dir.exists():
         for m in models_dir.glob("*.pt"):
             size = m.stat().st_size / (1024 * 1024)  # MB
-            models.append({
-                "name": m.name,
-                "path": str(m),
-                "size_mb": round(size, 2)
-            })
-    
+            models.append({"name": m.name, "path": str(m), "size_mb": round(size, 2)})
+
     return {"models": models}
 
 
@@ -397,20 +394,16 @@ async def list_models():
 async def list_datasets():
     """List available datasets."""
     from pathlib import Path
-    
+
     datasets_dir = Path("datasets")
     datasets = []
-    
+
     if datasets_dir.exists():
         for d in datasets_dir.iterdir():
             if d.is_dir():
                 size = sum(f.stat().st_size for f in d.rglob("*") if f.is_file())
-                datasets.append({
-                    "name": d.name,
-                    "path": str(d),
-                    "size_kb": round(size / 1024, 2)
-                })
-    
+                datasets.append({"name": d.name, "path": str(d), "size_kb": round(size / 1024, 2)})
+
     return {"datasets": datasets}
 
 
@@ -431,7 +424,7 @@ async def train(request: TrainRequest):
     """Start a training job."""
     import threading
     from domains.training.train_pipeline import SloughGPTTrainer
-    
+
     def train_model():
         try:
             trainer = SloughGPTTrainer(
@@ -449,16 +442,16 @@ async def train(request: TrainRequest):
             trainer.save(f"models/{request.dataset}_trained.pt")
         except Exception as e:
             print(f"Training error: {e}")
-    
+
     # Run training in background thread
     thread = threading.Thread(target=train_model, daemon=True)
     thread.start()
-    
+
     return {
         "status": "started",
         "dataset": request.dataset,
         "epochs": request.epochs,
-        "message": "Training started in background"
+        "message": "Training started in background",
     }
 
 
@@ -466,12 +459,10 @@ async def train(request: TrainRequest):
 async def train_status():
     """Get training status."""
     # Simple status - could be enhanced with proper job tracking
-    return {
-        "status": "ready",
-        "message": "Use /train endpoint to start training"
-    }
+    return {"status": "ready", "message": "Use /train endpoint to start training"}
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

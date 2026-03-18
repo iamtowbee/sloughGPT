@@ -25,7 +25,7 @@ from .transcendent import TranscendentSLO
 
 __all__ = [
     "BaseSLO",
-    "SLOConfig", 
+    "SLOConfig",
     "EvolutionStage",
     "FoundationSLO",
     "CognitiveSLO",
@@ -36,6 +36,7 @@ __all__ = [
     "TranscendentSLO",
     "create_slo",
 ]
+
 
 def create_slo(stage: int = 1, config: SLOConfig = None) -> BaseSLO:
     """Create SLO instance at specified evolution stage."""

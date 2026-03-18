@@ -42,6 +42,7 @@ class WandBIntegration:
     def is_available(self) -> bool:
         try:
             import wandb
+
             return True
         except ImportError:
             return False
@@ -77,6 +78,7 @@ class WandBIntegration:
         if not self.is_available():
             return
         import wandb
+
         wandb.log(metrics, step=step)
 
     def log_summary(self, metrics: Dict[str, Any]):
@@ -84,6 +86,7 @@ class WandBIntegration:
         if not self.is_available():
             return
         import wandb
+
         for key, value in metrics.items():
             wandb.run.summary[key] = value
 
@@ -92,6 +95,7 @@ class WandBIntegration:
         if not self.is_available():
             return
         import wandb
+
         wandb.watch(model, log=log, log_freq=log_freq)
 
     def finish(self):
@@ -99,6 +103,7 @@ class WandBIntegration:
         if not self.is_available():
             return
         import wandb
+
         wandb.finish()
 
 

@@ -407,7 +407,9 @@ Description: Advanced AI system command-line interface
         from ...training import DataPreprocessor
 
         if not args:
-            return "Usage: preprocess <dataset> [options]\nOptions: --clean, --filter, --min-length N"
+            return (
+                "Usage: preprocess <dataset> [options]\nOptions: --clean, --filter, --min-length N"
+            )
 
         dataset_name = args[0]
         preprocessor = DataPreprocessor()

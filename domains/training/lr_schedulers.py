@@ -6,7 +6,6 @@ Based on best practices from:
 - Karpathy's minGPT, Meta's LLaMA training
 """
 
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 import math
@@ -20,9 +19,11 @@ from torch.optim.lr_scheduler import _LRScheduler
 # Configuration Dataclasses
 # =============================================================================
 
+
 @dataclass
 class SchedulerConfig:
     """Base scheduler configuration."""
+
     name: str = "none"
     initial_lr: float = 1e-4
 
@@ -30,6 +31,7 @@ class SchedulerConfig:
 @dataclass
 class CosineAnnealingConfig(SchedulerConfig):
     """Cosine Annealing with Warm restarts."""
+
     name: str = "cosine"
     min_lr: float = 1e-6
     warmup_steps: int = 0
@@ -40,14 +42,16 @@ class CosineAnnealingConfig(SchedulerConfig):
 @dataclass
 class WarmupConfig(SchedulerConfig):
     """Linear warmup then constant or decay."""
+
     name: str = "warmup"
     warmup_steps: int = 500
     warmup_start_lr: float = 1e-7
 
 
-@dataclass  
+@dataclass
 class OneCycleConfig(SchedulerConfig):
     """OneCycle LR - peak then decay (best for LLMs)."""
+
     name: str = "onecycle"
     max_lr: float = 1e-3
     pct_start: float = 0.1
@@ -57,6 +61,7 @@ class OneCycleConfig(SchedulerConfig):
 @dataclass
 class CyclicConfig(SchedulerConfig):
     """Cyclic LR - oscillate between bounds."""
+
     name: str = "cyclic"
     base_lr: float = 1e-5
     max_lr: float = 1e-3
@@ -69,15 +74,16 @@ class CyclicConfig(SchedulerConfig):
 # Custom Scheduler Implementations
 # =============================================================================
 
+
 class WarmupCosineScheduler(_LRScheduler):
     """
     Cosine annealing with linear warmup.
-    
+
     Best practice for LLM training:
     - Linear warmup (avoid training instability early)
     - Cosine decay (smooth learning rate decay)
     - Optional warm restarts
-    
+
     LR Curve:
            ╭──────╮
           ╱        ╲
@@ -86,7 +92,7 @@ class WarmupCosineScheduler(_LRScheduler):
     ────╱              ╲───────
         warmup       min_lr
     """
-    
+
     def __init__(
         self,
         optimizer: Optimizer,
@@ -94,14 +100,14 @@ class WarmupCosineScheduler(_LRScheduler):
         total_steps: int,
         min_lr: float = 1e-6,
         num_cycles: float = 0.5,
-        last_epoch: int = -1
+        last_epoch: int = -1,
     ):
         self.warmup_steps = warmup_steps
         self.total_steps = total_steps
         self.min_lr = min_lr
         self.num_cycles = num_cycles
         super().__init__(optimizer, last_epoch)
-    
+
     def get_lr(self):
         if self.last_epoch < self.warmup_steps:
             warmup_factor = float(self.last_epoch) / float(max(1, self.warmup_steps))
@@ -112,45 +118,43 @@ class WarmupCosineScheduler(_LRScheduler):
             )
             cosine_decay = 0.5 * (1.0 + math.cos(math.pi * self.num_cycles * progress))
             return [
-                self.min_lr + (base_lr - self.min_lr) * cosine_decay
-                for base_lr in self.base_lrs
+                self.min_lr + (base_lr - self.min_lr) * cosine_decay for base_lr in self.base_lrs
             ]
 
 
 class PolynomialDecayScheduler(_LRScheduler):
     """
     Polynomial learning rate decay.
-    
+
     Used in many production LLM trainings (e.g., some LLaMA configs).
     """
-    
+
     def __init__(
         self,
         optimizer: Optimizer,
         total_steps: int,
         min_lr: float = 0.0,
         power: float = 1.0,
-        last_epoch: int = -1
+        last_epoch: int = -1,
     ):
         self.total_steps = total_steps
         self.min_lr = min_lr
         self.power = power
         super().__init__(optimizer, last_epoch)
-    
+
     def get_lr(self):
         if self.last_epoch >= self.total_steps:
             return [self.min_lr for _ in self.base_lrs]
-        
+
         decay_ratio = (self.last_epoch / self.total_steps) ** self.power
         return [
-            base_lr * (1 - decay_ratio) + self.min_lr * decay_ratio
-            for base_lr in self.base_lrs
+            base_lr * (1 - decay_ratio) + self.min_lr * decay_ratio for base_lr in self.base_lrs
         ]
 
 
 class LinearWarmupScheduler(_LRScheduler):
     """Linear warmup then hold or decay."""
-    
+
     def __init__(
         self,
         optimizer: Optimizer,
@@ -160,7 +164,7 @@ class LinearWarmupScheduler(_LRScheduler):
         decay_type: str = "none",
         min_lr: float = 0.0,
         total_steps: Optional[int] = None,
-        last_epoch: int = -1
+        last_epoch: int = -1,
     ):
         self.warmup_steps = warmup_steps
         self.base_lr = base_lr
@@ -169,7 +173,7 @@ class LinearWarmupScheduler(_LRScheduler):
         self.min_lr = min_lr
         self.total_steps = total_steps or warmup_steps + hold_steps + 10000
         super().__init__(optimizer, last_epoch)
-    
+
     def get_lr(self):
         if self.last_epoch < self.warmup_steps:
             factor = self.last_epoch / self.warmup_steps
@@ -191,8 +195,7 @@ class LinearWarmupScheduler(_LRScheduler):
                     self.total_steps - self.warmup_steps - self.hold_steps
                 )
                 return [
-                    self.base_lr * (1 - progress) + self.min_lr * progress
-                    for _ in self.base_lrs
+                    self.base_lr * (1 - progress) + self.min_lr * progress for _ in self.base_lrs
                 ]
             else:
                 return self.base_lrs
@@ -202,6 +205,7 @@ class LinearWarmupScheduler(_LRScheduler):
 # Factory Function
 # =============================================================================
 
+
 def create_scheduler(
     optimizer: Optimizer,
     scheduler_type: str,
@@ -209,11 +213,11 @@ def create_scheduler(
     warmup_steps: int = 0,
     min_lr: float = 1e-6,
     max_lr: float = 1e-3,
-    **kwargs
+    **kwargs,
 ) -> _LRScheduler:
     """
     Factory function to create LR scheduler.
-    
+
     Args:
         optimizer: PyTorch optimizer
         scheduler_type: One of: cosine, warmup, onecycle, cyclic, polynomial, none
@@ -222,31 +226,31 @@ def create_scheduler(
         min_lr: Minimum learning rate
         max_lr: Maximum learning rate (for cyclic/onecycle)
         **kwargs: Additional scheduler-specific arguments
-    
+
     Returns:
         _LRScheduler: Configured scheduler
-    
+
     Example:
         >>> optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
         >>> scheduler = create_scheduler(
-        ...     optimizer, "cosine", 
+        ...     optimizer, "cosine",
         ...     total_steps=10000, warmup_steps=500
         ... )
     """
     scheduler_type = scheduler_type.lower()
-    
+
     if scheduler_type == "none":
         return torch.optim.lr_scheduler.ConstantLR(optimizer, last_epoch=-1)
-    
+
     elif scheduler_type == "cosine":
         return WarmupCosineScheduler(
             optimizer,
             warmup_steps=warmup_steps,
             total_steps=total_steps or 10000,
             min_lr=min_lr,
-            num_cycles=kwargs.get("num_cycles", 0.5)
+            num_cycles=kwargs.get("num_cycles", 0.5),
         )
-    
+
     elif scheduler_type == "warmup":
         return LinearWarmupScheduler(
             optimizer,
@@ -254,9 +258,9 @@ def create_scheduler(
             base_lr=max_lr,
             decay_type=kwargs.get("decay_type", "cosine"),
             min_lr=min_lr,
-            total_steps=total_steps
+            total_steps=total_steps,
         )
-    
+
     elif scheduler_type == "onecycle":
         return torch.optim.lr_scheduler.OneCycleLR(
             optimizer,
@@ -265,9 +269,9 @@ def create_scheduler(
             pct_start=kwargs.get("pct_start", 0.1),
             anneal_strategy=kwargs.get("anneal_strategy", "cos"),
             div_factor=kwargs.get("div_factor", 25.0),
-            final_div_factor=kwargs.get("final_div_factor", 1e4)
+            final_div_factor=kwargs.get("final_div_factor", 1e4),
         )
-    
+
     elif scheduler_type == "cyclic":
         return torch.optim.lr_scheduler.CyclicLR(
             optimizer,
@@ -276,19 +280,21 @@ def create_scheduler(
             step_size_up=kwargs.get("step_size_up", 2000),
             step_size_down=kwargs.get("step_size_down", None),
             mode=kwargs.get("mode", "triangular2"),
-            gamma=kwargs.get("gamma", 0.5)
+            gamma=kwargs.get("gamma", 0.5),
         )
-    
+
     elif scheduler_type == "polynomial":
         return PolynomialDecayScheduler(
             optimizer,
             total_steps=total_steps or 10000,
             min_lr=min_lr,
-            power=kwargs.get("power", 1.0)
+            power=kwargs.get("power", 1.0),
         )
-    
+
     else:
-        raise ValueError(f"Unknown scheduler type: {scheduler_type}. Choose from: none, cosine, warmup, onecycle, cyclic, polynomial")
+        raise ValueError(
+            f"Unknown scheduler type: {scheduler_type}. Choose from: none, cosine, warmup, onecycle, cyclic, polynomial"
+        )
 
 
 # =============================================================================
@@ -326,12 +332,12 @@ BEST_PRACTICES = """
 
 __all__ = [
     "SchedulerConfig",
-    "CosineAnnealingConfig", 
+    "CosineAnnealingConfig",
     "WarmupConfig",
     "OneCycleConfig",
     "CyclicConfig",
     "WarmupCosineScheduler",
-    "PolynomialDecayScheduler", 
+    "PolynomialDecayScheduler",
     "LinearWarmupScheduler",
     "create_scheduler",
     "BEST_PRACTICES",

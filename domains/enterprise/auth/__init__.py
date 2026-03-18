@@ -5,7 +5,6 @@ This module provides comprehensive authentication capabilities including
 JWT tokens, password management, and session handling.
 """
 
-
 import asyncio
 import hashlib
 import logging

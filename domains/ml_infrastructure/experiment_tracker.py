@@ -11,9 +11,8 @@ import uuid
 import hashlib
 import logging
 from pathlib import Path
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
-from dataclasses import dataclass, field, asdict
+from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
 from enum import Enum
 from contextlib import contextmanager
 import threading
@@ -32,6 +31,7 @@ class ExperimentStatus(Enum):
 @dataclass
 class MetricPoint:
     """Single metric data point."""
+
     timestamp: float
     step: int
     value: float
@@ -40,6 +40,7 @@ class MetricPoint:
 @dataclass
 class Experiment:
     """Experiment metadata and results."""
+
     experiment_id: str
     name: str
     description: str
@@ -51,12 +52,12 @@ class Experiment:
     end_time: Optional[float]
     tags: Dict[str, str]
     run_id: str
-    
+
     def duration(self) -> Optional[float]:
         if self.end_time:
             return self.end_time - self.start_time
         return None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "experiment_id": self.experiment_id,
@@ -79,7 +80,7 @@ class Experiment:
 class ExperimentTracker:
     """
     Experiment tracking system with local storage.
-    
+
     Features:
     - Parameter tracking
     - Metric logging (with step and timestamp)
@@ -87,32 +88,32 @@ class ExperimentTracker:
     - Experiment comparison
     - Status management
     """
-    
+
     _instance = None
     _lock = threading.Lock()
-    
+
     def __new__(cls, storage_path: str = "./experiments"):
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
                 cls._instance._initialized = False
             return cls._instance
-    
+
     def __init__(self, storage_path: str = "./experiments"):
         if self._initialized:
             return
-        
+
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
-        
+
         self.experiments: Dict[str, Experiment] = {}
         self.current_run: Optional[Experiment] = None
         self._lock = threading.Lock()
-        
+
         self._load_experiments()
         self._initialized = True
         logger.info(f"ExperimentTracker initialized at {self.storage_path}")
-    
+
     def _load_experiments(self):
         """Load existing experiments from storage."""
         experiments_file = self.storage_path / "experiments.json"
@@ -130,7 +131,7 @@ class ExperimentTracker:
                         self.experiments[exp_data["experiment_id"]] = Experiment(**exp_data)
             except Exception as e:
                 logger.warning(f"Failed to load experiments: {e}")
-    
+
     def _save_experiments(self):
         """Persist experiments to storage."""
         experiments_file = self.storage_path / "experiments.json"
@@ -140,21 +141,19 @@ class ExperimentTracker:
                 json.dump(data, f, indent=2)
         except Exception as e:
             logger.error(f"Failed to save experiments: {e}")
-    
+
     def create_experiment(
         self,
         name: str,
         description: str = "",
         parameters: Optional[Dict[str, Any]] = None,
-        tags: Optional[Dict[str, str]] = None
+        tags: Optional[Dict[str, str]] = None,
     ) -> str:
         """Create a new experiment."""
-        experiment_id = hashlib.md5(
-            f"{name}{time.time()}".encode()
-        ).hexdigest()[:12]
-        
+        experiment_id = hashlib.md5(f"{name}{time.time()}".encode()).hexdigest()[:12]
+
         run_id = str(uuid.uuid4())[:8]
-        
+
         experiment = Experiment(
             experiment_id=experiment_id,
             name=name,
@@ -166,39 +165,36 @@ class ExperimentTracker:
             start_time=time.time(),
             end_time=None,
             tags=tags or {},
-            run_id=run_id
+            run_id=run_id,
         )
-        
+
         with self._lock:
             self.experiments[experiment_id] = experiment
             self._save_experiments()
-        
+
         logger.info(f"Created experiment {experiment_id}: {name}")
         return experiment_id
-    
+
     @contextmanager
     def start_run(
         self,
         experiment_name: str,
         description: str = "",
         parameters: Optional[Dict[str, Any]] = None,
-        tags: Optional[Dict[str, str]] = None
+        tags: Optional[Dict[str, str]] = None,
     ):
         """Context manager for running an experiment."""
         experiment_id = self.create_experiment(
-            name=experiment_name,
-            description=description,
-            parameters=parameters,
-            tags=tags
+            name=experiment_name, description=description, parameters=parameters, tags=tags
         )
-        
+
         experiment = self.experiments[experiment_id]
         experiment.status = ExperimentStatus.RUNNING
         experiment.start_time = time.time()
-        
+
         self.current_run = experiment
         self._save_experiments()
-        
+
         try:
             yield experiment
             experiment.status = ExperimentStatus.COMPLETED
@@ -211,136 +207,126 @@ class ExperimentTracker:
         finally:
             self._save_experiments()
             self.current_run = None
-    
+
     def log_parameter(self, key: str, value: Any):
         """Log a parameter for current run."""
         if not self.current_run:
             logger.warning("No active run, parameter not logged")
             return
-        
+
         with self._lock:
             self.current_run.parameters[key] = value
             self._save_experiments()
-    
+
     def log_parameters(self, parameters: Dict[str, Any]):
         """Log multiple parameters."""
         for key, value in parameters.items():
             self.log_parameter(key, value)
-    
-    def log_metric(
-        self,
-        key: str,
-        value: float,
-        step: Optional[int] = None
-    ):
+
+    def log_metric(self, key: str, value: float, step: Optional[int] = None):
         """Log a metric for current run."""
         if not self.current_run:
             logger.warning("No active run, metric not logged")
             return
-        
+
         with self._lock:
             if key not in self.current_run.metrics:
                 self.current_run.metrics[key] = []
-            
+
             metric_point = MetricPoint(
-                timestamp=time.time(),
-                step=step or len(self.current_run.metrics[key]),
-                value=value
+                timestamp=time.time(), step=step or len(self.current_run.metrics[key]), value=value
             )
             self.current_run.metrics[key].append(metric_point)
             self._save_experiments()
-    
+
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
         """Log multiple metrics."""
         for key, value in metrics.items():
             self.log_metric(key, value, step)
-    
+
     def log_artifact(self, name: str, path: str):
         """Log an artifact (file path)."""
         if not self.current_run:
             logger.warning("No active run, artifact not logged")
             return
-        
+
         with self._lock:
             self.current_run.artifacts[name] = path
             self._save_experiments()
-    
+
     def set_status(self, status: ExperimentStatus):
         """Set experiment status."""
         if not self.current_run:
             return
-        
+
         with self._lock:
             self.current_run.status = status
-            if status in (ExperimentStatus.COMPLETED, ExperimentStatus.FAILED, ExperimentStatus.CANCELLED):
+            if status in (
+                ExperimentStatus.COMPLETED,
+                ExperimentStatus.FAILED,
+                ExperimentStatus.CANCELLED,
+            ):
                 self.current_run.end_time = time.time()
             self._save_experiments()
-    
+
     def get_experiment(self, experiment_id: str) -> Optional[Experiment]:
         """Get experiment by ID."""
         return self.experiments.get(experiment_id)
-    
+
     def get_experiment_by_name(self, name: str) -> Optional[Experiment]:
         """Get experiment by name (returns latest if multiple)."""
         matches = [e for e in self.experiments.values() if e.name == name]
         if not matches:
             return None
         return max(matches, key=lambda e: e.start_time)
-    
+
     def list_experiments(
-        self,
-        status: Optional[ExperimentStatus] = None,
-        tags: Optional[Dict[str, str]] = None
+        self, status: Optional[ExperimentStatus] = None, tags: Optional[Dict[str, str]] = None
     ) -> List[Experiment]:
         """List experiments with optional filtering."""
         results = list(self.experiments.values())
-        
+
         if status:
             results = [e for e in results if e.status == status]
-        
+
         if tags:
-            results = [
-                e for e in results
-                if all(e.tags.get(k) == v for k, v in tags.items())
-            ]
-        
+            results = [e for e in results if all(e.tags.get(k) == v for k, v in tags.items())]
+
         return sorted(results, key=lambda e: e.start_time, reverse=True)
-    
+
     def compare_experiments(
-        self,
-        experiment_ids: List[str],
-        metric_keys: List[str]
+        self, experiment_ids: List[str], metric_keys: List[str]
     ) -> Dict[str, Dict[str, Any]]:
         """Compare metrics across multiple experiments."""
         comparison = {}
-        
+
         for exp_id in experiment_ids:
             exp = self.experiments.get(exp_id)
             if not exp:
                 continue
-            
+
             comparison[exp_id] = {
                 "name": exp.name,
                 "status": exp.status.value,
                 "duration": exp.duration(),
-                "metrics": {}
+                "metrics": {},
             }
-            
+
             for metric_key in metric_keys:
                 if metric_key in exp.metrics:
                     points = exp.metrics[metric_key]
                     values = [p.value for p in points]
-                    
+
                     comparison[exp_id]["metrics"][metric_key] = {
                         "final": values[-1] if values else None,
                         "min": min(values) if values else None,
                         "max": max(values) if values else None,
                         "mean": sum(values) / len(values) if values else None,
-                        "history": values
+                        "history": values,
                     }
-        
+
         return comparison
-    
+
     def delete_experiment(self, experiment_id: str) -> bool:
         """Delete an experiment."""
         if experiment_id in self.experiments:
@@ -357,7 +343,7 @@ def create_experiment(
     name: str,
     description: str = "",
     parameters: Optional[Dict[str, Any]] = None,
-    tags: Optional[Dict[str, str]] = None
+    tags: Optional[Dict[str, str]] = None,
 ) -> str:
     return tracker.create_experiment(name, description, parameters, tags)
 
@@ -367,7 +353,7 @@ def start_run(
     experiment_name: str,
     description: str = "",
     parameters: Optional[Dict[str, Any]] = None,
-    tags: Optional[Dict[str, str]] = None
+    tags: Optional[Dict[str, str]] = None,
 ):
     with tracker.start_run(experiment_name, description, parameters, tags) as exp:
         yield exp

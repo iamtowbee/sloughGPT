@@ -10,7 +10,7 @@ import logging
 import torch
 import torch.nn as nn
 
-from .sou_format import SouModelFile, GenerationParameters, PersonalityConfig
+from .sou_format import SouModelFile
 from .quantization import SouModelQuantizer, QuantizationType
 
 
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class InferenceConfig:
     """Inference configuration."""
+
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
     precision: str = "fp32"
     max_length: int = 2048
@@ -32,66 +33,68 @@ class InferenceConfig:
 
 class SouModelLoader:
     """Loader for .sou model files."""
-    
+
     def __init__(self, sou_file: Union[str, SouModelFile]):
         if isinstance(sou_file, str):
             from .sou_format import SouParser
+
             self.sou = SouParser.load(sou_file)
         else:
             self.sou = sou_file
-        
+
         self.config = InferenceConfig(
             temperature=self.sou.parameters.temperature,
             top_p=self.sou.parameters.top_p,
             max_length=self.sou.parameters.max_tokens,
         )
-        
+
         self.model: Optional[nn.Module] = None
         self.tokenizer: Optional[Any] = None
-    
+
     def load_model(self):
         """Load the model."""
         # Placeholder - would load actual model based on from_model
         logger.info(f"Loading model: {self.sou.from_model}")
-        
+
         # Try to load from training models
         try:
             from ..training.models.nanogpt import NanoGPT
+
             # Create placeholder model
             self.model = NanoGPT(vocab_size=5000, n_embed=256, n_layer=6, n_head=8)
         except Exception as e:
             logger.warning(f"Could not load NanoGPT: {e}")
-        
+
         return self.model
-    
+
     def load_tokenizer(self):
         """Load the tokenizer."""
         # Placeholder
         return None
-    
+
     def quantize(self, quantization_type: QuantizationType = QuantizationType.Q4_0):
         """Quantize the model."""
         if self.model is None:
             raise RuntimeError("Load model before quantizing")
-        
+
         quantizer = SouModelQuantizer(quantization_type)
         self.model = quantizer.quantize_model(self.model)
-        
+
         return self.model
 
 
 class SouInferenceEngine:
     """Inference engine for .sou models."""
-    
+
     def __init__(self, loader: SouModelLoader):
         self.loader = loader
         self.model = loader.model
         self.config = loader.config
-        
+
         if self.model is None:
             loader.load_model()
             self.model = loader.model
-    
+
     def generate(
         self,
         prompt: str,
@@ -102,21 +105,25 @@ class SouInferenceEngine:
         """Generate text from prompt."""
         if self.model is None:
             raise RuntimeError("No model loaded")
-        
+
         max_length = max_length or self.config.max_length
         temperature = temperature or self.config.temperature
         top_p = top_p or self.config.top_p
-        
+
         # Simple character-level generation
         # Real implementation would use proper tokenization
-        device = next(self.model.parameters()).device if hasattr(self.model, 'parameters') else torch.device('cpu')
-        
+        device = (
+            next(self.model.parameters()).device
+            if hasattr(self.model, "parameters")
+            else torch.device("cpu")
+        )
+
         chars = sorted(set(prompt))
         stoi = {c: i for i, c in enumerate(chars)}
         itos = {i: c for i, c in enumerate(chars)}
-        
+
         idx = torch.tensor([[stoi.get(c, 0) for c in prompt]], dtype=torch.long).to(device)
-        
+
         self.model.eval()
         with torch.no_grad():
             for _ in range(max_length):
@@ -126,10 +133,10 @@ class SouInferenceEngine:
                 probs = torch.softmax(logits, dim=-1)
                 idx_next = torch.multinomial(probs, num_samples=1)
                 idx = torch.cat([idx, idx_next], dim=1)
-        
-        result = ''.join([itos.get(i, '') for i in idx[0].tolist()])
-        return result[len(prompt):]
-    
+
+        result = "".join([itos.get(i, "") for i in idx[0].tolist()])
+        return result[len(prompt) :]
+
     def chat(self, messages: List[Dict[str, str]], **kwargs) -> str:
         """Chat completion."""
         # Convert messages to prompt
@@ -141,11 +148,11 @@ def load_model(sou_file: str, quantize: Optional[str] = None):
     """Load model from .sou file."""
     loader = SouModelLoader(sou_file)
     loader.load_model()
-    
+
     if quantize:
         qtype = QuantizationType(quantize)
         loader.quantize(qtype)
-    
+
     return SouInferenceEngine(loader)
 
 

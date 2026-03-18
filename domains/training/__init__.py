@@ -14,6 +14,7 @@ from typing import Any, Dict, Iterator, List, Optional
 
 # ============== Dataset Types ==============
 
+
 class DatasetType(Enum):
     TEXT = "text"
     CODE = "code"
@@ -38,41 +39,42 @@ class DatasetConfig:
 
 class DatasetManager:
     """Unified dataset manager for multiple dataset types."""
-    
+
     def __init__(self) -> None:
         self.logger = logging.getLogger("sloughgpt.training.datasets")
         self.datasets: Dict[str, DatasetConfig] = {}
-    
+
     def register_dataset(self, config: DatasetConfig) -> None:
         self.datasets[config.name] = config
         self.logger.info(f"Registered: {config.name}")
-    
+
     def load_dataset(self, name: str) -> List[Dict[str, Any]]:
         config = self.datasets.get(name)
         if not config:
             raise ValueError(f"Dataset not found: {name}")
-        
+
         records = []
-        with open(config.path, 'r') as f:
+        with open(config.path, "r") as f:
             for i, line in enumerate(f):
                 if config.max_samples and i >= config.max_samples:
                     break
                 if line.strip():
                     records.append(json.loads(line))
         return records
-    
+
     def stream_dataset(self, name: str) -> Iterator[Dict[str, Any]]:
         config = self.datasets.get(name)
         if not config:
             raise ValueError(f"Dataset not found: {name}")
-        
-        with open(config.path, 'r') as f:
+
+        with open(config.path, "r") as f:
             for line in f:
                 if line.strip():
                     yield json.loads(line)
 
 
 # ============== Preprocessing Types ==============
+
 
 class PreprocessingStepType(Enum):
     CLEAN = "clean"
@@ -82,34 +84,38 @@ class PreprocessingStepType(Enum):
 
 class DataPreprocessor:
     """Unified preprocessing pipeline."""
-    
+
     def __init__(self) -> None:
         self.logger = logging.getLogger("sloughgpt.training.preprocessing")
         self.steps: List[Dict[str, Any]] = []
-    
+
     def add_cleaning(self, text_field: str = "text", lowercase: bool = True) -> "DataPreprocessor":
-        self.steps.append({"type": PreprocessingStepType.CLEAN, "field": text_field, "lowercase": lowercase})
+        self.steps.append(
+            {"type": PreprocessingStepType.CLEAN, "field": text_field, "lowercase": lowercase}
+        )
         return self
-    
+
     def add_filter(self, text_field: str = "text", min_length: int = 10) -> "DataPreprocessor":
-        self.steps.append({"type": PreprocessingStepType.FILTER, "field": text_field, "min_length": min_length})
+        self.steps.append(
+            {"type": PreprocessingStepType.FILTER, "field": text_field, "min_length": min_length}
+        )
         return self
-    
+
     def process_record(self, record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         for step in self.steps:
             if step["type"] == PreprocessingStepType.CLEAN:
                 text = record.get(step["field"], "")
                 if step.get("lowercase"):
                     text = text.lower()
-                text = re.sub(r'\s+', ' ', text).strip()
+                text = re.sub(r"\s+", " ", text).strip()
                 record[step["field"]] = text
-            
+
             elif step["type"] == PreprocessingStepType.FILTER:
                 text = record.get(step["field"], "")
                 if len(text) < step.get("min_length", 0):
                     return None
         return record
-    
+
     def process_batch(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         results = []
         for record in records:
@@ -120,6 +126,7 @@ class DataPreprocessor:
 
 
 # ============== Pipeline Types ==============
+
 
 class PipelineStageType(Enum):
     PREPROCESS = "preprocess"
@@ -138,30 +145,33 @@ class PipelineConfig:
 
 class TrainingPipeline:
     """Unified training pipeline."""
-    
+
     def __init__(self, config: PipelineConfig) -> None:
         self.logger = logging.getLogger("sloughgpt.training.pipelines")
         self.config = config
         self.stages: List[Dict[str, Any]] = []
-    
-    def add_stage(self, name: str, stage_type: PipelineStageType, handler: Any) -> "TrainingPipeline":
+
+    def add_stage(
+        self, name: str, stage_type: PipelineStageType, handler: Any
+    ) -> "TrainingPipeline":
         self.stages.append({"name": name, "type": stage_type, "handler": handler})
         return self
-    
+
     async def run(self, train_data: Iterator[Any]) -> Dict[str, Any]:
         self.logger.info(f"Running pipeline: {self.config.name}")
         results = {"epochs": 0, "stages": []}
-        
+
         for epoch in range(self.config.epochs):
             for stage in self.stages:
                 self.logger.debug(f"Stage: {stage['name']}")
                 results["stages"].append(stage["name"])
             results["epochs"] = epoch + 1
-        
+
         return results
 
 
 # ============== Model Types ==============
+
 
 class ModelType(Enum):
     LANGUAGE_MODEL = "language_model"
@@ -185,15 +195,15 @@ class ModelConfig:
 
 class ModelManager:
     """Unified model manager."""
-    
+
     def __init__(self) -> None:
         self.logger = logging.getLogger("sloughgpt.training.models")
         self.models: Dict[str, ModelConfig] = {}
-    
+
     def register_model(self, config: ModelConfig) -> None:
         self.models[config.name] = config
         self.logger.info(f"Registered model: {config.name}")
-    
+
     def create_model(self, name: str) -> Dict[str, Any]:
         config = self.models.get(name)
         if not config:
@@ -274,6 +284,7 @@ def get_nanogpt():
     """Get NanoGPT model (requires torch)."""
     try:
         from .models.nanogpt import NanoGPT
+
         return NanoGPT
     except ImportError:
         return None
@@ -283,6 +294,7 @@ def get_trainer():
     """Get Trainer (requires torch)."""
     try:
         from .unified_training import Trainer, TrainingConfig
+
         return Trainer, TrainingConfig
     except ImportError:
         return None, None
@@ -291,54 +303,56 @@ def get_trainer():
 # Lazy imports - avoid importing torch-dependent modules at package load time
 _TRAINING_EXTRA_AVAILABLE = None
 
+
 def __getattr__(name):
     """Lazy import of torch-dependent modules."""
     global _TRAINING_EXTRA_AVAILABLE
-    
+
     lazy_imports = {
-        'NanoGPT': '.models.nanogpt',
-        'Block': '.models.nanogpt', 
-        'CausalSelfAttention': '.models.nanogpt',
-        'MLP': '.models.nanogpt',
-        'TrainingConfig': '.unified_training',
-        'DataLoader': '.unified_training',
-        'UniversalDataLoader': '.unified_training',
-        'ModelWrapper': '.unified_training',
-        'TorchModelWrapper': '.unified_training',
-        'Trainer': '.unified_training',
-        'train': '.unified_training',
-        'DatasetRegistry': '.dataset_manager',
-        'DatasetMixer': '.dataset_manager',
-        'DatasetInfo': '.dataset_manager',
-        'DistributedTrainer': '.distributed',
-        'DistributedConfig': '.distributed',
-        'HuggingFaceManager': '.huggingface',
-        'HuggingFaceDatasetManager': '.huggingface',
-        'DatasetCreator': '.dataset_creator',
-        'create_dataset': '.dataset_creator',
-        'BatchProcessor': '.batch_processor',
-        'JobScheduler': '.batch_processor',
-        'DatasetValidator': '.validator',
-        'DatasetVersion': '.validator',
-        'DatasetQualityScorer': '.quality_scorer',
-        'TextCleaner': '.dataset_prep',
-        'Tokenizer': '.dataset_prep',
-        'DatasetPreparer': '.dataset_prep',
-        'DatasetStats': '.dataset_prep',
-        'prepare_dataset': '.dataset_prep',
-        'DataImporter': '.data_import',
-        'RepoImporter': '.data_import',
-        'HuggingFaceImporter': '.data_import',
-        'URLImporter': '.data_import',
-        'ImportResult': '.data_import',
-        'import_data': '.data_import',
+        "NanoGPT": ".models.nanogpt",
+        "Block": ".models.nanogpt",
+        "CausalSelfAttention": ".models.nanogpt",
+        "MLP": ".models.nanogpt",
+        "TrainingConfig": ".unified_training",
+        "DataLoader": ".unified_training",
+        "UniversalDataLoader": ".unified_training",
+        "ModelWrapper": ".unified_training",
+        "TorchModelWrapper": ".unified_training",
+        "Trainer": ".unified_training",
+        "train": ".unified_training",
+        "DatasetRegistry": ".dataset_manager",
+        "DatasetMixer": ".dataset_manager",
+        "DatasetInfo": ".dataset_manager",
+        "DistributedTrainer": ".distributed",
+        "DistributedConfig": ".distributed",
+        "HuggingFaceManager": ".huggingface",
+        "HuggingFaceDatasetManager": ".huggingface",
+        "DatasetCreator": ".dataset_creator",
+        "create_dataset": ".dataset_creator",
+        "BatchProcessor": ".batch_processor",
+        "JobScheduler": ".batch_processor",
+        "DatasetValidator": ".validator",
+        "DatasetVersion": ".validator",
+        "DatasetQualityScorer": ".quality_scorer",
+        "TextCleaner": ".dataset_prep",
+        "Tokenizer": ".dataset_prep",
+        "DatasetPreparer": ".dataset_prep",
+        "DatasetStats": ".dataset_prep",
+        "prepare_dataset": ".dataset_prep",
+        "DataImporter": ".data_import",
+        "RepoImporter": ".data_import",
+        "HuggingFaceImporter": ".data_import",
+        "URLImporter": ".data_import",
+        "ImportResult": ".data_import",
+        "import_data": ".data_import",
     }
-    
+
     if name in lazy_imports:
         import importlib
+
         module = importlib.import_module(lazy_imports[name], package=__name__)
         obj = getattr(module, name)
         globals()[name] = obj  # Cache for future access
         return obj
-    
+
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

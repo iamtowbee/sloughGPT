@@ -1,16 +1,5 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
   "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
-  "/(app)/experiments/page": "app/(app)/experiments/page.js",
-  "/(app)/api-docs/page": "app/(app)/api-docs/page.js",
-  "/(app)/monitoring/page": "app/(app)/monitoring/page.js",
-  "/(app)/plugins/page": "app/(app)/plugins/page.js",
-  "/(app)/datasets/page": "app/(app)/datasets/page.js",
-  "/(app)/login/page": "app/(app)/login/page.js",
-  "/(app)/agents/page": "app/(app)/agents/page.js",
-  "/(app)/training/page": "app/(app)/training/page.js",
-  "/(app)/settings/page": "app/(app)/settings/page.js",
-  "/(app)/page": "app/(app)/page.js",
   "/(app)/chat/page": "app/(app)/chat/page.js",
-  "/(app)/models/page": "app/(app)/models/page.js"
+  "/(app)/page": "app/(app)/page.js"
 }
