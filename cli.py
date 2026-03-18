@@ -707,6 +707,57 @@ def cmd_export_cli(args):
         print("\nExport failed.")
 
 
+def cmd_hf_download(args):
+    """Download a HuggingFace model."""
+    from domains.training.huggingface import HFClient, download_model
+    from domains.training.huggingface.model_map import get_model_info
+
+    print("=" * 50)
+    print(f"Downloading: {args.model}")
+    print("=" * 50)
+
+    # Show model info if available
+    info = get_model_info(args.model)
+    if info:
+        print(f"\nModel: {info.name}")
+        print(f"Description: {info.description}")
+        print(f"Parameters: {info.params:,}")
+        print(f"Context: {info.context_length}")
+        print(f"Memory (FP16): {info.memory_fp16_gb} GB")
+
+    print("\nDownloading...")
+    try:
+        cache_dir = download_model(args.model)
+        print(f"\nDownloaded to: {cache_dir}")
+    except Exception as e:
+        print(f"\nDownload failed: {e}")
+
+
+def cmd_hf_serve(args):
+    """Serve a HuggingFace model via API."""
+    import requests
+
+    print("=" * 50)
+    print(f"Serving: {args.model}")
+    print("=" * 50)
+
+    base_url = f"http://{args.host}:{args.port}"
+
+    print(f"\nLoading model via API: {base_url}")
+    try:
+        response = requests.post(
+            f"{base_url}/models/load",
+            json={"model_id": args.model, "mode": args.mode, "device": args.device},
+        )
+        if response.ok:
+            print(f"Model loaded: {response.json()}")
+        else:
+            print(f"Error: {response.text}")
+    except Exception as e:
+        print(f"API error: {e}")
+        print("\nMake sure the API server is running: python cli.py serve")
+
+
 def cmd_monitor(args):
     """Monitor training jobs."""
     import requests
@@ -886,6 +937,26 @@ def main():
     )
     export_parser.add_argument("--quantize", choices=["int8", "int4", "fp16"], help="Quantization")
     export_parser.set_defaults(func=cmd_export_cli)
+
+    # HuggingFace download command
+    hf_download_parser = subparsers.add_parser("hf-download", help="Download HuggingFace model")
+    hf_download_parser.add_argument(
+        "model", help="Model name (e.g., gpt2, mistralai/Mistral-7B-Instruct-v0.2)"
+    )
+    hf_download_parser.add_argument("--output", "-o", help="Output directory")
+    hf_download_parser.add_argument(
+        "--quantize", choices=["int4", "int8"], help="Quantize during download"
+    )
+    hf_download_parser.set_defaults(func=cmd_hf_download)
+
+    # HuggingFace serve command
+    hf_serve_parser = subparsers.add_parser("hf-serve", help="Serve HuggingFace model via API")
+    hf_serve_parser.add_argument("model", help="Model name")
+    hf_serve_parser.add_argument(
+        "--mode", choices=["api", "local"], default="local", help="Load mode"
+    )
+    hf_serve_parser.add_argument("--device", default="auto", help="Device (auto, cuda, cpu, mps)")
+    hf_serve_parser.set_defaults(func=cmd_hf_serve)
 
     # Datasets command
     datasets_parser = subparsers.add_parser("datasets", help="List datasets")
