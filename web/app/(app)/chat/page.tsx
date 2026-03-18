@@ -10,18 +10,20 @@ interface Message {
   timestamp: Date
 }
 
-const MODELS = [
-  { id: 'sloughgpt', name: 'SloughGPT', desc: 'Fast' },
-  { id: 'sloughgpt-deep', name: 'Deep', desc: 'Reasoning' },
-]
+interface ModelInfo {
+  id: string
+  name: string
+  source?: string
+}
 
 export default function ChatPage() {
   const { theme } = useTheme()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedModel, setSelectedModel] = useState('sloughgpt')
+  const [selectedModel, setSelectedModel] = useState('gpt2')
   const [showModelSelector, setShowModelSelector] = useState(false)
+  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -36,6 +38,10 @@ export default function ChatPage() {
   }, [])
 
   useEffect(() => {
+    fetchModels()
+  }, [])
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
@@ -44,6 +50,18 @@ export default function ChatPage() {
       localStorage.setItem('sloughgpt_messages', JSON.stringify(messages))
     }
   }, [messages])
+
+  const fetchModels = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/models')
+      if (res.ok) {
+        const data = await res.json()
+        setAvailableModels(data.models || [])
+      }
+    } catch {
+      setAvailableModels([{ id: 'gpt2', name: 'GPT-2', source: 'huggingface' }])
+    }
+  }
 
   const startNewConversation = () => {
     setMessages([])
@@ -65,19 +83,59 @@ export default function ChatPage() {
     setInput('')
     setIsLoading(true)
     
+    const assistantId = (Date.now() + 1).toString()
+    const assistantMessage: Message = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+    }
+    setMessages(prev => [...prev, assistantMessage])
+    
+    // Try streaming endpoint first, fall back to non-streaming
     try {
-      const assistantId = (Date.now() + 1).toString()
-      let fullContent = ''
+      const response = await fetch('http://localhost:8000/generate/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          max_new_tokens: 200,
+          temperature: 0.8,
+          top_p: 0.9,
+        })
+      })
       
-      const assistantMessage: Message = {
-        id: assistantId,
-        role: 'assistant',
-        content: '',
-        timestamp: new Date(),
+      if (response.ok && response.body) {
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          
+          const chunk = decoder.decode(value)
+          const lines = chunk.split('\n').filter(l => l.startsWith('data: '))
+          
+          for (const line of lines) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              if (data.token) {
+                setMessages(prev => prev.map(m => 
+                  m.id === assistantId 
+                    ? { ...m, content: m.content + data.token } 
+                    : m
+                ))
+              }
+              if (data.done) break
+            } catch {}
+          }
+        }
+      } else {
+        throw new Error(`HTTP ${response.status}`)
       }
-      setMessages(prev => [...prev, assistantMessage])
+    } catch (err) {
+      console.log('Streaming failed, trying non-streaming:', err)
       
-      // Try to call API, fall back to demo
       try {
         const response = await fetch('http://localhost:8000/generate', {
           method: 'POST',
@@ -86,49 +144,40 @@ export default function ChatPage() {
             prompt,
             max_new_tokens: 200,
             temperature: 0.8,
+            top_p: 0.9,
           })
         })
         
         if (response.ok) {
           const data = await response.json()
-          fullContent = data.text || ''
+          const fullContent = data.text || data.generated_text || ''
+          // Stream it locally
+          for (let i = 0; i <= fullContent.length; i += 3) {
+            setMessages(prev => prev.map(m => 
+              m.id === assistantId ? { ...m, content: fullContent.slice(0, i) } : m
+            ))
+            await new Promise(r => setTimeout(r, 10))
+          }
         } else {
-          throw new Error('API not available')
+          throw new Error(`HTTP ${response.status}`)
         }
       } catch {
-        // Fall back to demo responses
         const demoResponses = [
-          `Hey! I'm SloughGPT. How can I help you today?`,
-          `Interesting question! Let me think about that...\n\nThis is a demo response. Start the API server for real AI responses.`,
+          `Hey! I'm SloughGPT. Start the API server for real AI responses.`,
+          `Interesting question! Let me think about that...\n\nThis is a demo response.`,
           `Got it! I can help with:\n\n• Writing code\n• Answering questions\n• Creative writing\n• And more!`,
         ]
-        fullContent = demoResponses[Math.floor(Math.random() * demoResponses.length)]
-      }
-      
-      // Stream the response character by character
-      let i = 0
-      const interval = setInterval(() => {
-        if (i < fullContent.length) {
+        const fullContent = demoResponses[Math.floor(Math.random() * demoResponses.length)]
+        for (let i = 0; i <= fullContent.length; i += 3) {
           setMessages(prev => prev.map(m => 
-            m.id === assistantId ? { ...m, content: fullContent.slice(0, i + 1) } : m
+            m.id === assistantId ? { ...m, content: fullContent.slice(0, i) } : m
           ))
-          i++
-        } else {
-          clearInterval(interval)
-          setIsLoading(false)
+          await new Promise(r => setTimeout(r, 15))
         }
-      }, 20)
-    } catch (error) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `Error: ${error instanceof Error ? error.message : 'Failed'}`,
-        timestamp: new Date()
       }
-      setMessages(prev => [...prev, errorMessage])
-    } finally {
-      setIsLoading(false)
     }
+    
+    setIsLoading(false)
   }
 
   const copyToClipboard = (text: string) => {
@@ -156,14 +205,17 @@ export default function ChatPage() {
               onClick={() => setShowModelSelector(!showModelSelector)}
               className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm text-zinc-300"
             >
-              <span>{MODELS.find(m => m.id === selectedModel)?.name}</span>
+              <span>{availableModels.find(m => m.id === selectedModel)?.name || selectedModel}</span>
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
             {showModelSelector && (
-              <div className="absolute top-full left-0 mt-1 bg-[#1a1a2e] border border-white/10 rounded-lg shadow-xl py-1 z-50 min-w-[140px]">
-                {MODELS.map(model => (
+              <div className="absolute top-full left-0 mt-1 bg-[#1a1a2e] border border-white/10 rounded-lg shadow-xl py-1 z-50 min-w-[180px] max-h-64 overflow-y-auto">
+                {availableModels.length === 0 && (
+                  <div className="px-3 py-2 text-sm text-zinc-500">Loading models...</div>
+                )}
+                {availableModels.map(model => (
                   <button
                     key={model.id}
                     onClick={() => { setSelectedModel(model.id); setShowModelSelector(false) }}
@@ -171,7 +223,8 @@ export default function ChatPage() {
                       selectedModel === model.id ? 'text-white bg-white/10' : 'text-zinc-400 hover:bg-white/5'
                     }`}
                   >
-                    {model.name}
+                    <div>{model.name}</div>
+                    <div className="text-xs text-zinc-500">{model.source || 'local'}</div>
                   </button>
                 ))}
               </div>
