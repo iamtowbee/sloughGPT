@@ -128,3 +128,6 @@ dist/
 
 # Node modules
 packages/app/ui/node_modules/*
+
+# Next.js build
+web/.next/
