@@ -81,6 +81,19 @@ class GenerateRequest(BaseModel):
     personality: Optional[str] = None
 
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
+    max_new_tokens: Optional[int] = 100
+    temperature: Optional[float] = 0.8
+    top_p: Optional[float] = 0.9
+    model: Optional[str] = None
+
+
 def load_model():
     """Load model - prefers local, falls back to HuggingFace."""
     global model, tokenizer, model_type, checkpoint
@@ -230,42 +243,107 @@ async def generate(request: GenerateRequest):
 
 @app.post("/generate/stream")
 async def generate_stream(request: GenerateRequest):
-    if model is None or tokenizer is None:
+    """Streaming text generation using Server-Sent Events."""
 
-        async def demo_stream():
+    async def generate_stream_tokens():
+        if model is None:
             demo = f"Demo streaming response to: {request.prompt}..."
             for char in demo:
-                yield f"data: {json.dumps({'token': char})}\n\n"
-            yield "data: [DONE]\n\n"
+                yield f"data: {json.dumps({'token': char, 'done': False})}\n\n"
+                await asyncio.sleep(0.02)
+            yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
+            return
 
-        return StreamingResponse(demo_stream(), media_type="text/event-stream")
-
-    async def stream():
         if model_type == "gpt2":
-            inputs = tokenizer(request.prompt, return_tensors="pt")
+            loop = asyncio.get_event_loop()
+            inputs = await loop.run_in_thread(
+                None, lambda: tokenizer(request.prompt, return_tensors="pt")
+            )
 
-            # Stream tokens
-            with torch.no_grad():
-                for i in range(request.max_new_tokens):
-                    outputs = model.generate(
-                        **inputs,
+            generated_text = request.prompt
+            for i in range(request.max_new_tokens):
+                outputs = await loop.run_in_thread(
+                    None,
+                    lambda inp=inputs: model.generate(
+                        **inp,
                         max_new_tokens=1,
                         temperature=request.temperature,
                         top_k=request.top_k,
                         top_p=request.top_p,
                         do_sample=True,
                         return_dict_in_generate=True,
-                    )
-                    token = tokenizer.decode(outputs.sequences[0][-1])
-                    yield f"data: {json.dumps({'token': token})}\n\n"
-                    inputs = tokenizer(token, return_tensors="pt")
+                    ),
+                )
+                token = tokenizer.decode(outputs.sequences[0][-1], skip_special_tokens=True)
+                if token:
+                    generated_text += token
+                    yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
+                inputs = tokenizer(token, return_tensors="pt")
 
-                    if i >= request.max_new_tokens - 1:
-                        break
+                if i >= request.max_new_tokens - 1:
+                    break
 
-        yield "data: [DONE]\n\n"
+        yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
 
-    return StreamingResponse(stream(), media_type="text/event-stream")
+    return StreamingResponse(generate_stream_tokens(), media_type="text/event-stream")
+
+
+@app.post("/chat/stream")
+async def chat_stream(request: ChatRequest):
+    """Streaming chat completion using Server-Sent Events."""
+
+    def format_chat_prompt(messages):
+        formatted = ""
+        for msg in messages:
+            role = msg.role
+            content = msg.content
+            if role == "user":
+                formatted += f"User: {content}\n"
+            elif role == "assistant":
+                formatted += f"Assistant: {content}\n"
+            elif role == "system":
+                formatted += f"System: {content}\n"
+        formatted += "Assistant:"
+        return formatted
+
+    async def generate_stream_tokens():
+        prompt = format_chat_prompt([m.dict() for m in request.messages])
+
+        if model is None:
+            demo = "Demo chat response..."
+            for char in demo:
+                yield f"data: {json.dumps({'token': char, 'done': False})}\n\n"
+                await asyncio.sleep(0.02)
+            yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
+            return
+
+        if model_type == "gpt2":
+            loop = asyncio.get_event_loop()
+            inputs = await loop.run_in_thread(None, lambda: tokenizer(prompt, return_tensors="pt"))
+
+            for i in range(request.max_new_tokens):
+                outputs = await loop.run_in_thread(
+                    None,
+                    lambda inp=inputs: model.generate(
+                        **inp,
+                        max_new_tokens=1,
+                        temperature=request.temperature,
+                        top_p=request.top_p,
+                        do_sample=True,
+                        return_dict_in_generate=True,
+                    ),
+                )
+                token = tokenizer.decode(outputs.sequences[0][-1], skip_special_tokens=True)
+                if token:
+                    yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
+                inputs = tokenizer(token, return_tensors="pt")
+
+                if i >= request.max_new_tokens - 1:
+                    break
+
+        yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
+
+    return StreamingResponse(generate_stream_tokens(), media_type="text/event-stream")
 
 
 @app.websocket("/ws/generate")
@@ -281,9 +359,18 @@ async def websocket_generate(websocket: WebSocket):
             prompt = request_data.get("prompt", "")
             max_tokens = request_data.get("max_tokens", 100)
             temperature = request_data.get("temperature", 0.8)
+            model_name = request_data.get("model", None)
 
-            # Send status
             await websocket.send_json({"status": "generating", "prompt": prompt})
+
+            if model_name and model_name.startswith("hf/"):
+                await websocket.send_json(
+                    {
+                        "status": "error",
+                        "error": "HuggingFace models via WS not yet supported",
+                    }
+                )
+                continue
 
             if model_type == "nanogpt" and checkpoint:
                 stoi = checkpoint.get("stoi", {})
@@ -306,13 +393,14 @@ async def websocket_generate(websocket: WebSocket):
                         char = itos.get(idx_next.item(), "")
                         generated += char
 
-                        # Stream each character
-                        await websocket.send_json({"token": char, "generated": generated})
+                        await websocket.send_json(
+                            {"token": char, "generated": generated, "done": False}
+                        )
 
                         if len(generated) > max_tokens:
                             break
 
-                await websocket.send_json({"status": "done", "text": generated})
+                await websocket.send_json({"status": "done", "text": generated, "done": True})
 
             elif model_type == "gpt2" and tokenizer:
                 inputs = tokenizer(prompt, return_tensors="pt")
@@ -330,21 +418,23 @@ async def websocket_generate(websocket: WebSocket):
                             return_dict_in_generate=True,
                         )
                         token = tokenizer.decode(outputs.sequences[0][-1])
-                        generated += token
+                        if token and not token.startswith(" "):
+                            generated += token
 
-                        await websocket.send_json({"token": token, "generated": generated})
+                        await websocket.send_json(
+                            {"token": token, "generated": generated, "done": False}
+                        )
 
                         inputs = tokenizer(token, return_tensors="pt")
 
-                await websocket.send_json({"status": "done", "text": generated})
+                await websocket.send_json({"status": "done", "text": generated, "done": True})
 
             else:
-                # Demo mode
                 demo_text = f"Demo response to: {prompt}"
                 for char in demo_text:
-                    await websocket.send_json({"token": char, "generated": char})
+                    await websocket.send_json({"token": char, "generated": char, "done": False})
                     await asyncio.sleep(0.05)
-                await websocket.send_json({"status": "done", "text": demo_text})
+                await websocket.send_json({"status": "done", "text": demo_text, "done": True})
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -376,18 +466,91 @@ async def list_personalities():
 
 @app.get("/models")
 async def list_models():
-    """List available models."""
+    """List available models (local + HuggingFace)."""
     from pathlib import Path
 
-    models_dir = Path("models")
     models = []
 
+    models_dir = Path("models")
     if models_dir.exists():
         for m in models_dir.glob("*.pt"):
-            size = m.stat().st_size / (1024 * 1024)  # MB
-            models.append({"name": m.name, "path": str(m), "size_mb": round(size, 2)})
+            size = m.stat().st_size / (1024 * 1024)
+            models.append(
+                {
+                    "id": f"local/{m.stem}",
+                    "name": m.stem,
+                    "path": str(m),
+                    "size_mb": round(size, 2),
+                    "source": "local",
+                }
+            )
+
+    try:
+        from domains.training.model_registry import get_available_hf_models
+
+        hf_models = get_available_hf_models()
+        for m in hf_models:
+            models.append(
+                {
+                    "id": m.id,
+                    "name": m.name,
+                    "description": m.description,
+                    "source": "huggingface",
+                    "tags": m.tags,
+                }
+            )
+    except Exception:
+        pass
 
     return {"models": models}
+
+
+class LoadModelRequest(BaseModel):
+    model_id: str
+    mode: Optional[str] = "local"
+    device: Optional[str] = "auto"
+
+
+@app.post("/models/load")
+async def load_hf_model_endpoint(request: LoadModelRequest):
+    """Load a HuggingFace model."""
+    global model, tokenizer, model_type
+
+    try:
+        from domains.training.model_registry import load_hf_model
+
+        client = load_hf_model(request.model_id, mode=request.mode)
+        model_type = f"hf/{request.model_id}"
+        return {
+            "status": "loaded",
+            "model": request.model_id,
+            "mode": request.mode,
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+@app.get("/models/hf")
+async def list_hf_models():
+    """List available HuggingFace models."""
+    try:
+        from domains.training.model_registry import get_available_hf_models
+
+        models = get_available_hf_models()
+        return {
+            "models": [
+                {
+                    "id": m.id,
+                    "name": m.name,
+                    "description": m.description,
+                    "tags": m.tags,
+                    "hf_model_id": m.hf_model_id,
+                }
+                for m in models
+            ]
+        }
+    except Exception as e:
+        return {"error": str(e), "models": []}
 
 
 @app.get("/datasets")

@@ -37,7 +37,7 @@ from .local_loader import (
 
 from .model_map import (
     ModelSize,
-    ModelInfo,
+    HFModelInfo as ModelInfo,
     HF_MODELS,
     get_model_info,
     search_models,
