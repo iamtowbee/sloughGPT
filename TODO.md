@@ -314,14 +314,14 @@ domains/inference/
 | Create local_loader.py | HIGH | ✅ DONE |
 | Create model_map.py | MEDIUM | ✅ DONE |
 | Create HFClient (easy API) | HIGH | ✅ DONE |
-| Integrate with model registry | MEDIUM | TODO |
+| Integrate with model registry | MEDIUM | ✅ DONE |
 
 ### Sprint 4: Memory Optimization (Week 6)
 
 | Task | Priority | Status |
 |------|----------|--------|
 | Add activation checkpointing | MEDIUM | ✅ DONE |
-| Implement LoRA in training loop | HIGH | TODO |
+| Implement LoRA in training loop | HIGH | ✅ DONE |
 | Add gradient checkpointing | MEDIUM | ✅ DONE |
 | Add flash attention support | HIGH | ✅ DONE |
 
