@@ -7,10 +7,12 @@ FastAPI server for model inference with HuggingFace fallback.
 import os
 import sys
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List
@@ -18,11 +20,28 @@ import torch
 import json
 import asyncio
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    load_model()
+    yield
+
+
 app = FastAPI(
     title="SloughGPT API",
     description="SloughGPT Model Inference API with HuggingFace models",
     version="1.0.0",
     docs_url="/docs",
+    lifespan=lifespan,
+)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # WebSocket connection manager
@@ -88,11 +107,6 @@ def load_model():
     except Exception as e:
         print(f"Failed to load GPT-2: {e}")
         model_type = "none"
-
-
-@app.on_event("startup")
-async def startup_event():
-    load_model()
 
 
 @app.get("/")

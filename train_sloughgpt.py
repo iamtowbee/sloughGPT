@@ -12,6 +12,12 @@ from pathlib import Path
 from tqdm import tqdm
 import math
 
+# GPU optimizations
+if torch.cuda.is_available():
+    torch.set_float32_matmul_precision('high')
+elif torch.backends.mps.is_available():
+    import torch.mps
+
 # Use existing NanoGPT from our infrastructure
 from domains.training.models.nanogpt import NanoGPT
 
@@ -55,6 +61,20 @@ def prepare_data(data_path, block_size=128):
     return data, vocab_size, stoi, itos
 
 
+def get_device():
+    """Auto-detect best available device."""
+    if torch.cuda.is_available():
+        return 'cuda'
+    elif torch.backends.mps.is_available():
+        return 'mps'
+    return 'cpu'
+
+
+def is_gpu_available():
+    """Check if any GPU is available (CUDA or MPS)."""
+    return torch.cuda.is_available() or torch.backends.mps.is_available()
+
+
 def train_sloughgpt(
     data_path='datasets/shakespeare/input.txt',
     vocab_size=None,
@@ -65,19 +85,28 @@ def train_sloughgpt(
     batch_size=64,
     epochs=10,
     lr=1e-3,
-    device='cpu',
+    device=None,
     resume_from=None,
     max_steps=None,
+    use_lora=False,
+    lora_rank=8,
+    lora_alpha=16,
+    gradient_accumulation=1,
+    mixed_precision=False,
+    compile_model=False,
 ):
     """Train SloughGPT model."""
     
-    print("=" * 50)
-    print("SLOUGHGPT TRAINING PIPELINE")
+    use_amp = mixed_precision and is_gpu_available()
+    
+    if device is None:
+        device = get_device()
+    
+    print(f"Using device: {device}")
     print("=" * 50)
     
-    # Load existing model or create new one
-    stoi = None
-    itos = None
+    # Prepare data FIRST to get vocab_size
+    data, vocab_size, stoi, itos = prepare_data(data_path, block_size)
     
     if resume_from and os.path.exists(resume_from):
         print(f"\nResuming from {resume_from}...")
@@ -129,9 +158,6 @@ def train_sloughgpt(
     
     model = model.to(device)
     
-    # Prepare data (use block_size from model)
-    data, vocab_size, stoi, itos = prepare_data(data_path, model.block_size)
-    
     print(f"\nModel parameters: {model.num_parameters:,}")
     
     # Split train/val (use block_size from model for correct data splitting)
@@ -149,6 +175,22 @@ def train_sloughgpt(
     
     # Optimizer with weight decay
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
+    
+    # Mixed precision scaler (only for CUDA, MPS doesn't support it well)
+    use_amp = mixed_precision and device == 'cuda'
+    scaler = torch.amp.GradScaler('cuda') if use_amp else None
+    
+    # Compile model if requested (only on CUDA, MPS support is experimental)
+    if compile_model and hasattr(torch, 'compile') and device == 'cuda':
+        print("Compiling model with torch.compile...")
+        model = torch.compile(model)
+    
+    # Print optimization info
+    print(f"Optimizations:")
+    print(f"  - Gradient accumulation: {gradient_accumulation}x (effective batch: {batch_size * gradient_accumulation})")
+    print(f"  - Mixed precision: {'ON' if use_amp else 'OFF'}")
+    print(f"  - torch.compile: {'ON' if compile_model and hasattr(torch, 'compile') else 'OFF'}")
+    print(f"  - LoRA: {'ON' if use_lora else 'OFF'}")
     
     # Cosine learning rate scheduler with warmup
     total_steps = len(train_loader) * epochs
@@ -177,6 +219,7 @@ def train_sloughgpt(
     for epoch in range(epochs):
         model.train()
         train_loss = 0
+        optimizer.zero_grad()
         
         pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}")
         for batch_idx, (x, y) in enumerate(pbar):
@@ -184,16 +227,36 @@ def train_sloughgpt(
                 break
             x, y = x.to(device), y.to(device)
             
-            optimizer.zero_grad()
-            logits, loss = model(x, y)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
+            # Forward pass with mixed precision (CUDA only)
+            if use_amp:
+                with torch.amp.autocast(device_type='cuda'):
+                    logits, loss = model(x, y)
+                # Scale loss for gradient accumulation
+                loss = loss / gradient_accumulation
+                scaler.scale(loss).backward()
+                
+                # Optimizer step every gradient_accumulation steps
+                if (batch_idx + 1) % gradient_accumulation == 0 or (batch_idx + 1) == len(train_loader):
+                    scaler.unscale_(optimizer)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                    scaler.step(optimizer)
+                    scaler.update()
+                    optimizer.zero_grad()
+            else:
+                logits, loss = model(x, y)
+                loss = loss / gradient_accumulation
+                loss.backward()
+                
+                if (batch_idx + 1) % gradient_accumulation == 0 or (batch_idx + 1) == len(train_loader):
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
+            
             scheduler.step()
             
-            train_loss += loss.item()
+            train_loss += loss.item() * gradient_accumulation
             pbar.set_postfix({
-                'loss': f'{loss.item():.4f}',
+                'loss': f'{loss.item() * gradient_accumulation:.4f}',
                 'lr': f'{scheduler.get_last_lr()[0]:.2e}'
             })
         
@@ -278,14 +341,23 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train SloughGPT')
     parser.add_argument('--data', type=str, default='datasets/shakespeare/input.txt')
     parser.add_argument('--epochs', type=int, default=10)
-    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--batch_size', type=int, default=64, help='Batch size per iteration')
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--n_embed', type=int, default=256)
     parser.add_argument('--n_layer', type=int, default=6)
     parser.add_argument('--n_head', type=int, default=8)
     parser.add_argument('--block_size', type=int, default=128)
-    parser.add_argument('--device', type=str, default='cpu')
+    parser.add_argument('--device', type=str, default=None, help='auto-detect: cuda/mps/cpu')
     parser.add_argument('--resume', type=str, default=None, help='Resume from checkpoint')
+    parser.add_argument('--max_steps', type=int, default=None, help='Max training steps per epoch')
+    
+    # Optimization options
+    parser.add_argument('--use_lora', action='store_true', help='Use LoRA for efficient training')
+    parser.add_argument('--lora_rank', type=int, default=8, help='LoRA rank')
+    parser.add_argument('--lora_alpha', type=int, default=16, help='LoRA alpha')
+    parser.add_argument('--gradient_accumulation', type=int, default=1, help='Gradient accumulation steps (effective batch = batch_size * gradient_accumulation)')
+    parser.add_argument('--mixed_precision', action='store_true', help='Use mixed precision training (faster on GPU)')
+    parser.add_argument('--compile', action='store_true', help='Compile model with torch.compile (PyTorch 2.0+)')
     
     args = parser.parse_args()
     
@@ -301,6 +373,13 @@ if __name__ == '__main__':
         block_size=args.block_size,
         device=args.device,
         resume_from=args.resume,
+        max_steps=args.max_steps,
+        use_lora=args.use_lora,
+        lora_rank=args.lora_rank,
+        lora_alpha=args.lora_alpha,
+        gradient_accumulation=args.gradient_accumulation,
+        mixed_precision=args.mixed_precision,
+        compile_model=args.compile,
     )
     
     # Generate sample

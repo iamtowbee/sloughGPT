@@ -60,3 +60,33 @@ def load_json(file_path: str) -> Any:
         raise FileNotFoundError(f"JSON file not found: {file_path}") from exc
     except json.JSONDecodeError as exc:
         raise json.JSONDecodeError(f"Invalid JSON in '{file_path}': {exc.msg}", exc.doc, exc.pos)
+
+
+import torch
+
+
+def get_device():
+    """Auto-detect best available device (cuda > mps > cpu)."""
+    if torch.cuda.is_available():
+        return 'cuda'
+    elif torch.backends.mps.is_available():
+        return 'mps'
+    return 'cpu'
+
+
+def is_gpu_available():
+    """Check if any GPU is available (CUDA or MPS)."""
+    return torch.cuda.is_available() or torch.backends.mps.is_available()
+
+
+def get_device_info():
+    """Get detailed GPU information."""
+    info = {'device': get_device(), 'gpu_available': is_gpu_available()}
+    
+    if torch.cuda.is_available():
+        info['cuda_device_name'] = torch.cuda.get_device_name(0)
+        info['cuda_device_count'] = torch.cuda.device_count()
+    elif torch.backends.mps.is_available():
+        info['mps_available'] = True
+    
+    return info

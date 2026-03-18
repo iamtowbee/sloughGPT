@@ -76,6 +76,8 @@ class HuggingFaceManager:
         
         try:
             tokenizer = AutoTokenizer.from_pretrained(model_id)
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
             model = AutoModelForCausalLM.from_pretrained(model_id)
             
             tokenizer.save_pretrained(str(dest))

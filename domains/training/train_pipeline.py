@@ -7,6 +7,7 @@ Uses EXISTING infrastructure: lora.py, efficient_inference.py, lr_schedulers.py
 import torch
 from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
+from utils import get_device
 
 # === USE EXISTING INFRASTRUCTURE ===
 from domains.training.models.nanogpt import NanoGPT
@@ -71,6 +72,7 @@ class SloughGPTTrainer:
         # Quantization
         quantize=False,
         quantize_bits=8,
+        device=None,
     ):
         self.data_path = data_path
         self.block_size = block_size
@@ -78,6 +80,9 @@ class SloughGPTTrainer:
         self.epochs = epochs
         self.lr = lr
         self.max_steps = max_steps
+        self.device = device or get_device()
+        
+        print(f"Using device: {self.device}")
         
         # Prepare data
         self.data, self.vocab_size, self.stoi, self.itos = prepare_data(
@@ -92,7 +97,8 @@ class SloughGPTTrainer:
             n_layer=n_layer,
             n_head=n_head,
             block_size=block_size
-        )
+        ).to(self.device)
+        
         print(f"Base model: {self.model.num_parameters:,} params")
         
         # Apply LoRA using existing lora.py
@@ -149,7 +155,7 @@ class SloughGPTTrainer:
         idx = torch.randint(0, len(data) - self.block_size, (self.batch_size,))
         x = torch.stack([data[i:i+self.block_size] for i in idx])
         y = torch.stack([data[i+1:i+self.block_size+1] for i in idx])
-        return x, y
+        return x.to(self.device), y.to(self.device)
     
     def train_step(self):
         """Single training step."""
