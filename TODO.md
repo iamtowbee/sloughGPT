@@ -371,18 +371,40 @@ domains/inference/
 ## Quick Reference: Commands
 
 ```bash
-# Run API server
-python -m domains.ui.api_simple
+# API Server
+uvicorn server.main:app --host 0.0.0.0 --port 8000
 
-# Train model
-python trainer.py
+# CLI
+python cli.py --help
+python cli.py quick --prompt "Hello"     # Quick train & generate
+python cli.py train --dataset shakespeare # Full training
+python cli.py export models/slough.pt --format sou  # Export
+python cli.py hf-download gpt2          # Download HF model
 
-# Run CLI
-python wrapper/ai_cli.py
+# Training script
+python train_sloughgpt.py --epochs 3 --batch_size 32
 
-# Run web UI
-python web.py
+# Web UI
+cd web && npm run dev
 ```
+
+---
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/generate` | POST | Text generation |
+| `/generate/stream` | POST | Streaming generation |
+| `/chat/stream` | POST | Chat completion |
+| `/ws/generate` | WS | WebSocket generation |
+| `/models` | GET | List models |
+| `/models/load` | POST | Load HuggingFace model |
+| `/load` | POST | Load inference model |
+| `/datasets` | GET | List datasets |
+| `/train` | POST | Start training |
+| `/personalities` | GET | List AI personalities |
 
 ---
 

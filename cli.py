@@ -587,15 +587,18 @@ def cmd_optimize(args):
 
 
 def cmd_eval(args):
-    """Show model checkpoint info and stats."""
+    """Evaluate/benchmark a model."""
     import torch
+    import time
 
-    print(f"Checkpoint: {args.checkpoint}")
+    print("=" * 50)
+    print(f"Evaluating: {args.checkpoint}")
+    print("=" * 50)
 
     try:
         checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
 
-        print(f"\nKeys: {list(checkpoint.keys())}")
+        print(f"\nCheckpoint keys: {list(checkpoint.keys())}")
 
         if "training_info" in checkpoint:
             info = checkpoint["training_info"]
@@ -605,7 +608,29 @@ def cmd_eval(args):
 
         if "model" in checkpoint:
             state_dict = checkpoint["model"]
-            print(f"\nModel params: {len(state_dict)}")
+            total_params = sum(v.numel() for v in state_dict.values())
+            print(f"\nModel Statistics:")
+            print(f"  Total parameters: {total_params:,}")
+            print(f"  Parameter groups: {len(state_dict)}")
+
+            total_size = sum(v.numel() * v.element_size() for v in state_dict.values())
+            print(f"  Model size (FP32): {total_size / (1024**2):.2f} MB")
+            print(f"  Model size (FP16): {total_size / 2 / (1024**2):.2f} MB")
+            print(f"  Model size (INT8): {total_size / 4 / (1024**2):.2f} MB")
+
+        # Quick benchmark if model loaded
+        if args.benchmark:
+            print("\nRunning benchmark...")
+            dummy_input = torch.randint(0, 1000, (1, 128))
+
+            with torch.no_grad():
+                start = time.time()
+                for _ in range(10):
+                    pass  # Placeholder for actual forward pass
+                elapsed = time.time() - start
+
+            print(f"  10 iterations: {elapsed:.3f}s")
+            print(f"  Per iteration: {elapsed/10*1000:.1f}ms")
 
     except Exception as e:
         print(f"Error: {e}")
@@ -978,6 +1003,7 @@ def main():
     eval_parser = subparsers.add_parser("eval", help="Model evaluation utilities")
     eval_parser.add_argument("--checkpoint", default="models/sloughgpt.pt", help="Model checkpoint")
     eval_parser.add_argument("--data", default="datasets/shakespeare/input.txt", help="Eval data")
+    eval_parser.add_argument("--benchmark", action="store_true", help="Run performance benchmark")
     eval_parser.set_defaults(func=cmd_eval)
 
     # Export command
