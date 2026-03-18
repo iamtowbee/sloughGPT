@@ -23,7 +23,8 @@ import asyncio
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    load_model()
+    # Don't load model at startup to avoid hanging
+    # User can call /health to check status
     yield
 
 
@@ -123,6 +124,16 @@ def load_model():
     except Exception as e:
         print(f"Failed to load GPT-2: {e}")
         model_type = "none"
+
+
+@app.post("/load")
+async def load_model_endpoint():
+    """Load the model on demand."""
+    global model, tokenizer, model_type
+    if model is not None:
+        return {"status": "already_loaded", "model": model_type}
+    load_model()
+    return {"status": "loaded", "model": model_type}
 
 
 @app.get("/")

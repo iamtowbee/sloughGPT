@@ -265,3 +265,98 @@ def create_default_sou(
         parameters=GenerationParameters(temperature=temperature),
         personality=personality or PersonalityConfig(),
     )
+
+
+MAGIC_BYTES = b"SOU\x00"
+SOU_VERSION = 1
+
+
+def export_to_sou(
+    model,
+    output_path: str,
+    from_model: str = "sloughgpt",
+    generation_params: Optional[GenerationParameters] = None,
+    personality: Optional[PersonalityConfig] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Export model to .sou format (binary with config)."""
+    import json
+    import struct
+    import torch
+
+    if generation_params is None:
+        generation_params = GenerationParameters()
+    if personality is None:
+        personality = PersonalityConfig()
+    if metadata is None:
+        metadata = {}
+
+    model_state = model.state_dict()
+    state_bytes = torch.save(model_state, "temp.pt")
+
+    sou_config = SouModelFile(
+        from_model=from_model,
+        parameters=generation_params,
+        personality=personality,
+        metadata={
+            **metadata,
+            "format_version": str(SOU_VERSION),
+        },
+    )
+    config_json = json.dumps(sou_config.to_dict())
+
+    with open(output_path, "wb") as f:
+        f.write(MAGIC_BYTES)
+        f.write(struct.pack("<I", SOU_VERSION))
+        f.write(struct.pack("<I", len(config_json)))
+        f.write(config_json.encode("utf-8"))
+        f.write(state_bytes)
+
+    import os
+
+    if os.path.exists("temp.pt"):
+        os.remove("temp.pt")
+
+    return output_path
+
+
+def import_from_sou(sou_path: str):
+    """Import model from .sou format."""
+    import json
+    import struct
+    import tempfile
+    import torch
+    import os
+
+    with open(sou_path, "rb") as f:
+        magic = f.read(4)
+        if magic != MAGIC_BYTES:
+            raise ValueError(f"Invalid .sou file: {sou_path}")
+
+        version = struct.unpack("<I", f.read(4))[0]
+        config_len = struct.unpack("<I", f.read(4))[0]
+        config_json = f.read(config_len).decode("utf-8")
+        state_bytes = f.read()
+
+    config_dict = json.loads(config_json)
+    sou = SouParser.parse(
+        f"""FROM {config_dict["from_model"]}
+PARAMETER
+    temperature {config_dict["parameters"]["temperature"]}
+    top_p {config_dict["parameters"]["top_p"]}
+    top_k {config_dict["parameters"]["top_k"]}
+    max_tokens {config_dict["parameters"]["max_tokens"]}
+SYSTEM {config_dict["system"]}"""
+    )
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pt") as tmp:
+        tmp.write(state_bytes)
+        tmp_path = tmp.name
+
+    try:
+        checkpoint = torch.load(tmp_path, map_location="cpu", weights_only=False)
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+    return sou, checkpoint

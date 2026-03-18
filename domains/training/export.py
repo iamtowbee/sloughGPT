@@ -62,6 +62,25 @@ def export_to_onnx(
     return output_path
 
 
+def export_to_sou(
+    model,
+    output_path: str,
+    from_model: str = "sloughgpt",
+    temperature: float = 0.7,
+    metadata: Optional[Dict] = None,
+) -> str:
+    """Export model to .sou format."""
+    from domains.inference.sou_format import export_to_sou as sou_export
+
+    sou_export(
+        model=model,
+        output_path=output_path,
+        from_model=from_model,
+        metadata=metadata,
+    )
+    return output_path
+
+
 def export_to_safetensors(model, output_path: str) -> str:
     """Export model weights to SafeTensors format."""
     from safetensors.torch import save_file
@@ -73,10 +92,9 @@ def export_to_safetensors(model, output_path: str) -> str:
 
 def export_to_torch(model, output_path: str, metadata: Optional[Dict] = None) -> str:
     """Export model to PyTorch format with metadata."""
-    checkpoint = {
-        "model": model.state_dict(),
-        "metadata": metadata or {},
-    }
+    import torch
+
+    checkpoint = {"model": model.state_dict(), "metadata": metadata or {}}
     torch.save(checkpoint, output_path)
     return output_path
 
@@ -120,6 +138,11 @@ def export_model(
             export_to_safetensors(model, output)
             results["safetensors"] = output
 
+        elif fmt == "sou":
+            output = config.output_path.replace(".pt", ".sou")
+            export_to_sou(model, output, metadata=config.metadata)
+            results["sou"] = output
+
     if tokenizer and config.include_tokenizer:
         tokenizer_path = config.output_path.replace(".pt", "_tokenizer.json")
         tokenizer.save_pretrained(os.path.dirname(tokenizer_path))
@@ -135,6 +158,7 @@ def list_export_formats() -> Dict[str, str]:
         "torchscript": "TorchScript traced model (.torchscript.pt)",
         "onnx": "ONNX model (.onnx)",
         "safetensors": "SafeTensors weights (.safetensors)",
+        "sou": "SloughGPT optimized format (.sou)",
     }
 
 
@@ -145,5 +169,6 @@ __all__ = [
     "export_to_torchscript",
     "export_to_onnx",
     "export_to_safetensors",
+    "export_to_sou",
     "list_export_formats",
 ]
