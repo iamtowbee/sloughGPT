@@ -643,4 +643,36 @@ SloughGPT Core
 - Web search citations
 - Voice input
 
+### Phase 6: Production Infrastructure & Monitoring
+- ✅ Kubernetes Deployment (`k8s/deployment.yaml`)
+  - API server deployment with HPA (2-10 replicas)
+  - Model server deployment with GPU support
+  - ConfigMap for environment variables
+  - PersistentVolumeClaim for model storage
+  - Service (ClusterIP + LoadBalancer)
+- ✅ Kubernetes Ingress (`k8s/ingress.yaml`)
+  - TLS configuration
+  - WebSocket support for streaming
+  - Separate routing for API and web
+- ✅ Kubernetes RBAC (`k8s/rbac.yaml`)
+  - ServiceAccount, Role, RoleBinding
+  - ClusterRole, ClusterRoleBinding
+  - Proper permissions for API server
+- ✅ Network Policies (`k8s/network-policy.yaml`)
+  - API, model server, and web network isolation
+  - Ingress/Egress rules per service
+- ✅ Prometheus Monitoring (`k8s/prometheus.yaml`)
+  - ServiceMonitor for API and model server
+  - PodMonitor for detailed metrics
+  - Alerting rules (high latency, error rate, GPU memory)
+- ✅ Grafana Dashboard (`grafana/dashboards/sloughgpt-dashboard.yaml`)
+  - Request rate and error rate panels
+  - Latency percentiles (P50, P95, P99)
+  - GPU memory and utilization
+  - Real-time metrics visualization
+- ✅ Web UI Pages
+  - Benchmark dashboard (`web/app/(app)/benchmark/page.tsx`)
+  - Model comparison (`web/app/(app)/compare/page.tsx`)
+  - Export page (`web/app/(app)/export/page.tsx`)
+
 *Always refer to this document for project status and priorities*
