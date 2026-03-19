@@ -675,4 +675,21 @@ SloughGPT Core
   - Model comparison (`web/app/(app)/compare/page.tsx`)
   - Export page (`web/app/(app)/export/page.tsx`)
 
+### Phase 7: Helm Chart & Docker Compose
+- ✅ Helm Chart (`helm/sloughgpt/`)
+  - Chart.yaml with metadata
+  - values.yaml with all configurable options
+  - Templates: deployment, configmap, services, ingress, PVC, HPA, RBAC
+  - README with installation instructions
+- ✅ Docker Compose (`docker-compose.yml`)
+  - API server (CPU)
+  - GPU version (NVIDIA CUDA)
+  - Development mode with hot reload
+  - Model server
+  - Prometheus monitoring
+  - Grafana dashboards
+  - Redis cache
+  - Web UI service
+- ✅ Next.js standalone output for Docker
+
 *Always refer to this document for project status and priorities*
