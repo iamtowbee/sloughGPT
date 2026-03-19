@@ -699,4 +699,38 @@ SloughGPT Core
   - Endpoints: /rate-limit/status, /rate-limit/check
   - Skip paths: /health, /docs, /openapi.json
 
+### Phase 9: Advanced API Security
+- ✅ JWT Authentication (`server/main.py`)
+  - JWTAuth class with HS256 signing
+  - Token creation, verification, refresh
+  - Configurable expiration (default 24h)
+- ✅ API Key Validation
+  - Hash-based comparison (constant-time)
+  - Multiple API key support
+  - Environment variable configuration
+- ✅ Input Validation & Sanitization
+  - InputValidator class
+  - XSS prevention (script tag, javascript: detection)
+  - String sanitization with max length
+  - Temperature/max_tokens parameter validation
+- ✅ Audit Logging
+  - AuditLogger class with event logging
+  - Auth events (success/failure)
+  - Rate limit exceeded events
+  - Generate request logging
+  - Configurable log retention (10000 entries)
+- ✅ Security Headers
+  - SecurityHeadersMiddleware
+  - X-Content-Type-Options: nosniff
+  - X-Frame-Options: DENY
+  - X-XSS-Protection
+  - Strict-Transport-Security
+  - Content-Security-Policy
+- ✅ Auth Endpoints
+  - POST /auth/token - Create JWT from API key
+  - POST /auth/verify - Verify JWT token
+  - POST /auth/refresh - Refresh JWT token
+  - GET /security/audit - Get audit logs
+  - GET /security/keys - Get security config
+
 *Always refer to this document for project status and priorities*
