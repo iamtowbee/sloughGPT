@@ -15,13 +15,10 @@ jobs:
         with:
           python-version: "3.10"
       
-      - name: Install dependencies
+      - name: Install lint tools
         run: |
           python -m pip install --upgrade pip
-          pip install ruff pytest torch numpy
-      
-      - name: Check Ruff version
-        run: ruff --version
+          pip install ruff
       
       - name: Run Ruff lint
         run: ruff check . --exit-non-zero || true
@@ -37,14 +34,14 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install transformers fastapi uvicorn pydantic httpx numpy pytest pytest-asyncio
-          pip install -e .
+          pip install transformers fastapi uvicorn pydantic httpx numpy scipy pytest pytest-asyncio pytest-cov
+          pip install pytest
       
-      - name: Run core tests
+      - name: Run core tests only
         run: |
-          pytest tests/test_quantization.py tests/test_optimizations.py tests/test_benchmarking.py -v --tb=short
+          pytest tests/test_quantization.py tests/test_optimizations.py tests/test_benchmarking.py tests/test_inference.py tests/test_api.py -v --tb=short --ignore=tests/test_core.py --ignore=tests/server/ --ignore=tests/cli/ --ignore=tests/web/ --ignore=tests/ml/
 
   typecheck:
     runs-on: ubuntu-latest
@@ -53,9 +50,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-      
-      - name: Install dependencies
-        run: pip install torch numpy
       
       - name: Check Python syntax
         run: |
