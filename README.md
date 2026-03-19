@@ -11,6 +11,11 @@ Self-hosted LLM infrastructure with local model training, inference, and experim
 - **Model Export** - Export to Torch, ONNX, SafeTensors, .sou formats
 - **Benchmarking** - Performance metrics and model comparison
 - **Optimizations** - Mixed precision, gradient checkpointing, torch.compile
+- **API Security** - JWT auth, rate limiting, input validation, audit logging
+- **Batch Processing** - Process up to 50 prompts in one request
+- **Response Caching** - TTL-based caching with hit/miss stats
+- **Kubernetes Ready** - Helm charts, health probes, Prometheus metrics
+- **Docker Ready** - Docker Compose with API, GPU, monitoring stacks
 
 ## Quick Start
 
@@ -86,7 +91,63 @@ Optimizations:
 
 ### Health & Status
 ```bash
+# Basic health
 curl http://localhost:8000/health
+
+# Liveness probe (Kubernetes)
+curl http://localhost:8000/health/live
+
+# Readiness probe (Kubernetes)
+curl http://localhost:8000/health/ready
+
+# Detailed health
+curl http://localhost:8000/health/detailed
+```
+
+### Authentication
+```bash
+# Create JWT token from API key
+curl -X POST http://localhost:8000/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"api_key": "your-api-key"}'
+
+# Verify token
+curl -X POST http://localhost:8000/auth/verify \
+  -H "Authorization: Bearer <token>"
+
+# Refresh token
+curl -X POST http://localhost:8000/auth/refresh \
+  -H "Authorization: Bearer <token>"
+```
+
+### Rate Limiting
+```bash
+# Check rate limit status
+curl http://localhost:8000/rate-limit/status
+
+# Check your current usage
+curl http://localhost:8000/rate-limit/check
+```
+
+### Caching
+```bash
+# Cache statistics
+curl http://localhost:8000/cache/stats
+
+# Clear cache
+curl -X DELETE http://localhost:8000/cache
+```
+
+### Metrics
+```bash
+# JSON metrics
+curl http://localhost:8000/metrics
+
+# Prometheus format
+curl http://localhost:8000/metrics/prometheus
+
+# Security audit logs
+curl http://localhost:8000/security/audit
 ```
 
 ### Inference
@@ -96,10 +157,18 @@ curl -X POST http://localhost:8000/inference/generate \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Hello world", "max_new_tokens": 50}'
 
-# Streaming
+# Streaming (SSE)
 curl -X POST http://localhost:8000/inference/generate/stream \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Hello", "max_new_tokens": 100}'
+
+# Batch processing (up to 50 prompts)
+curl -X POST http://localhost:8000/inference/batch \
+  -H "Content-Type: application/json" \
+  -d '{"prompts": ["Hello", "Hi there", "Good morning"], "max_new_tokens": 50}'
+
+# Inference stats
+curl http://localhost:8000/inference/stats
 ```
 
 ### Training
@@ -166,10 +235,13 @@ SloughGPT/
 │       ├── experiment_tracker.py
 │       └── benchmarking.py
 ├── server/
-│   └── main.py              # FastAPI server
+│   └── main.py              # FastAPI server (100+ endpoints)
 ├── cli.py                    # CLI commands
 ├── setup.sh                  # Setup script
 ├── docker-compose.yml        # Docker deployment
+├── k8s/                      # Kubernetes manifests
+├── helm/                     # Helm charts
+├── grafana/                  # Grafana dashboards
 └── tests/                   # Unit tests
 ```
 
