@@ -750,4 +750,19 @@ SloughGPT Core
   - HTTP error events
   - Server error events
 
+### Phase 11: Performance & Production
+- ✅ Response Caching
+  - RedisCache class with TTL support
+  - LRU eviction (max 500 entries)
+  - Hit/miss statistics
+  - Cache endpoints: GET /cache/stats, DELETE /cache
+- ✅ Batch Processing
+  - POST /inference/batch - Process up to 50 prompts
+  - Optional caching for identical prompts
+  - Individual result tracking (cached, error)
+- ✅ Kubernetes Health Probes
+  - GET /health/live - Liveness probe
+  - GET /health/ready - Readiness probe (model loaded check)
+  - Updated k8s/deployment.yaml with proper probes
+
 *Always refer to this document for project status and priorities*
