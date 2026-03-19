@@ -224,7 +224,7 @@ class TestAPIIntegration:
     
     def test_error_handling(self):
         """Test error handling in requests."""
-        from pydantic import ValidationError
+        from pydantic import ValidationError, BaseModel
         
         class StrictRequest(BaseModel):
             name: str
