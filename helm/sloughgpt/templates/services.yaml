@@ -1,0 +1,19 @@
+{{- range .Values.service }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sloughgpt.fullname" $ }}-{{ .name | default "api" }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "sloughgpt.labels" $ | nindent 4 }}
+spec:
+  type: {{ .type | default "ClusterIP" }}
+  ports:
+    - port: {{ .port }}
+      targetPort: {{ .targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "sloughgpt.selectorLabels" $ | nindent 4 }}
+{{- end }}

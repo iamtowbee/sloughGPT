@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sloughgpt.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sloughgpt.labels" . | nindent 4 }}
+data:
+  MODEL_PATH: {{ .Values.config.modelPath | quote }}
+  DEVICE: {{ .Values.config.device | quote }}
+  MAX_BATCH_SIZE: {{ .Values.config.maxBatchSize | quote }}
+  MAX_CONCURRENT_REQUESTS: {{ .Values.config.maxConcurrentRequests | quote }}
+  CORS_ORIGINS: {{ .Values.config.corsOrigins | quote }}
+{{- if .Values.config.apiKey }}
+  API_KEY: {{ .Values.config.apiKey | quote }}
+{{- end }}
+{{- if .Values.config.jwtSecret }}
+  JWT_SECRET: {{ .Values.config.jwtSecret | quote }}
+{{- end }}

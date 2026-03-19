@@ -1,0 +1,146 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/iamtowbee/sloughgpt
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+rbac:
+  create: true
+
+networkPolicy:
+  enabled: true
+
+service:
+  type: ClusterIP
+  api:
+    port: 80
+    targetPort: 8000
+  web:
+    port: 3000
+  model:
+    type: LoadBalancer
+    port: 80
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+  hosts:
+    - host: sloughgpt.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: sloughgpt-tls
+      hosts:
+        - sloughgpt.example.com
+
+resources:
+  api:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+      nvidia.com/gpu: 1
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+      nvidia.com/gpu: 1
+  web:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  model:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+      nvidia.com/gpu: 1
+    requests:
+      cpu: 2000m
+      memory: 4Gi
+      nvidia.com/gpu: 1
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+persistence:
+  enabled: true
+  storageClass: ""
+  size: 10Gi
+  accessMode: ReadWriteMany
+
+config:
+  modelPath: "/app/models"
+  device: "cuda"
+  maxBatchSize: 32
+  maxConcurrentRequests: 100
+  apiKey: ""
+  jwtSecret: ""
+  corsOrigins: "*"
+
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    scrapeInterval: 15s
+  grafana:
+    enabled: true
+    dashboardUid: "sloughgpt"
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext: {}
+
+nodeSelector:
+  gpu: "true"
+
+tolerations:
+  - key: "nvidia.com/gpu"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+affinity: {}
+
+livenessProbe:
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+volumeMounts: []
+
+volumes: []

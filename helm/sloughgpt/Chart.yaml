@@ -1,0 +1,17 @@
+apiVersion: v2
+name: sloughgpt
+description: A Helm chart for SloughGPT - Enterprise AI Framework
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - llm
+  - machine-learning
+  - inference
+  - training
+  - kubernetes
+maintainers:
+  - name: SloughGPT Team
+    email: team@sloughgpt.dev
+sources:
+  - https://github.com/iamtowbee/sloughGPT

@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sloughgpt.fullname" . }}-model-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sloughgpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: model-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "sloughgpt.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: model-server
+  template:
+    metadata:
+      labels:
+        {{- include "sloughgpt.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: model-server
+    spec:
+      containers:
+        - name: model-server
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}-model:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "sloughgpt.fullname" . }}-config
+          resources:
+            {{- toYaml .Values.resources.model | nindent 12 }}
+          volumeMounts:
+            - name: model-storage
+              mountPath: /app/models
+      volumes:
+        - name: model-storage
+          persistentVolumeClaim:
+            claimName: {{ include "sloughgpt.fullname" . }}-models
+      nodeSelector:
+        gpu: "true"
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Exists"
+          effect: "NoSchedule"
