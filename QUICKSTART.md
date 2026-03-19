@@ -1,198 +1,247 @@
 # SloughGPT Quick Start Guide
 
-## 🚀 Get Started in 5 Minutes
+## Get Started in 5 Minutes
 
-SloughGPT is an enterprise AI framework that enables you to train, deploy, and manage AI models with production-ready infrastructure.
-
-### Prerequisites
-
-- Python 3.8+
-- 8GB+ RAM recommended
-- GPU optional but recommended for training
-
-### Installation
-
+### 1. Install
 ```bash
-# Clone the repository
-git clone https://github.com/sloughgpt/sloughgpt.git
-cd sloughgpt
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Verify installation
-python3 sloughgpt.py health
+git clone https://github.com/iamtowbee/sloughGPT.git
+cd sloughGPT
+pip install torch transformers fastapi uvicorn pydantic pytest
 ```
 
-## 🎯 Quick Start Commands
-
-### 1. Start API Server
-
+### 2. Quick Training (CLI)
 ```bash
-# Start the main API server
-python3 sloughgpt.py serve
-
-# Custom host and port
-python3 sloughgpt.py serve --host 0.0.0.0 --port 8080
+python3 cli.py quick --steps 100 --prompt "Hello world"
 ```
 
-Access API at: http://127.0.0.1:8000
-
-### 2. Launch Admin Dashboard
-
+### 3. Start API Server
 ```bash
-# Start the admin dashboard
-python3 sloughgpt.py admin
-
-# Custom port
-python3 sloughgpt.py admin --port 9000
+python3 server/main.py
+# Access at http://localhost:8000/docs
 ```
-
-Access Dashboard at: http://127.0.0.1:8080
-
-### 3. Train Your First Model
-
-```bash
-# Create model configuration
-cat > model_config.json << EOF
-{
-  "model_name": "my-gpt2",
-  "hidden_size": 768,
-  "num_attention_heads": 12,
-  "num_hidden_layers": 12,
-  "vocab_size": 50257
-}
-EOF
-
-# Train the model
-python3 sloughgpt.py train --config model_config.json --data ./data/my_data.json
-```
-
-### 4. Check System Health
-
-```bash
-# Run comprehensive diagnostics
-python3 sloughgpt.py health
-
-# Show package information
-python3 sloughgpt.py info
-
-# Show version
-python3 sloughgpt.py version
-```
-
-## 📊 Quick API Usage
-
-### Generate Text
-
-```bash
-curl -X POST http://127.0.0.1:8000/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "Explain artificial intelligence",
-    "max_tokens": 100,
-    "temperature": 0.7
-  }'
-```
-
-### Check API Health
-
-```bash
-curl http://127.0.0.1:8000/health
-```
-
-### API Documentation
-
-Visit http://127.0.0.1:8000/docs for interactive API documentation.
-
-## 🔧 Configuration
-
-### Environment Variables
-
-```bash
-# Database
-DATABASE_URL=postgresql://user:pass@localhost/sloughgpt
-
-# Security
-JWT_SECRET_KEY=your-secret-key-here
-
-# API Settings
-API_HOST=0.0.0.0
-API_PORT=8000
-
-# Cost Management
-DEFAULT_MONTHLY_BUDGET=1000
-COST_ALERT_THRESHOLD=0.8
-```
-
-### Configuration File
-
-Create `sloughgpt_config.json`:
-
-```json
-{
-  "model_config": {
-    "model_name": "gpt2-medium",
-    "hidden_size": 1024,
-    "num_attention_heads": 16,
-    "num_hidden_layers": 24
-  },
-  "learning_config": {
-    "batch_size": 32,
-    "learning_rate": 1e-4,
-    "num_epochs": 10
-  },
-  "database_config": {
-    "database_url": "sqlite:///sloughgpt.db"
-  },
-  "security_config": {
-    "jwt_secret_key": "your-256-bit-secret"
-  }
-}
-```
-
-## 🎯 Next Steps
-
-### 1. Explore the Admin Dashboard
-- Monitor system health and performance
-- Manage users and API keys
-- Track costs and usage analytics
-- Configure alerts and notifications
-
-### 2. Train Custom Models
-- Prepare your training data
-- Configure model parameters
-- Monitor training progress
-- Deploy trained models
-
-### 3. Build Applications
-- Use the REST API for your apps
-- Integrate with Python SDK
-- Deploy to production with Kubernetes
-- Monitor and optimize performance
-
-### 4. Scale to Production
-- Set up PostgreSQL and Redis
-- Deploy with Docker/Kubernetes
-- Configure SSL/TLS certificates
-- Implement monitoring and alerting
-
-## 📚 Learn More
-
-- **Full Documentation**: [README.md](README.md)
-- **API Reference**: [API.md](API.md)
-- **Deployment Guide**: [DEPLOYMENT.md]
-- **Enterprise Features**: [ENTERPRISE_SHOWCASE.md](ENTERPRISE_SHOWCASE.md)
-
-## 🆘 Need Help?
-
-- **Documentation**: https://docs.sloughgpt.ai
-- **Community**: https://community.sloughgpt.ai
-- **Issues**: https://github.com/sloughgpt/sloughgpt/issues
-- **Enterprise Support**: enterprise@sloughgpt.ai
 
 ---
 
-**🚀 SloughGPT Enterprise AI Framework - Start Building Today!**
+## CLI Commands
 
-*Your journey to enterprise AI begins here.*
+### Training
+```bash
+# Quick train + generate (auto-optimized)
+python3 cli.py quick --steps 100 --prompt "The future is"
+
+# Custom model config
+python3 cli.py quick --epochs 3 --batch 64 --embed 256 --layers 6
+
+# CPU only (no optimizations)
+python3 cli.py quick --no-optimize
+```
+
+### Inference
+```bash
+# Generate text
+python3 cli.py generate "Hello world" --max-tokens 100
+
+# HuggingFace model
+python3 cli.py hf-serve gpt2
+
+# Download model
+python3 cli.py hf-download gpt2
+```
+
+### Benchmarking
+```bash
+# Benchmark inference
+python3 cli.py benchmark -m gpt2 -d mps -t latency
+
+# Full benchmark suite
+python3 cli.py benchmark -m gpt2 -d mps -t all
+
+# Check GPU optimizations
+python3 cli.py optimize
+```
+
+### Model Export
+```bash
+# Export to different formats
+python3 cli.py export gpt2 --format onnx
+python3 cli.py export gpt2 --format safetensors
+
+# With quantization
+python3 cli.py export gpt2 --quantize int8
+```
+
+### System
+```bash
+# System info
+python3 cli.py system
+
+# Health check
+python3 cli.py health
+
+# Docker management
+python3 cli.py docker status
+python3 cli.py docker logs
+```
+
+---
+
+## API Endpoints
+
+### Health Check
+```bash
+curl http://localhost:8000/health
+```
+
+### Generate Text
+```bash
+curl -X POST http://localhost:8000/inference/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello", "max_new_tokens": 50}'
+```
+
+### Streaming Generation
+```bash
+curl -X POST http://localhost:8000/inference/generate/stream \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello", "max_new_tokens": 100}'
+```
+
+### Training
+```bash
+curl -X POST http://localhost:8000/train \
+  -d "dataset=shakespeare&epochs=5&batch_size=32"
+```
+
+### Benchmarking
+```bash
+curl -X POST http://localhost:8000/benchmark/run \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "gpt2", "num_runs": 10}'
+```
+
+---
+
+## GPU Support
+
+| Hardware | Speed | Command |
+|----------|-------|---------|
+| NVIDIA GPU | Fast | `--device cuda` |
+| Apple Silicon (M1/M2/M3) | Good | `--device mps` |
+| AMD GPU (Linux + ROCm) | Good | `--device cuda` |
+| Intel Mac AMD GPU | ❌ | Use CPU |
+| CPU | Slow | `--device cpu` |
+
+### Verify GPU
+```bash
+python3 cli.py optimize
+```
+
+---
+
+## Docker Deployment
+
+```bash
+# Start API server
+docker compose up -d api
+
+# Development mode
+docker compose --profile dev up -d
+
+# GPU mode (NVIDIA)
+docker compose --profile gpu up -d
+
+# Stop
+docker compose down
+```
+
+---
+
+## Optimization Presets
+
+```python
+from domains.training.optimized_trainer import Presets
+
+# Auto-detect best settings
+config = Presets.auto()
+
+# Specific hardware
+Presets.high_end_gpu()   # A100, H100, RTX 4090
+Presets.mid_range_gpu()  # RTX 3060, V100
+Presets.apple_silicon()  # M1/M2/M3
+Presets.cpu_only()       # CPU training
+```
+
+### Speedup Estimates
+
+| Optimization | Speedup | Memory |
+|-------------|---------|--------|
+| FP16 | 2-3x | -50% |
+| torch.compile | 1.5-2x | +10% |
+| Flash Attention | 2-4x | -20% |
+| **Combined** | **3-6x** | **-60%** |
+
+---
+
+## Troubleshooting
+
+### macOS PyTorch hangs?
+```bash
+# Add to ~/.zshrc or ~/.bashrc
+export DYLD_INSERT_LIBRARIES=""
+```
+
+### Docker not running?
+```bash
+open -a Docker
+```
+
+### Out of memory?
+```bash
+# Smaller batch size
+python3 cli.py quick --batch 8
+
+# Or use quantization
+python3 cli.py export model --quantize int8
+```
+
+---
+
+## File Structure
+
+```
+SloughGPT/
+├── domains/
+│   ├── inference/          # Inference engine
+│   │   ├── engine.py       # Production inference
+│   │   ├── quantization.py  # FP16/INT8/INT4
+│   │   └── optimizations.py # KV cache, batching
+│   ├── training/            # Training
+│   │   ├── train_pipeline.py
+│   │   ├── optimized_trainer.py  # NEW: Optimized training
+│   │   └── models/nanogpt.py
+│   └── ml_infrastructure/  # Infrastructure
+│       └── benchmarking.py
+├── server/
+│   └── main.py              # FastAPI server
+├── cli.py                    # CLI commands
+├── tests/                   # Unit tests (72 tests)
+└── datasets/               # Training data
+```
+
+---
+
+## Next Steps
+
+1. **Run the notebook**: `jupyter notebook sloughgpt_colab.ipynb`
+2. **Try different datasets**: Shakespeare, TinyStories, custom
+3. **Explore model architecture**: Section 5 in the notebook
+4. **Deploy with Docker**: See Docker section above
+5. **Read the docs**: `README.md`, `API.md`, `TODO.md`
+
+---
+
+## Links
+
+- **GitHub**: https://github.com/iamtowbee/sloughGPT
+- **API Docs**: http://localhost:8000/docs
+- **Tests**: `python3 -m pytest tests/`

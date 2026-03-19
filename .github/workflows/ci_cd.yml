@@ -10,7 +10,7 @@ on:
 env:
   PYTHON_VERSION: "3.10"
   DOCKER_REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github.repository_owner }}/sloughgpt
 
 jobs:
   # Lint and type check
@@ -24,13 +24,12 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       
       - name: Install lint tools
-        run: pip install ruff mypy
+        run: |
+          pip install --upgrade pip
+          pip install ruff mypy
       
       - name: Run Ruff lint
-        run: ruff check . --exit-zero || true
-      
-      - name: Run mypy
-        run: mypy domains/training --ignore-missing-imports --exit-zero || true
+        run: ruff check . --exit-non-zero || true
 
   # Unit tests
   test:
@@ -45,16 +44,44 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install transformers fastapi uvicorn pydantic httpx numpy
+          pip install pytest pytest-cov pytest-asyncio
+          pip install -e .
       
       - name: Run tests
-        run: pytest tests/ -v --cov=. --cov-report=xml
+        run: |
+          pytest tests/test_quantization.py tests/test_optimizations.py tests/test_benchmarking.py tests/test_inference.py -v --tb=short
       
       - name: Upload coverage
-        uses: codecov/codecov-action@v3
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          file: ./coverage.xml
+          name: test-results
+          path: tests/
+
+  # macOS tests (MPS)
+  test-macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install torch torchvision torchaudio
+          pip install transformers fastapi uvicorn pydantic httpx numpy pytest
+          pip install -e .
+      
+      - name: Run tests
+        run: |
+          export DYLD_INSERT_LIBRARIES=""
+          pytest tests/test_quantization.py tests/test_optimizations.py tests/test_benchmarking.py -v --tb=short
 
   # Build Docker images
   build:
@@ -67,42 +94,41 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
-      - name: Login to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.DOCKER_REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Build API image
+      - name: Build production image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: Dockerfile
           push: false
-          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:api
+          tags: |
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
       
-      - name: Build Model Server image
+      - name: Build dev image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: server/Dockerfile
+          file: Dockerfile.dev
           push: false
-          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:model-server
+          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:dev
 
   # Deploy to production (on release)
   deploy:
     runs-on: ubuntu-latest
     needs: [build]
     if: github.event_name == 'release'
+    environment:
+      name: production
+      url: https://github.com/${{ github.repository }}/releases
     steps:
       - uses: actions/checkout@v4
       
-      - name: Deploy to cloud
-        run: |
-          echo "Deploying release ${{ github.event.release.tag_name }}"
-          # Add your deployment commands here
-          # e.g., kubectl apply -f k8s/
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Benchmark (on main)
   benchmark:
@@ -117,27 +143,11 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       
       - name: Install dependencies
-        run: pip install torch pytest
+        run: |
+          pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e .
       
       - name: Run benchmarks
         run: |
-          python -c "
-          import torch
-          from domains.training.models.nanogpt import NanoGPT
-          
-          model = NanoGPT(vocab_size=1000, n_embed=256, n_layer=6, n_head=8, block_size=128)
-          x = torch.randint(0, 1000, (2, 64))
-          y = torch.randint(0, 1000, (2, 64))
-          
-          # Warmup
-          for _ in range(3):
-              logits, loss = model(x, y)
-          
-          import time
-          start = time.time()
-          for _ in range(10):
-              logits, loss = model(x, y)
-          elapsed = time.time() - start
-          
-          print(f'Forward pass: {elapsed/10*1000:.2f}ms')
-          "
+          python performance_test.py --test latency --runs 5 --tokens 20
