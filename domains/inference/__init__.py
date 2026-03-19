@@ -34,6 +34,14 @@ from .loader import (
     chat,
 )
 
+from .engine import (
+    InferenceEngine,
+    KVCache,
+    GenerationRequest,
+    BatchedRequest,
+    create_engine,
+)
+
 
 __all__ = [
     # .sou Format
@@ -60,4 +68,10 @@ __all__ = [
     "load_model",
     "generate",
     "chat",
+    # Engine
+    "InferenceEngine",
+    "KVCache",
+    "GenerationRequest",
+    "BatchedRequest",
+    "create_engine",
 ]

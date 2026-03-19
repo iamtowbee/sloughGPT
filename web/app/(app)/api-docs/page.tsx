@@ -112,6 +112,136 @@ const endpoints: Endpoint[] = [
     path: '/personalities',
     description: 'List available AI personalities',
   },
+  {
+    method: 'POST',
+    path: '/inference/generate',
+    description: 'Production inference engine - Generate text',
+    body: [
+      { field: 'prompt', type: 'string', required: true },
+      { field: 'max_new_tokens', type: 'number', required: false },
+      { field: 'temperature', type: 'number', required: false },
+      { field: 'top_p', type: 'number', required: false },
+      { field: 'top_k', type: 'number', required: false },
+    ],
+  },
+  {
+    method: 'POST',
+    path: '/inference/generate/stream',
+    description: 'Production inference - Streaming text (SSE)',
+    body: [
+      { field: 'prompt', type: 'string', required: true },
+      { field: 'max_new_tokens', type: 'number', required: false },
+      { field: 'temperature', type: 'number', required: false },
+    ],
+  },
+  {
+    method: 'POST',
+    path: '/inference/quantize',
+    description: 'Quantize loaded model (fp16, int8, etc.)',
+    body: [
+      { field: 'quantization_type', type: 'string', required: true },
+    ],
+  },
+  {
+    method: 'GET',
+    path: '/inference/stats',
+    description: 'Get inference engine statistics',
+  },
+  {
+    method: 'POST',
+    path: '/benchmark/run',
+    description: 'Run inference benchmark',
+    body: [
+      { field: 'prompt', type: 'string', required: false },
+      { field: 'max_new_tokens', type: 'number', required: false },
+      { field: 'num_runs', type: 'number', required: false },
+    ],
+  },
+  {
+    method: 'POST',
+    path: '/benchmark/perplexity',
+    description: 'Calculate model perplexity',
+    body: [
+      { field: 'text', type: 'string', required: true },
+    ],
+  },
+  {
+    method: 'GET',
+    path: '/benchmark/compare',
+    description: 'Compare quantization levels',
+  },
+  {
+    method: 'POST',
+    path: '/model/export',
+    description: 'Export current model to file',
+    body: [
+      { field: 'output_path', type: 'string', required: true },
+      { field: 'format', type: 'string', required: false },
+      { field: 'include_tokenizer', type: 'boolean', required: false },
+    ],
+  },
+  {
+    method: 'GET',
+    path: '/model/export/formats',
+    description: 'List supported export formats',
+  },
+  {
+    method: 'GET',
+    path: '/experiments',
+    description: 'List all experiments',
+  },
+  {
+    method: 'POST',
+    path: '/experiments',
+    description: 'Create new experiment',
+    body: [
+      { field: 'name', type: 'string', required: true },
+      { field: 'description', type: 'string', required: false },
+      { field: 'parameters', type: 'string', required: false },
+    ],
+  },
+  {
+    method: 'GET',
+    path: '/experiments/{id}',
+    description: 'Get specific experiment',
+  },
+  {
+    method: 'POST',
+    path: '/experiments/{id}/log_metric',
+    description: 'Log a metric to experiment',
+    body: [
+      { field: 'metric_name', type: 'string', required: true },
+      { field: 'value', type: 'number', required: true },
+      { field: 'step', type: 'number', required: false },
+    ],
+  },
+  {
+    method: 'POST',
+    path: '/experiments/{id}/log_param',
+    description: 'Log a parameter to experiment',
+    body: [
+      { field: 'param_name', type: 'string', required: true },
+      { field: 'value', type: 'any', required: true },
+    ],
+  },
+  {
+    method: 'POST',
+    path: '/training/start',
+    description: 'Start a new training job',
+    body: [
+      { field: 'name', type: 'string', required: true },
+      { field: 'model', type: 'string', required: true },
+      { field: 'dataset', type: 'string', required: true },
+      { field: 'epochs', type: 'number', required: false },
+      { field: 'batch_size', type: 'number', required: false },
+      { field: 'learning_rate', type: 'number', required: false },
+    ],
+  },
+  {
+    method: 'GET',
+    path: '/training/jobs',
+    description: 'List all training jobs',
+  },
 ]
 
 export default function ApiDocsPage() {
@@ -202,21 +332,31 @@ export default function ApiDocsPage() {
       </div>
 
       <div className="mt-8 p-4 bg-white/5 border border-white/10 rounded-xl">
-        <h2 className="text-lg font-semibold text-white mb-2">Try It Out</h2>
-        <p className="text-zinc-400 text-sm mb-3">Test the API directly with curl:</p>
+        <h2 className="text-lg font-semibold text-white mb-2">Quick Examples</h2>
         <pre className="bg-black/30 rounded-lg p-3 text-sm text-zinc-300 overflow-x-auto">{`# Health check
 curl http://localhost:8000/health
 
 # Generate text
-curl -X POST http://localhost:8000/generate \\
+curl -X POST http://localhost:8000/inference/generate \\
   -H "Content-Type: application/json" \\
   -d '{"prompt": "Hello world", "max_new_tokens": 50}'
 
 # Streaming (SSE)
-curl -X POST http://localhost:8000/generate/stream \\
+curl -X POST http://localhost:8000/inference/generate/stream \\
   -H "Content-Type: application/json" \\
-  -d '{"prompt": "Hello", "max_new_tokens": 100}'`}</pre>
-      </div>
+  -d '{"prompt": "Hello", "max_new_tokens": 100}'
+
+# Run benchmark
+curl -X POST "http://localhost:8000/benchmark/run?max_new_tokens=20" \\
+  -H "Content-Type: application/json" -d '{}'
+
+# Create experiment
+curl -X POST "http://localhost:8000/experiments?name=test&description=Testing"
+
+# Export model
+curl -X POST http://localhost:8000/model/export \\
+  -H "Content-Type: application/json" \\
+  -d '{"output_path": "models/exported", "format": "torch"}'`}
     </div>
   )
 }

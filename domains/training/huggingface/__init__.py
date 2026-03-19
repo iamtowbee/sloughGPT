@@ -1,30 +1,18 @@
-# HuggingFace Integration Module
+# HuggingFace Integration Module - LOCAL MODELS ONLY
 
 """
-Load models from HuggingFace in two modes:
-1. API Mode: Use HF Inference API (no download)
-2. Local Mode: Download and run locally
+Load and serve models from HuggingFace locally.
 
 Quick Start:
     from domains.training.huggingface import HFClient
 
-    # Use HF Inference API (no download)
-    client = HFClient("meta-llama/Llama-2-7b-chat-hf", mode="api")
-    print(client("Hello!"))
-
-    # Or load locally
+    # Load model locally (PREFERRED)
     client = HFClient("mistralai/Mistral-7B-Instruct-v0.2", mode="local")
     print(client("Tell me a story"))
-"""
 
-from .api_loader import (
-    HFAPIConfig,
-    HuggingFaceAPILoader,
-    HFInferenceClient,
-    create_api_client,
-    generate_via_api,
-    chat_via_api,
-)
+    # API mode is FALLBACK only (requires HF_API_KEY)
+    client = HFClient("meta-llama/Llama-2-7b-chat-hf", mode="api")
+"""
 
 from .local_loader import (
     HFLocalConfig,
@@ -33,6 +21,7 @@ from .local_loader import (
     download_model,
     load_model,
     generate_local,
+    LocalModelLoader,
 )
 
 from .model_map import (
@@ -44,6 +33,7 @@ from .model_map import (
     get_recommended_quantization,
     get_model_requirements,
     map_to_sloughgpt_config,
+    MODEL_REGISTRY,
 )
 
 from .client import (
@@ -56,19 +46,13 @@ from .client import (
 
 
 __all__ = [
-    # Unified Client
+    # Primary - Local Loading
+    "LocalModelLoader",
     "HFClient",
     "get_model_memory",
     "list_models",
     "generate",
     "chat",
-    # API Loader
-    "HFAPIConfig",
-    "HuggingFaceAPILoader",
-    "HFInferenceClient",
-    "create_api_client",
-    "generate_via_api",
-    "chat_via_api",
     # Local Loader
     "HFLocalConfig",
     "HuggingFaceLocalLoader",
@@ -80,6 +64,7 @@ __all__ = [
     "ModelSize",
     "ModelInfo",
     "HF_MODELS",
+    "MODEL_REGISTRY",
     "get_model_info",
     "search_models",
     "get_recommended_quantization",

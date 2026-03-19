@@ -72,7 +72,7 @@ class SouModelLoader:
         # Placeholder
         return None
 
-    def quantize(self, quantization_type: QuantizationType = QuantizationType.Q4_0):
+    def quantize(self, quantization_type: QuantizationType = QuantizationType.Q4_K):
         """Quantize the model."""
         if self.model is None:
             raise RuntimeError("Load model before quantizing")

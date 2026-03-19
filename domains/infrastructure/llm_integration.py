@@ -1,6 +1,15 @@
 """
-LLM Integration - Ported from recovered llm_integration.py
+LLM Integration - ARCHIVED (2026-03-18)
+
+This code has been moved to archive/third_party_apis/ for reference.
+SloughGPT now focuses on LOCAL MODEL INFRASTRUCTURE only.
+
+To restore:
+    mv archive/third_party_apis/llm_integration.py domains/infrastructure/
+    mv archive/third_party_apis/api_loader.py domains/training/huggingface/
 """
+
+# RESTORED FROM ARCHIVE - Original third-party integration
 
 import os
 from typing import Dict, Optional

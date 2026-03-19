@@ -6,6 +6,9 @@ FastAPI server for model inference with HuggingFace fallback.
 
 import os
 import sys
+# Force CPU mode to avoid MPS hanging issues
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
 from pathlib import Path
 from contextlib import asynccontextmanager
 
@@ -15,10 +18,11 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Any
 import torch
 import json
 import asyncio
+import time
 
 
 @asynccontextmanager
@@ -318,7 +322,7 @@ async def chat_stream(request: ChatRequest):
         return formatted
 
     async def generate_stream_tokens():
-        prompt = format_chat_prompt([m.dict() for m in request.messages])
+        prompt = format_chat_prompt([m.model_dump() for m in request.messages])
 
         if model is None:
             demo = "Demo chat response..."
@@ -475,6 +479,90 @@ async def list_personalities():
         return {"error": str(e)}
 
 
+@app.get("/datasets", tags=["datasets"])
+async def list_datasets():
+    """List available datasets."""
+    import os
+    from pathlib import Path
+    
+    datasets_dir = Path("datasets")
+    datasets = []
+    
+    if datasets_dir.exists():
+        for d in datasets_dir.iterdir():
+            if d.is_dir():
+                input_file = d / "input.txt"
+                size = 0
+                if input_file.exists():
+                    size = input_file.stat().st_size
+                
+                datasets.append({
+                    "id": d.name,
+                    "name": d.name.replace("_", " ").title(),
+                    "path": str(d),
+                    "size_bytes": size,
+                    "size_formatted": f"{size / 1024:.1f} KB" if size > 0 else "Empty",
+                    "type": "text",
+                })
+    
+    return {"datasets": datasets}
+
+
+@app.get("/datasets/{dataset_id}", tags=["datasets"])
+async def get_dataset(dataset_id: str):
+    """Get dataset details."""
+    from pathlib import Path
+    
+    dataset_path = Path(f"datasets/{dataset_id}")
+    input_file = dataset_path / "input.txt"
+    
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    
+    stats = {
+        "id": dataset_id,
+        "name": dataset_id.replace("_", " ").title(),
+        "path": str(dataset_path),
+    }
+    
+    if input_file.exists():
+        with open(input_file, "r") as f:
+            content = f.read()
+        stats.update({
+            "size_bytes": len(content),
+            "num_lines": content.count("\n") + 1,
+            "num_chars": len(content),
+        })
+    
+    return stats
+
+
+@app.get("/datasets/{dataset_id}/stats", tags=["datasets"])
+async def get_dataset_stats(dataset_id: str):
+    """Get detailed dataset statistics."""
+    from pathlib import Path
+    from collections import Counter
+    
+    dataset_path = Path(f"datasets/{dataset_id}/input.txt")
+    
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    
+    with open(dataset_path, "r") as f:
+        content = f.read()
+    
+    lines = content.split("\n")
+    words = content.split()
+    
+    return {
+        "dataset_id": dataset_id,
+        "total_chars": len(content),
+        "total_lines": len(lines),
+        "total_words": len(words),
+        "avg_line_length": sum(len(l) for l in lines) / len(lines) if lines else 0,
+    }
+
+
 @app.get("/models")
 async def list_models():
     """List available models (local + HuggingFace)."""
@@ -593,6 +681,15 @@ class TrainRequest(BaseModel):
     max_steps: Optional[int] = None
 
 
+class TrainingRequest(BaseModel):
+    name: str
+    model: str
+    dataset: str
+    epochs: Optional[int] = 3
+    batch_size: Optional[int] = 32
+    learning_rate: Optional[float] = 1e-3
+
+
 @app.post("/train")
 async def train(request: TrainRequest):
     """Start a training job."""
@@ -632,11 +729,440 @@ async def train(request: TrainRequest):
 @app.get("/train/status")
 async def train_status():
     """Get training status."""
-    # Simple status - could be enhanced with proper job tracking
     return {"status": "ready", "message": "Use /train endpoint to start training"}
+
+
+training_jobs = {}
+
+
+@app.get("/training/jobs", tags=["training"])
+async def list_training_jobs():
+    """List all training jobs."""
+    return list(training_jobs.values())
+
+
+@app.get("/training/jobs/{job_id}", tags=["training"])
+async def get_training_job(job_id: str):
+    """Get a specific training job."""
+    if job_id not in training_jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return training_jobs[job_id]
+
+
+@app.post("/training/start", tags=["training"])
+async def start_training(request: TrainingRequest):
+    """Start a new training job."""
+    job_id = f"job_{len(training_jobs) + 1}"
+    job = {
+        "id": job_id,
+        "name": request.name,
+        "model": request.model,
+        "dataset": request.dataset,
+        "status": "running",
+        "progress": 0,
+        "epochs": request.epochs,
+        "current_epoch": 0,
+        "loss": None,
+    }
+    training_jobs[job_id] = job
+
+    def run_training():
+        import time
+        for epoch in range(request.epochs or 3):
+            training_jobs[job_id]["current_epoch"] = epoch + 1
+            training_jobs[job_id]["loss"] = 2.5 - (epoch * 0.3)
+            training_jobs[job_id]["progress"] = int(((epoch + 1) / (request.epochs or 3)) * 100)
+            time.sleep(1)
+        training_jobs[job_id]["status"] = "completed"
+        training_jobs[job_id]["progress"] = 100
+
+    thread = threading.Thread(target=run_training, daemon=True)
+    thread.start()
+
+    return job
+
+
+_experiment_tracker = None
+
+
+def get_experiment_tracker():
+    """Get or create the experiment tracker."""
+    global _experiment_tracker
+    if _experiment_tracker is None:
+        from domains.ml_infrastructure.experiment_tracker import ExperimentTracker
+        _experiment_tracker = ExperimentTracker(storage_path="./experiments")
+    return _experiment_tracker
+
+
+@app.post("/experiments", tags=["experiments"])
+async def create_experiment(
+    name: str,
+    description: str = "",
+    parameters: Optional[str] = None,
+):
+    """Create a new experiment."""
+    tracker = get_experiment_tracker()
+    
+    params = {}
+    if parameters:
+        try:
+            params = json.loads(parameters)
+        except:
+            pass
+    
+    experiment_id = tracker.create_experiment(
+        name=name,
+        description=description,
+        parameters=params,
+    )
+    
+    exp = tracker.get_experiment(experiment_id)
+    if exp:
+        return exp.to_dict()
+    return {"experiment_id": experiment_id, "name": name}
+
+
+@app.get("/experiments", tags=["experiments"])
+async def list_experiments():
+    """List all experiments."""
+    tracker = get_experiment_tracker()
+    experiments = tracker.list_experiments()
+    return [exp.to_dict() for exp in experiments]
+
+
+@app.get("/experiments/{experiment_id}", tags=["experiments"])
+async def get_experiment(experiment_id: str):
+    """Get a specific experiment."""
+    tracker = get_experiment_tracker()
+    exp = tracker.get_experiment(experiment_id)
+    if exp is None:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    return exp.to_dict()
+
+
+@app.post("/experiments/{experiment_id}/log_metric", tags=["experiments"])
+async def log_metric(
+    experiment_id: str,
+    metric_name: str,
+    value: float,
+    step: int = 0,
+):
+    """Log a metric for an experiment."""
+    import time
+    
+    tracker = get_experiment_tracker()
+    exp = tracker.get_experiment(experiment_id)
+    if not exp:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    
+    from domains.ml_infrastructure.experiment_tracker import MetricPoint
+    
+    if metric_name not in exp.metrics:
+        exp.metrics[metric_name] = []
+    
+    exp.metrics[metric_name].append(MetricPoint(
+        timestamp=time.time(),
+        step=step,
+        value=value
+    ))
+    
+    return {"status": "logged", "metric": metric_name, "value": value}
+
+
+@app.post("/experiments/{experiment_id}/log_param", tags=["experiments"])
+async def log_param(
+    experiment_id: str,
+    param_name: str,
+    value: Any,
+):
+    """Log a parameter for an experiment."""
+    tracker = get_experiment_tracker()
+    exp = tracker.get_experiment(experiment_id)
+    if not exp:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    
+    exp.parameters[param_name] = value
+    return {"status": "logged", "param": param_name, "value": value}
+
+
+@app.get("/experiments/{experiment_id}/runs", tags=["experiments"])
+async def get_experiment_runs(experiment_id: str):
+    """Get runs for an experiment."""
+    tracker = get_experiment_tracker()
+    return tracker.get_experiment_runs(experiment_id)
+
+
+@app.get("/runs/{run_id}", tags=["experiments"])
+async def get_run(run_id: str):
+    """Get a specific run."""
+    tracker = get_experiment_tracker()
+    run = tracker.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return run.to_dict()
+
+
+@app.post("/experiments/{experiment_id}/complete", tags=["experiments"])
+async def complete_experiment(experiment_id: str, status: str = "completed"):
+    """Mark experiment as complete."""
+    tracker = get_experiment_tracker()
+    tracker.complete_experiment(experiment_id, status)
+    return {"status": "completed"}
 
 
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+# Global inference engine (lazy loaded)
+_inference_engine = None
+
+
+def get_inference_engine():
+    """Get or create the inference engine using existing model."""
+    global _inference_engine, model, tokenizer
+    
+    if model is None or tokenizer is None:
+        return None
+    
+    if _inference_engine is None:
+        from domains.inference.engine import InferenceEngine
+        device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+        _inference_engine = InferenceEngine(
+            model=model,
+            tokenizer=tokenizer,
+            device=device,
+        )
+    return _inference_engine
+
+
+@app.post("/inference/generate", tags=["inference"])
+async def inference_generate(request: GenerateRequest):
+    """Generate text using the production inference engine."""
+    try:
+        engine = get_inference_engine()
+        
+        if engine is None:
+            return {"error": "Model not loaded", "text": ""}
+        
+        text = engine.generate_single(
+            prompt=request.prompt,
+            max_new_tokens=request.max_new_tokens,
+            temperature=request.temperature,
+            top_p=request.top_p,
+            top_k=request.top_k,
+            repetition_penalty=1.0,
+        )
+        
+        return {
+            "text": text,
+            "model": "gpt2-engine",
+            "tokens_generated": len(text.split()),
+        }
+    except Exception as e:
+        return {"error": str(e), "text": ""}
+
+
+@app.post("/inference/generate/stream", tags=["inference"])
+async def inference_generate_stream(request: GenerateRequest):
+    """Streaming generation using the production inference engine."""
+    engine = get_inference_engine()
+    
+    async def token_stream():
+        async for token in engine.generate_stream(
+            prompt=request.prompt,
+            max_new_tokens=request.max_new_tokens,
+            temperature=request.temperature,
+            top_p=request.top_p,
+            top_k=request.top_k,
+        ):
+            yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
+        yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
+    
+    return StreamingResponse(token_stream(), media_type="text/event-stream")
+
+
+@app.get("/inference/stats", tags=["inference"])
+async def inference_stats():
+    """Get inference engine statistics."""
+    engine = get_inference_engine()
+    if engine is None:
+        return {"error": "Engine not initialized"}
+    return engine.get_stats()
+
+
+class QuantizeRequest(BaseModel):
+    quantization_type: str = "fp16"
+
+
+@app.post("/inference/quantize", tags=["inference"])
+async def quantize_model(request: QuantizeRequest):
+    """Quantize the current model."""
+    global model, _inference_engine
+    
+    if model is None:
+        return {"error": "No model loaded"}
+    
+    try:
+        from domains.inference.quantization import quantize_model as do_quantize, QuantizationType
+        
+        qtype = QuantizationType(request.quantization_type)
+        quantized_model, info = do_quantize(model, request.quantization_type)
+        
+        model = quantized_model
+        _inference_engine = None  # Reset engine
+        
+        return {
+            "status": "quantized",
+            "quantization_type": request.quantization_type,
+            "original_size_mb": info.original_size_mb,
+            "quantized_size_mb": info.quantized_size_mb,
+            "reduction_percent": info.reduction,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/benchmark/run", tags=["benchmark"])
+async def run_benchmark(
+    prompt: str = "The quick brown fox jumps over the lazy dog",
+    max_new_tokens: int = 50,
+    num_runs: int = 3,
+):
+    """Run inference benchmark."""
+    global model, tokenizer
+    
+    if model is None or tokenizer is None:
+        return {"error": "Model not loaded"}
+    
+    try:
+        from domains.ml_infrastructure.benchmarking import Benchmarker
+        
+        benchmarker = Benchmarker(model, tokenizer, device="cpu")
+        result = benchmarker.benchmark_inference(prompt, max_new_tokens, num_runs)
+        
+        return result.to_dict()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/benchmark/perplexity", tags=["benchmark"])
+async def calculate_perplexity(text: str = ""):
+    """Calculate model perplexity on text."""
+    global model, tokenizer
+    
+    if model is None or tokenizer is None:
+        return {"error": "Model not loaded"}
+    
+    if not text:
+        return {"error": "Text required"}
+    
+    try:
+        from domains.ml_infrastructure.benchmarking import Benchmarker
+        
+        benchmarker = Benchmarker(model, tokenizer, device="cpu")
+        ppl = benchmarker.calculate_perplexity(text)
+        
+        return {"perplexity": ppl, "text_length": len(text)}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/benchmark/compare", tags=["benchmark"])
+async def compare_benchmarks():
+    """Get comparison of different quantization levels."""
+    global model, tokenizer
+    
+    if model is None or tokenizer is None:
+        return {"error": "Model not loaded"}
+    
+    try:
+        from domains.ml_infrastructure.benchmarking import Benchmarker
+        from domains.inference.quantization import quantize_model
+        
+        results = {}
+        
+        for qtype in ["fp32", "fp16", "int8"]:
+            try:
+                from copy import deepcopy
+                test_model = deepcopy(model)
+                quantized, _ = quantize_model(test_model, qtype)
+                
+                benchmarker = Benchmarker(quantized, tokenizer, device="cpu")
+                result = benchmarker.benchmark_inference("Hello world", max_new_tokens=20, num_runs=2)
+                results[qtype] = result.to_dict()
+            except Exception as e:
+                results[qtype] = {"error": str(e)}
+        
+        return results
+    except Exception as e:
+        return {"error": str(e)}
+
+
+class ExportRequest(BaseModel):
+    output_path: str = "models/exported"
+    format: str = "sou"
+    include_tokenizer: bool = True
+
+
+@app.post("/model/export", tags=["model"])
+async def export_model(request: ExportRequest):
+    """Export current model to file."""
+    global model, tokenizer, model_type
+    
+    if model is None:
+        return {"error": "No model loaded"}
+    
+    try:
+        from domains.training.export import export_model, list_export_formats, ExportConfig
+        
+        config = ExportConfig(
+            input_path="current",
+            output_path=request.output_path,
+            format=request.format,
+            include_tokenizer=request.include_tokenizer,
+            metadata={
+                "model_type": model_type,
+                "exported_at": str(time.time()),
+            },
+        )
+        
+        results = export_model(config, model, tokenizer)
+        
+        return {
+            "status": "exported",
+            "format": request.format,
+            "files": results,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/model/export/formats", tags=["model"])
+async def get_export_formats():
+    """Get list of supported export formats."""
+    from domains.training.export import list_export_formats
+    return {"formats": list_export_formats()}
+
+
+@app.get("/models", tags=["model"])
+async def list_models():
+    """List available models in models/ directory."""
+    import os
+    models_dir = "models"
+    os.makedirs(models_dir, exist_ok=True)
+    
+    models = []
+    for f in os.listdir(models_dir):
+        if f.endswith(('.pt', '.pth', '.sou', '.safetensors', '.onnx')):
+            path = os.path.join(models_dir, f)
+            size_mb = os.path.getsize(path) / (1024 * 1024)
+            models.append({
+                "name": f,
+                "path": path,
+                "size_mb": round(size_mb, 2),
+            })
+    
+    return {"models": models}

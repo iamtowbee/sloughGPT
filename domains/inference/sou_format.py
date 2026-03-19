@@ -3,6 +3,8 @@ Sou Model Format
 Defines the .sou model configuration format (Ollama-inspired).
 """
 
+import os
+import tempfile
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
 
@@ -292,7 +294,12 @@ def export_to_sou(
         metadata = {}
 
     model_state = model.state_dict()
-    state_bytes = torch.save(model_state, "temp.pt")
+    with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as tmp:
+        torch.save(model_state, tmp.name)
+        tmp.flush()
+        with open(tmp.name, "rb") as tmp_read:
+            state_bytes = tmp_read.read()
+        os.unlink(tmp.name)
 
     sou_config = SouModelFile(
         from_model=from_model,
@@ -311,11 +318,6 @@ def export_to_sou(
         f.write(struct.pack("<I", len(config_json)))
         f.write(config_json.encode("utf-8"))
         f.write(state_bytes)
-
-    import os
-
-    if os.path.exists("temp.pt"):
-        os.remove("temp.pt")
 
     return output_path
 
