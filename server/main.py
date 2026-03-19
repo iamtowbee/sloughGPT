@@ -38,6 +38,66 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sloughgpt")
 
 
+# ============ Redis Caching ============
+class RedisCache:
+    """Simple in-memory cache with TTL (Redis-like interface)."""
+
+    def __init__(self, max_size: int = 1000, default_ttl: int = 300):
+        self.cache: Dict[str, tuple[Any, float]] = {}
+        self.max_size = max_size
+        self.default_ttl = default_ttl
+        self.hits = 0
+        self.misses = 0
+
+    def _is_expired(self, key: str) -> bool:
+        if key not in self.cache:
+            return True
+        _, expiry = self.cache[key]
+        return time.time() > expiry
+
+    def get(self, key: str) -> Optional[Any]:
+        if self._is_expired(key):
+            self.misses += 1
+            return None
+        self.hits += 1
+        return self.cache[key][0]
+
+    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+        if len(self.cache) >= self.max_size:
+            oldest_key = min(self.cache.keys(), key=lambda k: self.cache[k][1])
+            del self.cache[oldest_key]
+        expiry = time.time() + (ttl or self.default_ttl)
+        self.cache[key] = (value, expiry)
+
+    def delete(self, key: str) -> bool:
+        if key in self.cache:
+            del self.cache[key]
+            return True
+        return False
+
+    def clear(self) -> None:
+        self.cache.clear()
+
+    def get_stats(self) -> Dict:
+        total = self.hits + self.misses
+        return {
+            "size": len(self.cache),
+            "hits": self.hits,
+            "misses": self.misses,
+            "hit_rate": self.hits / total if total > 0 else 0,
+        }
+
+
+cache = RedisCache(max_size=500, default_ttl=300)
+
+
+def cache_key(prompt: str, **kwargs) -> str:
+    """Generate cache key from prompt and params."""
+    params = json.dumps(kwargs, sort_keys=True)
+    combined = f"{prompt}:{params}"
+    return hashlib.sha256(combined.encode()).hexdigest()[:32]
+
+
 # ============ Security Configuration ============
 API_KEY = os.getenv("SLAUGHGPT_API_KEY", secrets.token_urlsafe(32))
 JWT_SECRET = os.getenv("SLAUGHGPT_JWT_SECRET", secrets.token_urlsafe(64))
@@ -522,6 +582,30 @@ async def info():
 @app.get("/health")
 async def health():
     return {"status": "healthy", "model_loaded": model is not None, "model_type": model_type}
+
+
+@app.get("/health/live", tags=["health"])
+async def liveness():
+    """
+    Kubernetes liveness probe.
+    Returns 200 if the server is alive.
+    """
+    return {"status": "alive"}
+
+
+@app.get("/health/ready", tags=["health"])
+async def readiness():
+    """
+    Kubernetes readiness probe.
+    Returns 200 if the server is ready to accept traffic.
+    Model should be loaded for full readiness.
+    """
+    is_ready = model is not None
+    return {
+        "status": "ready" if is_ready else "initializing",
+        "model_loaded": is_ready,
+        "model_type": model_type,
+    }
 
 
 @app.get("/rate-limit/status")
@@ -1586,6 +1670,91 @@ async def inference_stats():
     if engine is None:
         return {"error": "Engine not initialized"}
     return engine.get_stats()
+
+
+# ============ Batch Processing ============
+class BatchGenerateRequest(BaseModel):
+    prompts: List[str]
+    max_new_tokens: Optional[int] = 100
+    temperature: Optional[float] = 0.8
+    top_p: Optional[float] = 0.9
+    top_k: Optional[int] = 50
+    use_cache: Optional[bool] = True
+
+
+class BatchGenerateItem(BaseModel):
+    prompt: str
+    text: str
+    cached: bool = False
+    error: Optional[str] = None
+
+
+@app.post("/inference/batch", tags=["inference"])
+async def batch_generate(request: BatchGenerateRequest):
+    """
+    Batch text generation for multiple prompts.
+    Optionally uses caching for identical prompts.
+    """
+    client_ip = request.client.host if request.client else "unknown" if hasattr(request, 'client') else "unknown"
+    results: List[BatchGenerateItem] = []
+
+    for prompt in request.prompts[:50]:
+        validated_prompt = input_validator.validate_prompt(prompt)
+        max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
+        temp = input_validator.validate_temperature(request.temperature or 0.8)
+
+        cache_key_str = cache_key(validated_prompt, max_tokens=max_tokens, temp=temp, top_p=request.top_p, top_k=request.top_k)
+
+        if request.use_cache:
+            cached_result = cache.get(cache_key_str)
+            if cached_result:
+                results.append(BatchGenerateItem(prompt=prompt, text=cached_result, cached=True))
+                continue
+
+        if model is None:
+            results.append(BatchGenerateItem(prompt=prompt, text=f"Demo: {validated_prompt[:30]}...", error=None))
+            continue
+
+        try:
+            if model_type == "gpt2" and tokenizer:
+                inputs = tokenizer(validated_prompt, return_tensors="pt")
+                with torch.no_grad():
+                    outputs = model.generate(
+                        **inputs,
+                        max_new_tokens=max_tokens,
+                        temperature=temp,
+                        top_k=request.top_k,
+                        top_p=request.top_p,
+                        do_sample=True,
+                    )
+                text = tokenizer.decode(outputs[0][len(inputs.input_ids[0]):], skip_special_tokens=True)
+                cache.set(cache_key_str, text)
+                results.append(BatchGenerateItem(prompt=prompt, text=text))
+            else:
+                results.append(BatchGenerateItem(prompt=prompt, text=f"Model not ready", error="model_error"))
+        except Exception as e:
+            results.append(BatchGenerateItem(prompt=prompt, text="", error=str(e)))
+
+    audit_logger.log("batch_generate", client_ip, resource="/inference/batch", action="batch", status="success", details={"count": len(request.prompts)})
+
+    return {
+        "results": [r.model_dump() for r in results],
+        "count": len(results),
+        "cache_stats": cache.get_stats(),
+    }
+
+
+@app.delete("/cache", tags=["cache"])
+async def clear_cache():
+    """Clear the response cache."""
+    cache.clear()
+    return {"message": "Cache cleared", "cache_stats": cache.get_stats()}
+
+
+@app.get("/cache/stats", tags=["cache"])
+async def cache_stats():
+    """Get cache statistics."""
+    return cache.get_stats()
 
 
 class QuantizeRequest(BaseModel):
