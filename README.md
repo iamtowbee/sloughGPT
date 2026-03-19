@@ -1,327 +1,207 @@
-# SloughGPT - Enterprise AI Framework
+# SloughGPT
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/sloughgpt/sloughgpt)
-[![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Code Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](https://codecov.io)
+Self-hosted LLM infrastructure with local model training, inference, and experimentation.
 
-A **comprehensive enterprise-grade AI framework** for training, deploying, and managing large language models with advanced cognitive capabilities, real-time monitoring, and production-ready infrastructure.
+## Features
 
-## 🚀 Quick Start
+- **Local Model Training** - Train NanoGPT from scratch or fine-tune HuggingFace models
+- **Production Inference** - High-performance inference engine with streaming
+- **Quantization** - FP16, INT8, INT4 support for memory-efficient inference
+- **Experiment Tracking** - MLflow-style metrics and parameter logging
+- **Model Export** - Export to Torch, ONNX, SafeTensors, .sou formats
+- **Benchmarking** - Performance metrics and model comparison
+- **Optimizations** - Mixed precision, gradient checkpointing, torch.compile
+
+## Quick Start
+
+### CLI Commands
+```bash
+# Quick train + generate (auto-optimized)
+python3 cli.py quick --steps 100 --prompt "Hello world"
+
+# Benchmark inference
+python3 cli.py benchmark -m gpt2 -d mps
+
+# Check optimizations
+python3 cli.py optimize
+
+# System info
+python3 cli.py system
+
+# Generate text
+python3 cli.py generate "Hello world"
+```
+
+### Start Server
+```bash
+# CPU mode (default for Intel Macs)
+python3 server/main.py
+
+# With uvicorn
+python3 -m uvicorn server.main:app --port 8000
+```
+
+### Docker
+```bash
+# Start with Docker
+./docker-manage.sh start
+
+# Development mode
+./docker-manage.sh dev
+
+# GPU mode
+./docker-manage.sh gpu
+```
+
+## GPU Support
+
+| Hardware | Support | Speed |
+|----------|---------|-------|
+| NVIDIA GPU (CUDA) | ✅ Full | Fast |
+| Apple Silicon (MPS) | ✅ Full | Good |
+| AMD GPU (ROCm) | ✅ Linux only | Good |
+| Intel Mac + AMD | ❌ CPU only | Slow |
+
+## Industry Standard Optimizations
+
+```python
+from domains.training.optimized_trainer import Presets
+
+# Auto-detect best settings
+config = Presets.auto()
+
+# Or specific hardware
+config = Presets.high_end_gpu()   # A100, H100, RTX 4090
+config = Presets.apple_silicon()  # M1/M2/M3
+config = Presets.cpu_only()        # CPU training
+```
+
+Optimizations:
+- Mixed Precision (FP16/BF16) - 2-3x speedup
+- Gradient Checkpointing - 50% memory savings
+- torch.compile - 1.5-2x speedup
+- Flash Attention (NVIDIA/AMD) - 2-4x speedup
+
+## API Endpoints
+
+### Health & Status
+```bash
+curl http://localhost:8000/health
+```
+
+### Inference
+```bash
+# Generate text
+curl -X POST http://localhost:8000/inference/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello world", "max_new_tokens": 50}'
+
+# Streaming
+curl -X POST http://localhost:8000/inference/generate/stream \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello", "max_new_tokens": 100}'
+```
+
+### Training
+```bash
+# Start training
+curl -X POST http://localhost:8000/train \
+  -H "Content-Type: application/json" \
+  -d '{"dataset": "shakespeare", "epochs": 5, "batch_size": 32}'
+
+# List training jobs
+curl http://localhost:8000/training/jobs
+```
+
+### Experiments
+```bash
+# Create experiment
+curl -X POST "http://localhost:8000/experiments?name=test&description=Testing"
+
+# Log metrics
+curl -X POST "http://localhost:8000/experiments/{id}/log_metric?metric_name=loss&value=2.5&step=0"
+```
+
+### Benchmarking
+```bash
+# Run benchmark
+curl -X POST http://localhost:8000/benchmark/run \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello world", "max_new_tokens": 20}'
+
+# Compare quantization levels
+curl http://localhost:8000/benchmark/compare
+```
+
+### Model Export
+```bash
+# Export model
+curl -X POST http://localhost:8000/model/export \
+  -H "Content-Type: application/json" \
+  -d '{"output_path": "models/exported", "format": "torch"}'
+
+# List formats
+curl http://localhost:8000/model/export/formats
+```
+
+## Architecture
+
+```
+SloughGPT/
+├── domains/
+│   ├── inference/          # Inference engine
+│   │   ├── engine.py       # Production inference
+│   │   ├── quantization.py  # FP16/INT8/INT4
+│   │   ├── optimizations.py # KV cache, batching
+│   │   ├── throughput.py   # Batch generation
+│   │   └── sou_format.py   # .sou model format
+│   ├── training/            # Training infrastructure
+│   │   ├── train_pipeline.py
+│   │   ├── optimized_trainer.py  # Optimized training
+│   │   ├── huggingface/    # HF model support
+│   │   ├── models/         # NanoGPT, etc.
+│   │   ├── lora.py         # LoRA fine-tuning
+│   │   └── export.py       # Model export
+│   └── ml_infrastructure/
+│       ├── experiment_tracker.py
+│       └── benchmarking.py
+├── server/
+│   └── main.py              # FastAPI server
+├── cli.py                    # CLI commands
+├── setup.sh                  # Setup script
+├── docker-compose.yml        # Docker deployment
+└── tests/                   # Unit tests
+```
+
+## Supported Models
+
+| Model | Size | Context | Recommended |
+|-------|------|---------|-------------|
+| GPT-2 | 124M | 1K | FP16 |
+| GPT-2 Medium | 355M | 1K | FP16 |
+| GPT-2 Large | 774M | 1K | FP16 |
+| Phi-2 | 2.7B | 2K | Q4_K |
+| Mistral 7B | 7.3B | 32K | Q4_K |
+| LLaMA-2 7B | 7B | 4K | Q4_K |
+| Qwen2 1.5B | 1.5B | 32K | Q4_K |
+| Gemma 2B | 2B | 8K | Q4_K |
+
+## Installation
 
 ```bash
-# Clone and start
-git clone https://github.com/sloughgpt/sloughgpt.git
-cd sloughgpt
-
-# One command to start everything
-./start.sh
-
-# Or manually:
-# Web UI:   http://localhost:3000
-# API:      http://localhost:8000
-# API Docs: http://localhost:8000/docs
+pip install torch transformers fastapi uvicorn
 ```
 
 ## Development
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-cd web && npm install
+# Run server
+python3 server/main.py
 
-# Start web UI
-cd web && npm run dev
-
-# Start API server
-cd server && python3 main.py
-```
-
-## Training
-
-```bash
 # Train a model
-python3 cli.py train --epochs 3
-
-# List datasets
-python3 cli.py dataset list
+python3 domains/training/train_pipeline.py --data datasets/shakespeare/input.txt --epochs 5
 ```
 
-## ✨ Features
+## License
 
-### 🤖 AI & ML Capabilities
-- **Transformer Architecture** - Advanced neural network with multi-head attention
-- **Multi-GPU Training** - Distributed training with automatic optimization
-- **Model Quantization** - Reduce model size while maintaining performance
-- **Autonomous Learning** - Self-improving pipeline with semantic understanding
-- **Reasoning Engine** - Multi-step cognitive processing with self-correction
-
-### 🔐 Security & Authentication
-- **JWT Authentication** - Secure token-based authentication with refresh tokens
-- **API Key Management** - Programmatic access with fine-grained permissions
-- **Role-Based Access Control** (RBAC) - Comprehensive authorization system
-- **Input Validation** - Advanced security checks and content filtering
-- **Rate Limiting** - Intelligent throttling and abuse prevention
-
-### 💰 Cost Optimization
-- **Real-time Cost Tracking** - Monitor usage and expenses in real-time
-- **Budget Management** - Set and enforce spending limits with alerts
-- **Cost Recommendations** - AI-powered optimization suggestions
-- **Usage Analytics** - Detailed insights into resource consumption
-
-### 📊 Monitoring & Analytics
-- **Real-time Dashboard** - Modern web interface with live updates
-- **WebSocket Updates** - Instant notifications and metrics streaming
-- **Performance Metrics** - Comprehensive system and model performance data
-- **Alert System** - Configurable notifications for critical events
-- **Audit Logging** - Complete audit trail with structured logging
-
-### 🗄️ Data & Storage
-- **Multi-Database Support** - PostgreSQL, MySQL, SQLite with automatic migrations
-- **Knowledge Graph** - Semantic relationship mapping and retrieval
-- **Data Pipeline** - Automated data ingestion and processing
-- **Vector Storage** - Efficient similarity search and embeddings
-
-### ⚡ Performance
-- **Caching Layer** - Redis integration with intelligent cache strategies
-- **Connection Pooling** - Optimized database connections
-- **Circuit Breakers** - Fault tolerance and graceful degradation
-- **Async Architecture** - High-concurrency with async/await patterns
-
-## 🏗️ Architecture
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Web Client   │    │  Admin Dashboard │    │  API Client    │
-└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
-          │                      │                      │
-          └──────────────────────┼──────────────────────┘
-                                 │
-                    ┌─────────────▼─────────────┐
-                    │      API Gateway          │
-                    │   (FastAPI + Security)    │
-                    └─────────────┬─────────────┘
-                                 │
-          ┌──────────────────────┼──────────────────────┐
-          │                      │                      │
-┌─────────▼─────────┐  ┌─────────▼─────────┐  ┌─────────▼─────────┐
-│   Auth Service    │  │  Model Service   │  │  Learning Service │
-│                   │  │                   │  │                   │
-│ • JWT Tokens      │  │ • Inference      │  │ • Data Pipeline   │
-│ • API Keys        │  │ • Training       │  │ • Knowledge Graph │
-│ • RBAC            │  │ • Optimization   │  │ • Reasoning       │
-└─────────┬─────────┘  └─────────┬─────────┘  └─────────┬─────────┘
-          │                      │                      │
-          └──────────────────────┼──────────────────────┘
-                                 │
-                    ┌─────────────▼─────────────┐
-                    │     Data Layer            │
-                    │                           │
-                    │ • PostgreSQL/MySQL       │
-                    │ • Redis Cache            │
-                    │ • Vector Store           │
-                    └───────────────────────────┘
-```
-
-## 📖 Documentation
-
-### Configuration
-
-Create a `.env` file or set environment variables:
-
-```bash
-# Database
-DATABASE_URL=postgresql://user:pass@localhost/sloughgpt
-
-# Security
-JWT_SECRET_KEY=your-secret-key
-BCRYPT_ROUNDS=12
-
-# API Settings
-API_HOST=0.0.0.0
-API_PORT=8000
-
-# Cost Management
-DEFAULT_MONTHLY_BUDGET=1000
-COST_ALERT_THRESHOLD=0.8
-
-# Monitoring
-ENABLE_METRICS=true
-LOG_LEVEL=INFO
-```
-
-### Basic Usage
-
-```python
-# Training domain
-from domains.training import DatasetCreator, NanoGPT, Trainer
-
-# Create dataset from text
-dc = DatasetCreator()
-result = dc.create_from_text("mydata", "Your training text here...")
-
-# Train model
-trainer = Trainer(config)
-trainer.train(model, data)
-
-# Cognitive domain
-from domains.cognitive import CognitiveCore, KnowledgeGraph
-
-# Infrastructure domain
-from domains.infrastructure import HaulsStore, RAGSystem
-
-# UI domain
-from domains.ui import CLIInterface, WebInterface
-
-# Enterprise domain
-from domains.enterprise import AuthenticationService
-```
-
-### CLI Usage
-
-```bash
-# Dataset operations
-python cli.py dataset list
-python cli.py dataset create mydata "text here"
-python cli.py dataset score mydata
-
-# Training
-python cli.py train --epochs 3 --batch-size 32
-
-# Training with config
-python cli.py train  # Uses config.yaml defaults
-python cli.py train --epochs 5 --use-lora  # Override with CLI args
-
-# Training with tracking (edit config.yaml first)
-# Set tracking.enabled: true and tracking.backend: wandb
-
-# Inference
-python -c "from domains.training.inference_engine import load_model_for_inference; e = load_model_for_inference('models/sloughgpt.pt'); print(e.generate('First', max_new_tokens=100))"
-
-# Model operations
-python cli.py model list
-python cli.py model load gpt2
-
-# Cognitive operations
-python cli.py cognitive reason "question"
-
-# Interactive mode
-python cli.py interactive
-```
-
-### Admin Dashboard
-
-Web UI available for monitoring and management (see `domains/ui/`).
-
-## 🔧 Development
-
-### Setup Development Environment
-
-```bash
-# Clone repository
-git clone https://github.com/sloughgpt/sloughgpt.git
-cd sloughgpt
-
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Test domains
-python launch.py
-
-# Run CLI
-python cli.py --help
-```
-
-### Project Structure
-
-```
-sloughgpt/
-├── domains/                # Domain-based architecture
-│   ├── cognitive/         # Memory, Reasoning, Metacognition
-│   ├── enterprise/        # Auth, Users, Monitoring, Cost
-│   ├── infrastructure/    # Database, Cache, Config, RAG
-│   ├── integration/       # Cross-domain integration
-│   ├── shared/            # Shared utilities
-│   ├── training/          # Datasets, Models, Training
-│   └── ui/                # Web, API, Chat, CLI
-├── docs/                  # Documentation
-├── datasets/              # Training datasets
-├── cli.py                 # Command-line interface
-├── launch.py              # Domain launcher
-└── requirements.txt       # Dependencies
-```
-
-### Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes and add tests
-4. Run the test suite: `python -m pytest`
-5. Commit your changes: `git commit -m 'Add amazing feature'`
-6. Push to the branch: `git push origin feature/amazing-feature`
-7. Open a Pull Request
-
-## 📊 Benchmarks
-
-### Performance Metrics
-
-| Metric | Value | Description |
-|--------|-------|-------------|
-| **Model Training Speed** | 2.3x faster | Optimized with mixed precision |
-| **API Response Time** | <100ms p95 | 99th percentile latency |
-| **Cost Optimization** | 35% reduction | Smart model selection |
-| **Memory Usage** | 40% less | With quantization |
-| **Uptime** | 99.9% | Production deployment |
-
-### Scalability
-
-- **Horizontal Scaling** - Support for multiple API instances
-- **Database Connections** - Connection pooling up to 1000 concurrent
-- **Cache Performance** - 95% hit ratio with Redis
-- **Model Serving** - Multi-GPU inference with load balancing
-
-## 🔒 Security
-
-- **Authentication** - JWT with HMAC-SHA256 signing
-- **Authorization** - Role-based access control (RBAC)
-- **Input Validation** - Comprehensive input sanitization
-- **Rate Limiting** - Intelligent throttling per user/API key
-- **Audit Logging** - Complete security event tracking
-- **Encryption** - Data encryption at rest and in transit
-
-## 📈 Monitoring
-
-- **Real-time Metrics** - CPU, memory, GPU, and custom metrics
-- **Alert System** - Configurable thresholds and notifications
-- **Performance Analytics** - Detailed performance profiling
-- **Error Tracking** - Automatic error detection and reporting
-- **Health Checks** - Comprehensive system health monitoring
-
-## 🤝 Enterprise Support
-
-For enterprise support, custom development, or deployment assistance:
-
-- **Email**: enterprise@sloughgpt.ai
-- **Documentation**: https://docs.sloughgpt.ai
-- **Community**: https://community.sloughgpt.ai
-- **Issues**: https://github.com/sloughgpt/sloughgpt/issues
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Inspired by cutting-edge research in transformer architectures
-- Built with best practices from the AI/ML community
-- Contributors to open-source AI frameworks and tools
-
----
-
-**SloughGPT** - 🚀 **Enterprise AI Made Simple** 🤖
-
-Built with ❤️ by the SloughGPT Team
+MIT

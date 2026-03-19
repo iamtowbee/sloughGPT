@@ -1,0 +1,9 @@
+# SloughGPT macOS PyTorch Fix
+# Add to ~/.zshrc or ~/.bashrc
+
+# Fix for Intel Macs with AMD GPUs - prevents PyTorch hanging
+export DYLD_INSERT_LIBRARIES=""
+
+# Alternative: Use alias for Python commands
+alias python3='DYLD_INSERT_LIBRARIES="" python3'
+alias python='DYLD_INSERT_LIBRARIES="" python3'

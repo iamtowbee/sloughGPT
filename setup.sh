@@ -1,0 +1,437 @@
+#!/bin/bash
+# SloughGPT Setup Script
+# Quick start for local development and Docker deployment
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Default values
+PYTHON_CMD="python3"
+VENV_DIR=".venv"
+MODE="all"
+GPU_SUPPORT=false
+CUDA_VERSION="cpu"
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --gpu)
+            GPU_SUPPORT=true
+            CUDA_VERSION="cu118"
+            shift
+            ;;
+        --venv)
+            VENV_DIR="$2"
+            shift 2
+            ;;
+        --python)
+            PYTHON_CMD="$2"
+            shift 2
+            ;;
+        --docker-only)
+            MODE="docker"
+            shift
+            ;;
+        --local-only)
+            MODE="local"
+            shift
+            ;;
+        --help|-h)
+            echo "SloughGPT Setup Script"
+            echo ""
+            echo "Usage: ./setup.sh [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --gpu           Enable GPU support (requires CUDA)"
+            echo "  --venv DIR      Virtual environment directory (default: .venv)"
+            echo "  --python CMD    Python command (default: python3)"
+            echo "  --docker-only   Setup Docker only"
+            echo "  --local-only    Setup local development only"
+            echo "  --help, -h      Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  ./setup.sh                    # Full setup (local + Docker)"
+            echo "  ./setup.sh --gpu              # Setup with GPU support"
+            echo "  ./setup.sh --docker-only      # Docker only"
+            echo "  ./setup.sh --venv myenv       # Custom venv directory"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}       SloughGPT Setup Script${NC}"
+echo -e "${BLUE}========================================${NC}"
+echo ""
+
+# Function to print status
+print_status() {
+    echo -e "${GREEN}[✓]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[!]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[✗]${NC} $1"
+}
+
+print_info() {
+    echo -e "${BLUE}[i]${NC} $1"
+}
+
+# Check prerequisites
+check_prerequisites() {
+    print_info "Checking prerequisites..."
+    
+    if command -v git &> /dev/null; then
+        print_status "Git found"
+    else
+        print_error "Git not found. Please install Git."
+        exit 1
+    fi
+    
+    if command -v docker &> /dev/null; then
+        print_status "Docker found"
+        DOCKER_VERSION=$(docker --version)
+        print_info "Docker version: $DOCKER_VERSION"
+    else
+        print_warning "Docker not found. Docker setup will be skipped."
+        MODE="local"
+    fi
+    
+    # macOS fix: Disable library injection for PyTorch
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        export DYLD_INSERT_LIBRARIES=""
+        print_info "Applied macOS PyTorch compatibility fix"
+    fi
+    
+    if command -v $PYTHON_CMD &> /dev/null; then
+        PYTHON_VERSION=$($PYTHON_CMD --version)
+        print_status "Python found: $PYTHON_VERSION"
+    else
+        print_error "Python not found. Please install Python 3.9 or higher."
+        exit 1
+    fi
+    
+    echo ""
+}
+
+# Create .env file if it doesn't exist
+setup_env() {
+    print_info "Setting up environment configuration..."
+    
+    if [ ! -f .env ]; then
+        if [ -f .env.example ]; then
+            cp .env.example .env
+            print_status "Created .env from .env.example"
+        else
+            cat > .env << 'EOF'
+# SloughGPT Environment Configuration
+
+# Application
+SLAUGHGPT_ENV=development
+SLAUGHGPT_HOST=0.0.0.0
+SLAUGHGPT_PORT=8000
+SLAUGHGPT_LOG_LEVEL=INFO
+
+# Database
+DATABASE_URL=sqlite:///./sloughgpt.db
+
+# Model Settings
+MODEL_CACHE_DIR=./models
+DEFAULT_MODEL=gpt2
+QUANTIZATION_TYPE=int8_dynamic
+
+# API Keys (optional)
+# OPENAI_API_KEY=your_key_here
+# ANTHROPIC_API_KEY=your_key_here
+
+# Security
+SECRET_KEY=change_me_in_production
+JWT_SECRET=change_me_in_production
+EOF
+            print_status "Created .env file"
+        fi
+    else
+        print_info ".env already exists, skipping"
+    fi
+    
+    echo ""
+}
+
+# Create necessary directories
+setup_directories() {
+    print_info "Creating directories..."
+    
+    DIRS=("models" "datasets" "data" "checkpoints" "experiments" "logs" "cache")
+    
+    for dir in "${DIRS[@]}"; do
+        if [ ! -d "$dir" ]; then
+            mkdir -p "$dir"
+            print_status "Created $dir/"
+        else
+            print_info "$dir/ already exists"
+        fi
+    done
+    
+    echo ""
+}
+
+# Install Python dependencies
+install_python_deps() {
+    print_info "Setting up Python virtual environment..."
+    
+    if [ ! -d "$VENV_DIR" ]; then
+        $PYTHON_CMD -m venv "$VENV_DIR"
+        print_status "Created virtual environment at $VENV_DIR/"
+    else
+        print_info "Virtual environment already exists"
+    fi
+    
+    # Activate virtual environment
+    source "$VENV_DIR/bin/activate"
+    
+    print_info "Upgrading pip..."
+    pip install --upgrade pip
+    
+    print_info "Installing core dependencies..."
+    pip install fastapi uvicorn pydantic pydantic-settings httpx aiofiles PyJWT python-multipart
+    
+    print_info "Installing ML dependencies..."
+    if [ "$GPU_SUPPORT" = true ]; then
+        print_info "Installing PyTorch with CUDA $CUDA_VERSION..."
+        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/$CUDA_VERSION
+    else
+        pip install torch torchvision torchaudio
+    fi
+    
+    pip install transformers accelerate bitsandbytes scipy
+    
+    print_info "Installing data processing..."
+    pip install networkx numpy pandas pillow
+    
+    print_info "Installing development tools..."
+    pip install pytest pytest-asyncio pytest-cov ruff black mypy
+    
+    print_status "Python dependencies installed"
+    echo ""
+}
+
+# Setup Docker
+setup_docker() {
+    if ! command -v docker &> /dev/null; then
+        print_warning "Docker not available, skipping Docker setup"
+        return
+    fi
+    
+    print_info "Setting up Docker..."
+    
+    # Create .dockerignore if it doesn't exist
+    if [ ! -f .dockerignore ]; then
+        cat > .dockerignore << 'EOF'
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+.env
+.venv
+venv
+.env.local
+.coverage
+.pytest_cache
+.mypy_cache
+.ruff_cache
+*.log
+.DS_Store
+Thumbs.db
+EOF
+        print_status "Created .dockerignore"
+    fi
+    
+    # Build Docker images
+    print_info "Building Docker images..."
+    
+    if [ "$GPU_SUPPORT" = true ]; then
+        print_info "Building GPU-enabled images..."
+        docker build -t sloughgpt:gpu -f Dockerfile.gpu . 2>/dev/null || \
+            docker build -t sloughgpt:latest -f Dockerfile . || true
+    else
+        docker build -t sloughgpt:latest -f Dockerfile .
+    fi
+    
+    print_status "Docker image built successfully"
+    echo ""
+}
+
+# Create convenient scripts
+create_scripts() {
+    print_info "Creating convenience scripts..."
+    
+    # Start script
+    cat > start.sh << 'EOF'
+#!/bin/bash
+# Start SloughGPT API server
+
+source .venv/bin/activate
+
+export CUDA_VISIBLE_DEVICES=""
+python -m uvicorn domains.ui.api_server:app --host 0.0.0.0 --port 8000 --reload
+EOF
+    chmod +x start.sh
+    print_status "Created start.sh"
+    
+    # Development script
+    cat > dev.sh << 'EOF'
+#!/bin/bash
+# Start SloughGPT in development mode with debug logging
+
+source .venv/bin/activate
+
+export SLAUGHGPT_ENV=development
+export SLAUGHGPT_LOG_LEVEL=DEBUG
+python -m uvicorn domains.ui.api_server:app --host 0.0.0.0 --port 8000 --reload --log-level debug
+EOF
+    chmod +x dev.sh
+    print_status "Created dev.sh"
+    
+    # Docker start script
+    cat > docker-start.sh << 'EOF'
+#!/bin/bash
+# Start SloughGPT with Docker Compose
+
+docker-compose up -d
+echo "API running at http://localhost:8000"
+echo "Docs at http://localhost:8000/docs"
+EOF
+    chmod +x docker-start.sh
+    print_status "Created docker-start.sh"
+    
+    # Test script
+    cat > test.sh << 'EOF'
+#!/bin/bash
+# Run SloughGPT tests
+
+source .venv/bin/activate
+
+export CUDA_VISIBLE_DEVICES=""
+
+echo "Running unit tests..."
+python -m pytest tests/test_*.py -v
+
+echo ""
+echo "Running with coverage..."
+python -m pytest tests/ --cov=domains --cov-report=html --cov-report=term
+EOF
+    chmod +x test.sh
+    print_status "Created test.sh"
+    
+    # Benchmark script
+    cat > benchmark.sh << 'EOF'
+#!/bin/bash
+# Run performance benchmarks
+
+source .venv/bin/activate
+
+export CUDA_VISIBLE_DEVICES=""
+
+echo "Running benchmarks..."
+python -c "
+from domains.inference.engine import create_engine
+from domains.ml_infrastructure.benchmarking import benchmark_model
+
+print('Loading model...')
+engine = create_engine('gpt2', device='cpu')
+
+print('Running benchmark...')
+result = benchmark_model(engine.model, engine.tokenizer, device='cpu')
+print(f'Model: {result.model_name}')
+print(f'Parameters: {result.num_parameters:,}')
+print(f'Memory: {result.memory_mb:.2f} MB')
+print(f'Throughput: {result.throughput_tokens_per_sec:.2f} tokens/sec')
+"
+EOF
+    chmod +x benchmark.sh
+    print_status "Created benchmark.sh"
+    
+    echo ""
+}
+
+# Print next steps
+print_next_steps() {
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${BLUE}       Setup Complete!${NC}"
+    echo -e "${BLUE}========================================${NC}"
+    echo ""
+    echo "Next steps:"
+    echo ""
+    echo "1. Activate virtual environment:"
+    echo -e "   ${GREEN}source $VENV_DIR/bin/activate${NC}"
+    echo ""
+    echo "2. Start the API server:"
+    echo -e "   ${GREEN}./start.sh${NC}"
+    echo "   or"
+    echo -e "   ${GREEN}python -m uvicorn domains.ui.api_server:app --reload${NC}"
+    echo ""
+    echo "3. Access the API:"
+    echo "   - API: http://localhost:8000"
+    echo "   - Docs: http://localhost:8000/docs"
+    echo "   - ReDoc: http://localhost:8000/redoc"
+    echo ""
+    
+    if command -v docker &> /dev/null; then
+        echo "4. Docker deployment:"
+        echo -e "   ${GREEN}./docker-start.sh${NC}"
+        echo "   or"
+        echo -e "   ${GREEN}docker-compose up -d${NC}"
+        echo ""
+    fi
+    
+    echo "5. Run tests:"
+    echo -e "   ${GREEN}./test.sh${NC}"
+    echo ""
+    
+    echo "6. Run benchmarks:"
+    echo -e "   ${GREEN}./benchmark.sh${NC}"
+    echo ""
+}
+
+# Main execution
+main() {
+    check_prerequisites
+    setup_env
+    setup_directories
+    
+    if [ "$MODE" != "docker" ]; then
+        install_python_deps
+    fi
+    
+    if [ "$MODE" != "local" ]; then
+        setup_docker
+    fi
+    
+    create_scripts
+    print_next_steps
+}
+
+main

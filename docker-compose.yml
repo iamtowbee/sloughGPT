@@ -1,18 +1,21 @@
 version: '3.8'
 
 services:
-  # API Server
+  # API Server (CPU)
   api:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: sloughgpt-api
+    image: sloughgpt/api:latest
     ports:
       - "8000:8000"
     environment:
       - DATABASE_URL=sqlite:///./sloughgpt.db
       - SLAUGHGPT_ENV=production
       - SLAUGHGPT_LOG_LEVEL=INFO
+      - SLAUGHGPT_HOST=0.0.0.0
+      - SLAUGHGPT_PORT=8000
     volumes:
       - ./models:/app/models
       - ./datasets:/app/datasets
@@ -23,52 +26,27 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 60s
+    networks:
+      - sloughgpt-net
 
-  # Web UI
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: sloughgpt-web
-    ports:
-      - "3000:8000"
-    environment:
-      - SLAUGHGPT_ENV=production
-    volumes:
-      - ./domains/ui/web:/app/domains/ui/web
-    restart: unless-stopped
-    profiles:
-      - web
-
-  # Model Server (lightweight inference server)
-  model-server:
-    build:
-      context: .
-      dockerfile: server/Dockerfile
-    container_name: sloughgpt-model
-    ports:
-      - "8001:8000"
-    environment:
-      - MODEL_PATH=/app/models/sloughgpt.pt
-      - DEVICE=cpu
-    volumes:
-      - ./models:/app/models
-    restart: unless-stopped
-
-  # GPU version (enable with: docker-compose --profile gpu up)
+  # GPU version (NVIDIA CUDA)
   api-gpu:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.gpu
     container_name: sloughgpt-api-gpu
+    image: sloughgpt/api:gpu
     ports:
-      - "8001:8000"
+      - "8000:8000"
     environment:
       - CUDA_VISIBLE_DEVICES=0
       - SLAUGHGPT_ENV=production
+      - SLAUGHGPT_LOG_LEVEL=INFO
     volumes:
       - ./models:/app/models
       - ./datasets:/app/datasets
+      - ./data:/app/data
     restart: unless-stopped
     deploy:
       resources:
@@ -79,26 +57,53 @@ services:
               capabilities: [gpu]
     profiles:
       - gpu
+    networks:
+      - sloughgpt-net
 
-  # Development
+  # Development mode with hot reload
   dev:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: sloughgpt-dev
+    image: sloughgpt/dev:latest
     ports:
       - "8000:8000"
-      - "5678:5678"
+      - "5678:5678"  # Debugger
     environment:
       - SLAUGHGPT_ENV=development
       - SLAUGHGPT_LOG_LEVEL=DEBUG
+      - DEBUG=true
     volumes:
       - ./:/app
+      - /app/__pycache__  # Exclude cache
     command: uvicorn domains.ui.api_server:app --reload --host 0.0.0.0 --port 8000
     profiles:
       - dev
+    networks:
+      - sloughgpt-net
 
-  # Prometheus
+  # Model Server (lightweight inference)
+  model-server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: sloughgpt-model
+    image: sloughgpt/model:latest
+    ports:
+      - "8001:8000"
+    environment:
+      - MODEL_PATH=/app/models/sloughgpt.pt
+      - DEVICE=cpu
+    volumes:
+      - ./models:/app/models
+    restart: unless-stopped
+    profiles:
+      - model
+    networks:
+      - sloughgpt-net
+
+  # Prometheus metrics
   prometheus:
     image: prom/prometheus:latest
     container_name: sloughgpt-prometheus
@@ -110,10 +115,13 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
     profiles:
       - monitoring
+    networks:
+      - sloughgpt-net
 
-  # Grafana
+  # Grafana dashboards
   grafana:
     image: grafana/grafana:latest
     container_name: sloughgpt-grafana
@@ -122,11 +130,28 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - grafana_data:/var/lib/grafana
     profiles:
       - monitoring
+    networks:
+      - sloughgpt-net
+
+  # Redis cache
+  redis:
+    image: redis:7-alpine
+    container_name: sloughgpt-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    profiles:
+      - cache
+    networks:
+      - sloughgpt-net
 
 volumes:
   models:
@@ -134,7 +159,9 @@ volumes:
   datasets:
   prometheus_data:
   grafana_data:
+  redis_data:
 
 networks:
-  default:
+  sloughgpt-net:
     name: sloughgpt-network
+    driver: bridge

@@ -502,5 +502,145 @@ cd web && npm run dev
 
 ---
 
-*Last Updated: 2026-03-12*
+*Last Updated: 2026-03-18*
+
+## Phase 2: Core Model Infrastructure (FOCUS)
+
+Building production-grade self-hosted LLM infrastructure - NO third-party API dependencies.
+
+### Architecture
+
+```
+SloughGPT Core
+├── Training Infrastructure
+│   ├── Unified training pipeline (unified_training.py)
+│   ├── Distributed training (DDP/FSDP)
+│   ├── LoRA/QLoRA fine-tuning
+│   └── Model registry (local models only)
+│
+├── Inference Engine
+│   ├── Local model loading (local_loader.py)
+│   ├── Streaming API (server/main.py)
+│   ├── Custom .sou format
+│   └── Quantization (Q4/Q8/FP16)
+│
+├── Model Infrastructure
+│   ├── Model registry & versioning
+│   ├── Experiment tracking
+│   └── Checkpoint management
+│
+└── Web UI
+    └── Local API only (port 8000)
+```
+
+### Priority Features (In Order)
+
+1. ~~**Local Model Serving** - Load and serve HF models locally~~ ✅
+2. ~~**Streaming API** - Real-time token streaming~~ ✅
+3. ~~**Quantization** - Memory-efficient inference (Q4/Q8/FP16)**~~ ✅
+4. ~~**Training Pipeline** - End-to-end training from scratch/fine-tuning**~~ ✅
+5. ~~**Experiment Tracking** - MLflow-style tracking**~~ ✅
+
+### Completed (Phase 2) - Core Infrastructure
+- ✅ Production inference engine (domains/inference/engine.py)
+  - KV cache management
+  - Streaming generation (async)
+  - Statistics tracking
+- ✅ Quantization module (domains/inference/quantization.py)
+  - FP16, BF16, INT8, INT4 support
+  - Memory estimation
+  - API endpoints: /inference/quantize, /inference/memory
+- ✅ Training pipeline (domains/training/train_pipeline.py)
+  - NanoGPT from scratch
+  - LoRA support
+  - LR schedulers
+  - Training API: /train, /training/start
+- ✅ Experiment tracking API (domains/ml_infrastructure/experiment_tracker.py)
+  - Create/list/get experiments
+  - Log metrics and parameters
+  - Track experiment runs
+  - API endpoints: /experiments, /experiments/{id}/log_metric, /experiments/{id}/log_param
+- ✅ Benchmarking module (domains/ml_infrastructure/benchmarking.py)
+  - Inference speed metrics (tokens/sec, latency P50/P95/P99)
+  - Memory measurement
+  - Batch inference benchmarking
+  - Perplexity calculation
+  - API endpoints: /benchmark/run, /benchmark/perplexity, /benchmark/compare
+- ✅ Model export (domains/training/export.py)
+  - Torch, TorchScript, ONNX, SafeTensors, .sou formats
+  - API endpoints: /model/export, /model/export/formats, /models
+- ✅ Archived third-party APIs (archive/third_party_apis/)
+- ✅ All API endpoints working on port 8000
+
+### Phase 3: Web UI & Integration
+- ✅ Web UI API integration (web/lib/api.ts)
+  - Benchmarking: runBenchmark, calculatePerplexity, compareBenchmarks
+  - Export: exportModel, getExportFormats, listModels
+  - Experiments: logMetric, logParam
+- ✅ Benchmark dashboard (web/app/(app)/benchmark/page.tsx)
+- ✅ Export page (web/app/(app)/export/page.tsx)
+- ✅ API documentation page (web/app/(app)/api-docs/page.tsx)
+- ✅ Model comparison dashboard (web/app/(app)/compare/page.tsx)
+- ✅ Training visualization (web/app/(app)/training/page.tsx)
+
+### Phase 4: Testing & Polish
+- ✅ Unit Tests (72 tests)
+- ✅ Performance Testing (CLI: `python3 cli.py benchmark -m gpt2 -d mps`)
+- ✅ Docker Setup (Dockerfile, docker-compose.yml)
+- ✅ CLI Integration (benchmark, setup, docker, system)
+
+### Phase 5: Industry Standard Optimizations
+- ✅ Training Optimizations (`domains/training/optimized_trainer.py`)
+  - Mixed Precision: FP16/BF16 + GradScaler (2-3x speedup)
+  - Gradient Checkpointing: 50% memory reduction
+  - Flash Attention: 2-4x attention speedup
+  - torch.compile: PyTorch 2.0+ JIT compilation
+  - Optimized DataLoader: num_workers, prefetch_factor
+  - Cosine LR with warmup, layer-wise LR decay
+- ✅ Inference Optimizations (`domains/inference/throughput.py`)
+  - Dynamic Batching: batch multiple requests
+  - KV Cache Manager: pre-allocated, efficient
+  - Prompt Caching: skip recomputation
+  - Batch Generation: parallel prompt processing
+
+### Phase 5: Industry Standard Optimizations
+- ✅ Training Optimizations (`domains/training/optimized_trainer.py`)
+  - Mixed Precision: FP16/BF16 + GradScaler (2-3x speedup)
+  - Gradient Checkpointing: 50% memory reduction
+  - Flash Attention: 2-4x (NVIDIA CUDA + AMD ROCm)
+  - torch.compile: PyTorch 2.0+ JIT compilation
+  - Optimized DataLoader: num_workers, prefetch_factor
+  - Cosine LR with warmup, layer-wise LR decay
+  - **Presets**: `Presets.auto()`, `high_end_gpu()`, `mid_range_gpu()`, `apple_silicon()`, `cpu_only()`
+- ✅ Inference Optimizations (`domains/inference/throughput.py`)
+  - Dynamic Batching: batch multiple requests
+  - KV Cache Manager: pre-allocated, efficient
+  - Prompt Caching: skip recomputation
+  - Batch Generation: parallel processing
+- ✅ Universal GPU Support
+  - NVIDIA CUDA: Full optimizations + Flash Attention
+  - AMD ROCm: Full optimizations + Flash Attention
+  - Apple MPS: FP16 + torch.compile (Flash Attention N/A)
+  - CPU: Baseline with DataLoader optimization
+- ✅ CLI Integration
+  - `python3 cli.py train --optimized` - Use optimized training
+  - `python3 cli.py quick` - Train + generate (auto-optimized)
+  - `python3 cli.py benchmark -d mps` - Benchmark inference
+  - `python3 cli.py optimize` - Show optimization status
+- ✅ Training Notebook (`sloughgpt_colab.ipynb`)
+  - Model architecture exploration (parameters, layers, shapes)
+  - Gradient flow analysis
+  - Activation shapes
+  - FLOPs computation estimates
+  - Memory footprint by precision
+  - Pre/post training comparison
+
+### REMOVED/Disabled
+- ~~OpenAI API integration~~
+- ~~Anthropic API integration~~
+- ~~Cohere API integration~~
+- ~~HuggingFace Inference API~~ (fallback only)
+- Web search citations
+- Voice input
+
 *Always refer to this document for project status and priorities*
