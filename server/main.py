@@ -341,6 +341,31 @@ app = FastAPI(
 )
 
 
+# ============ Exception Handlers ============
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions with consistent format."""
+    client_ip = request.client.host if request.client else "unknown"
+    audit_logger.log("http_error", client_ip, resource=str(request.url.path), action=exc.status_code, status="failure", details={"detail": exc.detail})
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.detail, "status_code": exc.status_code},
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle unexpected exceptions."""
+    client_ip = request.client.host if request.client else "unknown"
+    audit_logger.log("server_error", client_ip, resource=str(request.url.path), action="exception", status="failure", details={"error": str(exc)})
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal server error", "status_code": 500},
+    )
+
+
+# ============ Middleware ============
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -535,19 +560,19 @@ class TokenResponse(BaseModel):
 
 
 @app.post("/auth/token", response_model=TokenResponse, tags=["auth"])
-async def create_token(request: TokenRequest):
+async def create_token(token_request: TokenRequest, request: Request):
     """
     Create a JWT access token using API key.
     """
-    client_ip = request.client.host if hasattr(request, 'client') and request.client else "unknown"
+    client_ip = request.client.host if request.client else "unknown"
 
     # Verify API key
-    if request.api_key not in VALID_API_KEYS:
+    if token_request.api_key not in VALID_API_KEYS:
         audit_logger.log("auth_failed", client_ip, resource="/auth/token", action="token_create", status="failure")
         raise HTTPException(status_code=401, detail="Invalid API key")
 
     # Create JWT token
-    token = jwt_auth.create_token(subject=request.api_key[:8])
+    token = jwt_auth.create_token(subject=token_request.api_key[:8])
 
     audit_logger.log("auth_success", client_ip, resource="/auth/token", action="token_create", status="success")
 
@@ -613,6 +638,100 @@ async def get_security_config():
         "rate_limiting_enabled": True,
         "jwt_auth_enabled": True,
         "api_keys_configured": len(VALID_API_KEYS),
+    }
+
+
+# ============ Metrics Endpoints ============
+@app.get("/metrics", tags=["metrics"])
+async def get_metrics():
+    """
+    Get server metrics for monitoring.
+    """
+    import psutil
+
+    return {
+        "uptime": time.time(),
+        "requests_per_minute": rate_limiter.requests_per_minute,
+        "active_clients": len(rate_limiter.clients),
+        "websocket_connections": len(manager.active_connections),
+        "api_keys_count": len(VALID_API_KEYS),
+        "audit_logs_count": len(audit_logger.logs),
+        "system": {
+            "cpu_percent": psutil.cpu_percent(),
+            "memory_percent": psutil.virtual_memory().percent,
+            "memory_available_mb": psutil.virtual_memory().available // (1024 * 1024),
+        },
+    }
+
+
+@app.get("/metrics/prometheus", tags=["metrics"])
+async def prometheus_metrics():
+    """
+    Get metrics in Prometheus format.
+    """
+    import psutil
+
+    lines = [
+        "# HELP sloughgpt_uptime_seconds Server uptime in seconds",
+        "# TYPE sloughgpt_uptime_seconds gauge",
+        f"sloughgpt_uptime_seconds {time.time()}",
+        "",
+        "# HELP sloughgpt_rate_limit_requests Rate limit requests per minute",
+        "# TYPE sloughgpt_rate_limit_requests gauge",
+        f"sloughgpt_rate_limit_requests {rate_limiter.requests_per_minute}",
+        "",
+        "# HELP sloughgpt_active_clients Active clients",
+        "# TYPE sloughgpt_active_clients gauge",
+        f"sloughgpt_active_clients {len(rate_limiter.clients)}",
+        "",
+        "# HELP sloughgpt_websocket_connections WebSocket connections",
+        "# TYPE sloughgpt_websocket_connections gauge",
+        f"sloughgpt_websocket_connections {len(manager.active_connections)}",
+        "",
+        "# HELP sloughgpt_audit_logs_total Total audit logs",
+        "# TYPE sloughgpt_audit_logs_total counter",
+        f"sloughgpt_audit_logs_total {len(audit_logger.logs)}",
+        "",
+        "# HELP sloughgpt_system_cpu_usage System CPU usage",
+        "# TYPE sloughgpt_system_cpu_usage gauge",
+        f"sloughgpt_system_cpu_usage {psutil.cpu_percent()}",
+        "",
+        "# HELP sloughgpt_system_memory_percent System memory usage percent",
+        "# TYPE sloughgpt_system_memory_percent gauge",
+        f"sloughgpt_system_memory_percent {psutil.virtual_memory().percent}",
+    ]
+
+    return StreamingResponse(iter(lines), media_type="text/plain")
+
+
+@app.get("/health/detailed", tags=["health"])
+async def health_detailed():
+    """
+    Get detailed health information.
+    """
+    import psutil
+
+    return {
+        "status": "healthy",
+        "model_loaded": model is not None,
+        "model_type": model_type,
+        "uptime": time.time(),
+        "rate_limiter": {
+            "requests_per_minute": rate_limiter.requests_per_minute,
+            "active_clients": len(rate_limiter.clients),
+        },
+        "websocket": {
+            "active_connections": len(manager.active_connections),
+        },
+        "security": {
+            "api_keys_configured": len(VALID_API_KEYS),
+            "jwt_algorithm": JWT_ALGORITHM,
+        },
+        "system": {
+            "cpu_percent": psutil.cpu_percent(),
+            "memory_percent": psutil.virtual_memory().percent,
+            "memory_available_mb": psutil.virtual_memory().available // (1024 * 1024),
+        },
     }
 
 
@@ -790,16 +909,52 @@ async def chat_stream(request: ChatRequest):
 @app.websocket("/ws/generate")
 async def websocket_generate(websocket: WebSocket):
     """WebSocket endpoint for real-time text generation."""
-    await manager.connect(websocket)
+    client_ip = websocket.client.host if websocket.client else "unknown"
+    authenticated = False
 
     try:
+        await websocket.accept()
+
+        try:
+            auth_data = await websocket.receive_text()
+            auth_request = json.loads(auth_data)
+
+            api_key = auth_request.get("api_key")
+            token = auth_request.get("token")
+
+            if api_key:
+                if api_key in VALID_API_KEYS or secrets.compare_digest(
+                    hashlib.sha256(api_key.encode()).hexdigest(),
+                    hashlib.sha256(API_KEY.encode()).hexdigest()
+                ):
+                    authenticated = True
+            elif token:
+                if jwt_auth.verify_token(token):
+                    authenticated = True
+
+            if not authenticated:
+                await websocket.send_json({"status": "error", "error": "Authentication required"})
+                await websocket.close(code=4001)
+                audit_logger.log("ws_auth_failed", client_ip, resource="/ws/generate", action="connect", status="failure")
+                return
+
+            await websocket.send_json({"status": "authenticated"})
+            audit_logger.log("ws_auth_success", client_ip, resource="/ws/generate", action="connect", status="success")
+
+        except json.JSONDecodeError:
+            await websocket.send_json({"status": "error", "error": "Invalid JSON"})
+            await websocket.close(code=4002)
+            return
+
+        manager.connect(websocket)
+
         while True:
             data = await websocket.receive_text()
             request_data = json.loads(data)
 
-            prompt = request_data.get("prompt", "")
-            max_tokens = request_data.get("max_tokens", 100)
-            temperature = request_data.get("temperature", 0.8)
+            prompt = input_validator.validate_prompt(request_data.get("prompt", ""))
+            max_tokens = input_validator.validate_max_tokens(request_data.get("max_tokens", 100))
+            temperature = input_validator.validate_temperature(request_data.get("temperature", 0.8))
             model_name = request_data.get("model", None)
 
             await websocket.send_json({"status": "generating", "prompt": prompt})
@@ -877,11 +1032,15 @@ async def websocket_generate(websocket: WebSocket):
                     await asyncio.sleep(0.05)
                 await websocket.send_json({"status": "done", "text": demo_text, "done": True})
 
+            audit_logger.log("ws_generate", client_ip, resource="/ws/generate", action="generate", status="success")
+
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+        audit_logger.log("ws_disconnect", client_ip, resource="/ws/generate", action="disconnect", status="success")
     except Exception as e:
         await websocket.send_json({"status": "error", "error": str(e)})
         manager.disconnect(websocket)
+        audit_logger.log("ws_error", client_ip, resource="/ws/generate", action="error", status="failure", details={"error": str(e)})
 
 
 @app.get("/personalities")
