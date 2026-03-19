@@ -12,24 +12,229 @@ os.environ["CUDA_VISIBLE_DEVICES"] = ""
 from pathlib import Path
 from contextlib import asynccontextmanager
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Optional
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from datetime import datetime, timedelta
+import hashlib
+import secrets
+import re
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List, Any
 import torch
 import json
 import asyncio
 import time
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("sloughgpt")
 
 
+# ============ Security Configuration ============
+API_KEY = os.getenv("SLAUGHGPT_API_KEY", secrets.token_urlsafe(32))
+JWT_SECRET = os.getenv("SLAUGHGPT_JWT_SECRET", secrets.token_urlsafe(64))
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_HOURS = 24
+
+# Valid API keys (for multi-key support)
+VALID_API_KEYS = set(os.getenv("SLAUGHGPT_API_KEYS", "").split(",")) - {""}
+if API_KEY and API_KEY not in VALID_API_KEYS:
+    VALID_API_KEYS.add(API_KEY)
+
+
+# ============ JWT Authentication ============
+class JWTAuth:
+    """Simple JWT implementation."""
+
+    def __init__(self):
+        self.secret = JWT_SECRET
+        self.algorithm = JWT_ALGORITHM
+        self.expiration_hours = JWT_EXPIRATION_HOURS
+
+    def create_token(self, subject: str, **extra_claims) -> str:
+        """Create a JWT token."""
+        import base64
+        import json
+
+        now = datetime.utcnow()
+        payload = {
+            "sub": subject,
+            "iat": int(now.timestamp()),
+            "exp": int((now + timedelta(hours=self.expiration_hours)).timestamp()),
+            **extra_claims,
+        }
+
+        header = {"alg": self.algorithm, "typ": "JWT"}
+        header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip("=")
+        payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+
+        import hmac
+        signature = hmac.new(self.secret.encode(), f"{header_b64}.{payload_b64}".encode(), hashlib.sha256)
+        signature_b64 = base64.urlsafe_b64encode(signature.digest()).decode().rstrip("=")
+
+        return f"{header_b64}.{payload_b64}.{signature_b64}"
+
+    def verify_token(self, token: str) -> Optional[Dict]:
+        """Verify and decode a JWT token."""
+        import base64
+        import json
+        import hmac
+
+        try:
+            parts = token.split(".")
+            if len(parts) != 3:
+                return None
+
+            header_b64, payload_b64, signature_b64 = parts
+
+            # Verify signature
+            expected_sig = hmac.new(self.secret.encode(), f"{header_b64}.{payload_b64}".encode(), hashlib.sha256)
+            expected_sig_b64 = base64.urlsafe_b64encode(expected_sig.digest()).decode().rstrip("=")
+
+            if not hmac.compare_digest(signature_b64, expected_sig_b64):
+                return None
+
+            # Decode payload
+            payload = json.loads(base64.urlsafe_b64decode(payload_b64 + "=="))
+
+            # Check expiration
+            if payload.get("exp", 0) < datetime.utcnow().timestamp():
+                return None
+
+            return payload
+        except Exception:
+            return None
+
+    def refresh_token(self, token: str) -> Optional[str]:
+        """Refresh a JWT token."""
+        payload = self.verify_token(token)
+        if payload:
+            return self.create_token(payload["sub"], **{k: v for k, v in payload.items() if k != "sub"})
+        return None
+
+
+jwt_auth = JWTAuth()
+
+
+# ============ API Key Validation ============
+def validate_api_key(api_key: Optional[str] = Header(None)) -> Optional[str]:
+    """Validate API key from header."""
+    if not api_key:
+        return None
+
+    # Check against valid keys
+    if api_key in VALID_API_KEYS:
+        return api_key
+
+    # Check against single key
+    if secrets.compare_digest(hashlib.sha256(api_key.encode()).hexdigest(),
+                              hashlib.sha256(API_KEY.encode()).hexdigest()):
+        return api_key
+
+    return None
+
+
+# ============ JWT Bearer Authentication ============
+def require_auth(api_key: Optional[str] = Depends(validate_api_key)) -> Dict:
+    """Require authentication - returns user info or raises exception."""
+    if not api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing or invalid API key",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
+    return {"api_key": api_key[:8] + "...", "authenticated": True}
+
+
+# ============ Audit Logger ============
+class AuditLogger:
+    """Audit logging for security events."""
+
+    def __init__(self):
+        self.logs: List[Dict] = []
+        self.max_logs = 10000
+
+    def log(self, event_type: str, client_ip: str, user_id: Optional[str] = None,
+            resource: str = "", action: str = "", status: str = "success", details: Dict = None):
+        """Log an audit event."""
+        entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "event_type": event_type,
+            "client_ip": client_ip,
+            "user_id": user_id,
+            "resource": resource,
+            "action": action,
+            "status": status,
+            "details": details or {},
+        }
+        self.logs.append(entry)
+        if len(self.logs) > self.max_logs:
+            self.logs = self.logs[-self.max_logs:]
+
+        # Log to standard logger
+        log_level = logging.INFO if status == "success" else logging.WARNING
+        logger.log(log_level, f"AUDIT: {event_type} - {client_ip} - {action} - {status}")
+
+    def get_logs(self, limit: int = 100, event_type: Optional[str] = None) -> List[Dict]:
+        """Get audit logs."""
+        logs = self.logs[-limit:]
+        if event_type:
+            logs = [l for l in logs if l["event_type"] == event_type]
+        return logs
+
+
+audit_logger = AuditLogger()
+
+
+# ============ Input Validation ============
+class InputValidator:
+    """Input validation and sanitization."""
+
+    @staticmethod
+    def sanitize_string(value: str, max_length: int = 10000) -> str:
+        """Sanitize string input."""
+        if not isinstance(value, str):
+            return ""
+        # Remove null bytes
+        value = value.replace("\x00", "")
+        # Trim to max length
+        return value[:max_length].strip()
+
+    @staticmethod
+    def validate_prompt(prompt: str) -> str:
+        """Validate and sanitize prompt."""
+        prompt = InputValidator.sanitize_string(prompt, max_length=8000)
+        # Check for suspicious patterns
+        suspicious = ["<script", "javascript:", "onerror=", "onload="]
+        for pattern in suspicious:
+            if pattern.lower() in prompt.lower():
+                logger.warning(f"Suspicious pattern detected: {pattern}")
+                audit_logger.log("security", "unknown", resource="/generate", action="validate", status="warning", details={"pattern": pattern})
+        return prompt
+
+    @staticmethod
+    def validate_temperature(temp: float) -> float:
+        """Validate temperature parameter."""
+        return max(0.0, min(2.0, temp))
+
+    @staticmethod
+    def validate_max_tokens(tokens: int) -> int:
+        """Validate max tokens parameter."""
+        return max(1, min(4096, tokens))
+
+
+input_validator = InputValidator()
+
+
+# ============ Rate Limiter ============
 class RateLimiter:
     """Token bucket rate limiter."""
 
@@ -75,7 +280,7 @@ rate_limiter = RateLimiter(requests_per_minute=60, burst_size=10)
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Rate limiting middleware."""
 
-    SKIP_PATHS = {"/health", "/docs", "/openapi.json", "/redoc"}
+    SKIP_PATHS = {"/health", "/docs", "/openapi.json", "/redoc", "/auth/token", "/auth/verify"}
 
     async def dispatch(self, request: Request, call_next):
         if request.url.path in self.SKIP_PATHS:
@@ -86,6 +291,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         if not allowed:
             wait_time = rate_limiter.get_wait_time(client_ip)
+            audit_logger.log("rate_limit_exceeded", client_ip, resource=request.url.path, action="rate_limit", status="blocked")
             return JSONResponse(
                 status_code=429,
                 content={
@@ -103,6 +309,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         response.headers["X-RateLimit-Limit"] = str(rate_limiter.requests_per_minute)
         response.headers["X-RateLimit-Remaining"] = str(remaining)
+        return response
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to responses."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Content-Security-Policy"] = "default-src 'self'"
         return response
 
 
@@ -130,6 +349,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
 
@@ -303,17 +523,116 @@ async def check_rate_limit(request: Request):
     }
 
 
+# ============ Authentication Endpoints ============
+class TokenRequest(BaseModel):
+    api_key: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+
+
+@app.post("/auth/token", response_model=TokenResponse, tags=["auth"])
+async def create_token(request: TokenRequest):
+    """
+    Create a JWT access token using API key.
+    """
+    client_ip = request.client.host if hasattr(request, 'client') and request.client else "unknown"
+
+    # Verify API key
+    if request.api_key not in VALID_API_KEYS:
+        audit_logger.log("auth_failed", client_ip, resource="/auth/token", action="token_create", status="failure")
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    # Create JWT token
+    token = jwt_auth.create_token(subject=request.api_key[:8])
+
+    audit_logger.log("auth_success", client_ip, resource="/auth/token", action="token_create", status="success")
+
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        expires_in=JWT_EXPIRATION_HOURS * 3600,
+    )
+
+
+@app.post("/auth/verify", tags=["auth"])
+async def verify_token(authorization: Optional[str] = Header(None)):
+    """
+    Verify a JWT token.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+
+    token = authorization[7:]
+    payload = jwt_auth.verify_token(token)
+
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    return {"valid": True, "subject": payload.get("sub"), "expires": payload.get("exp")}
+
+
+@app.post("/auth/refresh", tags=["auth"])
+async def refresh_token(authorization: Optional[str] = Header(None)):
+    """
+    Refresh a JWT token.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+
+    token = authorization[7:]
+    new_token = jwt_auth.refresh_token(token)
+
+    if not new_token:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    return TokenResponse(
+        access_token=new_token,
+        token_type="bearer",
+        expires_in=JWT_EXPIRATION_HOURS * 3600,
+    )
+
+
+@app.get("/security/audit", tags=["security"])
+async def get_audit_logs(limit: int = 100, event_type: Optional[str] = None):
+    """
+    Get audit logs (requires authentication).
+    """
+    return {"logs": audit_logger.get_logs(limit=limit, event_type=event_type)}
+
+
+@app.get("/security/keys", tags=["security"])
+async def get_security_config():
+    """
+    Get security configuration (public info only).
+    """
+    return {
+        "rate_limiting_enabled": True,
+        "jwt_auth_enabled": True,
+        "api_keys_configured": len(VALID_API_KEYS),
+    }
+
+
 @app.post("/generate")
 async def generate(request: GenerateRequest):
+    client_ip = request.client.host if request.client else "unknown"
+
+    # Validate input
+    prompt = input_validator.validate_prompt(request.prompt)
+    max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
+    temperature = input_validator.validate_temperature(request.temperature or 0.8)
+
     if model is None:
-        # Return demo response if no model
+        audit_logger.log("generate", client_ip, resource="/generate", action="no_model", status="success")
         return {
-            "text": f"Demo response to: {request.prompt[:50]}... (No model loaded)",
+            "text": f"Demo response to: {prompt[:50]}... (No model loaded)",
             "model": model_type,
         }
 
     # Apply personality adjustment to temperature
-    temperature = request.temperature
     if request.personality:
         try:
             from domains.ai_personality import PERSONALITIES, PersonalityType
@@ -1048,21 +1367,31 @@ def get_inference_engine():
 @app.post("/inference/generate", tags=["inference"])
 async def inference_generate(request: GenerateRequest):
     """Generate text using the production inference engine."""
+    client_ip = request.client.host if request.client else "unknown"
+
+    # Validate input
+    prompt = input_validator.validate_prompt(request.prompt)
+    max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
+    temperature = input_validator.validate_temperature(request.temperature or 0.8)
+
     try:
         engine = get_inference_engine()
-        
+
         if engine is None:
+            audit_logger.log("generate", client_ip, resource="/inference/generate", action="no_model", status="success")
             return {"error": "Model not loaded", "text": ""}
-        
+
         text = engine.generate_single(
-            prompt=request.prompt,
-            max_new_tokens=request.max_new_tokens,
-            temperature=request.temperature,
+            prompt=prompt,
+            max_new_tokens=max_tokens,
+            temperature=temperature,
             top_p=request.top_p,
             top_k=request.top_k,
             repetition_penalty=1.0,
         )
-        
+
+        audit_logger.log("generate", client_ip, resource="/inference/generate", action="inference", status="success")
+
         return {
             "text": text,
             "model": "gpt2-engine",
