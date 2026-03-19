@@ -680,7 +680,7 @@ SloughGPT Core
   - Chart.yaml with metadata
   - values.yaml with all configurable options
   - Templates: deployment, configmap, services, ingress, PVC, HPA, RBAC
-  - README with installation instructions
+  - README with usage documentation
 - ✅ Docker Compose (`docker-compose.yml`)
   - API server (CPU)
   - GPU version (NVIDIA CUDA)
@@ -691,5 +691,12 @@ SloughGPT Core
   - Redis cache
   - Web UI service
 - ✅ Next.js standalone output for Docker
+
+### Phase 8: API Security & Performance
+- ✅ Rate Limiting (`server/main.py`)
+  - Token bucket rate limiter (60 requests/minute)
+  - RateLimitMiddleware with X-RateLimit headers
+  - Endpoints: /rate-limit/status, /rate-limit/check
+  - Skip paths: /health, /docs, /openapi.json
 
 *Always refer to this document for project status and priorities*
