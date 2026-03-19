@@ -11,6 +11,11 @@ os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 from pathlib import Path
 from contextlib import asynccontextmanager
+from collections import defaultdict
+from typing import Dict, List
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -23,6 +28,82 @@ import torch
 import json
 import asyncio
 import time
+
+
+class RateLimiter:
+    """Token bucket rate limiter."""
+
+    def __init__(self, requests_per_minute: int = 60, burst_size: int = 10):
+        self.requests_per_minute = requests_per_minute
+        self.burst_size = burst_size
+        self.clients: Dict[str, List[float]] = defaultdict(list)
+
+    def _cleanup(self, client_id: str):
+        """Remove expired timestamps."""
+        current_time = time.time()
+        cutoff = current_time - 60
+        self.clients[client_id] = [
+            ts for ts in self.clients[client_id] if ts > cutoff
+        ]
+
+    def is_allowed(self, client_id: str) -> tuple[bool, int]:
+        """
+        Check if request is allowed.
+        Returns (allowed, remaining_requests).
+        """
+        self._cleanup(client_id)
+        current_count = len(self.clients[client_id])
+
+        if current_count >= self.requests_per_minute:
+            return False, 0
+
+        self.clients[client_id].append(time.time())
+        remaining = self.requests_per_minute - current_count - 1
+        return True, max(0, remaining)
+
+    def get_wait_time(self, client_id: str) -> float:
+        """Get seconds until next request is allowed."""
+        if not self.clients[client_id]:
+            return 0
+        oldest = min(self.clients[client_id])
+        return max(0, 60 - (time.time() - oldest))
+
+
+rate_limiter = RateLimiter(requests_per_minute=60, burst_size=10)
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Rate limiting middleware."""
+
+    SKIP_PATHS = {"/health", "/docs", "/openapi.json", "/redoc"}
+
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path in self.SKIP_PATHS:
+            return await call_next(request)
+
+        client_ip = request.client.host if request.client else "unknown"
+        allowed, remaining = rate_limiter.is_allowed(client_ip)
+
+        if not allowed:
+            wait_time = rate_limiter.get_wait_time(client_ip)
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": "Too many requests",
+                    "message": f"Rate limit exceeded. Try again in {wait_time:.1f} seconds.",
+                    "retry_after": int(wait_time) + 1,
+                },
+                headers={
+                    "Retry-After": str(int(wait_time) + 1),
+                    "X-RateLimit-Limit": str(rate_limiter.requests_per_minute),
+                    "X-RateLimit-Remaining": "0",
+                },
+            )
+
+        response = await call_next(request)
+        response.headers["X-RateLimit-Limit"] = str(rate_limiter.requests_per_minute)
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
+        return response
 
 
 @asynccontextmanager
@@ -48,6 +129,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(RateLimitMiddleware)
 
 
 # WebSocket connection manager
@@ -194,6 +277,30 @@ async def info():
 @app.get("/health")
 async def health():
     return {"status": "healthy", "model_loaded": model is not None, "model_type": model_type}
+
+
+@app.get("/rate-limit/status")
+async def get_rate_limit_status():
+    """Get current rate limit configuration."""
+    return {
+        "requests_per_minute": rate_limiter.requests_per_minute,
+        "burst_size": rate_limiter.burst_size,
+        "active_clients": len(rate_limiter.clients),
+    }
+
+
+@app.get("/rate-limit/check")
+async def check_rate_limit(request: Request):
+    """Check rate limit status for client IP."""
+    client_ip = request.client.host if request.client else "unknown"
+    rate_limiter._cleanup(client_ip)
+    current_count = len(rate_limiter.clients.get(client_ip, []))
+    return {
+        "client_ip": client_ip,
+        "requests_used": current_count,
+        "requests_remaining": max(0, rate_limiter.requests_per_minute - current_count),
+        "retry_after": 0 if current_count < rate_limiter.requests_per_minute else rate_limiter.get_wait_time(client_ip),
+    }
 
 
 @app.post("/generate")
