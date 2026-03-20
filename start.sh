@@ -1,40 +1,125 @@
 #!/bin/bash
 
-# SloughGPT - One command to start everything
+# SloughGPT Startup Script
+# Usage: ./start.sh [mode] [port]
 
-BLUE='\033[0;34m'
+set -e
+
+# Colors
+RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
-echo -e "${BLUE}🚀 Starting SloughGPT...${NC}"
+# Functions
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# Check and install dependencies
-echo -e "${YELLOW}📦 Checking dependencies...${NC}"
-pip install -q torch transformers fastapi uvicorn pydantic 2>/dev/null
-
-# Start API server
-echo -e "${YELLOW}🔌 Starting API server (port 8000)...${NC}"
-cd "$(dirname "$0")/server"
-python3 main.py &
-API_PID=$!
-
-cd ..
-
-# Start Web UI
-echo -e "${YELLOW}🌐 Starting Web UI (port 3000)...${NC}"
-cd web
-npm run dev &
-WEB_PID=$!
-
-echo ""
-echo -e "${GREEN}✅ SloughGPT is ready!${NC}"
-echo "   Web UI:  http://localhost:3000"
-echo "   API:     http://localhost:8000"
-echo "   Docs:    http://localhost:8000/docs"
-echo ""
-echo "Press Ctrl+C to stop all services"
+# Banner
+echo -e "${CYAN}"
+echo "  _____ _ _       _____     _____"
+echo " |_   _(_) |     / ____|   / ____|"
+echo "   | |  _| | ___| (___  ___| (___   ___ __ _ _ __  _ __   ___ _ __"
+echo "   | | |/ | |/ __|\___ \/ __|\___ \ / __/ _\` | '_ \| '_ \ / _ \ '__|"
+echo "   | |   <| | (__ ____) | (___)__) | (_| (_| | |_) | |_) |  __/ |"
+echo "   |_|  \_\_\_|\___|_____/ \____/|___\___\__,_| .__/| .__/ \___|_|"
+echo "                                              | |   | |"
+echo "                                              |_|   |_|"
+echo -e "${NC}"
+echo "Enterprise AI Framework - Version 1.0.0"
 echo ""
 
-trap "kill $API_PID $WEB_PID 2>/dev/null; exit" INT TERM
-wait
+# Check Python
+log_info "Checking Python..."
+if ! command -v python3 &> /dev/null; then
+    log_error "Python 3 not found. Please install Python 3.8+"
+    exit 1
+fi
+PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
+log_success "Python $PYTHON_VERSION"
+
+# Check dependencies
+log_info "Checking dependencies..."
+python3 -c "import fastapi" 2>/dev/null || {
+    log_warn "Installing dependencies..."
+    pip3 install fastapi uvicorn pydantic torch transformers --quiet
+}
+log_success "Dependencies OK"
+
+# Check environment
+if [ -f .env ]; then
+    log_success ".env file found"
+else
+    if [ -f .env.example ]; then
+        log_warn ".env not found. Creating..."
+        cp .env.example .env
+        log_info "Please edit .env and add your API keys"
+    fi
+fi
+
+# Parse arguments
+MODE=${1:-development}
+PORT=${2:-8000}
+
+case $MODE in
+    development|dev)
+        log_info "Starting DEVELOPMENT mode on port $PORT..."
+        export SLAUGHGPT_ENV=development
+        cd "$(dirname "$0")/server"
+        python3 main.py
+        ;;
+    production|prod)
+        log_info "Starting PRODUCTION mode on port $PORT..."
+        export SLAUGHGPT_ENV=production
+        uvicorn server.main:app --host 0.0.0.0 --port $PORT --workers 4
+        ;;
+    docker)
+        log_info "Starting with Docker..."
+        docker compose up -d api
+        docker compose logs -f api
+        ;;
+    kubernetes|k8s)
+        log_info "Checking Kubernetes..."
+        kubectl get pods -n sloughgpt 2>/dev/null || log_error "kubectl not configured"
+        ;;
+    docker-gpu|gpu)
+        log_info "Starting with Docker GPU..."
+        docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+        ;;
+    all)
+        log_info "Starting ALL services..."
+        docker compose up -d
+        cd server
+        python3 main.py &
+        cd ..
+        npm run dev --prefix web &
+        log_success "All services started"
+        echo "  API: http://localhost:8000"
+        echo "  UI:  http://localhost:3000"
+        ;;
+    help|-h|--help)
+        echo "Usage: $0 [MODE] [PORT]"
+        echo ""
+        echo "Modes:"
+        echo "  development, dev    Start in development mode (default)"
+        echo "  production, prod    Start in production mode"
+        echo "  docker              Start with Docker Compose"
+        echo "  docker-gpu, gpu    Start with Docker GPU"
+        echo "  kubernetes, k8s    Check Kubernetes status"
+        echo "  all                Start all services"
+        echo ""
+        echo "Examples:"
+        echo "  $0                    # Dev mode, port 8000"
+        echo "  $0 production 8080     # Prod mode, port 8080"
+        echo "  $0 docker             # Docker mode"
+        ;;
+    *)
+        log_error "Unknown mode: $MODE"
+        echo "Run '$0 help' for usage"
+        exit 1
+        ;;
+esac
