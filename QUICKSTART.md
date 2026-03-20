@@ -81,6 +81,39 @@ python3 cli.py health
 # Docker management
 python3 cli.py docker status
 python3 cli.py docker logs
+
+# Environment check
+python3 cli.py config check
+
+# Configuration validation
+python3 cli.py config validate
+
+# Generate secrets
+python3 cli.py config generate --type all
+
+# Statistics
+python3 cli.py stats
+
+# List models
+python3 cli.py models
+
+# List datasets
+python3 cli.py datasets
+```
+
+### API Management
+```bash
+# Check API status
+python3 cli.py api-status
+
+# Test API endpoints
+python3 cli.py api-test
+
+# Test authentication
+python3 cli.py api-auth
+
+# Compare models
+python3 cli.py compare
 ```
 
 ---
@@ -89,7 +122,71 @@ python3 cli.py docker logs
 
 ### Health Check
 ```bash
+# Basic health
 curl http://localhost:8000/health
+
+# Liveness probe (Kubernetes)
+curl http://localhost:8000/health/live
+
+# Readiness probe (Kubernetes)
+curl http://localhost:8000/health/ready
+
+# Detailed health
+curl http://localhost:8000/health/detailed
+```
+
+### Authentication
+```bash
+# Create JWT token
+curl -X POST http://localhost:8000/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"api_key": "your-api-key"}'
+
+# Verify token
+curl -X POST http://localhost:8000/auth/verify \
+  -H "Authorization: Bearer <token>"
+
+# Refresh token
+curl -X POST http://localhost:8000/auth/refresh \
+  -H "Authorization: Bearer <token>"
+```
+
+### Rate Limiting
+```bash
+# Check rate limit status
+curl http://localhost:8000/rate-limit/status
+
+# Check your current usage
+curl http://localhost:8000/rate-limit/check
+```
+
+### Caching
+```bash
+# Cache statistics
+curl http://localhost:8000/cache/stats
+
+# Clear cache
+curl -X DELETE http://localhost:8000/cache
+```
+
+### Metrics
+```bash
+# JSON metrics
+curl http://localhost:8000/metrics
+
+# Prometheus format
+curl http://localhost:8000/metrics/prometheus
+
+# Security audit logs
+curl http://localhost:8000/security/audit
+```
+
+### Batch Processing
+```bash
+# Batch generation (up to 50 prompts)
+curl -X POST http://localhost:8000/inference/batch \
+  -H "Content-Type: application/json" \
+  -d '{"prompts": ["Hello", "Hi"], "max_new_tokens": 20}'
 ```
 
 ### Generate Text
@@ -154,6 +251,25 @@ docker compose --profile gpu up -d
 docker compose down
 ```
 
+## Kubernetes Deployment
+
+```bash
+# Create namespace
+kubectl create namespace sloughgpt
+
+# Apply manifests
+kubectl apply -f k8s/deployment.yaml
+
+# Check status
+kubectl get pods -n sloughgpt
+
+# View logs
+kubectl logs -n sloughgpt -l app=sloughgpt-api
+
+# Helm chart
+helm install sloughgpt ./helm/sloughgpt -n sloughgpt
+```
+
 ---
 
 ## Optimization Presets
@@ -214,18 +330,27 @@ SloughGPT/
 │   ├── inference/          # Inference engine
 │   │   ├── engine.py       # Production inference
 │   │   ├── quantization.py  # FP16/INT8/INT4
-│   │   └── optimizations.py # KV cache, batching
+│   │   ├── optimizations.py # KV cache, batching
+│   │   └── sou_format.py   # .sou model format
 │   ├── training/            # Training
 │   │   ├── train_pipeline.py
-│   │   ├── optimized_trainer.py  # NEW: Optimized training
-│   │   └── models/nanogpt.py
+│   │   ├── optimized_trainer.py  # Optimized training
+│   │   ├── models/nanogpt.py
+│   │   ├── huggingface/     # HuggingFace integration
+│   │   └── lora.py         # LoRA fine-tuning
 │   └── ml_infrastructure/  # Infrastructure
-│       └── benchmarking.py
+│       ├── benchmarking.py
+│       └── experiment_tracker.py
 ├── server/
-│   └── main.py              # FastAPI server
+│   └── main.py              # FastAPI server (100+ endpoints)
 ├── cli.py                    # CLI commands
-├── tests/                   # Unit tests (72 tests)
-└── datasets/               # Training data
+├── k8s/                     # Kubernetes manifests
+├── helm/                    # Helm charts
+├── grafana/                 # Grafana dashboards
+├── tests/                   # Unit tests (100+ tests)
+├── datasets/                # Training data
+├── docker-compose.yml       # Docker deployment
+└── sloughgpt_colab.ipynb   # Colab notebook
 ```
 
 ---
