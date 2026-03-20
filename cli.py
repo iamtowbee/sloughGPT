@@ -380,6 +380,117 @@ def cmd_info(args):
     print("=" * 50)
 
 
+def cmd_profile(args):
+    """Profile model performance and memory usage."""
+    import torch
+    import time
+    from pathlib import Path
+
+    print("=" * 50)
+    print("SloughGPT Model Profiler")
+    print("=" * 50)
+
+    model_path = Path(args.model) if args.model else None
+
+    # Profile PyTorch
+    print("\n[PyTorch Configuration]")
+    print(f"  Version: {torch.__version__}")
+    print(f"  CUDA available: {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"  CUDA version: {torch.version.cuda}")
+        print(f"  GPU count: {torch.cuda.device_count()}")
+        for i in range(torch.cuda.device_count()):
+            print(f"    GPU {i}: {torch.cuda.get_device_name(i)}")
+            mem = torch.cuda.get_device_properties(i).total_memory / (1024**3)
+            print(f"      Memory: {mem:.1f} GB")
+
+    print(f"\n  MPS available: {torch.backends.mps.is_available()}")
+    print(f"  MKLDNN enabled: {torch.backends.mkldnn.is_available()}")
+
+    # Profile model if provided
+    if model_path and model_path.exists():
+        print(f"\n[Model: {model_path}]")
+
+        checkpoint = torch.load(model_path, weights_only=False, map_location="cpu")
+
+        # Count parameters
+        total_params = 0
+        trainable_params = 0
+        if "model" in checkpoint:
+            model_state = checkpoint["model"]
+            if hasattr(model_state, "state_dict"):
+                model_state = model_state.state_dict()
+            for k, v in model_state.items():
+                if isinstance(v, torch.Tensor):
+                    total_params += v.numel()
+                    if "bias" not in k and "weight" in k:
+                        trainable_params += v.numel()
+
+        print(f"  Total parameters: {total_params:,}")
+        print(f"  Trainable parameters: {trainable_params:,}")
+        print(f"  Model size (FP32): {total_params * 4 / (1024**2):.2f} MB")
+
+        # Memory estimation
+        for dtype, name in [(torch.float32, "FP32"), (torch.float16, "FP16"), (torch.int8, "INT8")]:
+            size = total_params * (4 if dtype == torch.float32 else 2 if dtype == torch.float16 else 1)
+            print(f"  Model size ({name}): {size / (1024**2):.2f} MB")
+
+    # Benchmark CPU inference
+    print("\n[Benchmark: CPU Inference]")
+    try:
+        dummy_input = torch.randint(0, 1000, (1, 128))
+
+        # Create small model for benchmarking
+        class DummyModel(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.embed = torch.nn.Embedding(10000, 384)
+                self.layers = torch.nn.ModuleList([torch.nn.Linear(384, 384) for _ in range(4)])
+                self.proj = torch.nn.Linear(384, 10000)
+
+            def forward(self, x):
+                x = self.embed(x)
+                for layer in self.layers:
+                    x = torch.relu(layer(x))
+                return self.proj(x)
+
+        model = DummyModel()
+        model.eval()
+
+        # Warmup
+        with torch.no_grad():
+            for _ in range(5):
+                _ = model(dummy_input)
+
+        # Benchmark
+        iterations = 20
+        start = time.time()
+        with torch.no_grad():
+            for _ in range(iterations):
+                _ = model(dummy_input)
+        elapsed = time.time() - start
+
+        print(f"  {iterations} iterations in {elapsed:.3f}s")
+        print(f"  Throughput: {iterations/elapsed:.1f} iter/s")
+        print(f"  Latency: {elapsed/iterations*1000:.2f} ms/iter")
+
+    except Exception as e:
+        print(f"  Benchmark failed: {e}")
+
+    # System memory
+    try:
+        import psutil
+        mem = psutil.virtual_memory()
+        print(f"\n[System Memory]")
+        print(f"  Total: {mem.total / (1024**3):.1f} GB")
+        print(f"  Available: {mem.available / (1024**3):.1f} GB")
+        print(f"  Used: {mem.percent}%")
+    except:
+        pass
+
+    print("\n" + "=" * 50)
+
+
 def cmd_serve(args):
     """Start a simple HTTP inference server."""
     from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -1719,6 +1830,13 @@ def main():
     info_parser = subparsers.add_parser("info", help="Show model checkpoint info")
     info_parser.add_argument("model", nargs="?", default="models/sloughgpt.pt", help="Model path")
     info_parser.set_defaults(func=cmd_info)
+
+    # Profile command
+    profile_parser = subparsers.add_parser("profile", help="Profile model performance")
+    profile_parser.add_argument("--model", "-m", help="Model checkpoint path")
+    profile_parser.add_argument("--device", "-d", default="auto",
+                              choices=["auto", "cpu", "cuda", "mps"], help="Device to profile")
+    profile_parser.set_defaults(func=cmd_profile)
 
     # Serve command
     serve_parser = subparsers.add_parser("serve", help="Start HTTP inference server")
