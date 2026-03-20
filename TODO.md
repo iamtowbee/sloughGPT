@@ -809,17 +809,4 @@ SloughGPT Core
   - `python3 cli.py config check` - Verify environment setup
   - Check Python, PyTorch, CUDA, MPS, Docker, kubectl
 
-### Phase 15: Profiling & Visualization
-- ✅ Profile Command (`cli.py`)
-  - `python3 cli.py profile` - Profile model performance
-  - PyTorch configuration (CUDA, MPS, MKLDNN)
-  - GPU memory info
-  - Parameter counting
-  - Memory estimation (FP32/FP16/INT8)
-  - CPU inference benchmarking
-- ✅ Training Visualization (`scripts/visualize_training.py`)
-  - Plot training metrics with matplotlib
-  - Export to CSV
-  - ASCII table fallback
-
 *Always refer to this document for project status and priorities*
