@@ -1,21 +1,86 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "sloughgpt"
+name = "sloughgpt-sdk"
 version = "1.0.0"
-description = "Enterprise AI Framework with domain-based architecture"
+description = "Python SDK for SloughGPT API"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "SloughGPT", email = "dev@sloughgpt.ai"}
+]
+keywords = ["ai", "llm", "gpt", "api", "sdk", "nlp", "text-generation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
 requires-python = ">=3.8"
+dependencies = [
+    "requests>=2.25.0",
+]
+
+[project.optional-dependencies]
+async = ["httpx>=0.22.0"]
+websocket = ["websocket-client>=1.0.0"]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.18.0",
+    "httpx>=0.22.0",
+    "black>=22.0.0",
+    "mypy>=0.950",
+    "ruff>=0.1.0",
+]
+all = [
+    "httpx>=0.22.0",
+    "websocket-client>=1.0.0",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.18.0",
+    "black>=22.0.0",
+    "mypy>=0.950",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/sloughgpt/sloughgpt"
+Documentation = "https://github.com/sloughgpt/sloughgpt#readme"
+Repository = "https://github.com/sloughgpt/sloughgpt"
+"Bug Tracker" = "https://github.com/sloughgpt/sloughgpt/issues"
+
+[project.scripts]
+sloughgpt-cli = "sloughgpt_sdk.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["domains*", "server*", "sloughgpt*", "features*", "tuning*", "wrapper*"]
-exclude = ["tests*", "web*", "k8s*", "docker*", "models*", "grafana*", "archive*", "experiments*"]
+include = ["sloughgpt_sdk*"]
+exclude = ["tests*", "scripts*"]
+
+[tool.setuptools.package-data]
+sloughgpt_sdk = ["py.typed"]
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py38"
 
-[tool.ruff.lint]
-select = ["E", "F", "W"]
-
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-testpaths = ["tests"]
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
