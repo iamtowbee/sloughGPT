@@ -501,5 +501,118 @@ class TestSloughGPTClient(unittest.TestCase):
         self.assertEqual(client._headers.get("X-API-Key"), "test_key")
 
 
+class TestBenchmark(unittest.TestCase):
+    """Tests for benchmark utilities."""
+    
+    def test_benchmark_result_str(self):
+        """Test BenchmarkResult string representation."""
+        from sloughgpt_sdk.benchmarks import BenchmarkResult
+        
+        result = BenchmarkResult(
+            name="Test",
+            iterations=100,
+            total_time_ms=100,
+            avg_time_ms=1.0,
+            min_time_ms=0.5,
+            max_time_ms=2.0,
+            median_time_ms=1.0,
+            std_dev_ms=0.3,
+            ops_per_second=1000,
+        )
+        
+        self.assertIn("Test", str(result))
+        self.assertIn("1000.00", str(result))
+    
+    def test_benchmark_result_to_dict(self):
+        """Test BenchmarkResult to_dict."""
+        from sloughgpt_sdk.benchmarks import BenchmarkResult
+        
+        result = BenchmarkResult(
+            name="Test",
+            iterations=100,
+            total_time_ms=100,
+            avg_time_ms=1.0,
+            min_time_ms=0.5,
+            max_time_ms=2.0,
+            median_time_ms=1.0,
+            std_dev_ms=0.3,
+            ops_per_second=1000,
+        )
+        
+        data = result.to_dict()
+        self.assertEqual(data["name"], "Test")
+        self.assertEqual(data["iterations"], 100)
+        self.assertEqual(data["ops_per_second"], 1000)
+    
+    def test_run_benchmark(self):
+        """Test running a simple benchmark."""
+        from sloughgpt_sdk.benchmarks import Benchmark
+        
+        bench = Benchmark()
+        result = bench.run(
+            name="String concat",
+            func=lambda: "hello" + "world",
+            iterations=100,
+        )
+        
+        self.assertEqual(result.name, "String concat")
+        self.assertEqual(result.iterations, 100)
+        self.assertGreater(result.ops_per_second, 0)
+    
+    def test_percentile_calculation(self):
+        """Test percentile calculation."""
+        from sloughgpt_sdk.benchmarks import percentile
+        
+        data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        
+        p50 = percentile(data, 50)
+        self.assertGreaterEqual(p50, 5)
+        self.assertLessEqual(p50, 6)
+        self.assertEqual(percentile(data, 95), 10)
+        self.assertEqual(percentile(data, 99), 10)
+    
+    def test_load_test_result(self):
+        """Test LoadTestResult."""
+        from sloughgpt_sdk.benchmarks import LoadTestResult
+        
+        result = LoadTestResult(
+            name="Load Test",
+            concurrent_workers=10,
+            total_requests=100,
+            successful_requests=95,
+            failed_requests=5,
+            total_time_ms=1000,
+            requests_per_second=100,
+            avg_latency_ms=10,
+            min_latency_ms=5,
+            max_latency_ms=50,
+            median_latency_ms=8,
+            p95_latency_ms=20,
+            p99_latency_ms=30,
+            success_rate=0.95,
+        )
+        
+        self.assertEqual(result.name, "Load Test")
+        self.assertEqual(result.success_rate, 0.95)
+        self.assertEqual(result.total_requests, 100)
+    
+    def test_profiler(self):
+        """Test profiler decorator."""
+        from sloughgpt_sdk.benchmarks import Profiler
+        
+        profiler = Profiler()
+        
+        @profiler.profile("test_func")
+        def test_func():
+            return 1 + 1
+        
+        test_func()
+        test_func()
+        
+        report = profiler.get_report()
+        self.assertIn("test_func", report)
+        self.assertEqual(report["test_func"]["calls"], 2)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
