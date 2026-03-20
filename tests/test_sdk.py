@@ -614,5 +614,49 @@ class TestBenchmark(unittest.TestCase):
         self.assertEqual(report["test_func"]["calls"], 2)
 
 
+class TestNewSDKMethods(unittest.TestCase):
+    """Tests for new SDK methods."""
+    
+    def test_training_methods_exist(self):
+        """Test training methods exist on client."""
+        from sloughgpt_sdk import SloughGPTClient
+        
+        client = SloughGPTClient()
+        
+        self.assertTrue(hasattr(client, 'start_training'))
+        self.assertTrue(hasattr(client, 'get_training_status'))
+        self.assertTrue(hasattr(client, 'list_training_jobs'))
+    
+    def test_experiment_methods_exist(self):
+        """Test experiment methods exist on client."""
+        from sloughgpt_sdk import SloughGPTClient
+        
+        client = SloughGPTClient()
+        
+        self.assertTrue(hasattr(client, 'create_experiment'))
+        self.assertTrue(hasattr(client, 'list_experiments'))
+        self.assertTrue(hasattr(client, 'get_experiment'))
+        self.assertTrue(hasattr(client, 'log_metric'))
+        self.assertTrue(hasattr(client, 'log_param'))
+    
+    def test_rate_limit_methods_exist(self):
+        """Test rate limit methods exist on client."""
+        from sloughgpt_sdk import SloughGPTClient
+        
+        client = SloughGPTClient()
+        
+        self.assertTrue(hasattr(client, 'get_rate_limit_status'))
+        self.assertTrue(hasattr(client, 'check_rate_limit'))
+    
+    def test_personality_methods_exist(self):
+        """Test personality methods exist on client."""
+        from sloughgpt_sdk import SloughGPTClient
+        
+        client = SloughGPTClient()
+        
+        self.assertTrue(hasattr(client, 'get_personalities'))
+        self.assertTrue(hasattr(client, 'set_personality'))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

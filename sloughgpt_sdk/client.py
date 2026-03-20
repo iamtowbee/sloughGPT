@@ -417,6 +417,137 @@ class SloughGPTClient:
         response = self._request("POST", "/auth/refresh")
         return response.json()
     
+    # Training
+    
+    def start_training(
+        self,
+        model_name: str,
+        dataset_id: str,
+        epochs: int = 3,
+        batch_size: int = 8,
+        learning_rate: float = 5e-5,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Start a training job.
+        
+        Args:
+            model_name: Base model to train.
+            dataset_id: Training dataset.
+            epochs: Number of training epochs.
+            batch_size: Training batch size.
+            learning_rate: Learning rate.
+            **kwargs: Additional training parameters.
+        
+        Returns:
+            Training job information.
+        """
+        payload = {
+            "model_name": model_name,
+            "dataset_id": dataset_id,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "learning_rate": learning_rate,
+            **kwargs
+        }
+        response = self._request("POST", "/training/start", json=payload)
+        return response.json()
+    
+    def get_training_status(self, job_id: str) -> Dict[str, Any]:
+        """Get training job status."""
+        response = self._request("GET", f"/training/jobs/{job_id}")
+        return response.json()
+    
+    def list_training_jobs(self) -> List[Dict[str, Any]]:
+        """List all training jobs."""
+        response = self._request("GET", "/training/jobs")
+        return response.json().get("jobs", [])
+    
+    # Experiments
+    
+    def create_experiment(
+        self,
+        name: str,
+        description: str = "",
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Create a new experiment."""
+        payload = {"name": name, "description": description, **kwargs}
+        response = self._request("POST", "/experiments", json=payload)
+        return response.json()
+    
+    def list_experiments(self) -> List[Dict[str, Any]]:
+        """List all experiments."""
+        response = self._request("GET", "/experiments")
+        return response.json().get("experiments", [])
+    
+    def get_experiment(self, experiment_id: str) -> Dict[str, Any]:
+        """Get experiment details."""
+        response = self._request("GET", f"/experiments/{experiment_id}")
+        return response.json()
+    
+    def log_metric(
+        self,
+        experiment_id: str,
+        metric_name: str,
+        value: float,
+        step: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Log a metric to an experiment."""
+        payload = {"metric": metric_name, "value": value}
+        if step is not None:
+            payload["step"] = step
+        response = self._request(
+            "POST",
+            f"/experiments/{experiment_id}/log_metric",
+            json=payload
+        )
+        return response.json()
+    
+    def log_param(
+        self,
+        experiment_id: str,
+        param_name: str,
+        value: Any
+    ) -> Dict[str, Any]:
+        """Log a parameter to an experiment."""
+        payload = {"param": param_name, "value": value}
+        response = self._request(
+            "POST",
+            f"/experiments/{experiment_id}/log_param",
+            json=payload
+        )
+        return response.json()
+    
+    def get_experiment_runs(self, experiment_id: str) -> List[Dict[str, Any]]:
+        """Get all runs for an experiment."""
+        response = self._request("GET", f"/experiments/{experiment_id}/runs")
+        return response.json().get("runs", [])
+    
+    # Rate Limiting
+    
+    def get_rate_limit_status(self) -> Dict[str, Any]:
+        """Get rate limit status."""
+        response = self._request("GET", "/rate-limit/status")
+        return response.json()
+    
+    def check_rate_limit(self) -> Dict[str, Any]:
+        """Check if rate limit would allow request."""
+        response = self._request("GET", "/rate-limit/check")
+        return response.json()
+    
+    # Model Management
+    
+    def get_personalities(self) -> List[Dict[str, Any]]:
+        """Get available personalities."""
+        response = self._request("GET", "/personalities")
+        return response.json().get("personalities", [])
+    
+    def set_personality(self, personality: str) -> Dict[str, Any]:
+        """Set the current personality."""
+        response = self._request("POST", "/personalities", json={"personality": personality})
+        return response.json()
+    
     # Context Manager
     
     def __enter__(self):
@@ -517,6 +648,39 @@ class AsyncSloughGPTClient:
         """Get API metrics."""
         data = await self._request("GET", "/metrics")
         return MetricsData.from_response(data)
+    
+    async def start_training(self, model_name: str, dataset_id: str, **kwargs) -> Dict[str, Any]:
+        """Start a training job."""
+        payload = {"model_name": model_name, "dataset_id": dataset_id, **kwargs}
+        return await self._request("POST", "/training/start", json=payload)
+    
+    async def get_training_status(self, job_id: str) -> Dict[str, Any]:
+        """Get training job status."""
+        return await self._request("GET", f"/training/jobs/{job_id}")
+    
+    async def list_training_jobs(self) -> List[Dict[str, Any]]:
+        """List all training jobs."""
+        data = await self._request("GET", "/training/jobs")
+        return data.get("jobs", [])
+    
+    async def create_experiment(self, name: str, description: str = "", **kwargs) -> Dict[str, Any]:
+        """Create a new experiment."""
+        payload = {"name": name, "description": description, **kwargs}
+        return await self._request("POST", "/experiments", json=payload)
+    
+    async def list_experiments(self) -> List[Dict[str, Any]]:
+        """List all experiments."""
+        data = await self._request("GET", "/experiments")
+        return data.get("experiments", [])
+    
+    async def get_experiment(self, experiment_id: str) -> Dict[str, Any]:
+        """Get experiment details."""
+        return await self._request("GET", f"/experiments/{experiment_id}")
+    
+    async def log_metric(self, experiment_id: str, metric_name: str, value: float, **kwargs) -> Dict[str, Any]:
+        """Log a metric to an experiment."""
+        payload = {"metric": metric_name, "value": value, **kwargs}
+        return await self._request("POST", f"/experiments/{experiment_id}/log_metric", json=payload)
     
     async def __aenter__(self):
         """Enter async context manager."""
