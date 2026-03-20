@@ -839,6 +839,10 @@ SloughGPT Core
   - Checkpoint counts
   - Experiment counts
   - Available training presets
+- ✅ Compare Command
+  - Compare benchmark results
+  - Compare models (params, size, speed)
+  - Display comparison table
 
 ### Phase 15: Diagnostics & Scripts
 - ✅ Diagnostics Script (`scripts/diagnostics.py`)
