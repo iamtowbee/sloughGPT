@@ -972,6 +972,67 @@ def cmd_export_cli(args):
         print("\nExport failed.")
 
 
+def cmd_compare(args):
+    """Compare benchmark results or models."""
+    import json
+    from pathlib import Path
+    
+    print("=" * 60)
+    print("SloughGPT Model & Benchmark Comparison")
+    print("=" * 60)
+    
+    # Compare benchmark results
+    benchmarks_dir = Path("experiments/benchmarks")
+    if benchmarks_dir.exists():
+        benchmarks = list(benchmarks_dir.glob("*.json"))
+        if benchmarks:
+            print(f"\n📊 BENCHMARK RESULTS ({len(benchmarks)} files)")
+            print("-" * 60)
+            
+            all_results = []
+            for bf in sorted(benchmarks)[:5]:
+                with open(bf) as f:
+                    data = json.load(f)
+                    all_results.append(data)
+            
+            if all_results:
+                # Table header
+                print(f"{'Model':<20} {'Tokens/sec':<15} {'Latency':<12} {'Memory':<12}")
+                print("-" * 60)
+                
+                for r in all_results:
+                    model = r.get('model', 'unknown')[:18]
+                    tps = r.get('tokens_per_second', 0)
+                    latency = r.get('latency_ms', 0)
+                    memory = r.get('memory_mb', 0)
+                    print(f"{model:<20} {tps:<15.2f} {latency:<12.1f} {memory:<12.1f}")
+        else:
+            print("\n(No benchmark results found)")
+    else:
+        print("\n(No benchmarks directory found)")
+    
+    # Compare models
+    print("\n🤖 MODEL COMPARISON")
+    print("-" * 60)
+    print(f"{'Model':<25} {'Params':<12} {'Size':<12} {'Speed':<10}")
+    print("-" * 60)
+    
+    models = [
+        ("gpt2", "124M", "~250MB", "Fast"),
+        ("gpt2-medium", "355M", "~700MB", "Medium"),
+        ("gpt2-large", "774M", "~1.5GB", "Slow"),
+        ("phi-2", "2.7B", "~5.4GB", "Medium"),
+        ("mistral-7b", "7.3B", "~14GB", "Slow"),
+        ("llama-2-7b", "7B", "~13GB", "Slow"),
+    ]
+    
+    for name, params, size, speed in models:
+        print(f"{name:<25} {params:<12} {size:<12} {speed:<10}")
+    
+    print("\n💡 Run benchmarks with:")
+    print("  python3 cli.py benchmark --model gpt2")
+
+
 def cmd_hf_download(args):
     """Download a HuggingFace model."""
     from domains.training.huggingface import HFClient, download_model
