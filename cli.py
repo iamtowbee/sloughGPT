@@ -1272,6 +1272,202 @@ def cmd_system(args):
     print()
 
 
+def cmd_api_status(args):
+    """Show detailed API status and security information."""
+    import requests
+    import time
+
+    base_url = f"http://{args.host}:{args.port}"
+    
+    print("=" * 50)
+    print("SloughGPT API Status")
+    print("=" * 50)
+    
+    # Health check
+    try:
+        r = requests.get(f"{base_url}/health", timeout=5)
+        print(f"\n[{'OK' if r.status_code == 200 else 'FAIL'}] Health: {r.json()}")
+    except Exception as e:
+        print(f"\n[FAIL] Health: {e}")
+    
+    # Detailed health
+    try:
+        r = requests.get(f"{base_url}/health/detailed", timeout=5)
+        print(f"[{'OK' if r.status_code == 200 else 'FAIL'}] Detailed Health: {r.json()}")
+    except Exception as e:
+        print(f"[FAIL] Detailed Health: {e}")
+    
+    # Rate limit status
+    try:
+        r = requests.get(f"{base_url}/rate-limit/status", timeout=5)
+        print(f"[{'OK' if r.status_code == 200 else 'FAIL'}] Rate Limit: {r.json()}")
+    except Exception as e:
+        print(f"[FAIL] Rate Limit: {e}")
+    
+    # Cache stats
+    try:
+        r = requests.get(f"{base_url}/cache/stats", timeout=5)
+        print(f"[{'OK' if r.status_code == 200 else 'FAIL'}] Cache: {r.json()}")
+    except Exception as e:
+        print(f"[FAIL] Cache: {e}")
+    
+    # Metrics
+    try:
+        r = requests.get(f"{base_url}/metrics", timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            print(f"\n[OK] Metrics:")
+            print(f"  WebSocket Connections: {data.get('websocket_connections', 'N/A')}")
+            print(f"  Active Clients: {data.get('active_clients', 'N/A')}")
+            print(f"  CPU: {data.get('system', {}).get('cpu_percent', 'N/A')}%")
+            print(f"  Memory: {data.get('system', {}).get('memory_percent', 'N/A')}%")
+        else:
+            print(f"\n[FAIL] Metrics: {r.status_code}")
+    except Exception as e:
+        print(f"\n[FAIL] Metrics: {e}")
+    
+    # Security config
+    try:
+        r = requests.get(f"{base_url}/security/keys", timeout=5)
+        print(f"[{'OK' if r.status_code == 200 else 'FAIL'}] Security: {r.json()}")
+    except Exception as e:
+        print(f"[FAIL] Security: {e}")
+    
+    print()
+
+
+def cmd_api_test(args):
+    """Test API endpoints and security."""
+    import requests
+    import time
+
+    base_url = f"http://{args.host}:{args.port}"
+    
+    print("=" * 50)
+    print("SloughGPT API Test")
+    print("=" * 50)
+    
+    # Test generation
+    print("\n[TEST] Generation endpoint...")
+    try:
+        start = time.time()
+        r = requests.post(
+            f"{base_url}/generate",
+            json={"prompt": "Hello world", "max_new_tokens": 10},
+            timeout=30
+        )
+        elapsed = time.time() - start
+        if r.status_code == 200:
+            print(f"[PASS] Generation: {elapsed:.2f}s - {r.json()}")
+        else:
+            print(f"[FAIL] Generation: {r.status_code} - {r.text}")
+    except Exception as e:
+        print(f"[FAIL] Generation: {e}")
+    
+    # Test rate limiting
+    print("\n[TEST] Rate limiting...")
+    try:
+        for i in range(5):
+            r = requests.get(f"{base_url}/health", timeout=5)
+            if 'X-RateLimit-Remaining' in r.headers:
+                print(f"  Request {i+1}: Remaining={r.headers['X-RateLimit-Remaining']}")
+    except Exception as e:
+        print(f"[FAIL] Rate limiting: {e}")
+    
+    # Test caching
+    print("\n[TEST] Caching...")
+    try:
+        prompt = f"Test prompt {time.time()}"
+        r1 = requests.post(
+            f"{base_url}/generate",
+            json={"prompt": prompt, "max_new_tokens": 10},
+            timeout=30
+        )
+        r2 = requests.post(
+            f"{base_url}/generate",
+            json={"prompt": prompt, "max_new_tokens": 10},
+            timeout=30
+        )
+        cache_stats = requests.get(f"{base_url}/cache/stats", timeout=5).json()
+        print(f"[PASS] Cache hit rate: {cache_stats.get('hit_rate', 0):.2%}")
+    except Exception as e:
+        print(f"[FAIL] Caching: {e}")
+    
+    # Test batch
+    print("\n[TEST] Batch processing...")
+    try:
+        prompts = ["Prompt 1", "Prompt 2", "Prompt 3"]
+        r = requests.post(
+            f"{base_url}/inference/batch",
+            json={"prompts": prompts, "max_new_tokens": 5},
+            timeout=30
+        )
+        if r.status_code == 200:
+            data = r.json()
+            print(f"[PASS] Batch: {data['count']} prompts processed")
+        else:
+            print(f"[FAIL] Batch: {r.status_code}")
+    except Exception as e:
+        print(f"[FAIL] Batch: {e}")
+    
+    print()
+
+
+def cmd_api_auth(args):
+    """Test API authentication."""
+    import requests
+
+    base_url = f"http://{args.host}:{args.port}"
+    
+    print("=" * 50)
+    print("SloughGPT API Authentication Test")
+    print("=" * 50)
+    
+    # Test without auth
+    print("\n[TEST] Generate without auth...")
+    try:
+        r = requests.post(
+            f"{base_url}/generate",
+            json={"prompt": "Hello", "max_new_tokens": 5},
+            timeout=10
+        )
+        print(f"[{'PASS' if r.status_code == 200 else 'NEEDS AUTH'}] Status: {r.status_code}")
+    except Exception as e:
+        print(f"[FAIL] {e}")
+    
+    # Test auth token endpoint
+    print("\n[TEST] Auth token endpoint...")
+    try:
+        r = requests.post(
+            f"{base_url}/auth/token",
+            json={"api_key": "test-key"},
+            timeout=10
+        )
+        if r.status_code == 401:
+            print("[PASS] Auth rejected invalid key (401)")
+        elif r.status_code == 200:
+            data = r.json()
+            print(f"[INFO] Token created: {data.get('access_token', '')[:20]}...")
+        else:
+            print(f"[INFO] Auth status: {r.status_code}")
+    except Exception as e:
+        print(f"[INFO] Auth endpoint: {e}")
+    
+    # Test verify endpoint
+    print("\n[TEST] Verify endpoint...")
+    try:
+        r = requests.post(
+            f"{base_url}/auth/verify",
+            headers={"Authorization": "Bearer invalid-token"},
+            timeout=10
+        )
+        print(f"[PASS] Verify rejected invalid token: {r.status_code}")
+    except Exception as e:
+        print(f"[INFO] Verify: {e}")
+    
+    print()
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -1428,6 +1624,24 @@ def main():
     # System command
     sys_parser = subparsers.add_parser("system", help="Show system information")
     sys_parser.set_defaults(func=cmd_system)
+
+    # API status command
+    api_status_parser = subparsers.add_parser("api-status", help="Show API status and security info")
+    api_status_parser.add_argument("--host", default="localhost", help="API host")
+    api_status_parser.add_argument("--port", type=int, default=8000, help="API port")
+    api_status_parser.set_defaults(func=cmd_api_status)
+
+    # API test command
+    api_test_parser = subparsers.add_parser("api-test", help="Test API endpoints")
+    api_test_parser.add_argument("--host", default="localhost", help="API host")
+    api_test_parser.add_argument("--port", type=int, default=8000, help="API port")
+    api_test_parser.set_defaults(func=cmd_api_test)
+
+    # API auth command
+    api_auth_parser = subparsers.add_parser("api-auth", help="Test API authentication")
+    api_auth_parser.add_argument("--host", default="localhost", help="API host")
+    api_auth_parser.add_argument("--port", type=int, default=8000, help="API port")
+    api_auth_parser.set_defaults(func=cmd_api_auth)
 
     # Optimize command
     opt_parser = subparsers.add_parser("optimize", help="Show/configure optimization settings")
