@@ -824,6 +824,21 @@ SloughGPT Core
   - Compare gpt2, distilgpt2, etc.
   - Shows parameters, load time, generation time, memory
   - Summary table with all models
+- ✅ Enhanced Models Command
+  - Show trained model files with sizes
+  - List available architectures
+  - List HuggingFace models
+  - Usage examples
+- ✅ Enhanced Datasets Command
+  - Show file/folder sizes
+  - Total dataset size
+  - Usage examples
+- ✅ New Stats Command
+  - Show model counts and sizes
+  - Dataset file counts
+  - Checkpoint counts
+  - Experiment counts
+  - Available training presets
 
 ### Phase 15: Diagnostics & Scripts
 - ✅ Diagnostics Script (`scripts/diagnostics.py`)
