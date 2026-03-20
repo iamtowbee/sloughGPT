@@ -809,4 +809,22 @@ SloughGPT Core
   - `python3 cli.py config check` - Verify environment setup
   - Check Python, PyTorch, CUDA, MPS, Docker, kubectl
 
+### Phase 15: Diagnostics & Scripts
+- ✅ Diagnostics Script (`scripts/diagnostics.py`)
+  - Comprehensive system diagnostics
+  - Python environment and packages
+  - GPU support (CUDA, MPS, ROCm)
+  - Directory and model checking
+  - Docker and Kubernetes status
+  - API server health
+- ✅ Training Visualization (`scripts/visualize_training.py`)
+  - Plot training metrics with matplotlib
+  - Export to CSV
+  - ASCII table fallback
+- ✅ Profile Command (`cli.py profile`)
+  - PyTorch configuration profiling
+  - GPU memory info
+  - Parameter counting
+  - Memory estimation (FP32/FP16/INT8)
+
 *Always refer to this document for project status and priorities*
