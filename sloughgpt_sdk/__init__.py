@@ -63,6 +63,17 @@ sys.modules["sloughgpt_sdk"].MetricsData = MetricsData
 
 from sloughgpt_sdk.client import SloughGPTClient
 
+_auth_path = os.path.join(_package_dir, "auth.py")
+_auth_spec = importlib.util.spec_from_file_location("sloughgpt_sdk.auth", _auth_path)
+_auth = importlib.util.module_from_spec(_auth_spec)
+_auth_spec.loader.exec_module(_auth)
+sys.modules["sloughgpt_sdk.auth"] = _auth
+
+APIKeyManager = _auth.APIKeyManager
+APIKey = _auth.APIKey
+APIKeyMiddleware = _auth.APIKeyMiddleware
+KeyTier = _auth.KeyTier
+
 __all__ = [
     "SloughGPTClient",
     "GenerateRequest",
@@ -77,4 +88,8 @@ __all__ = [
     "HealthStatus",
     "SystemInfo",
     "MetricsData",
+    "APIKeyManager",
+    "APIKey",
+    "APIKeyMiddleware",
+    "KeyTier",
 ]
