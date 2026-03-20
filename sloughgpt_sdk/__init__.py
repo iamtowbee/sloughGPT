@@ -74,6 +74,38 @@ APIKey = _auth.APIKey
 APIKeyMiddleware = _auth.APIKeyMiddleware
 KeyTier = _auth.KeyTier
 
+_webhooks_path = os.path.join(_package_dir, "webhooks.py")
+_webhooks_spec = importlib.util.spec_from_file_location("sloughgpt_sdk.webhooks", _webhooks_path)
+_webhooks = importlib.util.module_from_spec(_webhooks_spec)
+_webhooks_spec.loader.exec_module(_webhooks)
+sys.modules["sloughgpt_sdk.webhooks"] = _webhooks
+
+WebhookManager = _webhooks.WebhookManager
+Webhook = _webhooks.Webhook
+WebhookEvent = _webhooks.WebhookEvent
+WebhookDelivery = _webhooks.WebhookDelivery
+
+_billing_path = os.path.join(_package_dir, "billing.py")
+_billing_spec = importlib.util.spec_from_file_location("sloughgpt_sdk.billing", _billing_path)
+_billing = importlib.util.module_from_spec(_billing_spec)
+_billing_spec.loader.exec_module(_billing)
+sys.modules["sloughgpt_sdk.billing"] = _billing
+
+BillingManager = _billing.BillingManager
+Plan = _billing.Plan
+Subscription = _billing.Subscription
+Invoice = _billing.Invoice
+BillingCycle = _billing.BillingCycle
+
+_dashboard_path = os.path.join(_package_dir, "dashboard.py")
+_dashboard_spec = importlib.util.spec_from_file_location("sloughgpt_sdk.dashboard", _dashboard_path)
+_dashboard = importlib.util.module_from_spec(_dashboard_spec)
+_dashboard_spec.loader.exec_module(_dashboard)
+sys.modules["sloughgpt_sdk.dashboard"] = _dashboard
+
+UsageDashboard = _dashboard.UsageDashboard
+DashboardMetrics = _dashboard.DashboardMetrics
+
 __all__ = [
     "SloughGPTClient",
     "GenerateRequest",
@@ -92,4 +124,14 @@ __all__ = [
     "APIKey",
     "APIKeyMiddleware",
     "KeyTier",
+    "WebhookManager",
+    "Webhook",
+    "WebhookEvent",
+    "WebhookDelivery",
+    "BillingManager",
+    "Plan",
+    "Subscription",
+    "Invoice",
+    "UsageDashboard",
+    "DashboardMetrics",
 ]

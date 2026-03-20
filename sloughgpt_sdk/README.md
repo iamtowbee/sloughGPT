@@ -11,6 +11,10 @@ A comprehensive Python client library for the SloughGPT API with support for tex
 - **Error Handling** - Custom exceptions for different error types
 - **CLI Tool** - Command-line interface for quick interactions
 - **Retry Logic** - Automatic retries with exponential backoff
+- **API Key Management** - Key generation, rotation, quotas, and usage tracking
+- **Webhooks** - Event notifications for integrations
+- **Billing** - Subscription management, invoicing, and payment tracking
+- **Usage Dashboard** - Analytics and reporting
 
 ## Installation
 
@@ -26,6 +30,11 @@ pip install sloughgpt-sdk[async]
 For WebSocket streaming:
 ```bash
 pip install sloughgpt-sdk[websocket]
+```
+
+For all features:
+```bash
+pip install sloughgpt-sdk[all]
 ```
 
 For all features:
