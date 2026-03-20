@@ -52,13 +52,52 @@ def cmd_chat(args):
 
 def cmd_models(args):
     """List available models - local version."""
-    print("=" * 50)
+    import os
+    from pathlib import Path
+    
+    print("=" * 60)
     print("Available Models")
-    print("=" * 50)
+    print("=" * 60)
+    
+    models_dir = Path("models")
+    
+    # Trained models
+    print("\n📁 TRAINED MODELS:")
+    if models_dir.exists():
+        for model_file in models_dir.glob("*.pt"):
+            size_mb = model_file.stat().st_size / (1024 * 1024)
+            print(f"  {model_file.name}: {size_mb:.1f} MB")
+        for model_file in models_dir.glob("*.safetensors"):
+            size_mb = model_file.stat().st_size / (1024 * 1024)
+            print(f"  {model_file.name}: {size_mb:.1f} MB")
+        for model_file in models_dir.glob("*.sou"):
+            size_mb = model_file.stat().st_size / (1024 * 1024)
+            print(f"  {model_file.name}: {size_mb:.1f} MB")
+    else:
+        print("  (No trained models found in models/)")
+    
+    # Available architectures
+    print("\n🏗️ AVAILABLE ARCHITECTURES:")
     print("  nanogpt: NanoGPT - Custom GPT model")
-    print("  gpt2: GPT-2 - HuggingFace model")
+    print("  gpt2: GPT-2 - HuggingFace model (124M params)")
+    print("  gpt2-medium: GPT-2 Medium (355M params)")
+    print("  gpt2-large: GPT-2 Large (774M params)")
     print("  llama: LLaMA - Meta model")
-    print("\nNote: Use 'quick' command to train a custom model")
+    print("  phi: Phi - Microsoft model")
+    
+    # HuggingFace models
+    print("\n🤗 HUGGINGFACE MODELS:")
+    print("  facebook/opt-125m: OPT 125M")
+    print("  facebook/opt-1.3b: OPT 1.3B")
+    print("  microsoft/phi-2: Phi-2 2.7B")
+    print("  mistralai/Mistral-7B-v0.1: Mistral 7B")
+    print("  meta-llama/Llama-2-7b-hf: LLaMA-2 7B")
+    
+    # Usage
+    print("\n💡 USAGE:")
+    print("  python3 cli.py quick                  # Train custom NanoGPT")
+    print("  python3 cli.py hf-serve gpt2         # Serve HuggingFace model")
+    print("  python3 cli.py hf-download microsoft/phi-2  # Download model")
 
 
 def cmd_quick(args):
@@ -545,16 +584,100 @@ def cmd_datasets(args):
         print("No datasets directory found")
         return
 
-    print("=" * 50)
+    print("=" * 60)
     print("Datasets")
-    print("=" * 50)
+    print("=" * 60)
 
+    total_size = 0
     for ds in sorted(datasets_dir.iterdir()):
         if ds.is_dir():
             size = sum(f.stat().st_size for f in ds.rglob("*") if f.is_file())
-            print(f"  {ds.name}: {size / 1024:.1f} KB")
-        else:
-            print(f"  {ds.name}: {ds.stat().st_size} bytes")
+            total_size += size
+            size_kb = size / 1024
+            size_mb = size_kb / 1024
+            if size_mb > 1:
+                print(f"  📁 {ds.name}: {size_mb:.1f} MB")
+            else:
+                print(f"  📁 {ds.name}: {size_kb:.1f} KB")
+        elif ds.is_file():
+            size = ds.stat().st_size
+            total_size += size
+            size_kb = size / 1024
+            size_mb = size_kb / 1024
+            if size_mb > 1:
+                print(f"  📄 {ds.name}: {size_mb:.1f} MB")
+            else:
+                print(f"  📄 {ds.name}: {size_kb:.1f} KB")
+    
+    print(f"\nTotal: {total_size / (1024*1024):.1f} MB")
+    
+    print("\n💡 USAGE:")
+    print("  python3 cli.py data stats <path>   # Get dataset statistics")
+    print("  python3 cli.py data validate <path>  # Validate dataset")
+
+
+def cmd_stats(args):
+    """Show training and model statistics."""
+    from pathlib import Path
+    import json
+    
+    print("=" * 60)
+    print("SloughGPT Statistics")
+    print("=" * 60)
+    
+    # Models
+    print("\n📊 MODELS:")
+    models_dir = Path("models")
+    model_count = 0
+    total_size = 0
+    if models_dir.exists():
+        for f in models_dir.glob("*.pt"):
+            model_count += 1
+            total_size += f.stat().st_size
+        for f in models_dir.glob("*.safetensors"):
+            model_count += 1
+            total_size += f.stat().st_size
+    print(f"  Trained models: {model_count}")
+    print(f"  Total size: {total_size / (1024*1024):.1f} MB")
+    
+    # Datasets
+    print("\n📚 DATASETS:")
+    datasets_dir = Path("datasets")
+    ds_count = 0
+    ds_size = 0
+    if datasets_dir.exists():
+        for f in datasets_dir.rglob("*"):
+            if f.is_file():
+                ds_count += 1
+                ds_size += f.stat().st_size
+    print(f"  Files: {ds_count}")
+    print(f"  Total size: {ds_size / (1024*1024):.1f} MB")
+    
+    # Checkpoints
+    print("\n💾 CHECKPOINTS:")
+    ckpt_dir = Path("checkpoints")
+    ckpt_count = 0
+    if ckpt_dir.exists():
+        ckpt_count = len(list(ckpt_dir.glob("*.pt")))
+    print(f"  Saved checkpoints: {ckpt_count}")
+    
+    # Experiments
+    print("\n🔬 EXPERIMENTS:")
+    exp_file = Path("experiments/experiments.json")
+    if exp_file.exists():
+        with open(exp_file) as f:
+            experiments = json.load(f)
+        print(f"  Total experiments: {len(experiments)}")
+    else:
+        print(f"  No experiments recorded")
+    
+    # Training presets
+    print("\n⚙️ AVAILABLE PRESETS:")
+    print("  auto: Auto-detect best settings")
+    print("  high_end_gpu: A100, H100, RTX 4090")
+    print("  mid_range_gpu: RTX 3080, A4000")
+    print("  apple_silicon: M1/M2/M3")
+    print("  cpu_only: CPU training")
 
 
 def cmd_personalities(args):
@@ -1771,6 +1894,10 @@ def main():
     # Datasets command
     datasets_parser = subparsers.add_parser("datasets", help="List datasets")
     datasets_parser.set_defaults(func=cmd_datasets)
+
+    # Stats command
+    stats_parser = subparsers.add_parser("stats", help="Show training statistics")
+    stats_parser.set_defaults(func=cmd_stats)
 
     # Data tools command
     data_parser = subparsers.add_parser("data", help="Dataset utilities")
