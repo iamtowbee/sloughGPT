@@ -783,4 +783,18 @@ SloughGPT Core
   - Batch processing
   - Updated architecture diagram
 
+### Phase 13: CLI Enhancements
+- ✅ API Status Command (`cli.py`)
+  - `python3 cli.py api-status` - Show detailed API health, metrics
+  - Display rate limits, cache stats, security config
+  - Check health, detailed health, metrics endpoints
+- ✅ API Test Command
+  - `python3 cli.py api-test` - Test API functionality
+  - Test generation, rate limiting, caching, batch processing
+  - Show performance metrics
+- ✅ API Auth Command
+  - `python3 cli.py api-auth` - Test authentication
+  - Test JWT token creation, verification
+  - Verify invalid tokens are rejected
+
 *Always refer to this document for project status and priorities*
