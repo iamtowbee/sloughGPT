@@ -868,6 +868,14 @@ SloughGPT Core
   - inference_example.py - Use inference engine
   - benchmark_example.py - Benchmark GPU performance
   - README.md - Documentation
+  - api_docs.py - Generate API documentation
+
+### Phase 19: Documentation
+- ✅ Environment Variables Guide (`docs/ENVIRONMENT.md`)
+  - Complete reference for all env vars
+  - Authentication, security, server config
+  - Model, performance, GPU settings
+  - Monitoring and logging
 
 ### Phase 15: Diagnostics & Scripts
 - ✅ Diagnostics Script (`scripts/diagnostics.py`)
