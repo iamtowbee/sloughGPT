@@ -1468,6 +1468,187 @@ def cmd_api_auth(args):
     print()
 
 
+def cmd_config_validate(args):
+    """Validate environment configuration."""
+    import os
+    import secrets
+    
+    print("=" * 50)
+    print("SloughGPT Configuration Validator")
+    print("=" * 50)
+    
+    env_file = args.env
+    issues = []
+    warnings = []
+    
+    # Check if .env exists
+    if not os.path.exists(env_file):
+        print(f"\n[WARN] {env_file} not found")
+        return
+    
+    # Load and validate .env
+    with open(env_file, 'r') as f:
+        content = f.read()
+    
+    required_vars = ['SLAUGHGPT_API_KEY', 'SLAUGHGPT_JWT_SECRET']
+    optional_vars = ['DATABASE_URL', 'REDIS_URL', 'MODEL_PATH']
+    security_vars = ['SLAUGHGPT_API_KEY', 'SLAUGHGPT_JWT_SECRET', 'JWT_SECRET_KEY']
+    
+    print(f"\n[CHECK] Validating {env_file}...")
+    
+    # Check for required vars
+    for var in required_vars:
+        if var not in content:
+            issues.append(f"Missing required: {var}")
+        else:
+            # Check if using default/weak values
+            val = content.split(f"{var}=")[1].split('\n')[0] if f"{var}=" in content else ""
+            if 'hash21' in val.lower() or 'change' in val.lower() or len(val) < 32:
+                warnings.append(f"Weak {var}: should be >32 random chars")
+    
+    # Check for default values
+    for var in security_vars:
+        if var in content:
+            val = content.split(f"{var}=")[1].split('\n')[0] if f"{var}=" in content else ""
+            if 'change-this' in val.lower() or 'your-' in val.lower():
+                warnings.append(f"Default {var}: change to secure value")
+    
+    # Check for missing optional vars
+    for var in optional_vars:
+        if var not in content:
+            warnings.append(f"Optional not set: {var}")
+    
+    # Check SSL
+    if 'SSL_ENABLED=true' in content and 'SSL_CERT_PATH' not in content:
+        issues.append("SSL enabled but no cert path")
+    
+    # Print results
+    print("\n" + "=" * 50)
+    print("Results")
+    print("=" * 50)
+    
+    if issues:
+        print("\n[ERRORS]:")
+        for issue in issues:
+            print(f"  - {issue}")
+    
+    if warnings:
+        print("\n[WARNINGS]:")
+        for warn in warnings:
+            print(f"  - {warn}")
+    
+    if not issues and not warnings:
+        print("\n[PASS] Configuration looks good!")
+    
+    # Summary
+    print(f"\n[INFO] {len(issues)} issues, {len(warnings)} warnings")
+
+
+def cmd_config_generate(args):
+    """Generate new secrets for configuration."""
+    import secrets
+    
+    print("=" * 50)
+    print("SloughGPT Secret Generator")
+    print("=" * 50)
+    
+    print("\n[SUGGESTED VALUES FOR .env]:\n")
+    
+    if args.type in ["api-key", "all"]:
+        api_key = secrets.token_urlsafe(32)
+        print(f"SLAUGHGPT_API_KEY={api_key}")
+    
+    if args.type in ["jwt-secret", "all"]:
+        jwt_secret = secrets.token_urlsafe(64)
+        print(f"SLAUGHGPT_JWT_SECRET={jwt_secret}")
+    
+    if args.type == "all":
+        encryption_key = secrets.token_hex(32)
+        print(f"ENCRYPTION_KEY={encryption_key}")
+    
+    print("\n[INFO] Copy these to your .env file and restart the server")
+
+
+def cmd_config_check(args):
+    """Check environment setup."""
+    import os
+    import platform
+    
+    print("=" * 50)
+    print("SloughGPT Environment Check")
+    print("=" * 50)
+    
+    checks = []
+    
+    # Python version
+    import sys
+    py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    checks.append(("Python >= 3.8", int(py_version.replace(".", "")) >= 38))
+    
+    # PyTorch
+    try:
+        import torch
+        checks.append(("PyTorch installed", True))
+        checks.append((f"PyTorch {torch.__version__}", True))
+    except ImportError:
+        checks.append(("PyTorch installed", False))
+    
+    # CUDA
+    try:
+        import torch
+        cuda = torch.cuda.is_available()
+        checks.append(("CUDA available", cuda))
+    except:
+        checks.append(("CUDA available", False))
+    
+    # MPS (Apple Silicon)
+    try:
+        import torch
+        mps = torch.backends.mps.is_available()
+        checks.append(("MPS available", mps))
+    except:
+        checks.append(("MPS available", False))
+    
+    # FastAPI
+    try:
+        import fastapi
+        checks.append((f"FastAPI {fastapi.__version__}", True))
+    except ImportError:
+        checks.append(("FastAPI installed", False))
+    
+    # Directory checks
+    checks.append(("models/ directory", os.path.isdir("models")))
+    checks.append(("datasets/ directory", os.path.isdir("datasets")))
+    checks.append((".env file exists", os.path.exists(".env")))
+    
+    # Docker
+    try:
+        import subprocess
+        result = subprocess.run(["docker", "--version"], capture_output=True, text=True)
+        checks.append(("Docker installed", result.returncode == 0))
+    except:
+        checks.append(("Docker installed", False))
+    
+    # Kubernetes
+    try:
+        import subprocess
+        result = subprocess.run(["kubectl", "version", "--client"], capture_output=True, text=True)
+        checks.append(("kubectl installed", result.returncode == 0))
+    except:
+        checks.append(("kubectl installed", False))
+    
+    # Print results
+    print()
+    for name, passed in checks:
+        status = "[OK]" if passed else "[X]"
+        print(f"{status} {name}")
+    
+    # Summary
+    passed = sum(1 for _, p in checks if p)
+    total = len(checks)
+    print(f"\n[INFO] {passed}/{total} checks passed")
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -1696,6 +1877,22 @@ def main():
     docker_shell = docker_sub.add_parser("shell", help="Shell into container")
     docker_shell.add_argument("service", default="api", help="Service name")
     docker_shell.set_defaults(func=lambda a: cmd_docker_shell(a))
+
+    # Config validation command
+    config_parser = subparsers.add_parser("config", help="Configuration utilities")
+    config_sub = config_parser.add_subparsers(dest="config_cmd", help="Config commands")
+    
+    validate_parser = config_sub.add_parser("validate", help="Validate configuration")
+    validate_parser.add_argument("--env", default=".env", help="Environment file path")
+    validate_parser.set_defaults(func=lambda a: cmd_config_validate(a))
+    
+    gen_parser = config_sub.add_parser("generate", help="Generate new secrets")
+    gen_parser.add_argument("--type", choices=["api-key", "jwt-secret", "all"], default="all",
+                           help="Type of secret to generate")
+    gen_parser.set_defaults(func=lambda a: cmd_config_generate(a))
+    
+    check_parser = config_sub.add_parser("check", help="Check environment setup")
+    check_parser.set_defaults(func=cmd_config_check)
 
     args = parser.parse_args()
 
