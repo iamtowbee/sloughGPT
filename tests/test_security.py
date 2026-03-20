@@ -145,7 +145,7 @@ class TestInputValidation:
             return prompt[:8000].strip()
 
         assert validate_prompt("Hello world") == "Hello world"
-        assert validate_prompt("<script>alert(1)</script>")[:20] == "<script>alert(1)</"
+        assert validate_prompt("<script>alert(1)</script>")[:20] == "<script>alert(1)</sc"
         assert validate_prompt("javascript:void(0)")[:20] == "javascript:void(0)"
 
 
