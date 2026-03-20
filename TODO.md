@@ -797,4 +797,16 @@ SloughGPT Core
   - Test JWT token creation, verification
   - Verify invalid tokens are rejected
 
+### Phase 14: Configuration Management
+- ✅ Config Validate Command
+  - `python3 cli.py config validate` - Check .env for issues
+  - Detect weak/default secrets
+  - Check required vs optional variables
+- ✅ Config Generate Command
+  - `python3 cli.py config generate` - Generate secure secrets
+  - API keys, JWT secrets, encryption keys
+- ✅ Config Check Command
+  - `python3 cli.py config check` - Verify environment setup
+  - Check Python, PyTorch, CUDA, MPS, Docker, kubectl
+
 *Always refer to this document for project status and priorities*
