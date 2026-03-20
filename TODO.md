@@ -822,4 +822,15 @@ SloughGPT Core
   - Export to CSV
   - ASCII table fallback
 
+### Phase 16: Utility Scripts
+- ✅ Export Model (`scripts/export_model.py`)
+  - Export to Torch, SafeTensors, ONNX, .sou formats
+  - Export summary with size comparison
+- ✅ System Diagnostics (`scripts/diagnostics.py`)
+  - Comprehensive system health check
+  - Python, packages, GPU, directories
+  - API server status
+  - Docker, Kubernetes status
+  - Disk and memory usage
+
 *Always refer to this document for project status and priorities*
