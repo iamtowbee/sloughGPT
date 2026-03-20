@@ -877,6 +877,16 @@ SloughGPT Core
   - Model, performance, GPU settings
   - Monitoring and logging
 
+### Phase 20: Scripts & Tools
+- ✅ Startup Script (`start.sh`)
+  - Multiple modes: development, production, docker, k8s
+  - Colored output and progress indicators
+  - Automatic dependency checking
+- ✅ Health Check Script (`scripts/health_check.py`)
+  - Check all API health endpoints
+  - Watch mode for continuous monitoring
+  - Exit code based on health status
+
 ### Phase 15: Diagnostics & Scripts
 - ✅ Diagnostics Script (`scripts/diagnostics.py`)
   - Comprehensive system diagnostics

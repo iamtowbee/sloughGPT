@@ -5,13 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sloughgpt-sdk"
 version = "1.0.0"
-description = "Python SDK for SloughGPT API"
-readme = "README.md"
+description = "Python SDK for SloughGPT API - Self-hosted LLM infrastructure"
+readme = "sloughgpt_sdk/README.md"
 license = {text = "MIT"}
 authors = [
     {name = "SloughGPT", email = "dev@sloughgpt.ai"}
 ]
-keywords = ["ai", "llm", "gpt", "api", "sdk", "nlp", "text-generation"]
+keywords = ["llm", "ai", "openai", "gpt", "nlp", "machine-learning", "text-generation", "api"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -58,7 +58,8 @@ all = [
 Homepage = "https://github.com/sloughgpt/sloughgpt"
 Documentation = "https://github.com/sloughgpt/sloughgpt#readme"
 Repository = "https://github.com/sloughgpt/sloughgpt"
-"Bug Tracker" = "https://github.com/sloughgpt/sloughgpt/issues"
+Issues = "https://github.com/sloughgpt/sloughgpt/issues"
+Changelog = "https://github.com/sloughgpt/sloughgpt/blob/main/CHANGELOG.md"
 
 [project.scripts]
 sloughgpt-cli = "sloughgpt_sdk.cli:main"
@@ -72,15 +73,24 @@ exclude = ["tests*", "scripts*"]
 sloughgpt_sdk = ["py.typed"]
 
 [tool.black]
-line-length = 100
-target-version = ["py38", "py39", "py310", "py311"]
+line-length = 88
+target-version = ["py38", "py39", "py310", "py311", "py312"]
 
 [tool.ruff]
-line-length = 100
+line-length = 88
 target-version = "py38"
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4"]
+ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+asyncio_mode = "auto"
