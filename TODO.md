@@ -862,6 +862,13 @@ SloughGPT Core
 - ✅ Test Fix
   - Fixed assertion in test_validate_prompt
 
+### Phase 18: Examples
+- ✅ Example Scripts (`scripts/examples/`)
+  - train_example.py - Train custom NanoGPT model
+  - inference_example.py - Use inference engine
+  - benchmark_example.py - Benchmark GPU performance
+  - README.md - Documentation
+
 ### Phase 15: Diagnostics & Scripts
 - ✅ Diagnostics Script (`scripts/diagnostics.py`)
   - Comprehensive system diagnostics
