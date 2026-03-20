@@ -463,7 +463,39 @@ class SloughGPTClient:
         response = self._request("GET", "/training/jobs")
         return response.json().get("jobs", [])
     
-    # Experiments
+    # Simple Tracking (UX-friendly)
+    
+    def track(self, name: str = "default") -> "SimpleTracker":
+        """
+        Start a simple tracking session.
+        
+        Simple usage:
+        
+        ```python
+        tracker = client.track("my-training")
+        tracker.log("accuracy", 0.95)
+        tracker.log("loss", 0.05)
+        tracker.finish()
+        ```
+        """
+        return SimpleTracker(self, name)
+    
+    def log(self, metric: str, value: float, step: Optional[int] = None):
+        """
+        Quick log a metric value.
+        
+        ```python
+        client.log("accuracy", 0.95)
+        client.log("loss", 0.05)
+        ```
+        """
+        self._request("POST", "/metrics/log", json={
+            "metric": metric,
+            "value": value,
+            "step": step
+        })
+    
+    # Legacy Experiments (for advanced users)
     
     def create_experiment(
         self,
@@ -471,18 +503,18 @@ class SloughGPTClient:
         description: str = "",
         **kwargs
     ) -> Dict[str, Any]:
-        """Create a new experiment."""
+        """Create a new experiment (advanced)."""
         payload = {"name": name, "description": description, **kwargs}
         response = self._request("POST", "/experiments", json=payload)
         return response.json()
     
     def list_experiments(self) -> List[Dict[str, Any]]:
-        """List all experiments."""
+        """List all experiments (advanced)."""
         response = self._request("GET", "/experiments")
         return response.json().get("experiments", [])
     
     def get_experiment(self, experiment_id: str) -> Dict[str, Any]:
-        """Get experiment details."""
+        """Get experiment details (advanced)."""
         response = self._request("GET", f"/experiments/{experiment_id}")
         return response.json()
     
@@ -493,7 +525,7 @@ class SloughGPTClient:
         value: float,
         step: Optional[int] = None
     ) -> Dict[str, Any]:
-        """Log a metric to an experiment."""
+        """Log a metric to an experiment (advanced)."""
         payload = {"metric": metric_name, "value": value}
         if step is not None:
             payload["step"] = step
@@ -510,7 +542,7 @@ class SloughGPTClient:
         param_name: str,
         value: Any
     ) -> Dict[str, Any]:
-        """Log a parameter to an experiment."""
+        """Log a parameter to an experiment (advanced)."""
         payload = {"param": param_name, "value": value}
         response = self._request(
             "POST",
@@ -518,11 +550,6 @@ class SloughGPTClient:
             json=payload
         )
         return response.json()
-    
-    def get_experiment_runs(self, experiment_id: str) -> List[Dict[str, Any]]:
-        """Get all runs for an experiment."""
-        response = self._request("GET", f"/experiments/{experiment_id}/runs")
-        return response.json().get("runs", [])
     
     # Rate Limiting
     
@@ -536,7 +563,7 @@ class SloughGPTClient:
         response = self._request("GET", "/rate-limit/check")
         return response.json()
     
-    # Model Management
+    # Personalities
     
     def get_personalities(self) -> List[Dict[str, Any]]:
         """Get available personalities."""
@@ -568,6 +595,50 @@ class SloughGPTClient:
         """Quick chat with a single user message."""
         result = self.chat([ChatMessage.user(user_message)])
         return result.message.content
+
+
+class SimpleTracker:
+    """
+    Simple context manager for tracking metrics.
+    
+    Example:
+    
+    ```python
+    tracker = client.track("training-v1")
+    
+    for epoch in range(10):
+        acc = train()
+        tracker.log("accuracy", acc)
+    
+    tracker.finish()
+    ```
+    """
+    
+    def __init__(self, client: "SloughGPTClient", name: str):
+        """Initialize tracker."""
+        self._client = client
+        self._name = name
+        self._step = 0
+    
+    def log(self, metric: str, value: float):
+        """Log a metric."""
+        self._client.log(metric, value, self._step)
+    
+    def next_step(self):
+        """Move to next step."""
+        self._step += 1
+    
+    def finish(self):
+        """Finish tracking."""
+        pass  # Could add summary call here
+    
+    def __enter__(self):
+        """Enter context manager."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit context manager."""
+        self.finish()
 
 
 class AsyncSloughGPTClient:
