@@ -818,6 +818,13 @@ SloughGPT Core
   - Kubernetes deployment instructions
   - Updated feature list
 
+### Phase 16: CLI Enhancements
+- ✅ Model Comparison Command
+  - `python3 cli.py compare` - Compare multiple models
+  - Compare gpt2, distilgpt2, etc.
+  - Shows parameters, load time, generation time, memory
+  - Summary table with all models
+
 ### Phase 15: Diagnostics & Scripts
 - ✅ Diagnostics Script (`scripts/diagnostics.py`)
   - Comprehensive system diagnostics
