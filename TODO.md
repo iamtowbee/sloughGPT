@@ -905,4 +905,36 @@ SloughGPT Core
   - Parameter counting
   - Memory estimation (FP32/FP16/INT8)
 
+### Phase 26: Python SDK & SaaS Infrastructure
+
+**SDK Modules (`sloughgpt_sdk/`):**
+- ✅ `client.py` - Sync/async HTTP API client
+- ✅ `auth.py` - API key management (generation, validation, rotation)
+- ✅ `webhooks.py` - Event notifications (18 event types)
+- ✅ `billing.py` - Subscriptions, invoices, payment tracking
+- ✅ `dashboard.py` - Usage analytics, reports, CSV export
+- ✅ `cache.py` - In-memory & disk caching with TTL
+- ✅ `websocket.py` - Real-time streaming
+- ✅ `benchmarks.py` - Load testing, profiling, metrics
+- ✅ `registry.py` - Model registry with auto-selection
+- ✅ `models.py` - Data classes (12 models)
+- ✅ `exceptions.py` - Custom error types
+- ✅ `cli.py` - CLI tool (`sloughgpt-cli`)
+- ✅ `setup.py` - Package configuration
+
+**SDK Features:**
+- API key management with tiers (Free/Starter/Pro/Enterprise)
+- Webhook system for event notifications
+- Subscription billing with 4 pricing tiers
+- Usage dashboard with analytics
+- Simple tracking API (`client.track()`)
+- Load testing utilities
+- Model registry with auto-selection
+
+**SDK Tests:** 43 passing
+
+**CLI Commands (`sloughgpt-cli`):**
+- `health`, `info`, `generate`, `chat`, `models`, `datasets`
+- `metrics`, `batch`, `key` (create/list/info/rotate/revoke/delete/usage)
+
 *Always refer to this document for project status and priorities*
