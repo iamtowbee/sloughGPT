@@ -54,25 +54,24 @@ class SloughGPTTrainer:
     def __init__(
         self,
         data_path,
-        # Model config
         vocab_size=None,
         n_embed=256,
         n_layer=6,
         n_head=8,
         block_size=128,
-        # LoRA config
         use_lora=False,
         lora_rank=8,
         lora_alpha=16,
-        # Training config
         batch_size=64,
         epochs=10,
         lr=1e-3,
         max_steps=None,
-        # Quantization
         quantize=False,
         quantize_bits=8,
         device=None,
+        save_format="safetensors",
+        save_quantized=None,
+        soul_name=None,
     ):
         self.data_path = data_path
         self.block_size = block_size
@@ -80,6 +79,11 @@ class SloughGPTTrainer:
         self.epochs = epochs
         self.lr = lr
         self.max_steps = max_steps
+        self.save_format = save_format
+        self.save_quantized = save_quantized
+        self.soul_name = soul_name or "sloughgpt"
+        self._best_val_loss = float("inf")
+        self._train_loss_at_best = 0.0
         self.device = device or get_device()
 
         print(f"Using device: {self.device}")
@@ -196,9 +200,14 @@ class SloughGPTTrainer:
                     _, loss = self.model(x, y)
                     val_loss += loss.item()
 
+            avg_val = val_loss / 10
+            avg_train = train_loss / steps_per_epoch
             print(
-                f"Epoch {epoch + 1} | Train: {train_loss / steps_per_epoch:.4f} | Val: {val_loss / 10:.4f}"
+                f"Epoch {epoch + 1} | Train: {avg_train:.4f} | Val: {avg_val:.4f}"
             )
+            if avg_val < self._best_val_loss:
+                self._best_val_loss = avg_val
+                self._train_loss_at_best = avg_train
 
         return self.model
 
@@ -218,7 +227,7 @@ class SloughGPTTrainer:
 
         Args:
             path: Base output path (extension added automatically)
-            format: Save format - safetensors (default), safetensors_bf16, torch
+            format: Save format - safetensors (default), safetensors_bf16, torch, sou
         """
         import os
 
@@ -234,9 +243,30 @@ class SloughGPTTrainer:
                 "n_head": self.model.n_head,
                 "block_size": self.model.block_size,
             },
+            "training_dataset": self.data_path,
+            "epochs_trained": self.epochs,
+            "final_val_loss": self._best_val_loss,
+            "final_train_loss": self._train_loss_at_best,
         }
 
-        if format == "safetensors":
+        if format == "sou":
+            from domains.inference.sou_format import create_soul_profile, export_to_sou
+
+            soul = create_soul_profile(
+                name=self.soul_name,
+                base_model="nanogpt",
+                training_dataset=self.data_path,
+                epochs_trained=self.epochs,
+                final_train_loss=self._train_loss_at_best,
+                final_val_loss=self._best_val_loss,
+                lineage="nanogpt",
+                tags=["sloughgpt", "trained", "soul"],
+            )
+            output_path = path + ".sou"
+            export_to_sou(self.model, output_path, soul_profile=soul)
+            print(f"  -> Soul Unit exported to {output_path}")
+
+        elif format == "safetensors":
             output_path = path + ".safetensors"
             export_to_safetensors(self.model, output_path, metadata)
         elif format == "safetensors_bf16":

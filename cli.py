@@ -209,14 +209,24 @@ def cmd_quick(args):
         n_head=args.heads,
         block_size=args.block,
         batch_size=args.batch,
-        epochs=1,
+        epochs=args.epochs,
         lr=args.lr,
+        soul_name=getattr(args, 'soul_name', 'SloughGPT-Quick'),
     )
     legacy_trainer.model = model
     legacy_trainer.stoi = stoi
     legacy_trainer.itos = itos
-    legacy_trainer.save(args.output)
-    print(f"\nModel saved to {args.output}")
+    legacy_trainer._best_val_loss = 0.0
+    legacy_trainer._train_loss_at_best = 0.0
+    legacy_trainer.vocab_size = vocab_size
+
+    output_base = args.output.replace(".pt", "").replace(".safetensors", "")
+    legacy_trainer.save(output_base, format="safetensors")
+    print(f"\nModel saved to {output_base}.safetensors")
+
+    if getattr(args, 'export_sou', False):
+        legacy_trainer.save(output_base, format="sou")
+        print(f"Soul Unit saved to {output_base}.sou")
 
 
 def cmd_train(args):
@@ -273,6 +283,12 @@ def cmd_train(args):
         print(f"Tracking: {config.tracking.enabled}")
         print("=" * 50)
 
+        save_formats = [args.save_format]
+        if args.export_sou and "sou" not in save_formats:
+            save_formats.append("sou")
+
+        save_path = f"{config.checkpoint.save_dir}/{config.model.name}"
+
         trainer = SloughGPTTrainer(
             data_path=config.data.data_path,
             vocab_size=config.model.vocab_size,
@@ -286,15 +302,19 @@ def cmd_train(args):
             batch_size=config.training.batch_size,
             epochs=config.training.epochs,
             lr=config.training.learning_rate,
+            save_format=",".join(save_formats),
+            save_quantized=args.save_quantized,
+            soul_name=args.soul_name or config.model.name,
         )
 
         # Train
         trainer.train()
 
-        # Save
-        save_path = f"{config.checkpoint.save_dir}/{config.model.name}.pt"
-        trainer.save(save_path)
-        print(f"\nModel saved to {save_path}")
+        # Save in all requested formats
+        print(f"\nSaving model in format(s): {', '.join(save_formats)}...")
+        for fmt in save_formats:
+            trainer.save(save_path, format=fmt)
+            print(f"  Saved: {save_path} ({fmt})")
 
         if tracker:
             tracker.end_run()
@@ -950,16 +970,25 @@ def cmd_export_cli(args):
     output_path = args.output or str(model_path.with_suffix(""))
 
     # Export
-    print(f"\nExporting to format: {args.format}")
+    export_formats = [args.format]
+    if args.export_sou:
+        export_formats.append("sou")
+    final_format = ",".join(export_formats)
+
+    print(f"\nExporting to format: {final_format}")
 
     from domains.training.export import ExportConfig
+
+    meta_with_name = {**metadata}
+    if args.soul_name:
+        meta_with_name["name"] = args.soul_name
 
     config = ExportConfig(
         input_path=args.model,
         output_path=output_path,
-        format=args.format,
+        format=final_format,
         quantization=args.quantize,
-        metadata=metadata,
+        metadata=meta_with_name,
     )
 
     results = export_model(config, model=model)
@@ -1874,6 +1903,12 @@ def main():
     quick_parser.add_argument(
         "--no-optimize", action="store_true", help="Disable optimizations (FP16, compile, etc)"
     )
+    quick_parser.add_argument(
+        "--export-sou", action="store_true", help="Export as .sou Soul Unit"
+    )
+    quick_parser.add_argument(
+        "--soul-name", type=str, default="SloughGPT-Quick", help="Name for the soul"
+    )
     quick_parser.set_defaults(func=cmd_quick)
 
     # Train command
@@ -1888,6 +1923,31 @@ def main():
     train_parser.add_argument("--resume", type=str, help="Resume from checkpoint")
     train_parser.add_argument(
         "--max-steps", type=int, default=None, help="Max steps per epoch (for quick testing)"
+    )
+    train_parser.add_argument(
+        "--save-format",
+        type=str,
+        default="safetensors",
+        choices=["safetensors", "safetensors_bf16", "torch", "gguf", "sou", "all"],
+        help="Model save format (default: safetensors)",
+    )
+    train_parser.add_argument(
+        "--save-quantized",
+        type=str,
+        default=None,
+        choices=["Q4_0", "Q4_1", "Q5_0", "Q5_1", "Q8_0", "F16", "F32"],
+        help="GGUF quantization type",
+    )
+    train_parser.add_argument(
+        "--export-sou",
+        action="store_true",
+        help="Export as .sou Soul Unit (self-contained model + soul profile)",
+    )
+    train_parser.add_argument(
+        "--soul-name",
+        type=str,
+        default=None,
+        help="Name for the model's soul (default: model name)",
     )
     train_parser.set_defaults(func=cmd_train)
 
@@ -1926,10 +1986,21 @@ def main():
     export_parser.add_argument(
         "--format",
         "-f",
-        default="torch",
-        help="Export format: torch, onnx, safetensors, torchscript (comma-separated for multiple)",
+        default="safetensors",
+        help="Export format: safetensors, safetensors_bf16, torch, gguf, sou, all (comma-separated)",
     )
     export_parser.add_argument("--quantize", choices=["int8", "int4", "fp16"], help="Quantization")
+    export_parser.add_argument(
+        "--export-sou",
+        action="store_true",
+        help="Also export as .sou Soul Unit",
+    )
+    export_parser.add_argument(
+        "--soul-name",
+        type=str,
+        default=None,
+        help="Name for the soul profile",
+    )
     export_parser.set_defaults(func=cmd_export_cli)
 
     # HuggingFace download command
@@ -1978,11 +2049,6 @@ def main():
     eval_parser.add_argument("--data", default="datasets/shakespeare/input.txt", help="Eval data")
     eval_parser.add_argument("--benchmark", action="store_true", help="Run performance benchmark")
     eval_parser.set_defaults(func=cmd_eval)
-
-    # Export command
-    export_parser = subparsers.add_parser("export", help="Export model")
-    export_parser.add_argument("model", help="Model name")
-    export_parser.set_defaults(func=cmd_export)
 
     # Monitor command
     monitor_parser = subparsers.add_parser("monitor", help="Monitor training jobs")
