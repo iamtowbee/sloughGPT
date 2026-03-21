@@ -10,7 +10,7 @@ import logging
 import torch
 import torch.nn as nn
 
-from .sou_format import SouModelFile
+from .sou_format import SoulProfile, SouParser, export_to_sou
 from .quantization import SouModelQuantizer, QuantizationType
 
 
@@ -32,20 +32,30 @@ class InferenceConfig:
 
 
 class SouModelLoader:
-    """Loader for .sou model files."""
+    """Loader for .sou Soul Unit files."""
 
-    def __init__(self, sou_file: Union[str, SouModelFile]):
+    def __init__(self, sou_file: Union[str, SoulProfile]):
         if isinstance(sou_file, str):
-            from .sou_format import SouParser
-
             self.sou = SouParser.load(sou_file)
         else:
             self.sou = sou_file
 
+        gen = getattr(self.sou, 'generation', None) or {}
+        ctx = getattr(self.sou, 'context', None) or {}
+
+        if hasattr(gen, 'temperature'):
+            temp = gen.temperature
+            top_p = gen.top_p
+            max_len = gen.max_tokens
+        else:
+            temp = gen.get('temperature', 0.7) if isinstance(gen, dict) else 0.7
+            top_p = gen.get('top_p', 0.9) if isinstance(gen, dict) else 0.9
+            max_len = gen.get('max_tokens', 2048) if isinstance(gen, dict) else 2048
+
         self.config = InferenceConfig(
-            temperature=self.sou.parameters.temperature,
-            top_p=self.sou.parameters.top_p,
-            max_length=self.sou.parameters.max_tokens,
+            temperature=temp,
+            top_p=top_p,
+            max_length=max_len,
         )
 
         self.model: Optional[nn.Module] = None
@@ -53,8 +63,8 @@ class SouModelLoader:
 
     def load_model(self):
         """Load the model."""
-        # Placeholder - would load actual model based on from_model
-        logger.info(f"Loading model: {self.sou.from_model}")
+        base = getattr(self.sou, 'base_model', 'nanogpt')
+        logger.info(f"Loading soul: {getattr(self.sou, 'name', 'unknown')} ({base})")
 
         # Try to load from training models
         try:

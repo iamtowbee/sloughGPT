@@ -1,19 +1,25 @@
 """
 SloughGPT Inference Module
 
-.sou format model loading and inference.
+.sou Soul Unit format - the living identity format for trained AI models.
 """
 
 from .sou_format import (
-    SouModelFile,
+    SoulProfile,
+    PersonalityCore,
+    BehavioralTraits,
+    CognitiveSignature,
+    EmotionalRange,
+    GenerationParams,
+    ContextParams,
     SouParser,
-    GenerationParameters,
-    ContextParameters,
-    PersonalityConfig,
-    ACLConfig,
-    WatermarkConfig,
-    QuantizationType,
-    create_default_sou,
+    create_soul_profile,
+    export_to_sou,
+    import_from_sou,
+    generate_sample_dialogue,
+    SOU_MAGIC,
+    SOU_VERSION,
+    SOU_TRADEMARK,
 )
 
 from .quantization import (
@@ -44,31 +50,34 @@ from .engine import (
 
 
 __all__ = [
-    # .sou Format
-    "SouModelFile",
+    ".sou Soul Unit Format",
+    "SoulProfile",
+    "PersonalityCore",
+    "BehavioralTraits",
+    "CognitiveSignature",
+    "EmotionalRange",
+    "GenerationParams",
+    "ContextParams",
     "SouParser",
-    "GenerationParameters",
-    "ContextParameters",
-    "PersonalityConfig",
-    "ACLConfig",
-    "WatermarkConfig",
-    "QuantizationType",
-    "create_default_sou",
-    # Quantization
+    "create_soul_profile",
+    "export_to_sou",
+    "import_from_sou",
+    "generate_sample_dialogue",
+    "SOU_MAGIC",
+    "SOU_VERSION",
+    "SOU_TRADEMARK",
     "QType",
     "QuantizationInfo",
     "Quantizer",
     "SouModelQuantizer",
     "QUANTIZATION_PRESETS",
     "get_quantization_preset",
-    # Loader
     "InferenceConfig",
     "SouModelLoader",
     "SouInferenceEngine",
     "load_model",
     "generate",
     "chat",
-    # Engine
     "InferenceEngine",
     "KVCache",
     "GenerationRequest",

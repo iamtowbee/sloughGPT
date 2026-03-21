@@ -187,18 +187,17 @@ def export_to_torch(
 def export_to_sou(
     model,
     output_path: str,
-    from_model: str = "sloughgpt",
-    temperature: float = 0.7,
-    metadata: Optional[Dict] = None,
+    soul_profile = None,
+    weights_only: bool = False,
 ) -> str:
-    """Export model to .sou format."""
+    """Export model to .sou Soul Unit format."""
     from domains.inference.sou_format import export_to_sou as sou_export
 
     sou_export(
         model=model,
         output_path=output_path,
-        from_model=from_model,
-        metadata=metadata,
+        soul_profile=soul_profile,
+        weights_only=weights_only,
     )
     return output_path
 
@@ -290,8 +289,20 @@ def export_model(
             results["onnx"] = output
 
         elif fmt == "sou":
-            output = config.output_path.replace(".pt", ".sou")
-            export_to_sou(model, output, metadata=config.metadata)
+            from domains.inference.sou_format import create_soul_profile
+
+            soul = create_soul_profile(
+                name=config.metadata.get("name", Path(config.output_path).stem) if config.metadata else Path(config.output_path).stem,
+                base_model="nanogpt",
+                training_dataset=config.metadata.get("training_dataset", "") if config.metadata else "",
+                epochs_trained=config.metadata.get("epochs_trained", 0) if config.metadata else 0,
+                final_train_loss=config.metadata.get("final_train_loss", 0.0) if config.metadata else 0.0,
+                final_val_loss=config.metadata.get("final_val_loss", 0.0) if config.metadata else 0.0,
+                lineage="nanogpt",
+                **({"lineage": config.metadata["lineage"]} if config.metadata and "lineage" in config.metadata else {}),
+            )
+            output = config.output_path.replace(".pt", ".sou").replace(".safetensors", ".sou")
+            export_to_sou(model, output, soul_profile=soul)
             results["sou"] = output
 
         elif fmt == "all":
@@ -347,7 +358,7 @@ def list_export_formats() -> Dict[str, str]:
         "torch": "PyTorch checkpoint (.pt) - legacy format",
         "torchscript": "TorchScript traced model (.torchscript.pt)",
         "onnx": "ONNX model (.onnx) - cross-platform",
-        "sou": "SloughGPT optimized format (.sou)",
+        "sou": "SloughGPT Soul Unit (.sou) - self-contained model + living soul profile",
         "all": "Export all formats at once",
     }
 

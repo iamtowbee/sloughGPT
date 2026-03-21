@@ -5,6 +5,7 @@ Uses existing infrastructure: NanoGPT model, training features
 """
 
 import os
+from pathlib import Path
 import torch
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
@@ -19,6 +20,7 @@ elif torch.backends.mps.is_available():
 # Use existing NanoGPT from our infrastructure
 from domains.training.models.nanogpt import NanoGPT
 from domains.training.export import export_to_safetensors, export_to_gguf
+from domains.inference.sou_format import create_soul_profile, export_to_sou
 
 
 class TextDataset(Dataset):
@@ -74,8 +76,19 @@ def is_gpu_available():
     return torch.cuda.is_available() or torch.backends.mps.is_available()
 
 
-def _save_model(model, base_path: str, format: str = "safetensors", quantization=None, metadata=None):
-    """Save model in standard format with metadata."""
+def _save_model(
+    model,
+    base_path: str,
+    format: str = "safetensors",
+    quantization=None,
+    metadata=None,
+    soul_name: str = None,
+    epochs_trained: int = 0,
+    final_val_loss: float = 0.0,
+    final_train_loss: float = 0.0,
+    training_dataset: str = "",
+):
+    """Save model in standard format(s) with optional .sou soul profile."""
     os.makedirs(os.path.dirname(base_path) or ".", exist_ok=True)
 
     meta = metadata or {}
@@ -83,17 +96,37 @@ def _save_model(model, base_path: str, format: str = "safetensors", quantization
     meta["format"] = format
 
     formats = format.split(",") if "," in format else [format]
+    saved_paths = []
 
     for fmt in formats:
         fmt = fmt.strip().lower()
 
-        if fmt == "safetensors":
+        if fmt == "sou":
+            soul = create_soul_profile(
+                name=soul_name or Path(base_path).name,
+                base_model="nanogpt",
+                training_dataset=training_dataset,
+                epochs_trained=epochs_trained,
+                final_train_loss=final_train_loss,
+                final_val_loss=final_val_loss,
+                lineage="nanogpt",
+                dataset_signature="",
+                tags=["sloughgpt", "trained", "soul"],
+            )
+            path = base_path + ".sou"
+            export_to_sou(model, path, soul_profile=soul)
+            saved_paths.append(path)
+            print(f"  -> Soul profile created and exported to {path}")
+
+        elif fmt == "safetensors":
             path = base_path + ".safetensors"
             export_to_safetensors(model, path, meta)
+            saved_paths.append(path)
 
         elif fmt == "safetensors_bf16":
             path = base_path + "-bf16.safetensors"
             export_to_safetensors(model, path, meta, dtype="bf16")
+            saved_paths.append(path)
 
         elif fmt in ("gguf", "gguf_q4_0", "gguf_q4_1", "gguf_q5_0", "gguf_q5_1", "gguf_q8_0", "gguf_f16", "gguf_f32"):
             quant_map = {
@@ -109,14 +142,19 @@ def _save_model(model, base_path: str, format: str = "safetensors", quantization
             quant = quant_map.get(fmt, "Q4_0")
             path = base_path + f"-{quant}.gguf"
             export_to_gguf(model, path, quant)
+            saved_paths.append(path)
 
         elif fmt in ("torch", "pytorch"):
             path = base_path + ".pt"
             torch.save({"model_state_dict": model.state_dict(), "metadata": meta}, path)
+            saved_paths.append(path)
 
         else:
             path = base_path + ".safetensors"
             export_to_safetensors(model, path, meta)
+            saved_paths.append(path)
+
+    return saved_paths
 
 
 def train_sloughgpt(
@@ -141,6 +179,7 @@ def train_sloughgpt(
     save_format="safetensors",
     save_quantized=None,
     save_path=None,
+    soul_name=None,
 ):
     """Train SloughGPT model."""
 
@@ -379,6 +418,11 @@ def train_sloughgpt(
                     "itos": itos,
                     "is_best": True,
                 },
+                soul_name=soul_name or "SloughGPT-Best",
+                epochs_trained=epoch + 1,
+                final_val_loss=val_loss,
+                final_train_loss=avg_train_loss,
+                training_dataset=data_path,
             )
             print(f"  -> New best model saved ({save_format})!")
 
@@ -402,6 +446,11 @@ def train_sloughgpt(
             "stoi": stoi,
             "itos": itos,
         },
+        soul_name=soul_name or "SloughGPT",
+        epochs_trained=epochs,
+        final_val_loss=best_val_loss,
+        final_train_loss=0.0,
+        training_dataset=data_path,
     )
 
     print(f"\nModel saved ({save_format}) to {final_path}")
@@ -481,8 +530,23 @@ if __name__ == "__main__":
         default="models/sloughgpt",
         help="Output path (without extension, format added automatically)",
     )
+    parser.add_argument(
+        "--export_sou",
+        action="store_true",
+        help="Also export as .sou Soul Unit (self-contained model + soul profile)",
+    )
+    parser.add_argument(
+        "--soul_name",
+        type=str,
+        default=None,
+        help="Name for the soul profile (default: SloughGPT)",
+    )
 
     args = parser.parse_args()
+
+    save_formats = [args.save_format]
+    if args.export_sou:
+        save_formats.append("sou")
 
     # Train
     model, stoi, itos = train_sloughgpt(
@@ -503,9 +567,10 @@ if __name__ == "__main__":
         gradient_accumulation=args.gradient_accumulation,
         mixed_precision=args.mixed_precision,
         compile_model=args.compile,
-        save_format=args.save_format,
+        save_format=",".join(save_formats),
         save_quantized=args.save_quantized,
         save_path=args.save_path,
+        soul_name=args.soul_name,
     )
 
     # Generate sample
