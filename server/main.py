@@ -496,13 +496,22 @@ def load_model():
     if os.path.exists(local_model_path):
         print(f"Loading local model from {local_model_path}...")
         try:
+            import signal
+            def timeout_handler(signum, frame):
+                raise TimeoutError("Model loading timed out")
+            
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(10)  # 10 second timeout
+            
             checkpoint = torch.load(local_model_path, weights_only=False, map_location="cpu")
             model = checkpoint.get("model", checkpoint)
             model_type = "nanogpt"
             print("Local NanoGPT model loaded!")
             return
+        except TimeoutError:
+            print("Model loading timed out - falling back to GPT-2")
         except Exception as e:
-            print(f"Failed to load local model: {e}")
+            print(f"Failed to load local model: {e} - falling back to GPT-2")
 
     # Fall back to HuggingFace GPT-2
     print("Loading GPT-2 from HuggingFace...")
@@ -816,6 +825,30 @@ async def health_detailed():
             "memory_percent": psutil.virtual_memory().percent,
             "memory_available_mb": psutil.virtual_memory().available // (1024 * 1024),
         },
+    }
+
+
+
+@app.post("/generate/demo")
+async def generate_demo(request: GenerateRequest):
+    """Demo endpoint - works without loading any model."""
+    prompt = input_validator.validate_prompt(request.prompt)
+    max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
+    
+    # Simple demo response based on prompt
+    responses = [
+        "I'm Aria, your self-learning AI companion. I'm running entirely on-device!",
+        "That's interesting! I'm continuously learning from our conversation.",
+        "I process everything locally using TensorFlow.js - your data never leaves your device.",
+        "My transformer model updates its weights in real-time. I'm getting smarter as we talk!",
+    ]
+    import random
+    response = random.choice(responses)
+    
+    return {
+        "text": response,
+        "model": "demo",
+        "prompt": prompt[:50],
     }
 
 
@@ -1909,6 +1942,173 @@ async def get_export_formats():
     """Get list of supported export formats."""
     from domains.training.export import list_export_formats
     return {"formats": list_export_formats()}
+
+
+# ============ Model Registry API ============
+
+class RegistryModel(BaseModel):
+    id: str
+    name: str
+    version: str
+    path: str
+    description: str = ""
+    size_mb: float = 0
+    parameters: int = 0
+    framework: str = "pytorch"
+    status: str = "ready"
+    tags: List[str] = []
+    metadata: Dict[str, Any] = {}
+    config: Dict[str, Any] = {}
+
+
+class RegisterModelRequest(BaseModel):
+    id: str
+    name: str
+    version: str
+    path: str
+    description: str = ""
+    size_mb: float = 0
+    parameters: int = 0
+    framework: str = "pytorch"
+    tags: List[str] = []
+    metadata: Dict[str, Any] = {}
+    config: Dict[str, Any] = {}
+
+
+class RecordRequestModel(BaseModel):
+    latency_ms: float
+    tokens: int = 0
+    success: bool = True
+
+
+# In-memory registry
+_registry: Dict[str, Dict[str, Any]] = {}
+_registry_metrics: Dict[str, Dict[str, Any]] = defaultdict(lambda: {
+    "total_requests": 0,
+    "successful_requests": 0,
+    "failed_requests": 0,
+    "total_tokens": 0,
+    "total_latency_ms": 0,
+    "avg_latency_ms": 0,
+    "min_latency_ms": float("inf"),
+    "max_latency_ms": 0,
+})
+
+
+@app.post("/registry/models", tags=["registry"])
+async def register_model(request: RegisterModelRequest):
+    """Register a new model."""
+    model_data = request.model_dump()
+    _registry[request.id] = model_data
+    return {"status": "registered", "model": model_data}
+
+
+@app.get("/registry/models", tags=["registry"])
+async def list_registry_models(status: Optional[str] = None, tag: Optional[str] = None):
+    """List registered models."""
+    models = list(_registry.values())
+    
+    if status:
+        models = [m for m in models if m.get("status") == status]
+    
+    if tag:
+        models = [m for m in models if tag in m.get("tags", [])]
+    
+    return {"models": models}
+
+
+@app.get("/registry/models/{model_id}", tags=["registry"])
+async def get_registry_model(model_id: str):
+    """Get a registered model."""
+    if model_id not in _registry:
+        raise HTTPException(status_code=404, detail="Model not found")
+    
+    model = _registry[model_id].copy()
+    model["metrics"] = _registry_metrics[model_id]
+    return model
+
+
+@app.delete("/registry/models/{model_id}", tags=["registry"])
+async def unregister_model(model_id: str):
+    """Unregister a model."""
+    if model_id in _registry:
+        del _registry[model_id]
+        return {"status": "unregistered"}
+    raise HTTPException(status_code=404, detail="Model not found")
+
+
+@app.post("/registry/models/{model_id}/record", tags=["registry"])
+async def record_model_request(model_id: str, request: RecordRequestModel):
+    """Record a request for a model."""
+    if model_id not in _registry:
+        raise HTTPException(status_code=404, detail="Model not found")
+    
+    metrics = _registry_metrics[model_id]
+    metrics["total_requests"] += 1
+    if request.success:
+        metrics["successful_requests"] += 1
+    else:
+        metrics["failed_requests"] += 1
+    metrics["total_tokens"] += request.tokens
+    metrics["total_latency_ms"] += request.latency_ms
+    metrics["avg_latency_ms"] = metrics["total_latency_ms"] / metrics["total_requests"]
+    metrics["min_latency_ms"] = min(metrics["min_latency_ms"], request.latency_ms)
+    metrics["max_latency_ms"] = max(metrics["max_latency_ms"], request.latency_ms)
+    
+    return {"status": "recorded", "metrics": metrics}
+
+
+@app.get("/registry/models/{model_id}/metrics", tags=["registry"])
+async def get_model_metrics(model_id: str):
+    """Get model metrics."""
+    if model_id not in _registry:
+        raise HTTPException(status_code=404, detail="Model not found")
+    
+    return _registry_metrics[model_id]
+
+
+@app.get("/registry/best", tags=["registry"])
+async def get_best_model(criteria: str = "latency", tag: Optional[str] = None):
+    """Get best model by criteria."""
+    models = list(_registry.values())
+    
+    if tag:
+        models = [m for m in models if tag in m.get("tags", [])]
+    
+    if not models:
+        return {"error": "No models found"}
+    
+    if criteria == "latency":
+        models.sort(key=lambda m: _registry_metrics[m["id"]].get("avg_latency_ms", float("inf")))
+    elif criteria == "throughput":
+        models.sort(key=lambda m: _registry_metrics[m["id"]].get("total_requests", 0), reverse=True)
+    
+    best = models[0]
+    best["metrics"] = _registry_metrics[best["id"]]
+    return best
+
+
+@app.get("/registry/stats", tags=["registry"])
+async def get_registry_stats():
+    """Get registry statistics."""
+    total_models = len(_registry)
+    total_requests = sum(m["total_requests"] for m in _registry_metrics.values())
+    total_tokens = sum(m["total_tokens"] for m in _registry_metrics.values())
+    
+    by_status = defaultdict(int)
+    by_framework = defaultdict(int)
+    
+    for model in _registry.values():
+        by_status[model.get("status", "unknown")] += 1
+        by_framework[model.get("framework", "unknown")] += 1
+    
+    return {
+        "total_models": total_models,
+        "total_requests": total_requests,
+        "total_tokens": total_tokens,
+        "by_status": dict(by_status),
+        "by_framework": dict(by_framework),
+    }
 
 
 @app.get("/models", tags=["model"])
