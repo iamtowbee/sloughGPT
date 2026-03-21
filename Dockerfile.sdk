@@ -1,0 +1,16 @@
+FROM python:3.11-slim
+
+LABEL maintainer="SloughGPT"
+LABEL description="SloughGPT Python SDK"
+
+WORKDIR /app
+
+COPY sloughgpt_sdk/ ./sloughgpt_sdk/
+COPY pyproject.toml .
+COPY README.md .
+COPY LICENSE .
+
+RUN pip install --no-cache-dir -e .
+
+ENTRYPOINT ["sloughgpt"]
+CMD ["--help"]

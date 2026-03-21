@@ -1,0 +1,21 @@
+{
+  "name": "@sloughgpt/typescript-sdk",
+  "version": "1.0.0",
+  "description": "TypeScript SDK for SloughGPT API",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "keywords": ["sloughgpt", "ai", "llm", "typescript"],
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=17.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "typescript": "^5.0.0"
+  }
+}

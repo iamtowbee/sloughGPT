@@ -488,43 +488,11 @@ class ChatRequest(BaseModel):
 
 
 def load_model():
-    """Load model - prefers local, falls back to HuggingFace."""
-    global model, tokenizer, model_type, checkpoint
-
-    # Try loading local model first
-    local_model_path = "models/sloughgpt.pt"
-    if os.path.exists(local_model_path):
-        print(f"Loading local model from {local_model_path}...")
-        try:
-            import signal
-            def timeout_handler(signum, frame):
-                raise TimeoutError("Model loading timed out")
-            
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(10)  # 10 second timeout
-            
-            checkpoint = torch.load(local_model_path, weights_only=False, map_location="cpu")
-            model = checkpoint.get("model", checkpoint)
-            model_type = "nanogpt"
-            print("Local NanoGPT model loaded!")
-            return
-        except TimeoutError:
-            print("Model loading timed out - falling back to GPT-2")
-        except Exception as e:
-            print(f"Failed to load local model: {e} - falling back to GPT-2")
-
-    # Fall back to HuggingFace GPT-2
-    print("Loading GPT-2 from HuggingFace...")
-    try:
-        from transformers import GPT2LMHeadModel, GPT2Tokenizer
-
-        tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-        model = GPT2LMHeadModel.from_pretrained("gpt2")
-        model_type = "gpt2"
-        print("GPT-2 loaded successfully!")
-    except Exception as e:
-        print(f"Failed to load GPT-2: {e}")
-        model_type = "none"
+    """Skip model loading - use demo mode for now."""
+    global model, model_type
+    model = None
+    model_type = "demo"
+    print("Demo mode active (no model loaded)")
 
 
 @app.post("/load")
