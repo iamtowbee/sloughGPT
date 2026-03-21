@@ -461,6 +461,42 @@ model = None
 tokenizer = None
 model_type = "none"
 checkpoint = None
+current_soul = None
+
+
+def get_soul_generation_params():
+    """Get generation params from loaded soul, or defaults."""
+    if current_soul is None:
+        return {"temperature": 0.8, "top_p": 0.9, "top_k": 50, "max_tokens": 100}
+    gen = getattr(current_soul, "generation", None)
+    if gen is None:
+        return {"temperature": 0.8, "top_p": 0.9, "top_k": 50, "max_tokens": 100}
+    if hasattr(gen, "to_dict"):
+        d = gen.to_dict()
+    elif isinstance(gen, dict):
+        d = gen
+    else:
+        return {"temperature": 0.8, "top_p": 0.9, "top_k": 50, "max_tokens": 100}
+    return {
+        "temperature": d.get("temperature", 0.8),
+        "top_p": d.get("top_p", 0.9),
+        "top_k": d.get("top_k", 50),
+        "max_tokens": d.get("max_tokens", 100),
+    }
+
+
+def get_soul_personality():
+    """Get personality traits from loaded soul."""
+    if current_soul is None:
+        return None
+    return {
+        "name": current_soul.name if hasattr(current_soul, "name") else "unknown",
+        "lineage": current_soul.lineage if hasattr(current_soul, "lineage") else "unknown",
+        "personality": current_soul.personality.to_dict() if hasattr(current_soul, "personality") and current_soul.personality else {},
+        "behavior": current_soul.behavior.to_dict() if hasattr(current_soul, "behavior") and current_soul.behavior else {},
+        "cognition": current_soul.cognition.to_dict() if hasattr(current_soul, "cognition") and current_soul.cognition else {},
+        "emotion": current_soul.emotion.to_dict() if hasattr(current_soul, "emotion") and current_soul.emotion else {},
+    }
 
 
 class GenerateRequest(BaseModel):
@@ -505,17 +541,122 @@ async def load_model_endpoint():
     return {"status": "loaded", "model": model_type}
 
 
+class LoadSoulRequest(BaseModel):
+    soul_path: str
+
+
+@app.post("/load-soul")
+async def load_soul(request: LoadSoulRequest):
+    """Load a .sou Soul Unit file."""
+    global current_soul, model_type
+
+    try:
+        from domains.inference.sou_format import SouParser, import_from_sou
+        from domains.training.models.nanogpt import NanoGPT
+
+        soul, state_dict = import_from_sou(request.soul_path)
+
+        gen = getattr(soul, "generation", None) or {}
+        if hasattr(gen, "temperature"):
+            temperature = gen.temperature
+            top_p = gen.top_p
+            max_tokens = gen.max_tokens
+        else:
+            temperature = gen.get("temperature", 0.8) if isinstance(gen, dict) else 0.8
+            top_p = gen.get("top_p", 0.9) if isinstance(gen, dict) else 0.9
+            max_tokens = gen.get("max_tokens", 2048) if isinstance(gen, dict) else 2048
+
+        current_soul = soul
+        model_type = f"sou/{soul.name}" if hasattr(soul, "name") else "sou/loaded"
+
+        model_cfg = state_dict.get("config", {}) if isinstance(state_dict, dict) else {}
+        if hasattr(soul, "base_model"):
+            n_embed = getattr(soul, "n_embed", 256)
+            n_layer = getattr(soul, "n_layer", 6)
+            n_head = getattr(soul, "n_head", 8)
+            block_size = getattr(soul, "block_size", 128)
+            vocab_size = getattr(soul, "vocab_size", 256)
+        else:
+            n_embed = model_cfg.get("n_embed", 256)
+            n_layer = model_cfg.get("n_layer", 6)
+            n_head = model_cfg.get("n_head", 8)
+            block_size = model_cfg.get("block_size", 128)
+            vocab_size = model_cfg.get("vocab_size", 256)
+
+        n_embed = n_embed or 256
+        n_layer = n_layer or 6
+        n_head = n_head or 8
+        block_size = block_size or 128
+        vocab_size = vocab_size or 256
+
+        new_model = NanoGPT(
+            vocab_size=vocab_size,
+            n_embed=n_embed,
+            n_layer=n_layer,
+            n_head=n_head,
+            block_size=block_size,
+        )
+        new_model.load_state_dict(state_dict, strict=False)
+
+        global model
+        model = new_model
+
+        return {
+            "status": "loaded",
+            "soul_name": soul.name if hasattr(soul, "name") else "unknown",
+            "lineage": soul.lineage if hasattr(soul, "lineage") else "unknown",
+            "born_at": soul.born_at if hasattr(soul, "born_at") else "",
+            "generation_params": {
+                "temperature": temperature,
+                "top_p": top_p,
+                "max_tokens": max_tokens,
+            },
+            "personality": soul.personality.to_dict() if hasattr(soul, "personality") and soul.personality else {},
+            "cognition": soul.cognition.to_dict() if hasattr(soul, "cognition") and soul.cognition else {},
+        }
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/soul")
+async def get_soul():
+    """Get current soul profile."""
+    if current_soul is None:
+        return {"status": "no_soul", "message": "No soul loaded"}
+    return {
+        "status": "loaded",
+        "name": current_soul.name if hasattr(current_soul, "name") else "unknown",
+        "lineage": current_soul.lineage if hasattr(current_soul, "lineage") else "unknown",
+        "born_at": current_soul.born_at if hasattr(current_soul, "born_at") else "",
+        "version": current_soul.version if hasattr(current_soul, "version") else "1.0.0",
+        "tagline": current_soul.tagline if hasattr(current_soul, "tagline") else "",
+        "personality": current_soul.personality.to_dict() if hasattr(current_soul, "personality") and current_soul.personality else {},
+        "behavior": current_soul.behavior.to_dict() if hasattr(current_soul, "behavior") and current_soul.behavior else {},
+        "cognition": current_soul.cognition.to_dict() if hasattr(current_soul, "cognition") and current_soul.cognition else {},
+        "emotion": current_soul.emotion.to_dict() if hasattr(current_soul, "emotion") and current_soul.emotion else {},
+        "generation": current_soul.generation.to_dict() if hasattr(current_soul, "generation") and current_soul.generation else {},
+        "integrity_hash": current_soul.integrity_hash if hasattr(current_soul, "integrity_hash") else "",
+        "tags": current_soul.tags if hasattr(current_soul, "tags") else [],
+        "certifications": current_soul.certifications if hasattr(current_soul, "certifications") else [],
+    }
+
+
 @app.get("/")
 async def root():
+    soul_name = current_soul.name if current_soul and hasattr(current_soul, "name") else None
     return {
         "name": "SloughGPT API",
         "version": "1.0.0",
         "status": "running",
         "model": model_type,
+        "soul_loaded": soul_name,
         "endpoints": {
             "generate": "/generate (POST)",
             "generate_stream": "/generate/stream (POST)",
             "generate_ws": "/ws/generate (WebSocket)",
+            "load_soul": "/load-soul (POST)",
+            "soul": "/soul (GET)",
             "personalities": "/personalities (GET)",
             "models": "/models (GET)",
             "datasets": "/datasets (GET)",
@@ -546,6 +687,29 @@ async def info():
                 "chars": len(checkpoint.get("chars", [])),
             }
         )
+
+    if current_soul:
+        soul_info_val = get_soul_personality()
+        if soul_info_val:
+            soul_info_val["integrity_hash"] = (
+                current_soul.integrity_hash
+                if hasattr(current_soul, "integrity_hash")
+                else ""
+            )
+            soul_info_val["born_at"] = (
+                current_soul.born_at
+                if hasattr(current_soul, "born_at")
+                else ""
+            )
+            soul_info_val["tags"] = (
+                current_soul.tags if hasattr(current_soul, "tags") else []
+            )
+            soul_info_val["certifications"] = (
+                current_soul.certifications
+                if hasattr(current_soul, "certifications")
+                else []
+            )
+            info["soul"] = soul_info_val
 
     if torch.cuda.is_available():
         info["cuda"] = {
@@ -824,10 +988,22 @@ async def generate_demo(request: GenerateRequest):
 async def generate(request: GenerateRequest):
     client_ip = request.client.host if request.client else "unknown"
 
-    # Validate input
     prompt = input_validator.validate_prompt(request.prompt)
-    max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
-    temperature = input_validator.validate_temperature(request.temperature or 0.8)
+    soul_defaults = get_soul_generation_params()
+    soul_info = get_soul_personality()
+
+    max_tokens = input_validator.validate_max_tokens(
+        request.max_new_tokens
+        if request.max_new_tokens is not None
+        else soul_defaults["max_tokens"]
+    )
+    temperature = input_validator.validate_temperature(
+        request.temperature
+        if request.temperature is not None
+        else soul_defaults["temperature"]
+    )
+    top_p = request.top_p if request.top_p is not None else soul_defaults["top_p"]
+    top_k = request.top_k if request.top_k is not None else soul_defaults["top_k"]
 
     if model is None:
         audit_logger.log("generate", client_ip, resource="/generate", action="no_model", status="success")
@@ -860,10 +1036,14 @@ async def generate(request: GenerateRequest):
                 do_sample=True,
             )
         text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        return {"text": text, "model": model_type, "personality": request.personality}
+        return {
+            "text": text,
+            "model": model_type,
+            "personality": request.personality,
+            "soul": soul_info,
+        }
 
     if model_type == "nanogpt":
-        # Generate using local NanoGPT
         stoi = checkpoint.get("stoi", {})
         itos = checkpoint.get("itos", {})
 
@@ -871,17 +1051,25 @@ async def generate(request: GenerateRequest):
 
         model.eval()
         with torch.no_grad():
-            for _ in range(request.max_new_tokens):
+            for _ in range(max_tokens):
                 idx_cond = idx[:, -128:]
                 logits, _ = model(idx_cond)
                 logits = logits[:, -1, :] / temperature
+                if top_k > 0:
+                    indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
+                    logits[indices_to_remove] = float("-inf")
                 probs = torch.softmax(logits, dim=-1)
                 idx_next = torch.multinomial(probs, num_samples=1)
                 idx = torch.cat([idx, idx_next], dim=1)
 
         generated = "".join([itos.get(i, "") for i in idx[0].tolist()])
         text = generated[len(request.prompt) :]
-        return {"text": text, "model": model_type, "personality": request.personality}
+        return {
+            "text": text,
+            "model": model_type,
+            "personality": request.personality,
+            "soul": soul_info,
+        }
 
     return {"text": "Model type not supported", "model": model_type}
 

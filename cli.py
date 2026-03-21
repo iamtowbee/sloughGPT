@@ -594,6 +594,120 @@ def cmd_generate(args):
         print(f"Error: {e}")
 
 
+def cmd_soul(args):
+    """Load, inspect, or create .sou Soul Unit files."""
+    import requests
+
+    if args.load:
+        base_url = f"http://{args.host}:{args.port}"
+        try:
+            resp = requests.post(
+                f"{base_url}/load-soul",
+                json={"soul_path": args.load},
+                timeout=30,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                print("=" * 50)
+                print("SOUL LOADED")
+                print("=" * 50)
+                print(f"Name:     {data.get('soul_name', 'unknown')}")
+                print(f"Lineage:  {data.get('lineage', 'unknown')}")
+                print(f"Born:     {data.get('born_at', '')}")
+                print()
+                print("Generation Params:")
+                for k, v in data.get("generation_params", {}).items():
+                    print(f"  {k}: {v}")
+                print()
+                print("Personality:")
+                for k, v in data.get("personality", {}).items():
+                    print(f"  {k}: {v}")
+                print()
+                print("Cognition:")
+                for k, v in data.get("cognition", {}).items():
+                    print(f"  {k}: {v}")
+            else:
+                print(f"Error: {resp.json()}")
+        except Exception as e:
+            print(f"Error: {e}")
+        return
+
+    if args.info:
+        from domains.inference.sou_format import SouParser
+        try:
+            soul = SouParser.load(args.info)
+            print("=" * 50)
+            print(f"SOUL: {soul.name}")
+            print("=" * 50)
+            print(f"Version:    {soul.version}")
+            print(f"Lineage:   {soul.lineage}")
+            print(f"Born:      {soul.born_at}")
+            print(f"Hash:      {soul.integrity_hash}")
+            print(f"Tags:      {', '.join(soul.tags)}")
+            print()
+            print("Personality:")
+            if soul.personality:
+                for k, v in soul.personality.to_dict().items():
+                    print(f"  {k}: {v}")
+            print()
+            print("Behavior:")
+            if soul.behavior:
+                for k, v in soul.behavior.to_dict().items():
+                    print(f"  {k}: {v}")
+            print()
+            print("Cognition:")
+            if soul.cognition:
+                for k, v in soul.cognition.to_dict().items():
+                    print(f"  {k}: {v}")
+            print()
+            print("Emotion:")
+            if soul.emotion:
+                for k, v in soul.emotion.to_dict().items():
+                    print(f"  {k}: {v}")
+        except Exception as e:
+            print(f"Error: {e}")
+        return
+
+    if args.create:
+        from domains.inference.sou_format import create_soul_profile, export_to_sou
+        from domains.training.models.nanogpt import NanoGPT
+        import torch
+
+        soul = create_soul_profile(
+            name=args.name or "SloughGPT-Soul",
+            base_model="nanogpt",
+            training_dataset=args.dataset or "",
+            epochs_trained=args.epochs or 0,
+            lineage=args.lineage or "nanogpt",
+            tags=args.tags.split(",") if args.tags else ["sloughgpt", "soul"],
+        )
+
+        if args.model:
+            checkpoint = torch.load(args.model, weights_only=False, map_location="cpu")
+            state_dict = checkpoint.get("model_state_dict") or checkpoint.get("model") or checkpoint
+            cfg = checkpoint.get("config") or {}
+            n_embed = cfg.get("n_embed", 256)
+            n_layer = cfg.get("n_layer", 6)
+            n_head = cfg.get("n_head", 8)
+            block_size = cfg.get("block_size", 128)
+            vocab_size = cfg.get("vocab_size", 256)
+
+            model = NanoGPT(
+                vocab_size=vocab_size,
+                n_embed=n_embed,
+                n_layer=n_layer,
+                n_head=n_head,
+                block_size=block_size,
+            )
+            model.load_state_dict(state_dict, strict=False)
+            export_to_sou(model, args.create, soul_profile=soul)
+            print(f"Soul Unit created: {args.create}")
+        else:
+            from domains.inference.sou_format import SouParser
+            SouParser.save(soul, args.create)
+            print(f"Soul profile created: {args.create}")
+
+
 def cmd_datasets(args):
     """List datasets - local version."""
     from pathlib import Path
@@ -2153,6 +2267,19 @@ def main():
     
     check_parser = config_sub.add_parser("check", help="Check environment setup")
     check_parser.set_defaults(func=cmd_config_check)
+
+    # Soul command
+    soul_parser = subparsers.add_parser("soul", help="Manage .sou Soul Unit files")
+    soul_parser.add_argument("--load", "-l", metavar="PATH", help="Load a .sou file into the server")
+    soul_parser.add_argument("--info", "-i", metavar="PATH", help="Inspect a .sou file")
+    soul_parser.add_argument("--create", "-c", metavar="PATH", help="Create a .sou file")
+    soul_parser.add_argument("--model", "-m", metavar="PATH", help="Model checkpoint for --create")
+    soul_parser.add_argument("--name", "-n", metavar="NAME", help="Soul name for --create")
+    soul_parser.add_argument("--dataset", "-d", metavar="PATH", help="Training dataset for --create")
+    soul_parser.add_argument("--epochs", "-e", type=int, default=0, help="Epochs trained for --create")
+    soul_parser.add_argument("--lineage", default="nanogpt", help="Model lineage for --create")
+    soul_parser.add_argument("--tags", default="", help="Comma-separated tags for --create")
+    soul_parser.set_defaults(func=cmd_soul)
 
     args = parser.parse_args()
 

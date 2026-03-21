@@ -937,4 +937,28 @@ SloughGPT Core
 - `health`, `info`, `generate`, `chat`, `models`, `datasets`
 - `metrics`, `batch`, `key` (create/list/info/rotate/revoke/delete/usage)
 
+### Phase 27: Soul Unit (.sou) Integration
+
+**Server (`server/main.py`):**
+- ✅ `current_soul` global - loaded soul profile
+- ✅ `get_soul_generation_params()` - helper for soul params
+- ✅ `get_soul_personality()` - helper for soul traits
+- ✅ `POST /load-soul` - load .sou file, creates NanoGPT model from it
+- ✅ `GET /soul` - get current soul profile
+- ✅ `/generate` - uses soul params as defaults (temperature, top_p, top_k, max_tokens)
+- ✅ `/info` - includes soul info in response
+- ✅ `/root` - shows `soul_loaded` field
+- ✅ Nanogpt generation now uses soul top_k filtering
+
+**CLI (`cli.py`):**
+- ✅ `sloughgpt soul --load` - load .sou into server
+- ✅ `sloughgpt soul --info` - inspect .sou file (full soul profile)
+- ✅ `sloughgpt soul --create` - create .sou from checkpoint
+
+**Training Pipeline:**
+- ✅ `sloughgpt train --export-sou` - export trained model as .sou
+- ✅ `sloughgpt export --format sou` - convert any checkpoint to .sou
+- ✅ `SloughGPTTrainer.save()` - supports .sou format
+- ✅ Soul profile auto-populated with training metrics
+
 *Always refer to this document for project status and priorities*
