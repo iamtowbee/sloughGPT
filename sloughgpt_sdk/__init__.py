@@ -106,6 +106,39 @@ sys.modules["sloughgpt_sdk.dashboard"] = _dashboard
 UsageDashboard = _dashboard.UsageDashboard
 DashboardMetrics = _dashboard.DashboardMetrics
 
+_registry_path = os.path.join(_package_dir, "registry.py")
+_registry_spec = importlib.util.spec_from_file_location("sloughgpt_sdk.registry", _registry_path)
+_registry = importlib.util.module_from_spec(_registry_spec)
+_registry_spec.loader.exec_module(_registry)
+sys.modules["sloughgpt_sdk.registry"] = _registry
+
+ModelRegistry = _registry.ModelRegistry
+ModelSelector = _registry.ModelSelector
+ModelStatus = _registry.ModelStatus
+ModelTag = _registry.ModelTag
+
+_http_path = os.path.join(_package_dir, "http.py")
+_http_spec = importlib.util.spec_from_file_location("sloughgpt_sdk.http", _http_path)
+_http = importlib.util.module_from_spec(_http_spec)
+_http_spec.loader.exec_module(_http)
+sys.modules["sloughgpt_sdk.http"] = _http
+
+HTTPClient = _http.HTTPClient
+Sanitizer = _http.Sanitizer
+RequestInterceptor = _http.RequestInterceptor
+LoggingInterceptor = _http.LoggingInterceptor
+AuthInterceptor = _http.AuthInterceptor
+RetryInterceptor = _http.RetryInterceptor
+ResponseHandler = _http.ResponseHandler
+ErrorHandler = _http.ErrorHandler
+JSONParser = _http.JSONParser
+RequestConfig = _http.RequestConfig
+RequestContext = _http.RequestContext
+ResponseContext = _http.ResponseContext
+with_retry = _http.with_retry
+with_timeout = _http.with_timeout
+sanitize_request = _http.sanitize_request
+
 __all__ = [
     "SloughGPTClient",
     "GenerateRequest",
@@ -134,4 +167,23 @@ __all__ = [
     "Invoice",
     "UsageDashboard",
     "DashboardMetrics",
+    "ModelRegistry",
+    "ModelSelector",
+    "ModelStatus",
+    "ModelTag",
+    "HTTPClient",
+    "Sanitizer",
+    "RequestInterceptor",
+    "LoggingInterceptor",
+    "AuthInterceptor",
+    "RetryInterceptor",
+    "ResponseHandler",
+    "ErrorHandler",
+    "JSONParser",
+    "RequestConfig",
+    "RequestContext",
+    "ResponseContext",
+    "with_retry",
+    "with_timeout",
+    "sanitize_request",
 ]

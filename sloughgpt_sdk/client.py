@@ -595,6 +595,102 @@ class SloughGPTClient:
         """Quick chat with a single user message."""
         result = self.chat([ChatMessage.user(user_message)])
         return result.message.content
+    
+    # Model Registry
+    
+    def register_model(
+        self,
+        model_id: str,
+        name: str,
+        version: str,
+        path: str,
+        description: str = "",
+        size_mb: float = 0,
+        parameters: int = 0,
+        framework: str = "pytorch",
+        tags: Optional[List[str]] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Register a model with the server registry."""
+        payload = {
+            "id": model_id,
+            "name": name,
+            "version": version,
+            "path": path,
+            "description": description,
+            "size_mb": size_mb,
+            "parameters": parameters,
+            "framework": framework,
+            "tags": tags or [],
+            **kwargs
+        }
+        response = self._request("POST", "/registry/models", json=payload)
+        return response.json()
+    
+    def list_registered_models(
+        self,
+        status: Optional[str] = None,
+        tag: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """List models in the server registry."""
+        params = {}
+        if status:
+            params["status"] = status
+        if tag:
+            params["tag"] = tag
+        response = self._request("GET", "/registry/models", params=params)
+        return response.json().get("models", [])
+    
+    def get_registered_model(self, model_id: str) -> Dict[str, Any]:
+        """Get a model from the server registry."""
+        response = self._request("GET", f"/registry/models/{model_id}")
+        return response.json()
+    
+    def unregister_model(self, model_id: str) -> Dict[str, Any]:
+        """Unregister a model from the server registry."""
+        response = self._request("DELETE", f"/registry/models/{model_id}")
+        return response.json()
+    
+    def record_to_registry(
+        self,
+        model_id: str,
+        latency_ms: float,
+        tokens: int = 0,
+        success: bool = True
+    ) -> Dict[str, Any]:
+        """Record a request to the server registry."""
+        payload = {
+            "latency_ms": latency_ms,
+            "tokens": tokens,
+            "success": success
+        }
+        response = self._request("POST", f"/registry/models/{model_id}/record", json=payload)
+        return response.json()
+    
+    def get_registry_metrics(self, model_id: str) -> Dict[str, Any]:
+        """Get model metrics from the server registry."""
+        response = self._request("GET", f"/registry/models/{model_id}/metrics")
+        return response.json()
+    
+    def get_best_registered_model(
+        self,
+        criteria: str = "latency",
+        tag: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Get the best model from the server registry."""
+        params = {"criteria": criteria}
+        if tag:
+            params["tag"] = tag
+        response = self._request("GET", "/registry/best", params=params)
+        data = response.json()
+        if "error" in data:
+            return None
+        return data
+    
+    def get_registry_stats(self) -> Dict[str, Any]:
+        """Get registry statistics from the server."""
+        response = self._request("GET", "/registry/stats")
+        return response.json()
 
 
 class SimpleTracker:

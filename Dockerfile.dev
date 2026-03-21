@@ -1,7 +1,4 @@
-# SloughGPT Development Dockerfile
-# Optimized for development with hot reloading
-
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -11,7 +8,6 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
@@ -21,27 +17,27 @@ RUN apt-get update && apt-get install -y \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PyTorch CPU
 RUN pip install --upgrade pip && \
-    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+    pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-# Install core dependencies
-COPY requirements.txt ./
+COPY server/requirements.txt ./
 RUN pip install -r requirements.txt
 
-# Install ML dependencies
-RUN pip install transformers accelerate bitsandbytes scipy
+RUN pip install transformers accelerate bitsandbytes scipy pytest pytest-asyncio pytest-cov ruff black mypy ipython
 
-# Install development tools
-RUN pip install pytest pytest-asyncio pytest-cov ruff black mypy ipython
+COPY server/ ./server/
+COPY sloughgpt_sdk/ ./sloughgpt_sdk/
+COPY training/ ./training/
+COPY inference/ ./inference/
+COPY monitoring/ ./monitoring/
+COPY evaluation/ ./evaluation/
+COPY experiments/ ./experiments/
+COPY pyproject.toml .
+COPY README.md .
+COPY LICENSE .
 
-# Copy application
-COPY . .
-
-# Create directories
 RUN mkdir -p /app/models /app/datasets /app/data /app/logs /app/checkpoints
 
 EXPOSE 8000 5678
 
-# Development command
-CMD ["uvicorn", "domains.ui.api_server:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "server.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
