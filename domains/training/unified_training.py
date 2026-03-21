@@ -325,25 +325,46 @@ class Trainer:
         logger.info("Evaluation complete")
         return {"loss": 0.0}
 
-    def save(self, path: str):
-        """Save model checkpoint."""
+    def save(self, path: str, format: str = "safetensors"):
+        """Save model checkpoint in standard format.
+
+        Args:
+            path: Base output path (extension added automatically)
+            format: safetensors (default), safetensors_bf16, torch
+        """
         if self.model is None:
             raise RuntimeError("No model to save")
 
-        checkpoint = {
-            "model_state_dict": self.model.model.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict(),
+        from .export import export_to_safetensors, export_to_torch
+
+        metadata = {
             "config": self.config.to_dict(),
             "epoch": self.current_epoch,
             "global_step": self.global_step,
             "best_loss": self.best_loss,
         }
 
-        if self.scheduler:
-            checkpoint["scheduler_state_dict"] = self.scheduler.state_dict()
+        if format == "safetensors":
+            output_path = path + ".safetensors"
+            export_to_safetensors(self.model.model, output_path, metadata)
+        elif format == "safetensors_bf16":
+            output_path = path + "-bf16.safetensors"
+            export_to_safetensors(self.model.model, output_path, metadata, dtype="bf16")
+        elif format == "torch":
+            output_path = path + ".pt"
+            checkpoint = {
+                "model_state_dict": self.model.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "metadata": metadata,
+            }
+            if self.scheduler:
+                checkpoint["scheduler_state_dict"] = self.scheduler.state_dict()
+            torch.save(checkpoint, output_path)
+        else:
+            output_path = path + ".safetensors"
+            export_to_safetensors(self.model.model, output_path, metadata)
 
-        torch.save(checkpoint, path)
-        logger.info(f"Model saved to {path}")
+        logger.info(f"Model saved to {output_path} ({format})")
 
     def load(self, path: str):
         """Load model checkpoint."""

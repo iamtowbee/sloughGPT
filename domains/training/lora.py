@@ -327,13 +327,36 @@ class LoRATrainer:
 
         return {"loss": loss.item()}
 
-    def save_lora(self, path: str):
-        """Save only LoRA weights."""
+    def save_lora(self, path: str, format: str = "safetensors"):
+        """Save LoRA weights in standard format.
+
+        Args:
+            path: Base output path (extension added automatically)
+            format: safetensors (default), safetensors_bf16, torch
+        """
+        from .export import export_to_safetensors
+
         lora_state = {
             name: param for name, param in self.model.state_dict().items() if "lora_" in name
         }
-        torch.save(lora_state, path)
-        logger.info(f"LoRA weights saved to {path}")
+        metadata = {"type": "lora", "rank": self.config.rank, "alpha": self.config.alpha}
+
+        if format in ("safetensors", "safetensors_bf16"):
+            dtype = "bf16" if format == "safetensors_bf16" else None
+            output_path = path + (".safetensors" if format == "safetensors" else "-bf16.safetensors")
+
+            class LoRAWrapper:
+                def __init__(self, sd):
+                    self._sd = sd
+                def state_dict(self):
+                    return self._sd
+
+            export_to_safetensors(LoRAWrapper(lora_state), output_path, metadata, dtype=dtype)
+        else:
+            output_path = path + ".pt"
+            torch.save({**lora_state, "metadata": metadata}, output_path)
+
+        logger.info(f"LoRA weights saved to {output_path} ({format})")
 
     def load_lora(self, path: str):
         """Load LoRA weights."""

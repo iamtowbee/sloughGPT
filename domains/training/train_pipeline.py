@@ -13,6 +13,7 @@ from domains.training.models.nanogpt import NanoGPT
 from domains.training.lora import apply_lora_to_model, LoRAConfig
 from domains.training.efficient_inference import Quantizer
 from domains.training.lr_schedulers import create_scheduler
+from domains.training.export import export_to_safetensors, export_to_torch
 
 
 class TextDataset(Dataset):
@@ -212,14 +213,18 @@ class SloughGPTTrainer:
         text = "".join([self.itos.get(int(i), "?") for i in output[0]])
         return text
 
-    def save(self, path):
-        """Save model checkpoint."""
+    def save(self, path, format="safetensors"):
+        """Save model checkpoint in standard format.
+
+        Args:
+            path: Base output path (extension added automatically)
+            format: Save format - safetensors (default), safetensors_bf16, torch
+        """
         import os
 
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
 
-        checkpoint = {
-            "model_state_dict": self.model.state_dict(),
+        metadata = {
             "vocab_size": self.vocab_size,
             "stoi": self.stoi,
             "itos": self.itos,
@@ -230,8 +235,21 @@ class SloughGPTTrainer:
                 "block_size": self.model.block_size,
             },
         }
-        torch.save(checkpoint, path)
-        print(f"Model saved to {path}")
+
+        if format == "safetensors":
+            output_path = path + ".safetensors"
+            export_to_safetensors(self.model, output_path, metadata)
+        elif format == "safetensors_bf16":
+            output_path = path + "-bf16.safetensors"
+            export_to_safetensors(self.model, output_path, metadata, dtype="bf16")
+        elif format == "torch":
+            output_path = path + ".pt"
+            export_to_torch(self.model, output_path, metadata)
+        else:
+            output_path = path + ".safetensors"
+            export_to_safetensors(self.model, output_path, metadata)
+
+        print(f"Model saved to {output_path} ({format})")
 
     @classmethod
     def load(cls, path):

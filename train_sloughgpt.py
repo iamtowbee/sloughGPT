@@ -18,6 +18,7 @@ elif torch.backends.mps.is_available():
 
 # Use existing NanoGPT from our infrastructure
 from domains.training.models.nanogpt import NanoGPT
+from domains.training.export import export_to_safetensors, export_to_gguf
 
 
 class TextDataset(Dataset):
@@ -73,6 +74,51 @@ def is_gpu_available():
     return torch.cuda.is_available() or torch.backends.mps.is_available()
 
 
+def _save_model(model, base_path: str, format: str = "safetensors", quantization=None, metadata=None):
+    """Save model in standard format with metadata."""
+    os.makedirs(os.path.dirname(base_path) or ".", exist_ok=True)
+
+    meta = metadata or {}
+    meta["model_type"] = "nanogpt"
+    meta["format"] = format
+
+    formats = format.split(",") if "," in format else [format]
+
+    for fmt in formats:
+        fmt = fmt.strip().lower()
+
+        if fmt == "safetensors":
+            path = base_path + ".safetensors"
+            export_to_safetensors(model, path, meta)
+
+        elif fmt == "safetensors_bf16":
+            path = base_path + "-bf16.safetensors"
+            export_to_safetensors(model, path, meta, dtype="bf16")
+
+        elif fmt in ("gguf", "gguf_q4_0", "gguf_q4_1", "gguf_q5_0", "gguf_q5_1", "gguf_q8_0", "gguf_f16", "gguf_f32"):
+            quant_map = {
+                "gguf": quantization or "Q4_0",
+                "gguf_q4_0": "Q4_0",
+                "gguf_q4_1": "Q4_1",
+                "gguf_q5_0": "Q5_0",
+                "gguf_q5_1": "Q5_1",
+                "gguf_q8_0": "Q8_0",
+                "gguf_f16": "F16",
+                "gguf_f32": "F32",
+            }
+            quant = quant_map.get(fmt, "Q4_0")
+            path = base_path + f"-{quant}.gguf"
+            export_to_gguf(model, path, quant)
+
+        elif fmt in ("torch", "pytorch"):
+            path = base_path + ".pt"
+            torch.save({"model_state_dict": model.state_dict(), "metadata": meta}, path)
+
+        else:
+            path = base_path + ".safetensors"
+            export_to_safetensors(model, path, meta)
+
+
 def train_sloughgpt(
     data_path="datasets/shakespeare/input.txt",
     vocab_size=None,
@@ -92,6 +138,9 @@ def train_sloughgpt(
     gradient_accumulation=1,
     mixed_precision=False,
     compile_model=False,
+    save_format="safetensors",
+    save_quantized=None,
+    save_path=None,
 ):
     """Train SloughGPT model."""
 
@@ -315,32 +364,36 @@ def train_sloughgpt(
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            torch.save(
-                {
-                    "model": model.state_dict(),
-                    "chars": list(range(vocab_size)),
+            _save_model(
+                model,
+                "models/sloughgpt_best",
+                format=save_format,
+                quantization=save_quantized,
+                metadata={
+                    "vocab_size": vocab_size,
+                    "n_embed": n_embed,
+                    "n_layer": n_layer,
+                    "n_head": n_head,
+                    "block_size": block_size,
                     "stoi": stoi,
                     "itos": itos,
-                    "training_info": {
-                        "vocab_size": vocab_size,
-                        "n_embed": n_embed,
-                        "n_layer": n_layer,
-                        "n_head": n_head,
-                        "block_size": block_size,
-                    },
+                    "is_best": True,
                 },
-                "models/sloughgpt_best.pt",
             )
-            print("  -> New best model saved!")
+            print(f"  -> New best model saved ({save_format})!")
 
         print("-" * 50)
 
     # Save model
-    save_path = "models/sloughgpt.pt"
     os.makedirs("models", exist_ok=True)
-    torch.save(
-        {
-            "model_state_dict": model.state_dict(),
+    final_path = save_path or "models/sloughgpt"
+
+    _save_model(
+        model,
+        final_path,
+        format=save_format,
+        quantization=save_quantized,
+        metadata={
             "vocab_size": vocab_size,
             "n_embed": n_embed,
             "n_layer": n_layer,
@@ -349,10 +402,9 @@ def train_sloughgpt(
             "stoi": stoi,
             "itos": itos,
         },
-        save_path,
     )
 
-    print(f"\nModel saved to {save_path}")
+    print(f"\nModel saved ({save_format}) to {final_path}")
 
     return model, stoi, itos
 
@@ -409,6 +461,26 @@ if __name__ == "__main__":
     parser.add_argument(
         "--compile", action="store_true", help="Compile model with torch.compile (PyTorch 2.0+)"
     )
+    parser.add_argument(
+        "--save_format",
+        type=str,
+        default="safetensors",
+        choices=["safetensors", "safetensors_bf16", "torch", "gguf", "all"],
+        help="Model save format (default: safetensors)",
+    )
+    parser.add_argument(
+        "--save_quantized",
+        type=str,
+        default=None,
+        choices=["Q4_0", "Q4_1", "Q5_0", "Q5_1", "Q8_0", "F16", "F32"],
+        help="Quantization type for GGUF export",
+    )
+    parser.add_argument(
+        "--save_path",
+        type=str,
+        default="models/sloughgpt",
+        help="Output path (without extension, format added automatically)",
+    )
 
     args = parser.parse_args()
 
@@ -431,6 +503,9 @@ if __name__ == "__main__":
         gradient_accumulation=args.gradient_accumulation,
         mixed_precision=args.mixed_precision,
         compile_model=args.compile,
+        save_format=args.save_format,
+        save_quantized=args.save_quantized,
+        save_path=args.save_path,
     )
 
     # Generate sample
