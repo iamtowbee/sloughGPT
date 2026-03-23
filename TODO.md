@@ -1086,4 +1086,20 @@ SloughGPT Core
 - ✅ CognitiveProcessor wired into SoulEngine generation pipeline
 - ✅ ReasoningEngine driven by soul's `reasoning_approach` trait
 
+### Phase 28: Mobile Deployment & Documentation
+
+**llama.rn Integration:**
+- ✅ Mobile deployment guide (`docs/llama_rn_integration.md`)
+  - Q4_K_M, Q5_K_M, Q8_0 quantization support
+  - iOS/Android platform notes
+  - Performance tips and troubleshooting
+- ✅ Standalone export script (`scripts/export_to_gguf.py`)
+- ✅ Model conversion utilities (`convert_to_gguf.py`)
+- ✅ Conda environment (`environment.yml`)
+- ✅ Quick start script (`quickstart.sh`)
+
+**Utility Scripts:**
+- ✅ Model download (`download_model.py`)
+- ✅ Model server (`model_server.py`)
+
 *Always refer to this document for project status and priorities*
