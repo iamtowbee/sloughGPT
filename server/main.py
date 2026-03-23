@@ -28,6 +28,7 @@ import re
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Header
+from federated_routes import router as federated_router
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
@@ -440,6 +441,10 @@ app.add_middleware(
 
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
+
+
+# ============ Federated Learning Routes ============
+app.include_router(federated_router)
 
 
 # WebSocket connection manager
