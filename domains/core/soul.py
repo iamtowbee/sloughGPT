@@ -16,7 +16,7 @@ This is how chain-of-thought prompting works - text-based, not binary.
 
 import time
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass, field
 
 import torch
