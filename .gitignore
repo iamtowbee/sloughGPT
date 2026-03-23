@@ -128,6 +128,25 @@ dist/
 
 # Node modules
 packages/app/ui/node_modules/*
+typescript-sdk/node_modules/
+
+# TypeScript
+typescript-sdk/dist/
+typescript-sdk/package-lock.json
 
 # Next.js build
 web/.next/
+
+# Model artifacts
+models/*.gguf
+models/*.safetensors
+models/*.sou
+models/gpt2_*
+models/vocab.json
+models/merges.txt
+models/special_tokens_map.json
+models/tokenizer_config.json
+
+# Config (use templates)
+.api_keys.json
+.model_registry.json
