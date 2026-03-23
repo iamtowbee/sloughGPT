@@ -239,7 +239,7 @@ class InferenceEngine:
 
 def load_model_for_inference(checkpoint_path: str, device: str = "cpu") -> InferenceEngine:
     """Load a trained model for inference."""
-    from domains.training.models.nanogpt import NanoGPT
+    from domains.models import SloughGPTModel
 
     checkpoint = torch.load(checkpoint_path, map_location=device)
 
@@ -258,7 +258,7 @@ def load_model_for_inference(checkpoint_path: str, device: str = "cpu") -> Infer
         n_head = checkpoint.get("n_head", 4)
         block_size = checkpoint.get("block_size", 64)
 
-    model = NanoGPT(
+    model = SloughGPTModel(
         vocab_size=vocab_size,
         n_embed=n_embed,
         n_layer=n_layer,

@@ -14,9 +14,11 @@ NC='\033[0m' # No Color
 # Default values
 PYTHON_CMD="python3"
 VENV_DIR=".venv"
+CONDA_ENV="sloughgpt"
 MODE="all"
 GPU_SUPPORT=false
 CUDA_VERSION="cpu"
+USE_CONDA=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -28,6 +30,15 @@ while [[ $# -gt 0 ]]; do
             ;;
         --venv)
             VENV_DIR="$2"
+            shift 2
+            ;;
+        --conda)
+            USE_CONDA=true
+            shift
+            ;;
+        --conda-env)
+            CONDA_ENV="$2"
+            USE_CONDA=true
             shift 2
             ;;
         --python)
@@ -48,15 +59,18 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: ./setup.sh [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --gpu           Enable GPU support (requires CUDA)"
-            echo "  --venv DIR      Virtual environment directory (default: .venv)"
-            echo "  --python CMD    Python command (default: python3)"
-            echo "  --docker-only   Setup Docker only"
-            echo "  --local-only    Setup local development only"
-            echo "  --help, -h      Show this help message"
+            echo "  --gpu              Enable GPU support (requires CUDA)"
+            echo "  --venv DIR         Virtual environment directory (default: .venv)"
+            echo "  --conda            Use conda (recommended for macOS Intel)"
+            echo "  --conda-env NAME   Conda environment name (default: sloughgpt)"
+            echo "  --python CMD       Python command (default: python3)"
+            echo "  --docker-only      Setup Docker only"
+            echo "  --local-only       Setup local development only"
+            echo "  --help, -h        Show this help message"
             echo ""
             echo "Examples:"
             echo "  ./setup.sh                    # Full setup (local + Docker)"
+            echo "  ./setup.sh --conda            # Use conda (recommended for macOS)"
             echo "  ./setup.sh --gpu              # Setup with GPU support"
             echo "  ./setup.sh --docker-only      # Docker only"
             echo "  ./setup.sh --venv myenv       # Custom venv directory"
@@ -192,6 +206,12 @@ setup_directories() {
 
 # Install Python dependencies
 install_python_deps() {
+    # Check if conda should be used
+    if [ "$USE_CONDA" = true ]; then
+        install_conda_deps
+        return
+    fi
+    
     print_info "Setting up Python virtual environment..."
     
     if [ ! -d "$VENV_DIR" ]; then
@@ -227,6 +247,62 @@ install_python_deps() {
     pip install pytest pytest-asyncio pytest-cov ruff black mypy
     
     print_status "Python dependencies installed"
+    echo ""
+}
+
+# Install Python dependencies using conda
+install_conda_deps() {
+    print_info "Setting up with conda..."
+    
+    # Check if conda is available
+    if ! command -v conda &> /dev/null; then
+        print_error "Conda not found! Please install Miniconda or Anaconda."
+        print_info "Visit: https://docs.conda.io/en/latest/miniconda.html"
+        print_info "Or run: brew install --cask miniconda"
+        echo ""
+        print_info "Falling back to venv..."
+        USE_CONDA=false
+        install_python_deps
+        return
+    fi
+    
+    print_info "Conda found: $(conda --version)"
+    
+    # Create conda environment
+    print_info "Creating conda environment: $CONDA_ENV"
+    if conda env list | grep -q "^$CONDA_ENV "; then
+        print_info "Conda environment '$CONDA_ENV' already exists"
+    else
+        conda create -n "$CONDA_ENV" python=3.11 -y
+        print_status "Created conda environment: $CONDA_ENV"
+    fi
+    
+    # Activate conda environment
+    source "$(conda info --base)/etc/profile.d/conda.sh"
+    conda activate "$CONDA_ENV"
+    
+    # Install PyTorch via conda (best for macOS)
+    print_info "Installing PyTorch via conda..."
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS - use default channel (works on both Intel and Apple Silicon)
+        conda install pytorch torchvision torchaudio -c pytorch -y
+    else
+        # Linux
+        if [ "$GPU_SUPPORT" = true ] && command -v nvidia-smi &> /dev/null; then
+            print_info "Installing PyTorch with CUDA..."
+            conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia -y
+        else
+            conda install pytorch torchvision torchaudio -c pytorch -y
+        fi
+    fi
+    
+    print_info "Installing other dependencies via pip..."
+    pip install -r requirements.txt
+    
+    print_status "Conda environment setup complete!"
+    echo ""
+    echo "To activate this environment in the future, run:"
+    echo "  conda activate $CONDA_ENV"
     echo ""
 }
 
@@ -383,36 +459,57 @@ print_next_steps() {
     echo -e "${BLUE}       Setup Complete!${NC}"
     echo -e "${BLUE}========================================${NC}"
     echo ""
-    echo "Next steps:"
-    echo ""
-    echo "1. Activate virtual environment:"
-    echo -e "   ${GREEN}source $VENV_DIR/bin/activate${NC}"
-    echo ""
-    echo "2. Start the API server:"
+    
+    if [ "$USE_CONDA" = true ]; then
+        echo "Conda environment: ${GREEN}$CONDA_ENV${NC}"
+        echo ""
+        echo "Next steps:"
+        echo ""
+        echo "1. Activate conda environment:"
+        echo -e "   ${GREEN}conda activate $CONDA_ENV${NC}"
+        echo ""
+        echo "2. Or use conda run (no activation needed):"
+        echo -e "   ${GREEN}conda run -n $CONDA_ENV python cli.py train --epochs 3${NC}"
+        echo -e "   ${GREEN}./run.sh python -c \"import torch; print(torch.__version__)\"${NC}"
+        echo ""
+    else
+        echo "Virtual environment: ${GREEN}$VENV_DIR${NC}"
+        echo ""
+        echo "Next steps:"
+        echo ""
+        echo "1. Activate virtual environment:"
+        echo -e "   ${GREEN}source $VENV_DIR/bin/activate${NC}"
+        echo ""
+        echo "2. Or use ./run.sh (no activation needed):"
+        echo -e "   ${GREEN}./run.sh python cli.py train --epochs 3${NC}"
+        echo ""
+    fi
+    
+    echo "3. Start the API server:"
     echo -e "   ${GREEN}./start.sh${NC}"
     echo "   or"
-    echo -e "   ${GREEN}python -m uvicorn domains.ui.api_server:app --reload${NC}"
+    echo -e "   ${GREEN}./run.sh python -m uvicorn domains.ui.api_server:app --reload${NC}"
     echo ""
-    echo "3. Access the API:"
+    echo "4. Access the API:"
     echo "   - API: http://localhost:8000"
     echo "   - Docs: http://localhost:8000/docs"
     echo "   - ReDoc: http://localhost:8000/redoc"
     echo ""
     
     if command -v docker &> /dev/null; then
-        echo "4. Docker deployment:"
+        echo "5. Docker deployment:"
         echo -e "   ${GREEN}./docker-start.sh${NC}"
         echo "   or"
         echo -e "   ${GREEN}docker-compose up -d${NC}"
         echo ""
     fi
     
-    echo "5. Run tests:"
-    echo -e "   ${GREEN}./test.sh${NC}"
+    echo "6. Run tests:"
+    echo -e "   ${GREEN}./run.sh pytest tests/ -x${NC}"
     echo ""
     
-    echo "6. Run benchmarks:"
-    echo -e "   ${GREEN}./benchmark.sh${NC}"
+    echo "7. Verify PyTorch:"
+    echo -e "   ${GREEN}./run.sh python -c \"import torch; print(f'PyTorch {torch.__version__}')\"${NC}"
     echo ""
 }
 

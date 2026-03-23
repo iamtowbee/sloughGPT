@@ -4,7 +4,7 @@ Inference Example - Generate text with trained model
 """
 
 import torch
-from domains.training.models.nanogpt import NanoGPT
+from domains.models import SloughGPTModel
 
 
 def main():
@@ -13,7 +13,7 @@ def main():
     print("=" * 50)
     
     # Create model
-    model = NanoGPT(
+    model = SloughGPTModel(
         vocab_size=100,  # Small for demo
         n_embed=128,
         n_layer=4,

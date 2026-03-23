@@ -1193,7 +1193,7 @@ _model_cache = {}
 async def infer(request: GenerateRequest):
     """Run inference with local or HuggingFace model."""
     import torch
-    from domains.training.models.nanogpt import NanoGPT
+    from domains.models import SloughGPTModel
 
     model_name = request.model
 
@@ -1224,7 +1224,7 @@ async def infer(request: GenerateRequest):
                 stoi = checkpoint["stoi"]
                 itos = checkpoint["itos"]
 
-                model = NanoGPT(
+                model = SloughGPTModel(
                     vocab_size=len(chars),
                     n_embed=checkpoint.get("config", {}).get("n_embed", 128),
                     n_layer=checkpoint.get("config", {}).get("n_layer", 4),
@@ -1297,7 +1297,7 @@ async def infer(request: GenerateRequest):
 async def infer_stream(request: GenerateRequest):
     """Stream inference with local model."""
     import torch
-    from domains.training.models.nanogpt import NanoGPT
+    from domains.models import SloughGPTModel
     from fastapi.responses import StreamingResponse
 
     model_name = request.model
@@ -1310,7 +1310,7 @@ async def infer_stream(request: GenerateRequest):
             stoi = checkpoint["stoi"]
             itos = checkpoint["itos"]
 
-            model = NanoGPT(
+            model = SloughGPTModel(
                 vocab_size=len(chars),
                 n_embed=checkpoint.get("config", {}).get("n_embed", 128),
                 n_layer=checkpoint.get("config", {}).get("n_layer", 4),
@@ -1426,7 +1426,7 @@ async def start_training(
         try:
             # Simple training simulation
             import torch
-            from domains.training.models.nanogpt import NanoGPT
+            from domains.models import SloughGPTModel
             from domains.training.lora import apply_lora_to_model, LoRAConfig
 
             # Load data
@@ -1439,7 +1439,7 @@ async def start_training(
             data = torch.tensor([stoi[c] for c in text], dtype=torch.long)
 
             # Create model
-            model = NanoGPT(
+            model = SloughGPTModel(
                 vocab_size=len(chars),
                 n_embed=n_embed,
                 n_layer=n_layer,
@@ -1570,7 +1570,7 @@ async def train_with_lora(
 
         try:
             import torch
-            from domains.training.models.nanogpt import NanoGPT
+            from domains.models import SloughGPTModel
             from domains.training.lora import apply_lora_to_model, LoRAConfig
 
             # Load data
@@ -1582,7 +1582,7 @@ async def train_with_lora(
             data = torch.tensor([stoi[c] for c in text], dtype=torch.long)
 
             # Create model
-            model = NanoGPT(
+            model = SloughGPTModel(
                 vocab_size=len(chars), n_embed=n_embed, n_layer=n_layer, n_head=4, block_size=64
             )
 
@@ -2029,9 +2029,9 @@ async def quantize_model(model_name: str = "sloughgpt", precision: str = "int8")
     # Load model
     checkpoint = torch.load(f"models/{model_name}.pt", weights_only=False)
 
-    from domains.training.models.nanogpt import NanoGPT
+    from domains.models import SloughGPTModel
 
-    model = NanoGPT(
+    model = SloughGPTModel(
         vocab_size=len(checkpoint.get("chars", [])),
         n_embed=checkpoint.get("config", {}).get("n_embed", 128),
         n_layer=checkpoint.get("config", {}).get("n_layer", 4),
@@ -2288,7 +2288,7 @@ async def process_with_plugin(data: str, plugin: str):
 async def validate_model(model_name: str = "sloughgpt"):
     """Validate model functionality."""
     import torch
-    from domains.training.models.nanogpt import NanoGPT
+    from domains.models import SloughGPTModel
 
     results = {"model": model_name, "checks": {}}
 
@@ -2297,7 +2297,7 @@ async def validate_model(model_name: str = "sloughgpt"):
         checkpoint = torch.load(f"models/{model_name}.pt", weights_only=False)
         chars = checkpoint.get("chars", [])
 
-        model = NanoGPT(
+        model = SloughGPTModel(
             vocab_size=len(chars),
             n_embed=checkpoint.get("config", {}).get("n_embed", 128),
             n_layer=checkpoint.get("config", {}).get("n_layer", 4),
@@ -2339,7 +2339,7 @@ async def benchmark_inference(
 ):
     """Benchmark inference speed."""
     import torch
-    from domains.training.models.nanogpt import NanoGPT
+    from domains.models import SloughGPTModel
 
     results = {"model": model, "iterations": num_iterations, "tokens": max_tokens, "times_ms": []}
 
@@ -2778,9 +2778,9 @@ async def load_model(model_name: str):
             stoi = checkpoint["stoi"]
             itos = checkpoint["itos"]
 
-            from domains.training.models.nanogpt import NanoGPT
+            from domains.models import SloughGPTModel
 
-            model = NanoGPT(
+            model = SloughGPTModel(
                 vocab_size=len(chars),
                 n_embed=checkpoint.get("config", {}).get("n_embed", 128),
                 n_layer=checkpoint.get("config", {}).get("n_layer", 4),

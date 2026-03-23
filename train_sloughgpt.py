@@ -18,7 +18,7 @@ elif torch.backends.mps.is_available():
     import torch.mps
 
 # Use existing NanoGPT from our infrastructure
-from domains.training.models.nanogpt import NanoGPT
+from domains.models import SloughGPTModel
 from domains.training.export import export_to_safetensors, export_to_gguf
 from domains.inference.sou_format import create_soul_profile, export_to_sou
 
@@ -226,7 +226,7 @@ def train_sloughgpt(
             f"layers={n_layer}, heads={n_head}, block={block_size}"
         )
 
-        model = NanoGPT(
+        model = SloughGPTModel(
             vocab_size=checkpoint_vocab_size,
             n_embed=n_embed,
             n_layer=n_layer,
@@ -238,8 +238,8 @@ def train_sloughgpt(
         itos = checkpoint.get("itos")
         print(f"Loaded model with {model.num_parameters:,} parameters")
     else:
-        # Create model using existing infrastructure
-        model = NanoGPT(
+        # Create model using SloughGPTModel
+        model = SloughGPTModel(
             vocab_size=vocab_size,
             n_embed=n_embed,
             n_layer=n_layer,
@@ -510,20 +510,40 @@ if __name__ == "__main__":
     parser.add_argument(
         "--compile", action="store_true", help="Compile model with torch.compile (PyTorch 2.0+)"
     )
-    parser.add_argument(
-        "--save_format",
-        type=str,
-        default="safetensors",
-        choices=["safetensors", "safetensors_bf16", "torch", "gguf", "all"],
-        help="Model save format (default: safetensors)",
-    )
-    parser.add_argument(
-        "--save_quantized",
-        type=str,
-        default=None,
-        choices=["Q4_0", "Q4_1", "Q5_0", "Q5_1", "Q8_0", "F16", "F32"],
-        help="Quantization type for GGUF export",
-    )
+     parser.add_argument(
+         "--save_format",
+         type=str,
+         default="safetensors",
+         choices=[
+             "safetensors",      # Recommended default
+             "safetensors_bf16", # BF16 precision
+             "onnx",           # Cross-platform (ONNX Runtime)
+             "torch",          # PyTorch checkpoint
+             "gguf",          # Mobile (llama.rn)
+             "sou",           # Soul Unit (personality)
+             "all",           # All formats
+         ],
+         help="Model save format (default: safetensors)",
+     )
+     parser.add_argument(
+         "--save_quantized",
+         type=str,
+         default=None,
+         choices=["Q4_0", "Q4_1", "Q5_0", "Q5_1", "Q8_0", "Q4_K_M", "Q5_K_M", "F16", "F32"],
+         help="Quantization type for GGUF export",
+     )
+     parser.add_argument(
+         "--onnx_seq_len",
+         type=int,
+         default=128,
+         help="Sequence length for ONNX export (default: 128)",
+     )
+     parser.add_argument(
+         "--onnx_opset",
+         type=int,
+         default=17,
+         help="ONNX opset version (default: 17)",
+     )
     parser.add_argument(
         "--save_path",
         type=str,

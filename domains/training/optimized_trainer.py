@@ -539,7 +539,7 @@ class OptimizedTrainer:
 
 def quick_benchmark():
     """Benchmark training speed with different configurations."""
-    from domains.training.models.nanogpt import NanoGPT
+    from domains.models import SloughGPTModel
     
     print("\n" + "="*60)
     print("Training Optimization Benchmark")
@@ -549,7 +549,7 @@ def quick_benchmark():
     print(f"Device: {device}")
     
     # Create small model for benchmarking
-    model = NanoGPT(vocab_size=1000, n_embed=256, n_layer=4, n_head=4, block_size=128)
+    model = SloughGPTModel(vocab_size=1000, n_embed=256, n_layer=4, n_head=4, block_size=128)
     model = model.to(device)
     
     # Create dummy data
@@ -578,7 +578,7 @@ def quick_benchmark():
     
     for name, config in configs:
         print(f"\nTesting: {name}")
-        model = NanoGPT(vocab_size=1000, n_embed=256, n_layer=4, n_head=4, block_size=128)
+        model = SloughGPTModel(vocab_size=1000, n_embed=256, n_layer=4, n_head=4, block_size=128)
         
         trainer = OptimizedTrainer(model, config, dataset)
         

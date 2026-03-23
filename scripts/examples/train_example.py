@@ -6,7 +6,7 @@ Example: Train a custom NanoGPT model
 import sys
 sys.path.insert(0, "..")
 
-from domains.training.models.nanogpt import NanoGPT
+from domains.models import SloughGPTModel
 from domains.training.optimized_trainer import TrainingConfig, OptimizedTrainer, Presets
 import torch
 
@@ -21,7 +21,7 @@ def main():
     
     # Create small model for demo
     vocab_size = 1000
-    model = NanoGPT(
+    model = SloughGPTModel(
         vocab_size=vocab_size,
         n_embed=128,
         n_layer=4,

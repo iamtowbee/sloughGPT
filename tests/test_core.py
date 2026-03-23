@@ -10,14 +10,14 @@ import pytest
 import torch
 
 
-class TestNanoGPT:
-    """Tests for NanoGPT model."""
+class TestSloughGPTModel:
+    """Tests for SloughGPTModel."""
     
     def test_model_creation(self):
-        """Test model can be created."""
-        from domains.training.models.nanogpt import NanoGPT
+        """Test SloughGPTModel can be created."""
+        from domains.models import SloughGPTModel
         
-        model = NanoGPT(
+        model = SloughGPTModel(
             vocab_size=100,
             n_embed=64,
             n_layer=2,
@@ -26,13 +26,13 @@ class TestNanoGPT:
         )
         
         assert model is not None
-        assert model.num_parameters > 0
+        assert model.num_parameters() > 0
     
     def test_forward_pass(self):
         """Test forward pass."""
-        from domains.training.models.nanogpt import NanoGPT
+        from domains.models import SloughGPTModel
         
-        model = NanoGPT(
+        model = SloughGPTModel(
             vocab_size=100,
             n_embed=64,
             n_layer=2,
@@ -47,9 +47,9 @@ class TestNanoGPT:
     
     def test_generation(self):
         """Test text generation."""
-        from domains.training.models.nanogpt import NanoGPT
+        from domains.models import SloughGPTModel
         
-        model = NanoGPT(
+        model = SloughGPTModel(
             vocab_size=100,
             n_embed=64,
             n_layer=2,
@@ -63,15 +63,91 @@ class TestNanoGPT:
         assert output.shape[1] == 11
 
 
+class TestSloughGPTModel:
+    """Tests for SloughGPTModel - OUR architecture."""
+
+    def test_model_creation(self):
+        """Test SloughGPTModel can be created."""
+        from domains.models import SloughGPTModel
+
+        model = SloughGPTModel(
+            vocab_size=100,
+            n_embed=64,
+            n_layer=2,
+            n_head=4,
+            block_size=32,
+            dropout=0.0,
+        )
+
+        assert model is not None
+        assert model.num_parameters() > 0
+        assert model.config().get("model_type") == "sloughgpt"
+
+    def test_forward_pass(self):
+        """Test forward pass."""
+        from domains.models import SloughGPTModel
+
+        model = SloughGPTModel(
+            vocab_size=100,
+            n_embed=64,
+            n_layer=2,
+            n_head=4,
+            block_size=32,
+            dropout=0.0,
+        )
+
+        x = torch.randint(0, 100, (2, 10))
+        logits, loss = model(x, targets=torch.randint(0, 100, (2, 10)))
+
+        assert logits.shape == (2, 10, 100)
+        assert loss is not None
+
+    def test_generation(self):
+        """Test text generation."""
+        from domains.models import SloughGPTModel
+
+        model = SloughGPTModel(
+            vocab_size=100,
+            n_embed=64,
+            n_layer=2,
+            n_head=4,
+            block_size=32,
+            dropout=0.0,
+        )
+        model.eval()
+
+        idx = torch.tensor([[1, 2, 3]])
+        with torch.no_grad():
+            output = model.generate(idx, max_new_tokens=10)
+
+        assert output.shape[1] == 13
+
+    def test_gradient_checkpointing(self):
+        """Test gradient checkpointing."""
+        from domains.models import SloughGPTModel
+
+        model = SloughGPTModel(
+            vocab_size=50,
+            n_embed=32,
+            n_layer=2,
+            n_head=2,
+            block_size=16,
+            dropout=0.0,
+        )
+
+        model.apply_gradient_checkpointing()
+        assert any(b.use_checkpoint for b in model.blocks)
+
+
 class TestLoRA:
     """Tests for LoRA."""
     
     def test_apply_lora(self):
         """Test LoRA can be applied."""
-        from domains.training.models.nanogpt import NanoGPT
+        from domains.models import SloughGPTModel
         from domains.training.lora import apply_lora_to_model, LoRAConfig
         
-        model = NanoGPT(
+        model = SloughGPTModel(
             vocab_size=100,
             n_embed=64,
             n_layer=2,
@@ -90,10 +166,10 @@ class TestQuantization:
     
     def test_dynamic_quantization(self):
         """Test dynamic quantization."""
-        from domains.training.models.nanogpt import NanoGPT
+        from domains.models import SloughGPTModel
         from domains.training.efficient_inference import Quantizer
         
-        model = NanoGPT(
+        model = SloughGPTModel(
             vocab_size=50,
             n_embed=32,
             n_layer=2,

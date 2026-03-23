@@ -91,7 +91,7 @@ class ModelLoader:
         else:
             state_dict, metadata = self._load_pt(path)
 
-        from domains.training.models.nanogpt import NanoGPT
+        from domains.models import SloughGPTModel
 
         config = metadata or {}
         vocab_size = config.get(
@@ -101,7 +101,7 @@ class ModelLoader:
         if isinstance(vocab_size, dict):
             vocab_size = vocab_size.get("vocab_size", 256)
 
-        model = NanoGPT(
+        model = SloughGPTModel(
             vocab_size=vocab_size,
             n_embed=config.get("n_embed", 128),
             n_layer=config.get("n_layer", 4),

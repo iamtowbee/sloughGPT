@@ -19,11 +19,14 @@
   "files": ["dist", "src"],
   "scripts": {
     "build": "tsc",
+    "build:bun": "bun run build",
     "watch": "tsc --watch",
     "clean": "rm -rf dist",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "install:bun": "bun install",
+    "install:yarn": "yarn install"
   },
   "keywords": ["sloughgpt", "ai", "llm", "typescript", "react", "react-native"],
   "license": "MIT",

@@ -22,7 +22,7 @@ class TrainingConfig:
     """Training configuration."""
 
     data_path: str = "data/text.txt"
-    model_id: str = "nanogpt"
+    model_id: str = "sloughgpt"
 
     # Model architecture
     vocab_size: int = 5000
@@ -243,10 +243,10 @@ class Trainer:
 
     def setup(self):
         """Setup trainer components."""
-        from .models.nanogpt import NanoGPT
+        from domains.models import SloughGPTModel
 
         # Create model
-        self.model = NanoGPT(
+        self.model = SloughGPTModel(
             vocab_size=self.config.vocab_size,
             n_embed=self.config.n_embed,
             n_layer=self.config.n_layer,
@@ -371,9 +371,9 @@ class Trainer:
         checkpoint = torch.load(path, map_location=self.config.device)
 
         if self.model is None:
-            from .models.nanogpt import NanoGPT
+            from domains.models import SloughGPTModel
 
-            self.model = NanoGPT(
+            self.model = SloughGPTModel(
                 vocab_size=self.config.vocab_size,
                 n_embed=self.config.n_embed,
                 n_layer=self.config.n_layer,

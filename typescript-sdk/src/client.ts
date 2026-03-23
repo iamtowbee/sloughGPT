@@ -3,6 +3,57 @@ export interface ChatMessage {
   content: string;
 }
 
+// ============ Federated Learning Interfaces ============
+
+export interface LayerDelta {
+  layer_name: string;
+  old_weights: number[];
+  new_weights: number[];
+  learning_rate?: number;
+  training_samples?: number;
+  loss?: number;
+}
+
+export interface FederatedUpdate {
+  client_id: string;
+  token: string;
+  model_version: number;
+  layer_deltas: LayerDelta[];
+  total_training_samples?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface FederatedRegistration {
+  client_id: string;
+  device_info?: Record<string, unknown>;
+  current_model_version?: number;
+}
+
+export interface FederatedRegistrationResponse {
+  client_id: string;
+  token: string;
+  registered: boolean;
+}
+
+export interface FederatedUpdateResponse {
+  received: boolean;
+  update_id: string;
+  pending_updates: number;
+}
+
+export interface FederatedModelUpdate {
+  version: number;
+  weights: Record<string, { shape: number[]; data: number[] }>;
+  is_update_available: boolean;
+}
+
+export interface FederatedStatus {
+  global_version: number;
+  pending_updates: number;
+  registered_clients: number;
+  last_aggregation: string | null;
+}
+
 export interface GenerateRequest {
   prompt: string;
   max_new_tokens?: number;
@@ -518,6 +569,43 @@ export class SloughGPTClient {
 
   async refreshToken(refreshToken: string): Promise<unknown> {
     return this.request('POST', '/auth/refresh', { refresh_token: refreshToken });
+  }
+
+  // ============ Federated Learning Methods ============
+
+  async federatedRegister(registration: FederatedRegistration): Promise<FederatedRegistrationResponse> {
+    this.log('info', `Registering client: ${registration.client_id}`);
+    return this.request<FederatedRegistrationResponse>('POST', '/federated/register', registration);
+  }
+
+  async federatedUpdate(update: FederatedUpdate): Promise<FederatedUpdateResponse> {
+    this.log('info', `Sending federated update from: ${update.client_id}`);
+    return this.request<FederatedUpdateResponse>('POST', '/federated/update', {
+      client_id: update.client_id,
+      token: update.token,
+      model_version: update.model_version,
+      layer_deltas: update.layer_deltas,
+      total_training_samples: update.total_training_samples,
+      metadata: update.metadata,
+    });
+  }
+
+  async federatedGetModel(clientId: string, currentVersion: number): Promise<FederatedModelUpdate> {
+    this.log('info', `Checking for model update: ${clientId} (v${currentVersion})`);
+    return this.request<FederatedModelUpdate>('GET', `/federated/model?client_id=${clientId}&current_version=${currentVersion}`);
+  }
+
+  async federatedStatus(): Promise<FederatedStatus> {
+    return this.request<FederatedStatus>('GET', '/federated/status');
+  }
+
+  async federatedAggregate(): Promise<{ message: string; new_version: number; layers_updated: string[] }> {
+    this.log('info', 'Triggering federated aggregation');
+    return this.request('POST', '/federated/aggregate');
+  }
+
+  async federatedReset(): Promise<{ message: string }> {
+    return this.request('DELETE', '/federated/reset');
   }
 
   async quickGenerate(prompt: string): Promise<string> {
