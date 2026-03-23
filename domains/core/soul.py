@@ -133,11 +133,22 @@ class SoulEngine:
     def _init_cognitive(self):
         """Lazy-load cognitive components."""
         try:
-            from domains.cognitive.reasoning import ReasoningEngine
+            from domains.cognitive.reasoning import (
+                ReasoningEngine,
+                DeepReasoning,
+                FormalLogicEngine,
+                WorkingMemory,
+            )
             self._reasoning_engine = ReasoningEngine()
-        except Exception:
-            logger.debug("ReasoningEngine not available - using text-based reasoning")
+            self._deep_reasoning = DeepReasoning()
+            self._logic_engine = FormalLogicEngine()
+            self._working_memory = WorkingMemory(capacity=7)
+        except Exception as e:
+            logger.debug(f"Cognitive components not available: {e}")
             self._reasoning_engine = None
+            self._deep_reasoning = None
+            self._logic_engine = None
+            self._working_memory = None
 
         try:
             from domains.soul.cognitive import SentimentAnalyzer
@@ -594,6 +605,92 @@ class SoulEngine:
         if self._model:
             self._model.to(device)
         return self
+
+    async def deep_reason(self, problem: str, max_depth: int = 3) -> Dict[str, Any]:
+        """
+        Perform deep reasoning with retrieval and self-correction.
+        
+        Uses:
+        - VectorStore + Memory for grounding
+        - Self-correction loop to refine reasoning
+        - Working memory for active context
+        """
+        if not self._deep_reasoning:
+            return {"error": "Deep reasoning not available"}
+
+        result = await self._deep_reasoning.reason(problem, max_depth=max_depth)
+        return {
+            "conclusion": result.conclusion,
+            "confidence": result.confidence,
+            "steps": [{"id": s.step_id, "thought": s.thought, "type": s.reasoning_type} for s in result.steps],
+            "metadata": result.metadata,
+        }
+
+    def prove_syllogism(
+        self,
+        premise1: Tuple[str, str, str],
+        premise2: Tuple[str, str, str],
+        conclusion: Tuple[str, str, str],
+    ) -> Dict[str, Any]:
+        """
+        Prove a categorical syllogism using formal logic.
+        
+        Args:
+            premise1: (quantifier, copula, predicate) e.g., ("All", "are", "mortal")
+            premise2: (quantifier, copula, predicate)
+            conclusion: (quantifier, copula, predicate)
+        
+        Example:
+            soul.prove_syllogism(
+                premise1=("All", "are", "mortal"),
+                premise2=("All", "are", "human"),
+                conclusion=("All", "are", "mortal"),
+            )
+        """
+        if not self._logic_engine:
+            return {"error": "Logic engine not available"}
+
+        return self._logic_engine.prove_syllogism(premise1, premise2, conclusion)
+
+    def assert_knowledge(self, predicate_name: str, *terms: str) -> None:
+        """Assert a fact to the soul's knowledge base."""
+        if self._logic_engine:
+            self._logic_engine.assert_predicate(predicate_name, *terms)
+
+    def query_knowledge(self, predicate_name: str, *terms: str) -> bool:
+        """Query the soul's knowledge base."""
+        if not self._logic_engine:
+            return False
+        from domains.cognitive.reasoning import Predicate, Term
+        return self._logic_engine.query(
+            Predicate(name=predicate_name, terms=[Term(name=t) for t in terms])
+        )
+
+    def add_to_working_memory(self, item: str) -> None:
+        """Add item to working memory (active reasoning context)."""
+        if self._working_memory:
+            self._working_memory.add(item)
+
+    def get_working_memory(self, n: int = 5) -> List[str]:
+        """Get n most relevant items from working memory."""
+        if self._working_memory:
+            return self._working_memory.get_recent(n)
+        return []
+
+    def clear_working_memory(self) -> None:
+        """Clear working memory."""
+        if self._working_memory:
+            self._working_memory.clear()
+
+    def get_reasoning_stats(self) -> Dict[str, Any]:
+        """Get reasoning system statistics."""
+        return {
+            "deep_reasoning": self._deep_reasoning is not None,
+            "logic_engine": self._logic_engine is not None,
+            "working_memory_items": len(self._working_memory.items) if self._working_memory else 0,
+            "session_turns": self._cognitive_state.get("session_turns", 0),
+            "hebbian_connections": len(self._hebbian_connections),
+        }
 
     def __repr__(self) -> str:
         loaded = "loaded" if self._model else "no model"
