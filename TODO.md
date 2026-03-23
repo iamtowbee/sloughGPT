@@ -136,6 +136,23 @@ SloughGPT is an enterprise-grade AI framework with:
 | Syllogism | ✅ | Formal logical reasoning |
 | ReAct | ✅ | Reasoning + Acting framework |
 
+### 1.5.2 Deep Reasoning (NEW)
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| DeepReasoning | ✅ | Retrieval-augmented with self-correction |
+| FormalLogicEngine | ✅ | First-order logic, unification, resolution |
+| WorkingMemory | ✅ | Active reasoning context (7±2 items) |
+| VectorStore retrieval | ✅ | Semantic search for grounding |
+| Self-correction loop | ✅ | Critiques and revises reasoning |
+
+**Formal Logic Features:**
+- Propositional logic (AND, OR, NOT, IMPLIES)
+- First-order logic (FORALL, EXISTS)
+- Unification algorithm with occurs check
+- Resolution principle (proof by refutation)
+- Syllogistic logic (4 figures, moods A/E/I/O)
+
 ### 1.6 Infrastructure
 
 | File | Status | Description |
