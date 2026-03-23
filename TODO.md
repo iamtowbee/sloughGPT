@@ -118,6 +118,8 @@ SloughGPT is an enterprise-grade AI framework with:
 | `domains/cognitive/core.py` | ✅ Complete | Cognitive processing |
 | `domains/cognitive/knowledge_graph.py` | ✅ Complete | Knowledge graph |
 | `domains/cognitive/spaced_repetition.py` | ✅ Complete | Spaced repetition |
+| `domains/cognitive/learning/__init__.py` | ✅ Complete | SM-2 algorithm, adaptive learning, knowledge consolidation |
+| `domains/cognitive/creativity/__init__.py` | ✅ Complete | SCAMPER, divergent thinking, creative synthesis |
 | `domains/soul/consciousness.py` | ⚠️ Conceptual | Consciousness module |
 | `domains/soul/transcendent.py` | ⚠️ Conceptual | Transcendent module |
 
