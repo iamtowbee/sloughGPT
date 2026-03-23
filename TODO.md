@@ -120,8 +120,21 @@ SloughGPT is an enterprise-grade AI framework with:
 | `domains/cognitive/spaced_repetition.py` | ✅ Complete | Spaced repetition |
 | `domains/cognitive/learning/__init__.py` | ✅ Complete | SM-2 algorithm, adaptive learning, knowledge consolidation |
 | `domains/cognitive/creativity/__init__.py` | ✅ Complete | SCAMPER, divergent thinking, creative synthesis |
+| `domains/cognitive/reasoning/advanced.py` | ✅ Complete | Chain of Thought, Tree of Thoughts, Self-Consistency, Constitutional AI, Causal, ReAct |
 | `domains/soul/consciousness.py` | ⚠️ Conceptual | Consciousness module |
 | `domains/soul/transcendent.py` | ⚠️ Conceptual | Transcendent module |
+
+### 1.5.1 Advanced Reasoning Techniques
+
+| Technique | Status | Description |
+|-----------|--------|-------------|
+| Chain of Thought (CoT) | ✅ | Step-by-step decomposition |
+| Tree of Thoughts (ToT) | ✅ | Branching exploration with beam search |
+| Self-Consistency | ✅ | Multiple paths, majority vote |
+| Constitutional AI | ✅ | Principles-based reasoning |
+| Causal Reasoning | ✅ | Cause-effect relationships |
+| Syllogism | ✅ | Formal logical reasoning |
+| ReAct | ✅ | Reasoning + Acting framework |
 
 ### 1.6 Infrastructure
 
