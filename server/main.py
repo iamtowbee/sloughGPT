@@ -6,8 +6,12 @@ FastAPI server for model inference with HuggingFace fallback.
 
 import os
 import sys
+
 # Force CPU mode to avoid MPS hanging issues
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["PYTORCH_NO_CUDA"] = "1"
+os.environ["PYTORCH_DISABLE_MPS"] = "1"
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "0"
 
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -223,7 +227,7 @@ class AuditLogger:
         self.max_logs = 10000
 
     def log(self, event_type: str, client_ip: str, user_id: Optional[str] = None,
-            resource: str = "", action: str = "", status: str = "success", details: Dict = None):
+            resource: str = "", action: str = "", status: str = "success", details: Optional[Dict] = None):
         """Log an audit event."""
         entry = {
             "timestamp": datetime.utcnow().isoformat(),
@@ -406,7 +410,7 @@ app = FastAPI(
 async def http_exception_handler(request: Request, exc: HTTPException):
     """Handle HTTP exceptions with consistent format."""
     client_ip = request.client.host if request.client else "unknown"
-    audit_logger.log("http_error", client_ip, resource=str(request.url.path), action=exc.status_code, status="failure", details={"detail": exc.detail})
+    audit_logger.log("http_error", client_ip, resource=str(request.url.path), action=str(exc.status_code), status="failure", details={"detail": exc.detail})
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": exc.detail, "status_code": exc.status_code},
@@ -462,10 +466,19 @@ tokenizer = None
 model_type = "none"
 checkpoint = None
 current_soul = None
+soul_engine = None
 
 
 def get_soul_generation_params():
     """Get generation params from loaded soul, or defaults."""
+    if soul_engine is not None:
+        gen = soul_engine.soul.generation
+        return {
+            "temperature": gen.temperature,
+            "top_p": gen.top_p,
+            "top_k": gen.top_k,
+            "max_tokens": gen.max_tokens,
+        }
     if current_soul is None:
         return {"temperature": 0.8, "top_p": 0.9, "top_k": 50, "max_tokens": 100}
     gen = getattr(current_soul, "generation", None)
@@ -487,6 +500,16 @@ def get_soul_generation_params():
 
 def get_soul_personality():
     """Get personality traits from loaded soul."""
+    if soul_engine is not None:
+        soul = soul_engine.soul
+        return {
+            "name": soul.name,
+            "lineage": soul.lineage,
+            "personality": soul.personality.to_dict() if soul.personality else {},
+            "behavior": soul.behavior.to_dict() if soul.behavior else {},
+            "cognition": soul.cognition.to_dict() if soul.cognition else {},
+            "emotion": soul.emotion.to_dict() if soul.emotion else {},
+        }
     if current_soul is None:
         return None
     return {
@@ -547,59 +570,19 @@ class LoadSoulRequest(BaseModel):
 
 @app.post("/load-soul")
 async def load_soul(request: LoadSoulRequest):
-    """Load a .sou Soul Unit file."""
-    global current_soul, model_type
+    """Load a .sou Soul Unit file into SoulEngine."""
+    global current_soul, model_type, soul_engine
 
     try:
-        from domains.inference.sou_format import SouParser, import_from_sou
-        from domains.training.models.nanogpt import NanoGPT
+        from domains.core import SoulEngine
 
-        soul, state_dict = import_from_sou(request.soul_path)
-
-        gen = getattr(soul, "generation", None) or {}
-        if hasattr(gen, "temperature"):
-            temperature = gen.temperature
-            top_p = gen.top_p
-            max_tokens = gen.max_tokens
-        else:
-            temperature = gen.get("temperature", 0.8) if isinstance(gen, dict) else 0.8
-            top_p = gen.get("top_p", 0.9) if isinstance(gen, dict) else 0.9
-            max_tokens = gen.get("max_tokens", 2048) if isinstance(gen, dict) else 2048
+        engine = SoulEngine(device="cpu")
+        soul = engine.load_soul(request.soul_path)
 
         current_soul = soul
+        soul_engine = engine
         model_type = f"sou/{soul.name}" if hasattr(soul, "name") else "sou/loaded"
-
-        model_cfg = state_dict.get("config", {}) if isinstance(state_dict, dict) else {}
-        if hasattr(soul, "base_model"):
-            n_embed = getattr(soul, "n_embed", 256)
-            n_layer = getattr(soul, "n_layer", 6)
-            n_head = getattr(soul, "n_head", 8)
-            block_size = getattr(soul, "block_size", 128)
-            vocab_size = getattr(soul, "vocab_size", 256)
-        else:
-            n_embed = model_cfg.get("n_embed", 256)
-            n_layer = model_cfg.get("n_layer", 6)
-            n_head = model_cfg.get("n_head", 8)
-            block_size = model_cfg.get("block_size", 128)
-            vocab_size = model_cfg.get("vocab_size", 256)
-
-        n_embed = n_embed or 256
-        n_layer = n_layer or 6
-        n_head = n_head or 8
-        block_size = block_size or 128
-        vocab_size = vocab_size or 256
-
-        new_model = NanoGPT(
-            vocab_size=vocab_size,
-            n_embed=n_embed,
-            n_layer=n_layer,
-            n_head=n_head,
-            block_size=block_size,
-        )
-        new_model.load_state_dict(state_dict, strict=False)
-
-        global model
-        model = new_model
+        model = engine.model
 
         return {
             "status": "loaded",
@@ -607,9 +590,9 @@ async def load_soul(request: LoadSoulRequest):
             "lineage": soul.lineage if hasattr(soul, "lineage") else "unknown",
             "born_at": soul.born_at if hasattr(soul, "born_at") else "",
             "generation_params": {
-                "temperature": temperature,
-                "top_p": top_p,
-                "max_tokens": max_tokens,
+                "temperature": soul.generation.temperature if soul.generation else 0.8,
+                "top_p": soul.generation.top_p if soul.generation else 0.9,
+                "max_tokens": soul.generation.max_tokens if soul.generation else 2048,
             },
             "personality": soul.personality.to_dict() if hasattr(soul, "personality") and soul.personality else {},
             "cognition": soul.cognition.to_dict() if hasattr(soul, "cognition") and soul.cognition else {},
@@ -644,18 +627,23 @@ async def get_soul():
 
 @app.get("/")
 async def root():
-    soul_name = current_soul.name if current_soul and hasattr(current_soul, "name") else None
+    soul_name = None
+    if soul_engine is not None and soul_engine.soul:
+        soul_name = soul_engine.soul.name
+    elif current_soul and hasattr(current_soul, "name"):
+        soul_name = current_soul.name
     return {
         "name": "SloughGPT API",
         "version": "1.0.0",
         "status": "running",
         "model": model_type,
         "soul_loaded": soul_name,
+        "soul_engine_active": soul_engine is not None and soul_engine.is_loaded,
         "endpoints": {
             "generate": "/generate (POST)",
             "generate_stream": "/generate/stream (POST)",
             "generate_ws": "/ws/generate (WebSocket)",
-            "load_soul": "/load-soul (POST)",
+            "load_soul": "/load-soul (POST) - loads into SoulEngine",
             "soul": "/soul (GET)",
             "personalities": "/personalities (GET)",
             "models": "/models (GET)",
@@ -688,7 +676,9 @@ async def info():
             }
         )
 
-    if current_soul:
+    if soul_engine is not None and soul_engine.is_loaded:
+        info["soul_engine"] = soul_engine.get_stats()
+    elif current_soul:
         soul_info_val = get_soul_personality()
         if soul_info_val:
             soul_info_val["integrity_hash"] = (
@@ -722,7 +712,13 @@ async def info():
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "model_loaded": model is not None, "model_type": model_type}
+    return {
+        "status": "healthy",
+        "model_loaded": model is not None,
+        "model_type": model_type,
+        "soul_engine_active": soul_engine is not None and soul_engine.is_loaded,
+        "soul_name": soul_engine.soul.name if soul_engine and soul_engine.soul else None,
+    }
 
 
 @app.get("/health/live", tags=["health"])
@@ -1005,24 +1001,30 @@ async def generate(request: GenerateRequest):
     top_p = request.top_p if request.top_p is not None else soul_defaults["top_p"]
     top_k = request.top_k if request.top_k is not None else soul_defaults["top_k"]
 
+    if soul_engine is not None and soul_engine.is_loaded:
+        try:
+            text = soul_engine.generate(
+                prompt,
+                max_new_tokens=max_tokens,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+            )
+            audit_logger.log("generate", client_ip, resource="/generate", action="soul_engine", status="success")
+            return {
+                "text": text,
+                "model": model_type,
+                "soul": soul_info,
+            }
+        except Exception as e:
+            logger.error(f"SoulEngine generation failed: {e}")
+
     if model is None:
         audit_logger.log("generate", client_ip, resource="/generate", action="no_model", status="success")
         return {
             "text": f"Demo response to: {prompt[:50]}... (No model loaded)",
             "model": model_type,
         }
-
-    # Apply personality adjustment to temperature
-    if request.personality:
-        try:
-            from domains.ai_personality import PERSONALITIES, PersonalityType
-
-            ptype = PersonalityType(request.personality.lower())
-            if ptype in PERSONALITIES:
-                personality = PERSONALITIES[ptype]
-                temperature = personality.modify_temperature(temperature)
-        except Exception:
-            pass  # Ignore personality errors
 
     if model_type == "gpt2":
         inputs = tokenizer(request.prompt, return_tensors="pt")
@@ -1768,10 +1770,27 @@ async def complete_experiment(experiment_id: str, status: str = "completed"):
     return {"status": "completed"}
 
 
+def find_available_port(start_port: int = 8000, max_attempts: int = 10) -> int:
+    """Find an available port starting from start_port, rotating if needed."""
+    import socket
+    for port in range(start_port, start_port + max_attempts):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(("", port))
+            sock.close()
+            return port
+        except OSError:
+            continue
+    raise RuntimeError(f"Could not find available port in range {start_port}-{start_port + max_attempts}")
+
+
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = find_available_port(8000)
+    print(f"Starting SloughGPT server on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port)
 
 
 # Global inference engine (lazy loaded)

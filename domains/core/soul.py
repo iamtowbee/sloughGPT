@@ -1,0 +1,603 @@
+"""
+domains/core/soul.py - SoulEngine
+
+SoulEngine IS the core model wrapper. Every inference call goes through here.
+It wraps a ModelInterface (the neural brain) and integrates:
+- CognitiveProcessor (memory, attention, emotional context)
+- ReasoningEngine (deductive, inductive, abductive, analogical reasoning)
+- SoulProfile (identity, behavioral DNA - NOT optional, IS the core)
+
+The reasoning chain works as STRUCTURED TEXT injected into the LLM context:
+  User Query → SoulCognitive (emotion, session) → SoulReasoning (strategy) 
+    → Structured text prompt → LLM generates → Hebbian learning updates
+
+This is how chain-of-thought prompting works - text-based, not binary.
+"""
+
+import time
+import logging
+from typing import Any, Dict, List, Optional, Tuple, Union
+from dataclasses import dataclass, field
+
+import torch
+
+from domains.inference.sou_format import (
+    SoulProfile,
+    GenerationParams,
+    PersonalityCore,
+    CognitiveSignature,
+    BehavioralTraits,
+    import_from_sou,
+    export_to_sou,
+)
+from domains.models import ModelInterface, ModelLoader
+
+
+logger = logging.getLogger("sloughgpt.soul_engine")
+
+
+@dataclass
+class GenerationContext:
+    """Context carried through a single generation request."""
+
+    prompt: str
+    prompt_tokens: torch.Tensor
+    system_prompt: str = ""
+    temperature: float = 0.8
+    top_k: int = 40
+    top_p: float = 0.9
+    max_tokens: int = 2048
+    stop_tokens: List[str] = field(default_factory=list)
+    reasoning_depth: str = "balanced"
+    cognitive_boost: bool = True
+    emotional_context: Dict[str, Any] = field(default_factory=dict)
+    soul_overrides: Dict[str, Any] = field(default_factory=dict)
+    reasoning_chain: List[str] = field(default_factory=list)
+
+
+class SoulEngine:
+    """
+    SoulEngine is THE core model wrapper.
+
+    The soul is NOT optional. Every model IS a soul. This is baked in:
+    - When you load ANY model, it gets wrapped in a SoulEngine with a soul
+    - When you train ANY model, it ALWAYS outputs a .sou file
+    - When you generate, the soul's traits drive EVERYTHING
+
+    Architecture:
+        User Query
+              |
+              v
+    [SoulCognitive]  -- session memory, sentiment, emotional context
+              |        (produces structured text context)
+              v
+    [SoulReasoning]  -- reasoning type from soul's reasoning_approach
+              |        (produces reasoning strategy text)
+              v
+    [Structured Prompt]  -- soul context + reasoning chain + user query
+              |
+              v
+    [ModelInterface]  -- NanoGPT (or GGUF, ONNX, etc.) ← just the brain
+              |
+              v
+    [Response Formatter]  -- applies soul personality to output
+              |
+              v
+           Output
+    """
+
+    REASONING_TYPE_MAP = {
+        "balanced": "deductive",
+        "deductive": "deductive",
+        "inductive": "inductive",
+        "analytical": "deductive",
+        "creative": "creative",
+        "abductive": "abductive",
+        "analogical": "analogical",
+    }
+
+    def __init__(
+        self,
+        model: Optional[ModelInterface] = None,
+        soul: Optional[SoulProfile] = None,
+        device: str = "cpu",
+        stoi: Optional[Dict[int, str]] = None,
+        itos: Optional[Dict[int, str]] = None,
+    ):
+        self._model: Optional[ModelInterface] = model
+        self._soul: SoulProfile = soul or SoulProfile(name="default")
+        self._device = device
+        self._stoi = stoi or {}
+        self._itos = itos or {}
+
+        self._session_history: List[Dict[str, str]] = []
+        self._cognitive_state: Dict[str, Any] = {
+            "session_turns": 0,
+            "last_sentiment": 0.0,
+            "last_emotion": "neutral",
+        }
+
+        self._generation_stats: Dict[str, Any] = {
+            "total_generations": 0,
+            "total_tokens": 0,
+            "avg_latency_ms": 0.0,
+        }
+
+        self._reasoning_engine = None
+        self._sentiment_analyzer = None
+        self._hebbian_connections: Dict[str, Dict[str, float]] = {}
+        self._init_cognitive()
+
+        logger.info(f"SoulEngine initialized: soul={self._soul.name}, device={device}")
+
+    def _init_cognitive(self):
+        """Lazy-load cognitive components."""
+        try:
+            from domains.cognitive.reasoning import ReasoningEngine
+            self._reasoning_engine = ReasoningEngine()
+        except Exception:
+            logger.debug("ReasoningEngine not available - using text-based reasoning")
+            self._reasoning_engine = None
+
+        try:
+            from domains.soul.cognitive import SentimentAnalyzer
+            self._sentiment_analyzer = SentimentAnalyzer()
+        except Exception:
+            logger.debug("SentimentAnalyzer not available")
+            self._sentiment_analyzer = None
+
+    @property
+    def soul(self) -> SoulProfile:
+        return self._soul
+
+    @property
+    def model(self) -> Optional[ModelInterface]:
+        return self._model
+
+    @property
+    def is_loaded(self) -> bool:
+        return self._model is not None
+
+    def load_soul(self, sou_path: str) -> SoulProfile:
+        """Load a .sou Soul Unit file. Loads BOTH soul AND model weights."""
+        soul, state_dict = import_from_sou(sou_path)
+
+        model = ModelLoader._load_sou(sou_path, self._device)
+        model._soul = soul
+
+        self._model = model
+        self._soul = soul
+
+        if isinstance(state_dict, dict):
+            self._stoi = state_dict.get("stoi", {})
+            self._itos = state_dict.get("itos", {})
+        else:
+            cfg = state_dict.get("config", {}) if isinstance(state_dict, dict) else {}
+            self._stoi = cfg.get("stoi", {})
+            self._itos = cfg.get("itos", {})
+
+        logger.info(f"Loaded soul: {soul.name} from {sou_path}")
+        return soul
+
+    def load_model(self, model_path: str, **kwargs) -> "SoulEngine":
+        """Load just the model - creates a DEFAULT soul if none exists."""
+        self._model = ModelLoader.load(model_path, device=self._device, **kwargs)
+
+        if hasattr(self._model, "_soul") and self._model._soul:
+            self._soul = self._model._soul
+        else:
+            self._soul = SoulProfile(
+                name=model_path.split("/")[-1].split(".")[0],
+                lineage="nanogpt",
+                system_prompt=f"You are a helpful AI assistant.",
+            )
+
+        logger.info(f"Loaded model: {model_path}")
+        return self
+
+    def set_soul(self, soul: SoulProfile) -> "SoulEngine":
+        """Set the soul profile."""
+        self._soul = soul
+        return self
+
+    def set_vocab(self, stoi: Dict[int, str], itos: Dict[int, str]) -> "SoulEngine":
+        """Set vocabulary mappings."""
+        self._stoi = stoi
+        self._itos = itos
+        return self
+
+    def _build_reasoning_chain_text(self, prompt: str) -> str:
+        """
+        Build a structured TEXT reasoning chain that the LLM can understand.
+        This is the key: reasoning goes INTO the prompt as text, not binary.
+
+        Format:
+        [SOUL_REASONING]
+        reasoning_type: <from soul's reasoning_approach>
+        cognitive_boost: <from soul's cognition scores>
+        emotional_context: <from sentiment analysis>
+        session_turns: <number of turns in session>
+        [/SOUL_REASONING]
+        """
+        reasoning_approach = self._soul.behavior.reasoning_approach
+        reasoning_type = self.REASONING_TYPE_MAP.get(reasoning_approach, "balanced")
+
+        sentiment = self._cognitive_state.get("last_sentiment", 0.0)
+        emotion = self._cognitive_state.get("last_emotion", "neutral")
+        turns = self._cognitive_state.get("session_turns", 0)
+
+        cognitive = self._soul.cognition
+        pattern_rec = getattr(cognitive, "pattern_recognition", 0.5)
+        abstract = getattr(cognitive, "abstract_reasoning", 0.5)
+        metacog = getattr(cognitive, "metacognitive_awareness", 0.5)
+
+        warmth = self._soul.personality.warmth
+        creativity = self._soul.personality.creativity
+        curiosity = self._soul.personality.curiosity
+
+        lines = [
+            "[SOUL_REASONING]",
+            f"reasoning_type: {reasoning_type}",
+            f"reasoning_approach: {reasoning_approach}",
+            f"emotional_context: {emotion} (sentiment={sentiment:.2f})",
+            f"session_turns: {turns}",
+            f"cognitive: pattern_recognition={pattern_rec:.2f}, abstract_reasoning={abstract:.2f}, metacognition={metacog:.2f}",
+            f"personality: warmth={warmth:.2f}, creativity={creativity:.2f}, curiosity={curiosity:.2f}",
+        ]
+
+        if self._reasoning_engine:
+            lines.append(f"reasoning_engine: active ({len(self._session_history)} context items)")
+
+        lines.append("[/SOUL_REASONING]")
+        lines.append("")
+
+        return "\n".join(lines)
+
+    def _build_system_prompt(self) -> str:
+        """Build the system prompt from soul profile."""
+        parts = []
+
+        soul_name = self._soul.name
+        parts.append(f"You are {soul_name}.")
+
+        personality = self._soul.personality
+        traits = []
+        if personality.warmth > 0.7:
+            traits.append("warm and empathetic")
+        elif personality.warmth < 0.3:
+            traits.append("precise and analytical")
+
+        if personality.curiosity > 0.7:
+            traits.append("curious and exploratory")
+        if personality.confidence > 0.7:
+            traits.append("confident and direct")
+        elif personality.confidence < 0.3:
+            traits.append("thoughtful and measured")
+
+        if personality.creativity > 0.7:
+            traits.append("creative and innovative")
+        if personality.humor > 0.7:
+            traits.append("witty and playful")
+
+        if traits:
+            parts.append(f"You are {' and '.join(traits)}.")
+
+        soul_system = self._soul.system_prompt or ""
+        if soul_system and soul_system not in "\n".join(parts):
+            parts.append(soul_system)
+
+        return "\n".join(parts)
+
+    def _build_full_prompt(self, prompt: str, include_reasoning: bool = True) -> str:
+        """Build the full prompt including reasoning chain as TEXT."""
+        parts = []
+
+        system = self._build_system_prompt()
+        if system:
+            parts.append(system)
+            parts.append("")
+
+        if include_reasoning and (self._cognitive_state.get("session_turns", 0) > 0 or self._reasoning_engine):
+            reasoning_text = self._build_reasoning_chain_text(prompt)
+            parts.append(reasoning_text)
+
+        session_context = ""
+        if self._session_history:
+            recent = self._session_history[-6:]
+            for msg in recent:
+                role = msg.get("role", "?")
+                content = msg.get("content", "")[:300]
+                session_context += f"{role}: {content}\n"
+
+        if session_context:
+            parts.append("[CONVERSATION_HISTORY]")
+            parts.append(session_context.rstrip())
+            parts.append("[/CONVERSATION_HISTORY]")
+            parts.append("")
+
+        parts.append(f"User: {prompt}")
+        parts.append("Assistant:")
+
+        return "\n".join(parts)
+
+    def _get_generation_params(self, context: GenerationContext) -> Dict[str, Any]:
+        """Derive generation parameters from soul profile + context."""
+        gen = self._soul.generation
+
+        params = {
+            "temperature": context.temperature
+            if "temperature" not in context.soul_overrides
+            else context.soul_overrides.get("temperature", gen.temperature),
+            "top_k": context.top_k
+            if "top_k" not in context.soul_overrides
+            else context.soul_overrides.get("top_k", gen.top_k),
+            "top_p": context.top_p
+            if "top_p" not in context.soul_overrides
+            else context.soul_overrides.get("top_p", gen.top_p),
+            "max_tokens": context.max_tokens
+            if "max_tokens" not in context.soul_overrides
+            else context.soul_overrides.get("max_tokens", gen.max_tokens),
+        }
+
+        if context.reasoning_depth == "deep":
+            params["temperature"] = max(0.1, params["temperature"] - 0.3)
+        elif context.reasoning_depth == "creative":
+            params["temperature"] = min(1.5, params["temperature"] + 0.3)
+
+        warmth = self._soul.personality.warmth
+        if warmth > 0.7:
+            params["temperature"] = min(1.2, params["temperature"] + 0.1)
+
+        return params
+
+    def _apply_hebbian_learning(self, prompt_tokens: List[str], response_tokens: List[str]) -> None:
+        """
+        Hebbian learning: "neurons that fire together, wire together"
+        Updates connection strengths between concept tokens.
+        """
+        tokens = prompt_tokens[-20:]
+        for i, token in enumerate(tokens):
+            if i > 0:
+                delta = 0.01
+                self._hebbian_connections.setdefault(tokens[i - 1], {})
+                self._hebbian_connections[tokens[i - 1]][token] = (
+                    self._hebbian_connections[tokens[i - 1]].get(token, 0.0) + delta
+                )
+
+    def generate(
+        self,
+        prompt: str,
+        max_new_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        system_prompt: Optional[str] = None,
+        stop_tokens: Optional[List[str]] = None,
+        include_reasoning: bool = True,
+        return_reasoning: bool = False,
+        **kwargs,
+    ) -> Union[str, Tuple[str, Dict[str, Any]]]:
+        """
+        Main generation entry point. ALL generation goes through SoulEngine.
+
+        The soul is NOT optional - it shapes EVERYTHING about generation.
+        Reasoning chain is embedded as structured TEXT in the prompt.
+        """
+        start_time = time.time()
+        reasoning_chain: List[str] = []
+
+        if self._sentiment_analyzer:
+            emotional = self._sentiment_analyzer.analyze(prompt)
+            self._cognitive_state["last_sentiment"] = emotional.get("sentiment", 0.0)
+            self._cognitive_state["last_emotion"] = emotional.get("emotion", "neutral")
+            reasoning_chain.append(
+                f"emotional_analysis: {emotional.get('emotion', 'neutral')} "
+                f"(sentiment={emotional.get('sentiment', 0):.2f})"
+            )
+
+        self._cognitive_state["session_turns"] += 1
+        self._session_history.append({"role": "user", "content": prompt})
+
+        full_prompt = self._build_full_prompt(prompt, include_reasoning=include_reasoning)
+
+        context = GenerationContext(
+            prompt=prompt,
+            prompt_tokens=torch.tensor([[0]]),
+            system_prompt=system_prompt or self._build_system_prompt(),
+            temperature=temperature if temperature is not None else 0.8,
+            top_k=top_k if top_k is not None else self._soul.generation.top_k,
+            top_p=top_p if top_p is not None else self._soul.generation.top_p,
+            max_tokens=max_new_tokens if max_new_tokens is not None else self._soul.generation.max_tokens,
+            stop_tokens=stop_tokens or self._soul.generation.stop,
+            reasoning_chain=reasoning_chain,
+        )
+
+        gen_params = self._get_generation_params(context)
+
+        generated_text = ""
+        tokens_generated = 0
+        output_ids = None
+
+        if self._model is None:
+            generated_text = f"[Soul: {self._soul.name}] {prompt[:50]}... (no model loaded)"
+        else:
+            idx = self._tokenize(full_prompt)
+            context.prompt_tokens = idx
+
+            try:
+                output_ids = self._model.generate(
+                    idx,
+                    max_new_tokens=gen_params["max_tokens"],
+                    temperature=gen_params["temperature"],
+                    top_k=gen_params.get("top_k"),
+                    top_p=gen_params.get("top_p"),
+                    **kwargs,
+                )
+
+                generated_text = self._detokenize(output_ids[0])
+
+                if full_prompt in generated_text:
+                    generated_text = generated_text[len(full_prompt):]
+
+                tokens_generated = output_ids.size(1) - idx.size(1)
+
+            except Exception as e:
+                logger.error(f"Generation failed: {e}")
+                generated_text = f"[Error: {e}]"
+
+        self._session_history.append({"role": "assistant", "content": generated_text})
+
+        if len(self._session_history) > 100:
+            self._session_history = self._session_history[-100:]
+
+        self._apply_hebbian_learning(
+            prompt.split()[:20], generated_text.split()[:20]
+        )
+
+        latency_ms = (time.time() - start_time) * 1000
+        self._generation_stats["total_generations"] += 1
+        self._generation_stats["total_tokens"] += tokens_generated
+
+        if self._generation_stats["total_generations"] > 1:
+            n = self._generation_stats["total_generations"]
+            prev_avg = self._generation_stats["avg_latency_ms"]
+            self._generation_stats["avg_latency_ms"] = (
+                (prev_avg * (n - 1)) + latency_ms
+            ) / n
+
+        if return_reasoning:
+            extra = {
+                "reasoning_chain": reasoning_chain,
+                "soul_context": self._build_reasoning_chain_text(prompt),
+                "full_prompt": full_prompt if include_reasoning else prompt,
+                "latency_ms": latency_ms,
+                "tokens_generated": tokens_generated,
+                "generation_params": gen_params,
+            }
+            return generated_text, extra
+
+        return generated_text
+
+    async def generate_async(self, prompt: str, **kwargs) -> str:
+        """Async wrapper."""
+        import asyncio
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, lambda: self.generate(prompt, **kwargs))
+
+    def chat(
+        self,
+        messages: List[Dict[str, str]],
+        max_new_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        **kwargs,
+    ) -> str:
+        """Chat interface - converts messages to prompt and generates."""
+        prompt_parts = []
+
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "system":
+                prompt_parts.append(f"System: {content}")
+            elif role == "user":
+                prompt_parts.append(f"User: {content}")
+            elif role == "assistant":
+                prompt_parts.append(f"Assistant: {content}")
+
+        prompt_parts.append("Assistant:")
+        prompt = "\n".join(prompt_parts)
+
+        return self.generate(prompt, max_new_tokens=max_new_tokens, temperature=temperature, **kwargs)
+
+    def _tokenize(self, text: str) -> torch.Tensor:
+        """Tokenize using model's vocabulary."""
+        if self._stoi:
+            indices = [self._stoi.get(c, 0) for c in text]
+        else:
+            indices = [ord(c) % 256 for c in text]
+        return torch.tensor([[i for i in indices]], dtype=torch.long)
+
+    def _detokenize(self, tokens: torch.Tensor) -> str:
+        """Detokenize tokens to text."""
+        if self._itos:
+            return "".join([self._itos.get(int(t), "?") for t in tokens])
+        return "".join([chr(int(t) % 256) for t in tokens])
+
+    def save_soul(self, output_path: str) -> str:
+        """Save the soul as a .sou file with model weights. Soul is ALWAYS saved."""
+        if self._model is None:
+            raise ValueError("No model loaded - cannot save .sou without a model")
+
+        export_to_sou(self._model, output_path, soul_profile=self._soul, weights_only=False)
+
+        import json
+        meta_path = output_path + ".meta.json"
+        with open(meta_path, "w") as f:
+            json.dump(self._soul.to_dict(), f, indent=2, default=str)
+
+        logger.info(f"Saved soul to {output_path}")
+        return output_path
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get soul engine statistics."""
+        return {
+            "soul": {
+                "name": self._soul.name,
+                "lineage": self._soul.lineage,
+                "born_at": self._soul.born_at,
+                "integrity_hash": self._soul.integrity_hash,
+                "reasoning_approach": self._soul.behavior.reasoning_approach,
+                "personality": self._soul.personality.to_dict(),
+                "cognition": self._soul.cognition.to_dict(),
+            },
+            "model": {
+                "loaded": self._model is not None,
+                "params": self._model.num_parameters() if self._model else 0,
+                "config": self._model.config() if self._model else {},
+            },
+            "cognitive": {
+                "session_turns": self._cognitive_state.get("session_turns", 0),
+                "last_emotion": self._cognitive_state.get("last_emotion", "neutral"),
+                "last_sentiment": self._cognitive_state.get("last_sentiment", 0.0),
+                "hebbian_connections": sum(len(v) for v in self._hebbian_connections.values()),
+            },
+            "generation": self._generation_stats.copy(),
+        }
+
+    def apply_personality(
+        self,
+        warmth: Optional[float] = None,
+        creativity: Optional[float] = None,
+        empathy: Optional[float] = None,
+        curiosity: Optional[float] = None,
+        humor: Optional[float] = None,
+        **kwargs,
+    ) -> "SoulEngine":
+        """Adjust soul personality traits at runtime."""
+        if warmth is not None:
+            self._soul.personality.warmth = warmth
+        if creativity is not None:
+            self._soul.personality.creativity = creativity
+        if empathy is not None:
+            self._soul.personality.empathy = empathy
+        if curiosity is not None:
+            self._soul.personality.curiosity = curiosity
+        if humor is not None:
+            self._soul.personality.humor = humor
+
+        self._soul.integrity_hash = self._soul.compute_hash()
+        return self
+
+    def to(self, device: str) -> "SoulEngine":
+        """Move model to device."""
+        self._device = device
+        if self._model:
+            self._model.to(device)
+        return self
+
+    def __repr__(self) -> str:
+        loaded = "loaded" if self._model else "no model"
+        return f"SoulEngine(soul={self._soul.name}, {loaded})"
+
+
+__all__ = ["SoulEngine", "GenerationContext"]

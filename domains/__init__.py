@@ -444,6 +444,29 @@ class IDeploymentManager(ABC):
 # DOMAIN EXPORTS
 # ============================================================================
 
+# Core Soul Architecture
+from .core import SoulEngine, GenerationContext
+
+# Pluggable Model Interface
+from .models import ModelInterface, ModelLoader, SloughGPTModel
+
+# Inference / Soul Unit Format
+from .inference import (
+    SoulProfile,
+    PersonalityCore,
+    BehavioralTraits,
+    CognitiveSignature,
+    EmotionalRange,
+    GenerationParams,
+    SouParser,
+    create_soul_profile,
+    export_to_sou,
+    import_from_sou,
+    SOU_MAGIC,
+    SOU_VERSION,
+    SOU_TRADEMARK,
+)
+
 # Import domain modules (avoid circular imports by importing at the end)
 # These will be available when imported directly:
 #   from domains.ui import WebInterface

@@ -194,6 +194,20 @@ async def load_model():
 
 if __name__ == "__main__":
     import uvicorn
+    import socket
+
+    def find_available_port(start=8000, max_attempts=10):
+        for port in range(start, start + max_attempts):
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind(("", port))
+                sock.close()
+                return port
+            except OSError:
+                continue
+        raise RuntimeError(f"Could not find available port")
+
     print("=" * 50)
     print("SloughGPT Server with GPT-2")
     print("=" * 50)
@@ -204,5 +218,7 @@ if __name__ == "__main__":
     print("  POST /chat/completions - Chat")
     print("  POST /load       - Load/reload model")
     print("=" * 50)
-    
+    port = find_available_port()
+    print(f"Starting on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port)
     uvicorn.run(app, host="0.0.0.0", port=8000)

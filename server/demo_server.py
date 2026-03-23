@@ -75,7 +75,17 @@ if __name__ == "__main__":
     print("=" * 50)
     print("SloughGPT API Server - Demo Mode")
     print("=" * 50)
-    print("Server running at http://localhost:8000")
+    import socket
+    def find_port(start=8000, attempts=10):
+        for p in range(start, start + attempts):
+            try:
+                s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                s.bind(("", p)); s.close()
+                return p
+            except OSError: continue
+        raise RuntimeError("No port available")
+    port = find_port()
+    print(f"Server running at http://localhost:{port}")
     print("\nEndpoints:")
     print("  GET  /           - Info")
     print("  GET  /health     - Health check")
@@ -83,4 +93,4 @@ if __name__ == "__main__":
     print("  POST /generate/demo - Demo generation")
     print("=" * 50)
     
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=port)
