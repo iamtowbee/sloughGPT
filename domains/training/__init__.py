@@ -299,6 +299,12 @@ __all__ = [
     "GGUFExportConfig",
     "estimate_memory_requirements",
     "quantize_gguf",
+    # Unified pipeline
+    "UnifiedTrainingConfig",
+    "UnifiedTrainingPipeline",
+    "TrainingProgress",
+    "TrainingStage",
+    "FederatedRLTrainer",
 ]
 
 
@@ -382,6 +388,12 @@ def __getattr__(name):
         "export_to_sou": ".export",
         "export_all_formats": ".export",
         "list_export_formats": ".export",
+        # Unified pipeline
+        "UnifiedTrainingConfig": ".unified_pipeline",
+        "UnifiedTrainingPipeline": ".unified_pipeline",
+        "TrainingProgress": ".unified_pipeline",
+        "TrainingStage": ".unified_pipeline",
+        "FederatedRLTrainer": ".unified_pipeline",
     }
 
     if name in lazy_imports:

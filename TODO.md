@@ -93,6 +93,9 @@ SloughGPT is an enterprise-grade AI framework with:
 | File | Status | Description |
 |------|--------|-------------|
 | `domains/training/unified_training.py` | ✅ Complete | **Production-ready**: OOP design, TrainingConfig dataclass, UniversalDataLoader (txt/jsonl/json/csv/bin/dir), TorchModelWrapper, Trainer class with setup/train/evaluate, TrainingPipeline |
+| `domains/training/unified_pipeline.py` | ✅ Complete | **Unified pipeline**: Deep Learning → Federated → RLHF in one pipeline |
+| `domains/training/rlhf.py` | ✅ Complete | **RLHF/PPO**: RewardModel, PPOTrainer, GAE, KL divergence |
+| `domains/training/federated_learning.py` | ✅ Complete | **Federated Learning**: Privacy-preserving distributed training |
 | `domains/training/model_registry.py` | ✅ Complete | Dynamic model loading |
 | `domains/training/lr_schedulers.py` | ✅ Complete | **Industry-standard LR schedulers**: CosineAnnealing, Warmup, OneCycle, Cyclic, Polynomial with factory function |
 | `domains/training/huggingface/__init__.py` | ✅ Complete | HF integration module |
@@ -104,6 +107,33 @@ SloughGPT is an enterprise-grade AI framework with:
 | `domains/training/models/llama.py` | ✅ Complete | LLaMA implementation |
 | `domains/training/distributed.py` | ✅ Complete | DDP + FSDP distributed training |
 | `domains/training/memory_optimization.py` | ✅ Complete | Activation/gradient checkpointing, flash attention, memory calculator |
+
+### 1.3.1 Unified Training Pipeline
+
+**Three stages that work together:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  TRAINING PIPELINE                           │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  1. PRE-TRAINING (Deep Learning)                           │
+│     └── SloughGPTModel learns language                      │
+│                                                              │
+│  2. FINE-TUNING (Federated Learning) ──────────────────┐   │
+│     └── Privacy-preserving domain adaptation             │   │
+│     └── Multiple clients, aggregated updates             │   │
+│                                                          │   │
+│  3. ALIGNMENT (RLHF/PPO)  ◄───────────────────────────┘   │
+│     └── RewardModel scores responses                      │
+│     └── PPO optimizes policy                             │
+│     └── Reference model for KL penalty                    │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key insight:** These are STAGES, not competing approaches.
+Each builds on the previous, preserving learned knowledge.
 
 ### 1.4 Neural Network (From Scratch)
 
