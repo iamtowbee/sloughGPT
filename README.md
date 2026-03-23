@@ -4,18 +4,22 @@ Self-hosted LLM infrastructure with local model training, inference, and experim
 
 ## Features
 
-- **Local Model Training** - Train NanoGPT from scratch or fine-tune HuggingFace models
+- **Local Model Training** - Train SloughGPTModel from scratch or fine-tune HuggingFace models
+- **Soul Engine** - Every model IS a soul (.sou format) with personality and cognitive capabilities
 - **Production Inference** - High-performance inference engine with streaming
-- **Quantization** - FP16, INT8, INT4 support for memory-efficient inference
+- **GGUF Export** - Mobile deployment via llama.rn (iOS/Android)
+- **ONNX Export** - Cross-platform deployment (server, web, mobile)
+- **Quantization** - FP16, INT8, INT4, Q4_K_M, Q5_K_M support
 - **Experiment Tracking** - MLflow-style metrics and parameter logging
-- **Model Export** - Export to Torch, ONNX, SafeTensors, .sou formats
+- **Federated Learning** - Privacy-preserving distributed training
 - **Benchmarking** - Performance metrics and model comparison
-- **Optimizations** - Mixed precision, gradient checkpointing, torch.compile
+- **Optimizations** - Mixed precision, gradient checkpointing, torch.compile, Flash Attention
 - **API Security** - JWT auth, rate limiting, input validation, audit logging
 - **Batch Processing** - Process up to 50 prompts in one request
 - **Response Caching** - TTL-based caching with hit/miss stats
 - **Kubernetes Ready** - Helm charts, health probes, Prometheus metrics
 - **Docker Ready** - Docker Compose with API, GPU, monitoring stacks
+- **TypeScript SDK** - Full-featured SDK with webhooks, billing, caching
 
 ## Quick Start
 
@@ -204,13 +208,34 @@ curl http://localhost:8000/benchmark/compare
 
 ### Model Export
 ```bash
-# Export model
+# Export model (SafeTensors, Torch, ONNX, GGUF, .sou)
 curl -X POST http://localhost:8000/model/export \
   -H "Content-Type: application/json" \
-  -d '{"output_path": "models/exported", "format": "torch"}'
+  -d '{"output_path": "models/exported", "format": "safetensors"}'
 
 # List formats
 curl http://localhost:8000/model/export/formats
+
+# CLI export examples
+python3 cli.py export models/slough.pt --format safetensors
+python3 cli.py export models/slough.pt --format gguf_q4_k_m  # Mobile
+python3 cli.py export models/slough.pt --format onnx         # Cross-platform
+```
+
+### Soul Engine
+```bash
+# Load a soul (.sou model)
+curl -X POST http://localhost:8000/load-soul \
+  -H "Content-Type: application/json" \
+  -d '{"soul_path": "models/slough.sou"}'
+
+# Get current soul profile
+curl http://localhost:8000/soul
+
+# Generate with soul (uses personality + reasoning)
+curl -X POST http://localhost:8000/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello", "use_soul": true}'
 ```
 
 ## Architecture
@@ -218,30 +243,37 @@ curl http://localhost:8000/model/export/formats
 ```
 SloughGPT/
 ├── domains/
+│   ├── core/               # Soul Engine & cognitive modules
+│   │   ├── soul.py         # SoulEngine - THE core model wrapper
+│   │   ├── reasoning.py    # Cognitive reasoning engine
+│   │   └── cognitive/      # LearningOptimizer, CreativityEngine
+│   ├── models/             # Model interface & SloughGPTModel
+│   │   ├── __init__.py    # OUR OWN architecture (RoPE, SwiGLU, RMSNorm)
+│   │   └── external.py    # External model support (HF, Ollama, GGUF)
 │   ├── inference/          # Inference engine
 │   │   ├── engine.py       # Production inference
-│   │   ├── quantization.py  # FP16/INT8/INT4
+│   │   ├── quantization.py  # FP16/INT8/INT4, Q4/Q5/Q8
 │   │   ├── optimizations.py # KV cache, batching
-│   │   ├── throughput.py   # Batch generation
 │   │   └── sou_format.py   # .sou model format
-│   ├── training/            # Training infrastructure
+│   ├── training/           # Training infrastructure
 │   │   ├── train_pipeline.py
 │   │   ├── optimized_trainer.py  # Optimized training
+│   │   ├── onnx_export.py       # ONNX export
+│   │   ├── gguf_export.py       # GGUF export (15+ architectures)
 │   │   ├── huggingface/    # HF model support
-│   │   ├── models/         # NanoGPT, etc.
-│   │   ├── lora.py         # LoRA fine-tuning
-│   │   └── export.py       # Model export
+│   │   └── lora.py         # LoRA/QLoRA fine-tuning
 │   └── ml_infrastructure/
 │       ├── experiment_tracker.py
 │       └── benchmarking.py
 ├── server/
 │   └── main.py              # FastAPI server (100+ endpoints)
+├── sloughgpt_sdk/           # Python SDK
+├── typescript-sdk/          # TypeScript SDK
 ├── cli.py                    # CLI commands
 ├── setup.sh                  # Setup script
 ├── docker-compose.yml        # Docker deployment
 ├── k8s/                      # Kubernetes manifests
 ├── helm/                     # Helm charts
-├── grafana/                  # Grafana dashboards
 └── tests/                   # Unit tests
 ```
 
