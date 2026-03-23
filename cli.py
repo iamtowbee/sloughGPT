@@ -107,7 +107,7 @@ def cmd_quick(args):
 
     sys.path.insert(0, ".")
 
-    from domains.training.models.nanogpt import NanoGPT
+    from domains.models import SloughGPTModel
     from domains.training.optimized_trainer import TrainingConfig, OptimizedTextDataset, OptimizedTrainer, Presets, get_optimal_device
 
     print("=" * 60)
@@ -144,13 +144,16 @@ def cmd_quick(args):
 
     # Create model
     print(f"\nCreating model...")
-    model = NanoGPT(
+    from domains.models import SloughGPTModel
+    model = SloughGPTModel(
         vocab_size=vocab_size,
         n_embed=args.embed,
         n_layer=args.layers,
         n_head=args.heads,
         block_size=args.block,
     )
+    print(f"  Model: SloughGPTModel (OUR architecture)")
+    print(f"  - RoPE + SwiGLU + RMSNorm + SDPA")
 
     # Create datasets
     n = int(0.9 * len(data))
@@ -220,13 +223,9 @@ def cmd_quick(args):
     legacy_trainer._train_loss_at_best = 0.0
     legacy_trainer.vocab_size = vocab_size
 
-    output_base = args.output.replace(".pt", "").replace(".safetensors", "")
-    legacy_trainer.save(output_base, format="safetensors")
-    print(f"\nModel saved to {output_base}.safetensors")
-
-    if getattr(args, 'export_sou', False):
-        legacy_trainer.save(output_base, format="sou")
-        print(f"Soul Unit saved to {output_base}.sou")
+    output_base = args.output.replace(".pt", "").replace(".safetensors", "").replace(".sou", "")
+    legacy_trainer.save(output_base, format="sou")
+    print(f"\nSoul Unit saved to {output_base}.sou")
 
 
 def cmd_train(args):
@@ -269,26 +268,23 @@ def cmd_train(args):
             )
             print(f"Tracking enabled: {config.tracking.backend}")
 
-        # Use train_pipeline for full-featured training
+        # Use unified train_pipeline
         from domains.training.train_pipeline import SloughGPTTrainer
 
-        print("=" * 50)
+        print("=" * 60)
         print("SLOUGHGPT TRAINING")
-        print("=" * 50)
+        print("=" * 60)
         print(f"Dataset: {config.data.dataset}")
         print(f"Epochs: {config.training.epochs}")
         print(f"Batch: {config.training.batch_size}")
         print(f"LR: {config.training.learning_rate}")
         print(f"LoRA: {config.lora.enabled}")
         print(f"Tracking: {config.tracking.enabled}")
-        print("=" * 50)
 
         save_formats = [args.save_format]
-        if args.export_sou and "sou" not in save_formats:
-            save_formats.append("sou")
-
         save_path = f"{config.checkpoint.save_dir}/{config.model.name}"
 
+        # Create trainer with unified configuration
         trainer = SloughGPTTrainer(
             data_path=config.data.data_path,
             vocab_size=config.model.vocab_size,
@@ -296,21 +292,47 @@ def cmd_train(args):
             n_layer=config.model.n_layer,
             n_head=config.model.n_head,
             block_size=config.model.block_size,
-            use_lora=config.lora.enabled,
-            lora_rank=config.lora.rank,
-            lora_alpha=config.lora.alpha,
-            batch_size=config.training.batch_size,
-            epochs=config.training.epochs,
-            lr=config.training.learning_rate,
-            save_format=",".join(save_formats),
-            save_quantized=args.save_quantized,
+            batch_size=args.batch_size,
+            epochs=args.epochs,
+            lr=args.lr,
+            max_steps=args.max_steps,
+            gradient_accumulation_steps=args.gradient_accumulation_steps,
+            max_grad_norm=args.max_grad_norm,
+            use_mixed_precision=args.use_mixed_precision,
+            mixed_precision_dtype=args.precision,
+            checkpoint_dir=args.checkpoint_dir,
+            checkpoint_interval=args.checkpoint_interval,
+            save_best_only=args.save_best_only,
+            scheduler_type=args.scheduler,
+            warmup_steps=args.warmup_steps,
+            min_lr=args.min_lr,
+            weight_decay=args.weight_decay,
+            use_lora=args.use_lora,
+            lora_rank=args.lora_rank,
+            lora_alpha=args.lora_alpha,
             soul_name=args.soul_name or config.model.name,
         )
+
+        # Print training config
+        print(f"\nTraining Options:")
+        print(f"  Mixed Precision: {args.use_mixed_precision} ({args.precision})")
+        print(f"  Gradient Accumulation: {args.gradient_accumulation_steps}")
+        print(f"  Max Grad Norm: {args.max_grad_norm}")
+        print(f"  Distributed: {args.distributed}")
+        if args.use_fsdp:
+            print(f"  FSDP: Enabled (strategy={args.sharding_strategy})")
+        print(f"  Checkpoint Dir: {args.checkpoint_dir}")
+        print("=" * 60)
+
+        # Resume if requested
+        if args.resume:
+            print(f"Resuming from: {args.resume}")
+            trainer.checkpoint_manager.load_latest()
 
         # Train
         trainer.train()
 
-        # Save in all requested formats
+        # Save
         print(f"\nSaving model in format(s): {', '.join(save_formats)}...")
         for fmt in save_formats:
             trainer.save(save_path, format=fmt)
@@ -511,87 +533,68 @@ def cmd_generate(args):
     """Generate text from prompt - tries local first, then API."""
     import torch
     from pathlib import Path
-    from domains.training.models.nanogpt import NanoGPT
+    from domains.core import SoulEngine
+    from domains.models import SloughGPTModel
 
-    # Try local first
-    model_path = Path("models/sloughgpt_finetuned.pt")
-    if not model_path.exists():
-        model_path = Path("models/sloughgpt.pt")
-    if model_path.exists():
+    # Try local first - prefer .sou files
+    sou_path = Path("models/sloughgpt.sou")
+    pt_path = Path("models/sloughgpt_finetuned.pt")
+
+    engine = SoulEngine(device="cpu")
+
+    if sou_path.exists():
         try:
-            checkpoint = torch.load(model_path, weights_only=False, map_location="cpu")
-
-            # Get config from checkpoint
+            soul = engine.load_soul(str(sou_path))
+            print(f"Loaded soul: {soul.name}")
+        except Exception as e:
+            print(f"Failed to load .sou: {e}")
+            sou_path = None
+    elif pt_path.exists():
+        try:
+            checkpoint = torch.load(pt_path, weights_only=False, map_location="cpu")
             training_info = checkpoint.get("training_info", {})
             vocab_size = training_info.get("vocab_size", len(checkpoint.get("stoi", {})))
             n_embed = training_info.get("n_embed", 128)
             n_layer = training_info.get("n_layer", 4)
             n_head = training_info.get("n_head", 4)
             block_size = training_info.get("block_size", 64)
-
-            # Fallback defaults
             if vocab_size == 0:
                 vocab_size = 65
 
-            # Create model and load weights
-            model = NanoGPT(
+            model = SloughGPTModel(
                 vocab_size=vocab_size,
                 n_embed=n_embed,
                 n_layer=n_layer,
                 n_head=n_head,
                 block_size=block_size,
             )
-
-            # Load state dict if present
             if "model" in checkpoint:
                 model.load_state_dict(checkpoint["model"])
             elif isinstance(checkpoint, dict):
                 model.load_state_dict(checkpoint)
 
-            stoi = checkpoint.get("stoi", {})
-            itos = checkpoint.get("itos", {})
-
-            idx = torch.tensor([[stoi.get(c, 0) for c in args.prompt]], dtype=torch.long)
-
-            model.eval()
-            with torch.no_grad():
-                for _ in range(args.max_tokens):
-                    idx_cond = idx[:, -block_size:]
-                    logits, _ = model(idx_cond)
-                    logits = logits[:, -1, :] / args.temperature
-                    probs = torch.softmax(logits, dim=-1)
-                    idx_next = torch.multinomial(probs, num_samples=1)
-                    idx = torch.cat([idx, idx_next], dim=1)
-
-            generated = "".join([itos.get(i, "") for i in idx[0].tolist()])
-            result = generated[len(args.prompt) :]
-            print(f"Generated: {result[:500]}")
-            return
+            engine._model = model
+            engine.set_vocab(checkpoint.get("stoi", {}), checkpoint.get("itos", {}))
         except Exception as e:
-            print(f"Local generation failed: {e}")
-
-    # Fall back to API
-    import requests
-
-    base_url = f"http://{args.host}:{args.port}"
-
-    try:
-        response = requests.post(
-            f"{base_url}/generate",
-            json={
-                "prompt": args.prompt,
-                "max_new_tokens": args.max_tokens,
-                "temperature": args.temperature,
-            },
-        )
-
-        if response.status_code == 200:
-            data = response.json()
-            print(f"Generated: {data['text'][:500]}")
+            print(f"Failed to load .pt: {e}")
+    else:
+        # Try .sou without path
+        for p in Path("models").glob("*.sou"):
+            try:
+                soul = engine.load_soul(str(p))
+                print(f"Loaded soul: {soul.name} from {p}")
+                break
+            except Exception:
+                continue
         else:
-            print(f"Error: {response.text}")
-    except Exception as e:
-        print(f"Error: {e}")
+            print("No model found. Using demo mode.")
+
+    result = engine.generate(
+        args.prompt,
+        max_new_tokens=args.max_tokens,
+        temperature=args.temperature,
+    )
+    print(f"Generated: {result[:500]}")
 
 
 def cmd_soul(args):
@@ -670,7 +673,7 @@ def cmd_soul(args):
 
     if args.create:
         from domains.inference.sou_format import create_soul_profile, export_to_sou
-        from domains.training.models.nanogpt import NanoGPT
+        from domains.models import SloughGPTModel
         import torch
 
         soul = create_soul_profile(
@@ -692,7 +695,7 @@ def cmd_soul(args):
             block_size = cfg.get("block_size", 128)
             vocab_size = cfg.get("vocab_size", 256)
 
-            model = NanoGPT(
+            model = SloughGPTModel(
                 vocab_size=vocab_size,
                 n_embed=n_embed,
                 n_layer=n_layer,
@@ -1030,14 +1033,44 @@ def cmd_export(args):
 
 
 def cmd_export_cli(args):
-    """Export a model to different formats (local)."""
-    import torch
-    from domains.training.export import export_model, list_export_formats
-    from domains.training.models.nanogpt import NanoGPT
+    """Export a model to different formats (local).
 
-    print("=" * 50)
+    Supports multiple export formats for different deployment targets:
+    - SafeTensors (recommended default)
+    - ONNX (cross-platform)
+    - GGUF (mobile/embedded)
+    - TorchScript (PyTorch C++)
+    - Soul Unit (personality)
+
+    Args:
+        args: Parsed command-line arguments
+
+    Supported formats:
+        safetensors: SafeTensors weights (recommended)
+        safetensors_bf16: SafeTensors with BF16 precision
+        onnx: ONNX model for cross-platform deployment
+        gguf_q4_k_m: GGUF Q4_K_M (recommended for mobile)
+        gguf_fp16: GGUF FP16 for quantization
+        gguf_q5_k_m: GGUF Q5_K_M for better quality
+        gguf_q8_0: GGUF Q8_0 high quality
+        torch: PyTorch checkpoint (legacy)
+        torchscript: TorchScript for C++ inference
+        sou: Soul Unit with personality
+        all: Export all formats
+
+    Examples:
+        python3 cli.py export model.pt -f safetensors
+        python3 cli.py export model.pt -f onnx --seq-len 128
+        python3 cli.py export model.pt -f gguf_q4_k_m
+        python3 cli.py export model.pt -f all
+    """
+    import torch
+    from domains.training.export import export_model, list_export_formats, ExportConfig
+    from domains.models import SloughGPTModel, SloughGPTModel
+
+    print("=" * 60)
     print("SloughGPT Model Export")
-    print("=" * 50)
+    print("=" * 60)
 
     # List formats
     print("\nSupported formats:")
@@ -1062,14 +1095,18 @@ def cmd_export_cli(args):
         metadata = {}
 
     # Get model config from metadata or use defaults
-    vocab_size = metadata.get("vocab_size", 1000)
+    vocab_size = metadata.get("vocab_size", 256)
     n_embed = metadata.get("n_embed", 256)
     n_layer = metadata.get("n_layer", 6)
     n_head = metadata.get("n_head", 8)
     block_size = metadata.get("block_size", 128)
 
+    # Auto-detect model type
+    model_type = metadata.get("model_type", "sloughgpt")
+    print(f"\nDetected model type: {model_type}")
+
     # Create model
-    model = NanoGPT(
+    model = SloughGPTModel(
         vocab_size=vocab_size,
         n_embed=n_embed,
         n_layer=n_layer,
@@ -1083,34 +1120,62 @@ def cmd_export_cli(args):
     # Set output path
     output_path = args.output or str(model_path.with_suffix(""))
 
-    # Export
-    export_formats = [args.format]
-    if args.export_sou:
-        export_formats.append("sou")
-    final_format = ",".join(export_formats)
+    # Parse metadata from command line
+    cli_metadata = {}
+    if args.metadata:
+        for item in args.metadata:
+            if "=" in item:
+                key, value = item.split("=", 1)
+                try:
+                    # Try to parse as number
+                    if value.replace(".", "", 1).isdigit():
+                        value = float(value) if "." in value else int(value)
+                    elif value.lower() in ("true", "false"):
+                        value = value.lower() == "true"
+                except ValueError:
+                    pass
+                cli_metadata[key] = value
 
-    print(f"\nExporting to format: {final_format}")
-
-    from domains.training.export import ExportConfig
-
-    meta_with_name = {**metadata}
+    # Merge metadata
+    meta_with_name = {**metadata, **cli_metadata}
     if args.soul_name:
         meta_with_name["name"] = args.soul_name
 
+    # Create export config
     config = ExportConfig(
         input_path=args.model,
         output_path=output_path,
-        format=final_format,
-        quantization=args.quantize,
+        format=args.format,
+        quantization=args.quantization,
         metadata=meta_with_name,
+        seq_len=args.seq_len,
+        opset_version=args.opset,
+        n_ctx=args.n_ctx if hasattr(args, 'n_ctx') else 2048,
     )
 
+    print(f"\nExport configuration:")
+    print(f"  Format: {args.format}")
+    print(f"  Quantization: {args.quantization or 'N/A'}")
+    print(f"  Sequence length: {args.seq_len}")
+    print(f"  ONNX opset: {args.opset}")
+    print(f"  Output: {output_path}")
+
+    # Export
     results = export_model(config, model=model)
 
     if results:
-        print("\nExport successful!")
+        print("\n" + "=" * 60)
+        print("Export successful!")
+        print("=" * 60)
         for fmt, path in results.items():
-            print(f"  {fmt}: {path}")
+            file_size = Path(path).stat().st_size if Path(path).exists() else 0
+            if file_size > 1024 * 1024:
+                size_str = f"{file_size / (1024*1024):.2f} MB"
+            elif file_size > 1024:
+                size_str = f"{file_size / 1024:.2f} KB"
+            else:
+                size_str = f"{file_size} bytes"
+            print(f"  {fmt}: {path} ({size_str})")
     else:
         print("\nExport failed.")
 
@@ -2018,10 +2083,14 @@ def main():
         "--no-optimize", action="store_true", help="Disable optimizations (FP16, compile, etc)"
     )
     quick_parser.add_argument(
-        "--export-sou", action="store_true", help="Export as .sou Soul Unit"
+        "--soul-name", type=str, default="SloughGPT-Quick", help="Name for the soul"
     )
     quick_parser.add_argument(
-        "--soul-name", type=str, default="SloughGPT-Quick", help="Name for the soul"
+        "--model-type",
+        type=str,
+        default="sloughgpt",
+        choices=["sloughgpt", "nanogpt"],
+        help="Model architecture (default: sloughgpt)",
     )
     quick_parser.set_defaults(func=cmd_quick)
 
@@ -2032,18 +2101,115 @@ def main():
     train_parser.add_argument("--batch-size", type=int, default=32, help="Batch size")
     train_parser.add_argument("--lr", type=float, default=0.01, help="Learning rate")
     train_parser.add_argument("--use-lora", action="store_true", help="Use LoRA")
-    train_parser.add_argument("--optimized", action="store_true", help="Use optimized training (FP16, compile)")
-    train_parser.add_argument("--api", action="store_true", help="Use API server instead of local")
-    train_parser.add_argument("--resume", type=str, help="Resume from checkpoint")
+    train_parser.add_argument("--lora-rank", type=int, default=4, help="LoRA rank")
+    train_parser.add_argument("--lora-alpha", type=float, default=16, help="LoRA alpha")
+
+    # Advanced training options
     train_parser.add_argument(
-        "--max-steps", type=int, default=None, help="Max steps per epoch (for quick testing)"
+        "--max-steps", type=int, default=None, help="Max training steps (overrides epochs)"
     )
+    train_parser.add_argument(
+        "--gradient-accumulation-steps", type=int, default=1,
+        help="Number of steps to accumulate gradients (effective batch = batch_size * accumulation_steps)"
+    )
+    train_parser.add_argument(
+        "--max-grad-norm", type=float, default=1.0,
+        help="Maximum gradient norm for clipping (0 to disable)"
+    )
+
+    # Mixed precision training
+    train_parser.add_argument(
+        "--mixed-precision", dest="use_mixed_precision", action="store_true",
+        help="Enable mixed precision training (FP16/BF16)"
+    )
+    train_parser.add_argument(
+        "--no-mixed-precision", dest="use_mixed_precision", action="store_false",
+        help="Disable mixed precision training"
+    )
+    train_parser.set_defaults(use_mixed_precision=True)
+    train_parser.add_argument(
+        "--precision", type=str, default="bf16", choices=["fp16", "bf16"],
+        help="Mixed precision dtype (default: bf16)"
+    )
+
+    # Distributed training
+    train_parser.add_argument(
+        "--distributed", action="store_true",
+        help="Enable distributed training (DDP)"
+    )
+    train_parser.add_argument(
+        "--fsdp", dest="use_fsdp", action="store_true",
+        help="Enable FSDP (Fully Sharded Data Parallel) for large models"
+    )
+    train_parser.add_argument(
+        "--sharding-strategy", type=str, default="FULL_SHARD",
+        choices=["FULL_SHARD", "SHARD_GRAD_OP", "NO_SHARD"],
+        help="FSDP sharding strategy (default: FULL_SHARD)"
+    )
+    train_parser.add_argument(
+        "--backend", type=str, default="nccl",
+        choices=["nccl", "gloo"],
+        help="Distributed backend (default: nccl)"
+    )
+    train_parser.add_argument(
+        "--world-size", type=int, default=None,
+        help="Number of processes for distributed training"
+    )
+
+    # Checkpointing
+    train_parser.add_argument(
+        "--checkpoint-dir", type=str, default="checkpoints",
+        help="Directory to save checkpoints"
+    )
+    train_parser.add_argument(
+        "--checkpoint-interval", type=int, default=1000,
+        help="Steps between checkpoints"
+    )
+    train_parser.add_argument(
+        "--save-best-only", action="store_true",
+        help="Only save best model checkpoints"
+    )
+    train_parser.add_argument(
+        "--resume", type=str, default=None,
+        help="Resume from checkpoint path"
+    )
+    train_parser.add_argument(
+        "--max-checkpoints", type=int, default=5,
+        help="Maximum number of checkpoints to keep"
+    )
+
+    # Learning rate scheduler
+    train_parser.add_argument(
+        "--scheduler", type=str, default="cosine",
+        choices=["cosine", "linear", "warmup_cosine", "constant", "polynomial"],
+        help="Learning rate scheduler (default: cosine)"
+    )
+    train_parser.add_argument(
+        "--warmup-steps", type=int, default=100,
+        help="Warmup steps for LR scheduler"
+    )
+    train_parser.add_argument(
+        "--min-lr", type=float, default=1e-5,
+        help="Minimum learning rate (for cosine scheduler)"
+    )
+    train_parser.add_argument(
+        "--weight-decay", type=float, default=0.01,
+        help="Weight decay"
+    )
+
+    # Optimizations
+    train_parser.add_argument(
+        "--compile", action="store_true",
+        help="Use torch.compile for faster training (PyTorch 2.0+)"
+    )
+
+    # Save options
     train_parser.add_argument(
         "--save-format",
         type=str,
-        default="safetensors",
-        choices=["safetensors", "safetensors_bf16", "torch", "gguf", "sou", "all"],
-        help="Model save format (default: safetensors)",
+        default="sou",
+        choices=["sou", "safetensors", "safetensors_bf16", "torch", "gguf"],
+        help="Model save format (default: sou - Soul Unit)",
     )
     train_parser.add_argument(
         "--save-quantized",
@@ -2053,16 +2219,13 @@ def main():
         help="GGUF quantization type",
     )
     train_parser.add_argument(
-        "--export-sou",
-        action="store_true",
-        help="Export as .sou Soul Unit (self-contained model + soul profile)",
-    )
-    train_parser.add_argument(
         "--soul-name",
         type=str,
         default=None,
         help="Name for the model's soul (default: model name)",
     )
+    train_parser.add_argument("--api", action="store_true", help="Use API server instead of local")
+    train_parser.add_argument("--optimized", action="store_true", help="Use optimized training (FP16, compile)")
     train_parser.set_defaults(func=cmd_train)
 
     # Status command
@@ -2094,26 +2257,137 @@ def main():
     gen_parser.set_defaults(func=cmd_generate)
 
     # Export command
-    export_parser = subparsers.add_parser("export", help="Export model to different formats")
-    export_parser.add_argument("model", nargs="?", default="models/sloughgpt.pt", help="Model path")
-    export_parser.add_argument("--output", "-o", help="Output path")
-    export_parser.add_argument(
-        "--format",
-        "-f",
-        default="safetensors",
-        help="Export format: safetensors, safetensors_bf16, torch, gguf, sou, all (comma-separated)",
+    # =========================================================================
+    # EXPORT COMMAND
+    # =========================================================================
+    # Model export with multiple format support for deployment targets:
+    #   - SafeTensors: Recommended default (safe, fast, HuggingFace compatible)
+    #   - ONNX: Cross-platform (server, web, mobile)
+    #   - GGUF: Mobile/embedded (llama.rn, iOS, Android)
+    # =========================================================================
+    export_parser = subparsers.add_parser(
+        "export",
+        help="Export model to different formats",
+        description="""
+Model export utilities for deploying trained SloughGPT models.
+
+Supported Formats:
+  safetensors     SafeTensors (RECOMMENDED) - safe, fast, memory-mapped
+  safetensors_bf16  SafeTensors with BF16 precision
+  onnx           ONNX - cross-platform (server, web, TF.js)
+  gguf_q4_k_m    GGUF Q4_K_M (RECOMMENDED for mobile)
+  gguf_fp16      GGUF FP16 - for separate quantization
+  gguf_q5_k_m    GGUF Q5_K_M - better quality mobile
+  gguf_q8_0      GGUF Q8_0 - high quality
+  torch          PyTorch checkpoint - training legacy
+  torchscript    TorchScript - PyTorch C++ inference
+  sou            Soul Unit - self-contained + personality
+  all            Export all formats at once
+
+Deployment Targets:
+  Server/CPU     -> ONNX + ONNX Runtime or SafeTensors
+  Web            -> ONNX (.onnx) with ONNX.js
+  React Native   -> GGUF Q4_K_M with llama.rn
+  iOS/Android    -> GGUF Q4_K_M with llama.cpp
+  C++ Apps       -> TorchScript
+
+Examples:
+  # Export to recommended default
+  python3 cli.py export model.pt -f safetensors
+
+  # Export for mobile (llama.rn)
+  python3 cli.py export model.pt -f gguf_q4_k_m
+
+  # Export for cross-platform
+  python3 cli.py export model.pt -f onnx --seq-len 128
+
+  # Export all formats
+  python3 cli.py export model.pt -f all
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    export_parser.add_argument("--quantize", choices=["int8", "int4", "fp16"], help="Quantization")
     export_parser.add_argument(
-        "--export-sou",
-        action="store_true",
-        help="Also export as .sou Soul Unit",
+        "model",
+        nargs="?",
+        default="models/sloughgpt.pt",
+        help="Path to input model file (.pt, .safetensors, .pth)"
+    )
+    export_parser.add_argument(
+        "--output", "-o",
+        help="Output path (extension added automatically)"
+    )
+    export_parser.add_argument(
+        "--format", "-f",
+        default="safetensors",
+        choices=[
+            "safetensors",       # Recommended default (safe, fast)
+            "safetensors_bf16", # Full precision storage
+            "onnx",             # Cross-platform (server, web, TF.js)
+            "gguf_q4_k_m",      # Recommended for mobile (llama.rn)
+            "gguf_fp16",        # For separate quantization
+            "gguf_q5_k_m",      # Better quality mobile
+            "gguf_q8_0",        # High quality
+            "torch",            # Training checkpoint
+            "torchscript",      # PyTorch C++ inference
+            "sou",              # SloughGPT soul + personality
+            "all",              # Export all formats
+        ],
+        help="Export format (default: safetensors)"
+    )
+    export_parser.add_argument(
+        "--quantize",
+        dest="quantization",
+        choices=["Q4_K_M", "Q5_K_M", "Q8_0", "F16", "F32"],
+        help="""
+            GGUF quantization type for mobile deployment.
+            Q4_K_M: 4-bit medium (RECOMMENDED - best balance)
+            Q5_K_M: 5-bit medium (better quality, larger)
+            Q8_0:   8-bit (high quality, largest)
+            F16:    16-bit float (full precision, no quantization)
+            F32:    32-bit float (full precision, largest)
+        """
+    )
+    export_parser.add_argument(
+        "--seq-len",
+        type=int,
+        default=128,
+        help="Maximum sequence length for ONNX export (default: 128)"
+    )
+    export_parser.add_argument(
+        "--opset",
+        type=int,
+        default=17,
+        help="ONNX opset version (default: 17, latest)"
+    )
+    export_parser.add_argument(
+        "--ctx",
+        type=int,
+        dest="n_ctx",
+        default=2048,
+        help="Context length for GGUF export (default: 2048)"
     )
     export_parser.add_argument(
         "--soul-name",
         type=str,
         default=None,
-        help="Name for the soul profile",
+        help="Name for the soul profile (used with -f sou)"
+    )
+    export_parser.add_argument(
+        "--include-tokenizer/--no-tokenizer",
+        dest="include_tokenizer",
+        default=True,
+        help="Include tokenizer files in export (default: True)"
+    )
+    export_parser.add_argument(
+        "--metadata",
+        type=str,
+        nargs="+",
+        default=None,
+        help="""
+            Metadata key-value pairs for model tagging.
+            Format: KEY=VALUE KEY2=VALUE2
+            Example: --metadata model_type=sloughgpt training_dataset=custom
+        """
     )
     export_parser.set_defaults(func=cmd_export_cli)
 

@@ -8,6 +8,58 @@ SloughGPT is an enterprise-grade AI framework with:
 - Production-grade ML infrastructure
 - **Unique Personality System** distinguishing code-based vs trained personality
 - CLI interface
+- **SloughGPTModel** - OUR OWN architecture (906 lines, NOT NanoGPT)
+
+---
+
+## CURRENT ARCHITECTURE STATUS
+
+### Core Architecture
+| Component | File | Lines | Status |
+|-----------|------|-------|--------|
+| SloughGPTModel | `domains/models/__init__.py` | 750+ | ✅ OUR architecture |
+| SoulEngine | `domains/core/soul.py` | 603 | ✅ Core wrapper |
+| SoulReasoning | `domains/core/reasoning.py` | ~150 | ✅ Cognitive wired |
+| GGUF Export | `domains/training/gguf_export.py` | 992 | ✅ 15+ architectures |
+| Train Pipeline | `domains/training/train_pipeline.py` | 550+ | ✅ Unified trainer |
+| CLI | `cli.py` | 2620 | ✅ Full-featured |
+| Tests | `tests/test_core.py` | ~305 | ✅ SloughGPTModel |
+| External Model Import | `domains/models/external.py` | 400+ | ✅ HF, Ollama, llama.cpp |
+| ModelInterface | `domains/models/__init__.py` | - | ✅ Pluggable |
+| HuggingFaceWrapper | `domains/models/__init__.py` | - | ✅ HF support |
+| ModelLoader | `domains/models/__init__.py` | - | ✅ Auto-detection |
+
+### Supported GGUF Architectures (Auto-detect)
+- SloughGPT (default)
+- LLaMA
+- Mistral
+- GPT-2
+- OPT (Meta)
+- Falcon
+- GPT-NeoX
+- Bloom
+- Phi
+- Gemma
+- Qwen
+- Starcoder
+- Deepseek
+- Yi
+
+### Supported External Models
+- HuggingFace Hub (auto-detect model type)
+- Ollama (local LLM server)
+- llama.cpp (GGUF models)
+- Local files (.sou, .pt, .safetensors, .gguf)
+
+### Key Design Decisions
+- **SoulEngine is THE core** - ALL inference goes through here
+- **ModelInterface** - pluggable backends (SloughGPTModel, HuggingFace, Ollama, etc.)
+- **.sou is ALWAYS required** - every model IS a soul
+- **SloughGPTModel is our own** - RoPE, SwiGLU, RMSNorm, SDPA, DDP, FSDP
+- **Unified training** - Single train_pipeline.py with all features
+- **Reasoning chain as TEXT** - `[SOUL_REASONING]` block in prompt
+- **GGUF auto-detection** - Detects architecture from tensor names
+- **NanoGPTModel removed** - External models via ModelImporter or HuggingFaceWrapper
 
 ---
 
@@ -123,16 +175,19 @@ SloughGPT is an enterprise-grade AI framework with:
 | **Learning Rate Schedulers** | Cosine annealing, warmup, cyclical | ✅ Implemented in lr_schedulers.py | DONE |
 | **Mixed Precision Training** | torch.amp (BF16/FP16), GradScaler | ✅ Implemented in unified_training.py | DONE |
 | **Gradient Accumulation** | Simulate large batch sizes | ✅ Implemented with grad clipping | DONE |
-| **Distributed Training (DDP)** | Multi-GPU training | Skeleton only | HIGH |
-| **Fully Sharded Data Parallel (FSDP)** | Large model sharding | Not implemented | MEDIUM |
+| **Distributed Training (DDP)** | Multi-GPU training | ✅ `wrap_ddp()` on SloughGPTModel | DONE |
+| **Fully Sharded Data Parallel (FSDP)** | Large model sharding | ✅ `wrap_fsdp()` on SloughGPTModel | DONE |
 | **Early Stopping** | Patience-based stopping | In callbacks.py | ✅ |
 | **Checkpoint Management** | Distributed checkpoints (DCP) | Basic | MEDIUM |
 | **MLflow/W&B Integration** | Experiment tracking | Basic (custom tracker) | MEDIUM |
-| **Activation Checkpointing** | Memory optimization | Not implemented | MEDIUM |
+| **Activation Checkpointing** | Memory optimization | ✅ `apply_gradient_checkpointing()` on SloughGPTModel | DONE |
 | **LoRA/QLoRA** | Parameter-efficient fine-tuning | lora.py (root) | ✅ |
-| **Flash Attention** | Memory-efficient attention | Not implemented | HIGH |
-| **ZeRO Optimizer** | Memory sharding | Not implemented | MEDIUM |
-| **Gradient Checkpointing** | Memory-compute tradeoff | Not implemented | MEDIUM |
+| **Flash Attention** | Memory-efficient attention | ✅ SDPA in SloughGPTModel (auto-fallback) | DONE |
+| **ZeRO Optimizer** | Memory sharding | In zero_optimizer.py | ✅ |
+| **Gradient Checkpointing** | Memory-compute tradeoff | ✅ In optimized_trainer.py | DONE |
+| **GGUF Export** | llama.cpp format | ✅ Multiple architectures (SloughGPT, LLaMA, Mistral, external) | DONE |
+| **ONNX Export** | Cross-platform | ✅ RoPE/RMSNorm/SwiGLU support | DONE |
+| **ModelMetadata** | Training core compatibility | ✅ 60+ fields | DONE |
 
 ### Memory Requirements (Per Parameter)
 
@@ -142,6 +197,26 @@ SloughGPT is an enterprise-grade AI framework with:
 | BF16 | 2 bytes | Recommended default |
 | FP16 | 2 bytes | May need loss scaling |
 | Mixed (BF16 + FP32 optimizer) | 12 bytes | Standard production |
+
+---
+
+## SloughGPTModel Architecture (`domains/models/__init__.py`)
+
+**OUR OWN model architecture** - NOT NanoGPT. NOT GPT-2.
+
+| Feature | Implementation | Status |
+|---------|----------------|--------|
+| RoPE (Rotary Position Embeddings) | `RotaryEmbedding` class | ✅ |
+| Flash Attention / SDPA | Auto-fallback based on hardware | ✅ |
+| SwiGLU activation | `SwiGLU` class (3 linear layers) | ✅ |
+| RMSNorm | `RMSNorm` class | ✅ |
+| Grouped Query Attention | `n_kv_head` parameter | ✅ |
+| KV Cache | `use_cache` parameter in forward | ✅ |
+| Weight tying | Token embedding ↔ lm_head | ✅ |
+| Gradient Checkpointing | `apply_gradient_checkpointing()` | ✅ |
+| DDP wrapper | `wrap_ddp()` | ✅ |
+| FSDP wrapper | `wrap_fsdp()` | ✅ |
+| Model size tracker | `get_model_size_mb()` | ✅ |
 
 ---
 
@@ -379,6 +454,8 @@ python cli.py --help
 python cli.py quick --prompt "Hello"     # Quick train & generate
 python cli.py train --dataset shakespeare # Full training
 python cli.py export models/slough.pt --format sou  # Export
+python cli.py export models/slough.pt --format onnx  # ONNX
+python cli.py export models/slough.pt --format gguf_q4_k_m  # GGUF for mobile
 python cli.py hf-download gpt2          # Download HF model
 
 # Training script
@@ -567,7 +644,8 @@ SloughGPT Core
   - Perplexity calculation
   - API endpoints: /benchmark/run, /benchmark/perplexity, /benchmark/compare
 - ✅ Model export (domains/training/export.py)
-  - Torch, TorchScript, ONNX, SafeTensors, .sou formats
+  - Torch, TorchScript, ONNX, SafeTensors, GGUF, .sou formats
+  - ModelMetadata (60+ fields for training core)
   - API endpoints: /model/export, /model/export/formats, /models
 - ✅ Archived third-party APIs (archive/third_party_apis/)
 - ✅ All API endpoints working on port 8000
@@ -937,28 +1015,73 @@ SloughGPT Core
 - `health`, `info`, `generate`, `chat`, `models`, `datasets`
 - `metrics`, `batch`, `key` (create/list/info/rotate/revoke/delete/usage)
 
-### Phase 27: Soul Unit (.sou) Integration
+### Phase 27: Soul Engine & Soul Unit Integration
+
+**SoulEngine (`domains/core/soul.py`) - THE CORE MODEL WRAPPER:**
+- ✅ `SoulEngine` - every inference call goes through here
+- ✅ Wraps `ModelInterface` (pluggable brain - NanoGPT, GGUF, ONNX)
+- ✅ Integrates cognitive + reasoning engines via TEXT-based chain
+- ✅ `SoulProfile` is NOT optional - every model IS a soul
+- ✅ `.sou` is the default/only training output format
+- ✅ `generate()` derives ALL params from soul profile
+- ✅ Session history, sentiment analysis, emotional context
+- ✅ Hebbian learning (connection weights updated on each generation)
+- ✅ `SoulReasoning` - reasoning type from soul's `reasoning_approach`
+- ✅ Reasoning chain embedded as structured TEXT in prompt (LLM-readable)
+
+**Model Interface (`domains/models/__init__.py`):**
+- ✅ `ModelInterface` - abstract base class for all model backends
+- ✅ `ModelLoader` - auto-detects format (.sou, .safetensors, .pt, .gguf)
+- ✅ `NanoGPTModel` - NanoGPT behind the interface
+- ✅ `NanoGPT` removed from `domains.training.models.nanogpt` import chain
+
+**Reasoning Chain (TEXT-based, LLM-readable):**
+- User Query → SoulCognitive (emotion, session) → SoulReasoning (strategy)
+  → Structured text prompt → LLM generates → Hebbian learning updates
+- Format: `[SOUL_REASONING]` block with reasoning_type, emotional_context,
+  cognitive scores, personality traits → `[CONVERSATION_HISTORY]` → query
+
+**NanoGPT Refactoring (24→0 files):**
+- ✅ `cli.py` - uses `SoulEngine` + `NanoGPTModel` from `domains.models`
+- ✅ `train_sloughgpt.py` - uses `NanoGPTModel` from `domains.models`
+- ✅ `domains/training/train_pipeline.py` - uses `NanoGPTModel`
+- ✅ `domains/training/model_loader.py` - uses `NanoGPTModel`
+- ✅ `domains/training/inference_engine.py` - uses `NanoGPTModel`
+- ✅ `domains/training/unified_training.py` - uses `NanoGPTModel`
+- ✅ `domains/training/optimized_trainer.py` - uses `NanoGPTModel`
+- ✅ `domains/ui/api_server.py` - 8 instances, all refactored
+- ✅ `tests/test_core.py` - all instances refactored
+- ✅ `examples/inference.py` - refactored
+- ✅ `scripts/examples/train_example.py` - refactored
+- ✅ All `from domains.training.models.nanogpt import NanoGPT` → `from domains.models import NanoGPTModel`
 
 **Server (`server/main.py`):**
-- ✅ `current_soul` global - loaded soul profile
+- ✅ `soul_engine` global - `SoulEngine` instance
 - ✅ `get_soul_generation_params()` - helper for soul params
 - ✅ `get_soul_personality()` - helper for soul traits
-- ✅ `POST /load-soul` - load .sou file, creates NanoGPT model from it
+- ✅ `POST /load-soul` - loads .sou into SoulEngine
 - ✅ `GET /soul` - get current soul profile
-- ✅ `/generate` - uses soul params as defaults (temperature, top_p, top_k, max_tokens)
-- ✅ `/info` - includes soul info in response
-- ✅ `/root` - shows `soul_loaded` field
-- ✅ Nanogpt generation now uses soul top_k filtering
+- ✅ `/generate` - uses SoulEngine when available, falls back to raw model
+- ✅ `/info` - includes soul_engine stats
+- ✅ `/health` - shows `soul_engine_active`, `soul_name`
+- ✅ `/root` - shows `soul_engine_active` field
+- ✅ Port auto-detection on startup (finds available port, rotates if busy)
 
 **CLI (`cli.py`):**
-- ✅ `sloughgpt soul --load` - load .sou into server
-- ✅ `sloughgpt soul --info` - inspect .sou file (full soul profile)
-- ✅ `sloughgpt soul --create` - create .sou from checkpoint
+- ✅ `sloughgpt train --save-format sou` - default is now .sou (always on)
+- ✅ `sloughgpt export --format sou` - default is now .sou
+- ✅ `sloughgpt quick` - always exports .sou (removed `--export-sou` flag)
+- ✅ `sloughgpt soul --load/--info/--create` - soul management commands
+- ✅ `sloughgpt generate` - uses SoulEngine
 
 **Training Pipeline:**
-- ✅ `sloughgpt train --export-sou` - export trained model as .sou
-- ✅ `sloughgpt export --format sou` - convert any checkpoint to .sou
-- ✅ `SloughGPTTrainer.save()` - supports .sou format
+- ✅ `.sou` is the default/only training output (no `--export-sou` flag needed)
+- ✅ `SloughGPTTrainer.save()` - always saves .sou
 - ✅ Soul profile auto-populated with training metrics
+
+**Inference Integration:**
+- ✅ DreamProcessingEngine connected via SoulEngine (not hardcoded to NanoGPT)
+- ✅ CognitiveProcessor wired into SoulEngine generation pipeline
+- ✅ ReasoningEngine driven by soul's `reasoning_approach` trait
 
 *Always refer to this document for project status and priorities*

@@ -276,6 +276,29 @@ __all__ = [
     "URLImporter",
     "ImportResult",
     "import_data",
+    # Export modules (NEW)
+    "export_model",
+    "ExportConfig",
+    "ModelMetadata",
+    "create_model_metadata",
+    "ONNXExportOptions",
+    "GGUFExportOptions",
+    "export_to_safetensors",
+    "export_to_onnx",
+    "export_to_gguf",
+    "export_to_gguf_q4_k_m",
+    "export_to_gguf_fp16",
+    "export_to_torchscript",
+    "export_to_sou",
+    "export_all_formats",
+    "list_export_formats",
+    # ONNX export
+    "SloughGPTONNXExport",
+    "ONNXExportConfig",
+    # GGUF export
+    "GGUFExportConfig",
+    "estimate_memory_requirements",
+    "quantize_gguf",
 ]
 
 
@@ -345,6 +368,20 @@ def __getattr__(name):
         "URLImporter": ".data_import",
         "ImportResult": ".data_import",
         "import_data": ".data_import",
+        # Export modules
+        "export_model": ".export",
+        "ExportConfig": ".export",
+        "ModelMetadata": ".export",
+        "create_model_metadata": ".export",
+        "export_to_safetensors": ".export",
+        "export_to_onnx": ".export",
+        "export_to_gguf": ".export",
+        "export_to_gguf_q4_k_m": ".export",
+        "export_to_gguf_fp16": ".export",
+        "export_to_torchscript": ".export",
+        "export_to_sou": ".export",
+        "export_all_formats": ".export",
+        "list_export_formats": ".export",
     }
 
     if name in lazy_imports:
