@@ -2404,3 +2404,170 @@ async def list_models():
             })
     
     return {"models": models}
+
+
+# ============ Vector Store ============
+_vector_store = None
+_vector_store_type = "in_memory"
+
+
+class VectorStoreConfig(BaseModel):
+    provider: Optional[str] = "in_memory"
+    dimension: Optional[int] = 768
+    api_key: Optional[str] = None
+    url: Optional[str] = None
+    index: Optional[str] = "sloughgpt"
+    environment: Optional[str] = "us-east-1"
+
+
+class UpsertRequest(BaseModel):
+    texts: List[str]
+    embeddings: Optional[List[List[float]]] = None
+    metadata: Optional[List[Dict[str, Any]]] = None
+
+
+class QueryRequest(BaseModel):
+    query: str
+    embedding: Optional[List[float]] = None
+    top_k: Optional[int] = 5
+    filter_metadata: Optional[Dict[str, Any]] = None
+
+
+async def get_vector_store():
+    global _vector_store
+    if _vector_store is None:
+        from domains.inference.vector_store import create_vector_store, simple_embed
+        _vector_store = await create_vector_store(provider=_vector_store_type)
+    return _vector_store
+
+
+@app.post("/vector/init", tags=["vector"])
+async def init_vector_store(config: VectorStoreConfig):
+    """Initialize vector store with specified provider."""
+    global _vector_store, _vector_store_type
+    _vector_store_type = config.provider or "in_memory"
+    
+    try:
+        from domains.inference.vector_store import create_vector_store, VectorStoreType
+        
+        kwargs = {"dimension": config.dimension or 768}
+        
+        if config.provider == "pinecone":
+            kwargs["api_key"] = config.api_key
+            kwargs["index"] = config.index
+            kwargs["environment"] = config.environment
+        elif config.provider == "weaviate":
+            kwargs["url"] = config.url or "http://localhost:8080"
+            kwargs["api_key"] = config.api_key
+        elif config.provider == "chromadb":
+            kwargs["persist_directory"] = "./vector_store"
+        
+        _vector_store = await create_vector_store(provider=_vector_store_type, **kwargs)
+        
+        return {
+            "status": "connected",
+            "provider": _vector_store_type,
+            "type": str(VectorStoreType(_vector_store_type)),
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/vector/stats", tags=["vector"])
+async def vector_stats():
+    """Get vector store statistics."""
+    store = await get_vector_store()
+    return {
+        "provider": _vector_store_type,
+        "count": await store.count(),
+    }
+
+
+@app.post("/vector/upsert", tags=["vector"])
+async def upsert_vectors(request: UpsertRequest):
+    """Upsert documents with embeddings to vector store."""
+    from domains.inference.vector_store import VectorEntry, simple_embed
+    
+    store = await get_vector_store()
+    from domains.inference.vector_store import VectorStoreType
+    
+    entries = []
+    for i, text in enumerate(request.texts):
+        embedding = request.embeddings[i] if request.embeddings and i < len(request.embeddings) else simple_embed(text)
+        metadata = request.metadata[i] if request.metadata and i < len(request.metadata) else {}
+        
+        import hashlib
+        entry_id = hashlib.md5(f"{text[:50]}{i}".encode()).hexdigest()[:12]
+        
+        entries.append(VectorEntry(
+            id=entry_id,
+            vector=embedding,
+            text=text,
+            metadata=metadata,
+        ))
+    
+    count = await store.upsert(entries)
+    return {"status": "success", "upserted": count}
+
+
+@app.post("/vector/query", tags=["vector"])
+async def query_vectors(request: QueryRequest):
+    """Query vector store for similar documents."""
+    from domains.inference.vector_store import simple_embed
+    
+    store = await get_vector_store()
+    
+    embedding = request.embedding or simple_embed(request.query)
+    
+    results = await store.query(
+        vector=embedding,
+        top_k=request.top_k or 5,
+        filter_metadata=request.filter_metadata,
+    )
+    
+    return {
+        "query": request.query,
+        "results": [
+            {
+                "id": r.id,
+                "score": r.score,
+                "text": r.text,
+                "metadata": r.metadata,
+            }
+            for r in results
+        ],
+    }
+
+
+@app.delete("/vector/delete", tags=["vector"])
+async def delete_vectors(ids: List[str]):
+    """Delete vectors by ID."""
+    store = await get_vector_store()
+    success = await store.delete(ids)
+    return {"status": "success" if success else "error", "deleted": len(ids)}
+
+
+@app.post("/vector/search", tags=["vector"])
+async def search_vectors(
+    query: str,
+    top_k: int = 5,
+    include_embeddings: bool = False,
+):
+    """Combined RAG-style search: embed query, retrieve docs, optionally generate."""
+    from domains.inference.vector_store import simple_embed
+    
+    store = await get_vector_store()
+    
+    embedding = simple_embed(query)
+    results = await store.query(vector=embedding, top_k=top_k)
+    
+    context = "\n\n".join([r.text for r in results])
+    
+    return {
+        "query": query,
+        "context": context,
+        "sources": [
+            {"id": r.id, "score": r.score, "text": r.text[:200], "metadata": r.metadata}
+            for r in results
+        ],
+    }
