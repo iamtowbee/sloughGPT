@@ -217,6 +217,17 @@ Each builds on the previous, preserving learned knowledge.
 | `domains/inference/sou_format.py` | ✅ Complete | Parser, SouModelFile, GenerationParameters, PersonalityConfig |
 | `domains/inference/quantization.py` | ✅ Complete | Q4/Q8/F16 quantization, memory calculator |
 | `domains/inference/loader.py` | ✅ Complete | ModelLoader, InferenceEngine, chat/generate APIs |
+| `domains/inference/optimizer.py` | ✅ Complete | KV Cache, Speculative Decoding, Continuous Batching, Benchmarking |
+
+### 1.9.1 Inference Optimizations
+
+| Optimization | Speedup | Description |
+|-------------|---------|-------------|
+| KV Cache | 2-5x | Store keys/values for autoregressive generation |
+| Speculative Decoding | 2-3x | Draft model verification |
+| Continuous Batching | 1.5-2x | Dynamic GPU batching |
+| Flash Attention | 2-4x | Optimized attention kernel |
+| INT8/INT4 Quantization | 2-4x | Reduced precision weights |
 
 ---
 

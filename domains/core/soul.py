@@ -126,6 +126,7 @@ class SoulEngine:
         self._reasoning_engine = None
         self._sentiment_analyzer = None
         self._hebbian_connections: Dict[str, Dict[str, float]] = {}
+        self._inference_optimizer = None
         self._init_cognitive()
 
         logger.info(f"SoulEngine initialized: soul={self._soul.name}, device={device}")
@@ -780,6 +781,89 @@ class SoulEngine:
             "session_turns": self._cognitive_state.get("session_turns", 0),
             "hebbian_connections": len(self._hebbian_connections),
         }
+
+    def optimize_inference(
+        self,
+        use_kv_cache: bool = True,
+        use_flash_attention: bool = True,
+        use_quantization: bool = False,
+        quantization_bits: int = 8,
+    ) -> Dict[str, Any]:
+        """
+        Enable inference optimizations.
+
+        Args:
+            use_kv_cache: Enable KV cache for faster generation
+            use_flash_attention: Use Flash Attention if available
+            use_quantization: Quantize model weights
+            quantization_bits: Bits for quantization (4, 8)
+
+        Returns:
+            Optimization status
+        """
+        try:
+            from domains.inference.optimizer import InferenceOptimizer, InferenceConfig
+
+            config = InferenceConfig(
+                use_kv_cache=use_kv_cache,
+                use_flash_attention=use_flash_attention,
+                use_quantization=use_quantization,
+                quantization_bits=quantization_bits,
+            )
+
+            self._inference_optimizer = InferenceOptimizer(
+                model=self._model,
+                config=config,
+                device=self._device,
+            )
+
+            return {
+                "success": True,
+                "kv_cache": use_kv_cache,
+                "flash_attention": use_flash_attention,
+                "quantization": use_quantization if use_quantization else f"{quantization_bits}bit",
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def benchmark_inference(
+        self,
+        prompt_tokens: int = 50,
+        generated_tokens: int = 50,
+        num_runs: int = 10,
+    ) -> Dict[str, Any]:
+        """
+        Benchmark inference performance.
+
+        Args:
+            prompt_tokens: Length of input prompt
+            generated_tokens: Tokens to generate
+            num_runs: Number of benchmark runs
+
+        Returns:
+            Benchmark results
+        """
+        if not hasattr(self, '_inference_optimizer') or not self._inference_optimizer:
+            return {"error": "Run optimize_inference() first"}
+
+        try:
+            from domains.inference.optimizer import InferenceBenchmark
+            import torch
+
+            benchmark = InferenceBenchmark(self._inference_optimizer)
+
+            # Create dummy prompt
+            prompt = torch.randint(0, 1000, (1, prompt_tokens))
+
+            results = benchmark.run_benchmark(
+                prompt="benchmark",
+                num_tokens=generated_tokens,
+                num_runs=num_runs,
+            )
+
+            return results
+        except Exception as e:
+            return {"error": str(e)}
 
     def __repr__(self) -> str:
         loaded = "loaded" if self._model else "no model"
