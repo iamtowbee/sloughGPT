@@ -103,8 +103,8 @@ class BM25Indexer:
 
             for doc_id, _ in self.inverted_index[token]:
                 doc_len = self.doc_lengths[doc_id]
-                tf = sum(1 for _, p in self.inverted_index.get(token, [])
-                         if p[0] == doc_id)
+                tf = sum(1 for d, _ in self.inverted_index.get(token, [])
+                         if d == doc_id)
 
                 # BM25 formula
                 numerator = tf * (self.k1 + 1)
@@ -440,7 +440,8 @@ class ProductionRAG:
 
         # Tokenize and chunk with overlap
         tokens = content.split()
-        for i in range(0, len(tokens), chunk_size - overlap):
+        stride = max(1, chunk_size - overlap)
+        for i in range(0, len(tokens), stride):
             chunk_tokens = tokens[i:i + chunk_size]
             chunk_content = ' '.join(chunk_tokens)
 

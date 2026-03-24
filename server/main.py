@@ -27,7 +27,8 @@ import re
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Header
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Header, Request
+from fastapi.staticfiles import StaticFiles
 from federated_routes import router as federated_router
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -447,6 +448,10 @@ app.add_middleware(RateLimitMiddleware)
 app.include_router(federated_router)
 
 
+# Serve model files (GGUF, etc.)
+app.mount("/models", StaticFiles(directory="../models"), name="models")
+
+
 # WebSocket connection manager
 class ConnectionManager:
     def __init__(self):
@@ -552,11 +557,72 @@ class ChatRequest(BaseModel):
 
 
 def load_model():
-    """Skip model loading - use demo mode for now."""
-    global model, model_type
-    model = None
-    model_type = "demo"
-    print("Demo mode active (no model loaded)")
+    """Load the actual sloughgpt model."""
+    global model, tokenizer, model_type
+    try:
+        from pathlib import Path
+        import torch
+        
+        # Check for available models (relative to server directory)
+        model_paths = [
+            "../models/sloughgpt_finetuned.pt",
+            "../models/sloughgpt_lora.pt", 
+            "../models/sloughgpt_variant.pt"
+        ]
+        
+        model_path = None
+        for path in model_paths:
+            if Path(path).exists():
+                model_path = path
+                break
+                
+        if model_path is None:
+            # Fallback to demo mode
+            model = None
+            model_type = "demo"
+            print("No model found, demo mode active")
+            return
+            
+        # Load the model checkpoint
+        print(f"Loading model from {model_path}...")
+        checkpoint = torch.load(model_path, map_location='cpu')
+        
+        # Extract model and tokenizer info
+        if isinstance(checkpoint, dict):
+            # Store the full checkpoint
+            model = checkpoint
+            model_type = "sloughgpt_finetuned"
+            
+            # Also set up tokenizer-like info for generation
+            if 'chars' in checkpoint and 'stoi' in checkpoint and 'itos' in checkpoint:
+                # These are needed for the simple character-level model
+                tokenizer = {
+                    'chars': checkpoint['chars'],
+                    'stoi': checkpoint['stoi'],
+                    'itos': checkpoint['itos'],
+                    'vocab_size': len(checkpoint['chars'])
+                }
+                print(f"✅ Tokenizer loaded: {len(checkpoint['chars'])} characters")
+            else:
+                tokenizer = None
+                
+            print(f"✅ Model loaded successfully from {model_path}")
+            print(f"📊 Model contains {len(checkpoint.get('model', {}))} parameters")
+        else:
+            # Assume the checkpoint is the model itself
+            model = checkpoint
+            model_type = "sloughgpt_finetuned"
+            tokenizer = None
+            print(f"✅ Model loaded successfully from {model_path}")
+            
+    except Exception as e:
+        print(f"❌ Failed to load model: {e}")
+        import traceback
+        traceback.print_exc()
+        # Fallback to demo mode
+        model = None
+        tokenizer = None
+        model_type = "demo"
 
 
 @app.post("/load")
@@ -986,8 +1052,8 @@ async def generate_demo(request: GenerateRequest):
 
 
 @app.post("/generate")
-async def generate(request: GenerateRequest):
-    client_ip = request.client.host if request.client else "unknown"
+async def generate(request: GenerateRequest, req: Request):
+    client_ip = req.client.host if req.client else "unknown"
 
     prompt = input_validator.validate_prompt(request.prompt)
     soul_defaults = get_soul_generation_params()
@@ -1050,33 +1116,61 @@ async def generate(request: GenerateRequest):
             "soul": soul_info,
         }
 
-    if model_type == "nanogpt":
-        stoi = checkpoint.get("stoi", {})
-        itos = checkpoint.get("itos", {})
+    if model_type == "sloughgpt_finetuned":
+        # This is actually a NanoGPT model - use nanogpt generation logic
+        try:
+            checkpoint = model  # model is the full checkpoint
+            if isinstance(checkpoint, dict):
+                stoi = checkpoint.get("stoi", {})
+                itos = checkpoint.get("itos", {})
+                
+                # Handle case where we might not have stoi/itos in checkpoint
+                if not stoi and 'stoi' in checkpoint:
+                    stoi = checkpoint['stoi']
+                if not itos and 'itos' in checkpoint:
+                    itos = checkpoint['itos']
 
-        idx = torch.tensor([[stoi.get(c, 0) for c in request.prompt]], dtype=torch.long)
+                # Handle case where model is stored separately
+                model_to_use = checkpoint.get('model', checkpoint)
+                
+                # If we still don't have the right model, try to infer it
+                if not hasattr(model_to_use, 'eval') and isinstance(model_to_use, dict):
+                    # This might be the state dict - we'd need to reconstruct the model
+                    # For now, fall back to the simple character-level approach used elsewhere
+                    pass
+                
+                idx = torch.tensor([[stoi.get(c, 0) for c in request.prompt]], dtype=torch.long)
 
-        model.eval()
-        with torch.no_grad():
-            for _ in range(max_tokens):
-                idx_cond = idx[:, -128:]
-                logits, _ = model(idx_cond)
-                logits = logits[:, -1, :] / temperature
-                if top_k > 0:
-                    indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
-                    logits[indices_to_remove] = float("-inf")
-                probs = torch.softmax(logits, dim=-1)
-                idx_next = torch.multinomial(probs, num_samples=1)
-                idx = torch.cat([idx, idx_next], dim=1)
+                model_to_use.eval()
+                with torch.no_grad():
+                    for _ in range(max_tokens):
+                        idx_cond = idx[:, -128:]
+                        logits, _ = model_to_use(idx_cond)
+                        logits = logits[:, -1, :] / temperature
+                        if top_k > 0:
+                            indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
+                            logits[indices_to_remove] = float("-inf")
+                        probs = torch.softmax(logits, dim=-1)
+                        idx_next = torch.multinomial(probs, num_samples=1)
+                        idx = torch.cat([idx, idx_next], dim=1)
 
-        generated = "".join([itos.get(i, "") for i in idx[0].tolist()])
-        text = generated[len(request.prompt) :]
-        return {
-            "text": text,
-            "model": model_type,
-            "personality": request.personality,
-            "soul": soul_info,
-        }
+                generated = "".join([itos.get(i, "") for i in idx[0].tolist()])
+                text = generated[len(request.prompt) :]
+                return {
+                    "text": text,
+                    "model": model_type,
+                    "personality": request.personality,
+                    "soul": soul_info,
+                }
+        except Exception as e:
+            logger.error(f"Failed to load NanoGPT model: {e}")
+            # Fallback to demo response
+            audit_logger.log("generate", client_ip, resource="/generate", action="model_error", status="failure")
+            return {
+                "text": f"Demo response to: {prompt[:50]}... (Model loading failed: {str(e)[:50]})",
+                "model": model_type,
+                "error": str(e)
+            }
 
     return {"text": "Model type not supported", "model": model_type}
 

@@ -290,8 +290,9 @@ class KnowledgeGraph:
         paths = []
 
         def dfs_recursive(current: str, path: List[Tuple[str, str]], depth: int):
+            paths.append(path.copy())
+
             if depth >= max_depth:
-                paths.append(path.copy())
                 return
 
             for pred, obj in self.get_outgoing(current):
@@ -312,59 +313,33 @@ class KnowledgeGraph:
         predicate_filter: Optional[Callable[[str], bool]] = None,
     ) -> List[List[str]]:
         """
-        Find all paths between start and end entities.
+        Find paths between start and end entities using BFS.
         
-        Uses bidirectional BFS for efficiency.
+        Returns:
+            List of paths, each path is [start, ..., end]
         """
         if start == end:
             return [[start]]
 
-        # Forward BFS
-        forward_visited = {start: None}
-        forward_queue = deque([(start, [])])
+        visited = {start: (None, None)}
+        queue = deque([(start, [start])])
 
-        # Backward BFS
-        backward_visited = {end: None}
-        backward_queue = deque([(end, [])])
+        while queue:
+            current, path = queue.popleft()
 
-        while forward_queue and backward_queue:
-            # Expand forward
-            if forward_queue:
-                current, path = forward_queue.popleft()
+            if len(path) > max_length:
+                continue
 
-                if current in backward_visited:
-                    # Found connection
-                    full_path = path + [current]
-                    return [full_path]
+            for pred, obj in self.get_outgoing(current):
+                if predicate_filter and not predicate_filter(pred):
+                    continue
 
-                for pred, obj in self.get_outgoing(current):
-                    if predicate_filter and not predicate_filter(pred):
-                        continue
-                    if obj not in forward_visited:
-                        forward_visited[obj] = (current, pred)
-                        forward_queue.append((obj, path + [obj]))
+                if obj == end:
+                    return [path + [obj]]
 
-            # Expand backward
-            if backward_queue:
-                current, path = backward_queue.popleft()
-
-                if current in forward_visited:
-                    # Found connection - reconstruct path
-                    full_path = []
-                    node = current
-                    while node is not None:
-                        full_path.append(node)
-                        node, pred = forward_visited.get(node) or (None, None)
-                        if pred:
-                            full_path.append(pred)
-                    return [list(reversed(full_path))]
-
-                for pred, subj in self.get_incoming(current):
-                    if predicate_filter and not predicate_filter(pred):
-                        continue
-                    if subj not in backward_visited:
-                        backward_visited[subj] = (current, pred)
-                        backward_queue.append((subj, [subj] + [pred] + path))
+                if obj not in visited:
+                    visited[obj] = (current, pred)
+                    queue.append((obj, path + [obj]))
 
         return []
 
