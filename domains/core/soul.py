@@ -127,6 +127,7 @@ class SoulEngine:
         self._sentiment_analyzer = None
         self._hebbian_connections: Dict[str, Dict[str, float]] = {}
         self._inference_optimizer = None
+        self._grounding: Optional[Any] = None
         self._init_cognitive()
 
         logger.info(f"SoulEngine initialized: soul={self._soul.name}, device={device}")
@@ -864,6 +865,71 @@ class SoulEngine:
             return results
         except Exception as e:
             return {"error": str(e)}
+
+    def enable_grounding(self) -> Dict[str, bool]:
+        """
+        Enable grounding system to prevent hallucinations and ensure accuracy.
+
+        Features:
+        - RAG: Retrieve relevant documents for grounding
+        - Knowledge Graph: Verify statements against structured knowledge
+        - Curriculum Learning: Efficient training
+        """
+        try:
+            from domains.cognitive.grounding import GroundingOrchestrator
+
+            self._grounding = GroundingOrchestrator()
+
+            return {
+                "enabled": True,
+                "rag": True,
+                "knowledge_graph": True,
+                "curriculum_learning": True,
+            }
+        except Exception as e:
+            return {"enabled": False, "error": str(e)}
+
+    def add_knowledge(self, text: str, source: str = "user") -> Dict[str, Any]:
+        """
+        Add knowledge for grounding.
+
+        This data will be used to:
+        - Verify LLM outputs
+        - Provide context for generation
+        - Prevent hallucinations
+        """
+        if not self._grounding:
+            self.enable_grounding()
+
+        if self._grounding:
+            self._grounding.add_data(text, source)
+            return {"success": True, "chunks": len(text.split()) // 512 + 1}
+
+        return {"success": False, "error": "Grounding not available"}
+
+    def ground_output(self, response: str, query: str) -> Dict[str, Any]:
+        """
+        Ground an LLM output in real data.
+
+        Returns:
+        - Verification status
+        - Confidence score
+        - Supporting documents
+        """
+        if not self._grounding:
+            return {"error": "Enable grounding first with enable_grounding()"}
+
+        return self._grounding.ground_output(response, query)
+
+    def get_knowledge_context(self, query: str) -> str:
+        """
+        Get relevant knowledge context for a query.
+        Use this to provide grounding context to the LLM.
+        """
+        if not self._grounding:
+            return ""
+
+        return self._grounding.get_knowledge_context(query)
 
     def __repr__(self) -> str:
         loaded = "loaded" if self._model else "no model"
