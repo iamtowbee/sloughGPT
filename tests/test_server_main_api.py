@@ -102,6 +102,13 @@ def test_train_resolve_manifest_happy_path(client: TestClient, tmp_path: Path) -
     assert "input.txt" in data["data_path"]
 
 
+def test_list_training_jobs_returns_json_array(client: TestClient) -> None:
+    r = client.get("/training/jobs")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert isinstance(data, list)
+
+
 def test_metrics_prometheus_contains_sloughgpt_series(client: TestClient) -> None:
     r = client.get("/metrics/prometheus")
     assert r.status_code == 200, r.text

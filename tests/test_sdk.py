@@ -626,6 +626,12 @@ class TestNewSDKMethods(unittest.TestCase):
         self.assertTrue(hasattr(client, 'start_training'))
         self.assertTrue(hasattr(client, 'get_training_status'))
         self.assertTrue(hasattr(client, 'list_training_jobs'))
+
+    def test_async_client_exported(self):
+        """AsyncSloughGPTClient is public API (README lists it)."""
+        from sloughgpt_sdk import AsyncSloughGPTClient
+
+        self.assertTrue(callable(AsyncSloughGPTClient))
     
     def test_experiment_methods_exist(self):
         """Test experiment methods exist on client."""

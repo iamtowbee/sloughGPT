@@ -78,6 +78,17 @@ def _build_training_start_payload(
     return payload
 
 
+def _coerce_training_jobs_list(data: Any) -> List[Dict[str, Any]]:
+    """``GET /training/jobs`` returns a JSON array; some gateways may wrap ``{jobs: [...]}``."""
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        jobs = data.get("jobs")
+        if isinstance(jobs, list):
+            return jobs
+    return []
+
+
 class SloughGPTClient:
     """
     Python client for the SloughGPT API.
@@ -509,7 +520,7 @@ class SloughGPTClient:
     def list_training_jobs(self) -> List[Dict[str, Any]]:
         """List all training jobs."""
         response = self._request("GET", "/training/jobs")
-        return response.json().get("jobs", [])
+        return _coerce_training_jobs_list(response.json())
     
     # Simple Tracking (UX-friendly)
     
@@ -906,7 +917,7 @@ class AsyncSloughGPTClient:
     async def list_training_jobs(self) -> List[Dict[str, Any]]:
         """List all training jobs."""
         data = await self._request("GET", "/training/jobs")
-        return data.get("jobs", [])
+        return _coerce_training_jobs_list(data)
     
     async def create_experiment(self, name: str, description: str = "", **kwargs) -> Dict[str, Any]:
         """Create a new experiment."""

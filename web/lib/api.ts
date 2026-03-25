@@ -135,6 +135,50 @@ export interface TrainResolveResponse {
   manifest?: { dataset_id: string; version: string }
 }
 
+/** POST /v1/infer (SloughGPT Standard v1) */
+export interface StandardInferInput {
+  prompt?: string
+  messages?: Array<{ role: string; content: string }>
+  context?: string
+}
+
+export interface StandardInferRequest {
+  trace_id?: string
+  tenant_id?: string
+  model_id?: string
+  task_type?: string
+  mode: 'generate' | 'chat' | 'structured'
+  safety?: { level?: string; policy_bundle?: string }
+  output_schema_ref?: string
+  retrieval?: Record<string, unknown>
+  input: StandardInferInput
+  generation?: {
+    max_new_tokens?: number
+    temperature?: number
+    top_p?: number
+    top_k?: number
+    repetition_penalty?: number
+    seed?: number
+  }
+}
+
+export interface StandardInferResponse {
+  trace_id: string
+  model_id: string
+  model_version: string
+  task_type: string
+  mode: string
+  output: { text?: string; structured?: Record<string, unknown> }
+  usage: {
+    prompt_tokens?: number
+    completion_tokens?: number
+    total_tokens?: number
+    latency_ms: number
+  }
+  safety_flags?: Array<{ rule_id: string; severity: string; message?: string }>
+  citations?: Record<string, unknown>[]
+}
+
 export interface Experiment {
   id: string
   name: string
@@ -256,7 +300,8 @@ export const api = {
 
   async getTrainingJobs(): Promise<TrainingJob[]> {
     const res = await fetchWithAuth(`${API_URL}/training/jobs`)
-    return res.json()
+    const data = await res.json()
+    return Array.isArray(data) ? data : (data as { jobs?: TrainingJob[] }).jobs ?? []
   },
 
   async getTrainingJob(jobId: string): Promise<TrainingJob> {
@@ -270,6 +315,29 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
     })
+    return res.json()
+  },
+
+  async inferV1(body: StandardInferRequest): Promise<StandardInferResponse> {
+    const res = await fetchWithAuth(`${API_URL}/v1/infer`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-SloughGPT-Standard': '1',
+      },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { detail?: string | Array<{ msg?: string }> }
+      const d = err.detail
+      const msg =
+        typeof d === 'string'
+          ? d
+          : Array.isArray(d)
+            ? d.map((x) => x.msg || JSON.stringify(x)).join('; ')
+            : res.statusText
+      throw new Error(msg)
+    }
     return res.json()
   },
 

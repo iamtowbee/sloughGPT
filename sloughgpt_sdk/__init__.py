@@ -61,7 +61,7 @@ sys.modules["sloughgpt_sdk"].HealthStatus = HealthStatus
 sys.modules["sloughgpt_sdk"].SystemInfo = SystemInfo
 sys.modules["sloughgpt_sdk"].MetricsData = MetricsData
 
-from sloughgpt_sdk.client import SloughGPTClient
+from sloughgpt_sdk.client import SloughGPTClient, AsyncSloughGPTClient
 
 _auth_path = os.path.join(_package_dir, "auth.py")
 _auth_spec = importlib.util.spec_from_file_location("sloughgpt_sdk.auth", _auth_path)
@@ -141,6 +141,7 @@ sanitize_request = _http.sanitize_request
 
 __all__ = [
     "SloughGPTClient",
+    "AsyncSloughGPTClient",
     "GenerateRequest",
     "ChatMessage",
     "ChatRequest",
