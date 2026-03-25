@@ -149,6 +149,18 @@ def test_health_ready_includes_model_loaded(client: TestClient) -> None:
     assert "model_type" in data
 
 
+def test_info_returns_api_version_and_model_block(client: TestClient) -> None:
+    r = client.get("/info")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data.get("api_version")
+    assert isinstance(data.get("model"), dict)
+    assert "type" in data["model"]
+    assert "loaded" in data["model"]
+    assert isinstance(data["model"]["loaded"], bool)
+    assert data.get("pytorch_version")
+
+
 def test_list_models_returns_wrapped_array(client: TestClient) -> None:
     r = client.get("/models")
     assert r.status_code == 200, r.text
