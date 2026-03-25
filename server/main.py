@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Header, Request, Response
 from fastapi.staticfiles import StaticFiles
 from federated_routes import router as federated_router
+from settings import get_security_settings
 from training.router import router as training_router
 from training.schemas import TrainingRequest  # noqa: F401 — re-export for tests: ``from main import TrainingRequest``
 from fastapi.middleware.cors import CORSMiddleware
@@ -110,15 +111,12 @@ def cache_key(prompt: str, **kwargs) -> str:
 
 
 # ============ Security Configuration ============
-API_KEY = os.getenv("SLAUGHGPT_API_KEY", secrets.token_urlsafe(32))
-JWT_SECRET = os.getenv("SLAUGHGPT_JWT_SECRET", secrets.token_urlsafe(64))
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 24
-
-# Valid API keys (for multi-key support)
-VALID_API_KEYS = set(os.getenv("SLAUGHGPT_API_KEYS", "").split(",")) - {""}
-if API_KEY and API_KEY not in VALID_API_KEYS:
-    VALID_API_KEYS.add(API_KEY)
+_sec = get_security_settings()
+API_KEY = _sec.primary_api_key
+JWT_SECRET = _sec.jwt_secret
+JWT_ALGORITHM = _sec.jwt_algorithm
+JWT_EXPIRATION_HOURS = _sec.jwt_expiration_hours
+VALID_API_KEYS = _sec.valid_api_keys
 
 
 # ============ JWT Authentication ============

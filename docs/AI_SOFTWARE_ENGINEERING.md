@@ -4,12 +4,12 @@ This document describes how SloughGPT is structured for **reliable, observable, 
 
 ## Architecture layers
 
-1. **HTTP boundary** — FastAPI routes validate and serialize I/O (`training/router.py`, standards-based `/v1/infer`). No heavyweight model logic here beyond orchestration.
+1. **HTTP boundary** — FastAPI routes validate and serialize I/O (`server/training/router.py`, standards-based `/v1/infer`). No heavyweight model logic here beyond orchestration.
 2. **Domain** — Training pipelines, manifests, evaluation (`domains/training/`, `domains/ml_infrastructure/`). Pure-ish logic, testable without the server.
 3. **Model runtime** — Loading, generation, quantization (server globals and `domains/`). Keep a single ownership path for “what model is loaded” to avoid split brain.
 4. **Clients** — Web (`web/lib/api.ts`), Python SDK (`sloughgpt_sdk/`): mirror server field names for JSON (`snake_case` from Pydantic).
 
-Refactor direction: **shrink `server/main.py`** by moving more `APIRouter` modules under `server/<domain>/` the same way as `server/training/`.
+Refactor direction: **shrink `server/main.py`** by moving more `APIRouter` modules under `server/<domain>/` (see `server/training/` for the pattern: `schemas.py`, `resolution.py`, `jobs.py`, `router.py`).
 
 ## Data and contracts
 
@@ -25,7 +25,7 @@ Refactor direction: **shrink `server/main.py`** by moving more `APIRouter` modul
 
 ## Safety and configuration
 
-- **Secrets** — API keys and JWT secret from environment (`SLAUGHGPT_*`); never commit real keys.
+- **Secrets** — Loaded via `server/settings.py` (`get_security_settings()`): primary API key, JWT secret, optional multi-key list (`SLAUGHGPT_*` env vars). Never commit real keys.
 - **Auth** — Enforce consistently on mutating routes when exposing publicly.
 - **Prompt/PII** — Treat prompts as sensitive data in logs and analytics; document retention if you add persistence.
 
