@@ -294,6 +294,37 @@ def test_vector_stats_json_shape(client: TestClient) -> None:
     assert isinstance(data.get("count"), int)
 
 
+def test_benchmark_compare_returns_json_object(client: TestClient) -> None:
+    """Either ``{\"error\": ...}`` when no model, or per-quantization rows when loaded."""
+    r = client.get("/benchmark/compare")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert isinstance(data, dict)
+    if data.get("error"):
+        assert "model" in data["error"].lower()
+    else:
+        assert any(k in data for k in ("fp32", "fp16", "int8"))
+
+
+def test_registry_stats_json_shape(client: TestClient) -> None:
+    r = client.get("/registry/stats")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert isinstance(data.get("total_models"), int)
+    assert isinstance(data.get("total_requests"), int)
+    assert isinstance(data.get("total_tokens"), int)
+    assert isinstance(data.get("by_status"), dict)
+    assert isinstance(data.get("by_framework"), dict)
+
+
+def test_registry_best_empty_or_model(client: TestClient) -> None:
+    r = client.get("/registry/best")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert isinstance(data, dict)
+    assert data.get("error") == "No models found" or "id" in data
+
+
 def test_v1_infer_rejects_invalid_mode(client: TestClient) -> None:
     r = client.post(
         "/v1/infer",
