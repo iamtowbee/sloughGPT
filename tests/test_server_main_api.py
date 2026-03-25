@@ -141,6 +141,20 @@ def test_list_models_returns_wrapped_array(client: TestClient) -> None:
     assert isinstance(data.get("models"), list)
 
 
+def test_inference_generate_stream_returns_sse_terminal_done(client: TestClient) -> None:
+    """Stream must end with a done frame; avoid crashing when inference engine is unset."""
+    r = client.post(
+        "/inference/generate/stream",
+        json={"prompt": "Hello", "max_new_tokens": 8},
+    )
+    assert r.status_code == 200, r.text
+    assert "event-stream" in (r.headers.get("content-type") or "")
+    lines = [ln for ln in r.text.splitlines() if ln.startswith("data:")]
+    assert lines, r.text
+    last = json.loads(lines[-1].split("data:", 1)[1].strip())
+    assert last.get("done") is True
+
+
 def test_metrics_prometheus_contains_sloughgpt_series(client: TestClient) -> None:
     r = client.get("/metrics/prometheus")
     assert r.status_code == 200, r.text

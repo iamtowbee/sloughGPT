@@ -2190,8 +2190,11 @@ async def inference_generate(gr: GenerateRequest, req: Request):
 async def inference_generate_stream(request: GenerateRequest):
     """Streaming generation using the production inference engine."""
     engine = get_inference_engine()
-    
+
     async def token_stream():
+        if engine is None:
+            yield f"data: {json.dumps({'error': 'Model not loaded', 'token': '', 'done': True})}\n\n"
+            return
         async for token in engine.generate_stream(
             prompt=request.prompt,
             max_new_tokens=request.max_new_tokens,
@@ -2201,7 +2204,7 @@ async def inference_generate_stream(request: GenerateRequest):
         ):
             yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
         yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
-    
+
     return StreamingResponse(token_stream(), media_type="text/event-stream")
 
 
