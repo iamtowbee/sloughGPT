@@ -1,0 +1,7 @@
+"""In-memory training job registry (replace with DB/queue for production)."""
+
+from __future__ import annotations
+
+from typing import Any
+
+training_jobs: dict[str, dict[str, Any]] = {}
