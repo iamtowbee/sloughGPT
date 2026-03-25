@@ -17,6 +17,11 @@ const initialForm = {
   epochs: 3,
   batch_size: 8,
   learning_rate: 1e-5,
+  n_embed: 128,
+  n_layer: 4,
+  n_head: 4,
+  block_size: 128,
+  maxStepsInput: '',
 }
 
 export default function TrainingPage() {
@@ -28,6 +33,7 @@ export default function TrainingPage() {
   const [resolving, setResolving] = useState(false)
   const [resolveResult, setResolveResult] = useState<TrainResolveResponse | null>(null)
   const [resolveError, setResolveError] = useState<string | null>(null)
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   const fetchJobs = async () => {
     try {
@@ -63,12 +69,18 @@ export default function TrainingPage() {
   }
 
   const buildStartPayload = () => {
+    const ms = newJob.maxStepsInput.trim()
     const base = {
       name: newJob.name,
       model: newJob.model,
       epochs: newJob.epochs,
       batch_size: newJob.batch_size,
       learning_rate: newJob.learning_rate,
+      n_embed: newJob.n_embed,
+      n_layer: newJob.n_layer,
+      n_head: newJob.n_head,
+      block_size: newJob.block_size,
+      ...(ms !== '' && !Number.isNaN(parseInt(ms, 10)) ? { max_steps: Math.max(1, parseInt(ms, 10)) } : {}),
     }
     if (newJob.corpusMode === 'folder') {
       return { ...base, dataset: newJob.dataset }
@@ -123,6 +135,7 @@ export default function TrainingPage() {
   const openModal = () => {
     setResolveResult(null)
     setResolveError(null)
+    setShowAdvanced(false)
     setShowModal(true)
   }
 
@@ -364,6 +377,72 @@ export default function TrainingPage() {
                 <pre className="text-xs bg-slate-100 dark:bg-slate-900 p-3 rounded-lg overflow-x-auto text-slate-700 dark:text-slate-300">
                   {JSON.stringify(resolveResult, null, 2)}
                 </pre>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShowAdvanced((v) => !v)}
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {showAdvanced ? 'Hide' : 'Show'} advanced model size
+              </button>
+
+              {showAdvanced && (
+                <div className="grid grid-cols-2 gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-600">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">n_embed</label>
+                    <input
+                      type="number"
+                      min={32}
+                      value={newJob.n_embed}
+                      onChange={(e) => setNewJob({ ...newJob, n_embed: parseInt(e.target.value, 10) || 128 })}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm text-slate-800 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">n_layer</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={newJob.n_layer}
+                      onChange={(e) => setNewJob({ ...newJob, n_layer: parseInt(e.target.value, 10) || 4 })}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm text-slate-800 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">n_head</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={newJob.n_head}
+                      onChange={(e) => setNewJob({ ...newJob, n_head: parseInt(e.target.value, 10) || 4 })}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm text-slate-800 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">block_size</label>
+                    <input
+                      type="number"
+                      min={8}
+                      value={newJob.block_size}
+                      onChange={(e) => setNewJob({ ...newJob, block_size: parseInt(e.target.value, 10) || 128 })}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm text-slate-800 dark:text-white"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                      max_steps (optional, caps training steps)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="e.g. 100"
+                      value={newJob.maxStepsInput}
+                      onChange={(e) => setNewJob({ ...newJob, maxStepsInput: e.target.value })}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm text-slate-800 dark:text-white font-mono"
+                    />
+                  </div>
+                </div>
               )}
 
               <div>

@@ -16,12 +16,20 @@ export interface BenchmarkResult {
   latency_p50_ms: number
   latency_p95_ms: number
   latency_p99_ms: number
+  /** Present when the benchmark API returns an error payload instead of metrics */
+  error?: string
 }
+
+/** `/benchmark/compare` returns either a top-level error or per-quantization rows (rows may embed `error`). */
+export type BenchmarkCompareResponse =
+  | { error: string }
+  | Record<string, BenchmarkResult | { error: string }>
 
 export interface ExportResult {
   status: string
   format: string
   files: Record<string, string>
+  error?: string
 }
 
 export interface ModelExport {
@@ -340,7 +348,7 @@ export const api = {
     return res.json()
   },
 
-  async compareBenchmarks(): Promise<Record<string, BenchmarkResult>> {
+  async compareBenchmarks(): Promise<BenchmarkCompareResponse> {
     const res = await fetchWithAuth(`${API_URL}/benchmark/compare`, {
       method: 'GET',
     })

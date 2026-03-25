@@ -357,6 +357,8 @@ curl -X POST "http://localhost:8000/experiments?name=test&description=Testing"
 curl -X POST http://localhost:8000/model/export \\
   -H "Content-Type: application/json" \\
   -d '{"output_path": "models/exported", "format": "torch"}'`}
+        </pre>
+      </div>
     </div>
   )
 }

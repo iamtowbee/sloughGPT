@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { api } from '@/lib/api'
+import { useState, useEffect } from 'react'
+import { api, ExportResult } from '@/lib/api'
 
 export default function ExportPage() {
   const [loading, setLoading] = useState(false)
@@ -9,11 +9,11 @@ export default function ExportPage() {
   const [outputPath, setOutputPath] = useState('models/exported')
   const [format, setFormat] = useState('sou')
   const [includeTokenizer, setIncludeTokenizer] = useState(true)
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<ExportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.getExportFormats().then(setFormats).catch(console.error)
+    api.getExportFormats().then((r) => setFormats(r.formats)).catch(console.error)
   }, [])
 
   const exportModel = async () => {
@@ -107,9 +107,9 @@ export default function ExportPage() {
           <div className="mt-4">
             <p className="text-sm font-medium mb-2">Exported Files:</p>
             <ul className="space-y-1">
-              {Object.entries(result.files || {}).map(([key, path]) => (
+              {Object.entries(result.files || {}).map(([key, filePath]) => (
                 <li key={key} className="text-sm text-gray-600">
-                  {key}: <code className="bg-gray-100 px-2 py-1 rounded">{path}</code>
+                  {key}: <code className="bg-gray-100 px-2 py-1 rounded">{String(filePath)}</code>
                 </li>
               ))}
             </ul>

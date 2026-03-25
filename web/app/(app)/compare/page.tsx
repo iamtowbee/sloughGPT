@@ -21,10 +21,18 @@ export default function ComparePage() {
     setError(null)
     try {
       const res = await api.compareBenchmarks()
-      if (res.error) {
-        setError(res.error)
+      const topErr = (res as { error?: unknown }).error
+      if (typeof topErr === 'string') {
+        setError(topErr)
       } else {
-        setResults(res)
+        const ok: Record<string, ComparisonResult> = {}
+        for (const [k, v] of Object.entries(res)) {
+          if (v && typeof v === 'object' && 'error' in v) {
+            continue
+          }
+          ok[k] = v as ComparisonResult
+        }
+        setResults(ok)
       }
     } catch (e) {
       setError('Failed to compare benchmarks')
