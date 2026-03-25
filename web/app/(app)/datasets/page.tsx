@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { PUBLIC_API_URL } from '@/lib/config'
 
 interface Dataset {
   name: string
@@ -23,7 +23,7 @@ export default function DatasetsPage() {
   const fetchDatasets = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/datasets`)
+      const res = await fetch(`${PUBLIC_API_URL}/datasets`)
       const data = await res.json()
       setDatasets(data.datasets || [])
     } catch (err) {

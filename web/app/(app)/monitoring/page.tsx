@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 
+import { PUBLIC_API_URL } from '@/lib/config'
+
 interface SystemInfo {
   platform: string
   python: string
@@ -25,7 +27,7 @@ export default function MonitoringPage() {
   useEffect(() => {
     const fetchInfo = async () => {
       try {
-        const res = await fetch('http://localhost:8000/info')
+        const res = await fetch(`${PUBLIC_API_URL}/info`)
         const data = await res.json()
         
         const sys: SystemInfo = {

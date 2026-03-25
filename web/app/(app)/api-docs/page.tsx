@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 
+import { PUBLIC_API_URL } from '@/lib/config'
+
 interface Endpoint {
   method: string
   path: string
@@ -312,7 +314,8 @@ export default function ApiDocsPage() {
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold text-white mb-2">API Documentation</h1>
       <p className="text-zinc-400 mb-6">
-        Base URL: <code className="bg-white/5 px-2 py-1 rounded">http://localhost:8000</code>
+        Base URL:{' '}
+        <code className="bg-white/5 px-2 py-1 rounded">{PUBLIC_API_URL}</code>
       </p>
 
       <div className="space-y-3">
@@ -387,27 +390,27 @@ export default function ApiDocsPage() {
       <div className="mt-8 p-4 bg-white/5 border border-white/10 rounded-xl">
         <h2 className="text-lg font-semibold text-white mb-2">Quick Examples</h2>
         <pre className="bg-black/30 rounded-lg p-3 text-sm text-zinc-300 overflow-x-auto">{`# Health check
-curl http://localhost:8000/health
+curl ${PUBLIC_API_URL}/health
 
 # Generate text
-curl -X POST http://localhost:8000/inference/generate \\
+curl -X POST ${PUBLIC_API_URL}/inference/generate \\
   -H "Content-Type: application/json" \\
   -d '{"prompt": "Hello world", "max_new_tokens": 50}'
 
 # Streaming (SSE)
-curl -X POST http://localhost:8000/inference/generate/stream \\
+curl -X POST ${PUBLIC_API_URL}/inference/generate/stream \\
   -H "Content-Type: application/json" \\
   -d '{"prompt": "Hello", "max_new_tokens": 100}'
 
 # Run benchmark
-curl -X POST "http://localhost:8000/benchmark/run?max_new_tokens=20" \\
+curl -X POST "${PUBLIC_API_URL}/benchmark/run?max_new_tokens=20" \\
   -H "Content-Type: application/json" -d '{}'
 
 # Create experiment
-curl -X POST "http://localhost:8000/experiments?name=test&description=Testing"
+curl -X POST "${PUBLIC_API_URL}/experiments?name=test&description=Testing"
 
 # Export model
-curl -X POST http://localhost:8000/model/export \\
+curl -X POST ${PUBLIC_API_URL}/model/export \\
   -H "Content-Type: application/json" \\
   -d '{"output_path": "models/exported", "format": "torch"}'`}
         </pre>

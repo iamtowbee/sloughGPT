@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '@/components/ThemeProvider'
+import { PUBLIC_API_URL } from '@/lib/config'
 
 interface Message {
   id: string
@@ -53,7 +54,7 @@ export default function ChatPage() {
 
   const fetchModels = async () => {
     try {
-      const res = await fetch('http://localhost:8000/models')
+      const res = await fetch(`${PUBLIC_API_URL}/models`)
       if (res.ok) {
         const data = await res.json()
         setAvailableModels(data.models || [])
@@ -94,7 +95,7 @@ export default function ChatPage() {
     
     // Try streaming endpoint first, fall back to non-streaming
     try {
-      const response = await fetch('http://localhost:8000/generate/stream', {
+      const response = await fetch(`${PUBLIC_API_URL}/generate/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -137,7 +138,7 @@ export default function ChatPage() {
       console.log('Streaming failed, trying non-streaming:', err)
       
       try {
-        const response = await fetch('http://localhost:8000/generate', {
+        const response = await fetch(`${PUBLIC_API_URL}/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

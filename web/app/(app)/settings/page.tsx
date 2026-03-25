@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 
+import { PUBLIC_API_URL } from '@/lib/config'
+
 interface Settings {
   apiUrl: string
   hfToken: string
@@ -14,7 +16,7 @@ interface Settings {
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>({
-    apiUrl: 'http://localhost:8000',
+    apiUrl: PUBLIC_API_URL,
     hfToken: '',
     defaultModel: 'gpt2',
     defaultTemp: 0.8,

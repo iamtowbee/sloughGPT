@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 
+import { PUBLIC_API_URL } from '@/lib/config'
+
 interface Model {
   id: string
   name: string
@@ -25,7 +27,7 @@ export default function ModelsPage() {
 
   const checkHealth = async () => {
     try {
-      const res = await fetch('http://localhost:8000/health')
+      const res = await fetch(`${PUBLIC_API_URL}/health`)
       const data = await res.json()
       setApiHealth(data.model_type || 'connected')
     } catch {
@@ -36,7 +38,7 @@ export default function ModelsPage() {
   const fetchModels = async () => {
     setLoading(true)
     try {
-      const res = await fetch('http://localhost:8000/models')
+      const res = await fetch(`${PUBLIC_API_URL}/models`)
       const data = await res.json()
       setModels(data.models || [])
     } catch (err) {
@@ -50,7 +52,7 @@ export default function ModelsPage() {
   const loadModel = async (modelId: string) => {
     setLoadingModel(modelId)
     try {
-      const res = await fetch('http://localhost:8000/models/load', {
+      const res = await fetch(`${PUBLIC_API_URL}/models/load`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model_id: modelId }),

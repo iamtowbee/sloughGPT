@@ -1,6 +1,7 @@
 import { useAuthStore } from './auth'
+import { PUBLIC_API_URL } from './config'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = PUBLIC_API_URL
 
 const getAuthHeaders = () => {
   const token = useAuthStore.getState().token

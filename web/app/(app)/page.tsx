@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
+import { PUBLIC_API_URL } from '@/lib/config'
+
 const features = [
   { title: 'Chat', icon: '💬', href: '/chat', desc: 'AI conversation' },
   { title: 'Models', icon: '🧠', href: '/models', desc: 'Model management' },
@@ -19,10 +21,10 @@ export default function HomePage() {
   useEffect(() => {
     const checkApi = async () => {
       try {
-        const res = await fetch('http://localhost:8000/health')
+        const res = await fetch(`${PUBLIC_API_URL}/health`)
         if (res.ok) {
           setApiStatus('online')
-          const modelsRes = await fetch('http://localhost:8000/models')
+          const modelsRes = await fetch(`${PUBLIC_API_URL}/models`)
           const data = await modelsRes.json()
           setModelCount(data.models?.length || 0)
         } else {
