@@ -232,6 +232,25 @@ def test_metrics_prometheus_contains_sloughgpt_series(client: TestClient) -> Non
     assert b"sloughgpt_uptime_seconds" in r.content
 
 
+def test_get_metrics_json_includes_system_block(client: TestClient) -> None:
+    r = client.get("/metrics")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert "uptime" in data
+    assert isinstance(data.get("system"), dict)
+    assert "cpu_percent" in data["system"]
+    assert "memory_percent" in data["system"]
+
+
+def test_rate_limit_status_json_shape(client: TestClient) -> None:
+    r = client.get("/rate-limit/status")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert isinstance(data.get("requests_per_minute"), int)
+    assert isinstance(data.get("burst_size"), int)
+    assert isinstance(data.get("active_clients"), int)
+
+
 def test_v1_infer_rejects_invalid_mode(client: TestClient) -> None:
     r = client.post(
         "/v1/infer",
