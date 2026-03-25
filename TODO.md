@@ -266,7 +266,7 @@ Loss = L_current(θ) + λ/2 * Σ F_i * (θ_i - θ*_i)²
 
 | File | Status | Description |
 |------|--------|-------------|
-| `domains/infrastructure/vector_store.py` | ✅ Complete | Vector storage |
+| `domains/inference/vector_store.py` | ✅ Complete | Pinecone vector storage |
 | `domains/infrastructure/rag.py` | ✅ Complete | RAG implementation |
 | `domains/infrastructure/knowledge_graph_engine.py` | ✅ Complete | Knowledge graph engine |
 | `domains/infrastructure/spaced_repetition_engine.py` | ✅ Complete | Spaced repetition engine |
@@ -608,7 +608,7 @@ python cli.py train --dataset shakespeare # Full training
 python cli.py demo                      # Run all system demos
 python cli.py demo --component rag      # Run specific component demo
 python cli.py rlhf --steps 100         # Run RLHF training demo
-python cli.py cloud --provider chromadb # Setup cloud vector store
+python cli.py cloud --api-key KEY # Setup Pinecone vector store
 python cli.py export models/slough.pt --format sou  # Export
 python cli.py export models/slough.pt --format onnx  # ONNX
 python cli.py export models/slough.pt --format gguf_q4_k_m  # GGUF for mobile
@@ -1295,15 +1295,11 @@ SloughGPT Core
 | Citation Tracking | ✅ | Integrated |
 | Grounding Orchestrator | ✅ | Unified system |
 
-### Vector Store (NEW)
+### Vector Store (Pinecone-only)
 | Provider | Status | Notes |
 |----------|--------|-------|
-| In-Memory | ✅ | Default for development |
-| Pinecone | ✅ | Cloud-hosted |
-| Weaviate | ✅ | Self-hosted or cloud |
-| ChromaDB | ✅ | Local/simplest |
-| Factory Pattern | ✅ | Easy provider switching |
-| Cloud Setup CLI | ✅ | `python -m domains.inference.cloud_vector_store` |
+| Pinecone | ✅ | Cloud-hosted vector search |
+| Cloud Setup CLI | ✅ | `python3 cli.py cloud --api-key KEY` |
 
 ### Embedding Models (NEW)
 | Provider | Status | Notes |
@@ -1376,36 +1372,34 @@ SloughGPT Core
 ### Demos
 | Demo | Command | Description |
 |------|---------|-------------|
-| Complete System | `python3 demo_complete.py` | All 6 components working |
-| RLHF Fine-tuning | `python3 demo_rlhf.py` | Reward model training demo |
+| Complete System | `python3 cli.py demo` | All 6 components working |
+| RLHF Fine-tuning | `python3 cli.py rlhf` | Reward model training demo |
 
 ### Training
-Run: `python3 train_sloughgpt.py --data data/training.txt --epochs 5`
-- Model created, trained, and saved to `models/sloughgpt.safetensors`
-- Training pipeline fully functional
+Run: `python3 cli.py train --dataset shakespeare`
 
-### Cloud Setup
-Run: `python3 setup_cloud.py --provider chromadb`
-- ChromaDB (local, no setup)
-- Pinecone (cloud)
-- Weaviate (cloud)
+### Cloud Setup (Pinecone)
+```bash
+export PINECONE_API_KEY="your-key"
+python3 cli.py cloud --setup
+```
 
 ### Quick Commands
 ```bash
 # Demo
-python3 demo_complete.py
+python3 cli.py demo
 
 # RLHF Demo
-python3 demo_rlhf.py
+python3 cli.py rlhf --steps 100
 
-# Tests (252 pass)
+# Tests
 python3 -m pytest tests/ -v
 
 # Train a model
-python3 train_sloughgpt.py --data data/training.txt --epochs 5
+python3 cli.py train --dataset shakespeare --epochs 3
 
 # Cloud setup
-python3 setup_cloud.py --provider chromadb
+python3 cli.py cloud --api-key YOUR_KEY
 
 # Docker deployment
 docker-compose up -d api
