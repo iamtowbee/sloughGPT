@@ -125,6 +125,22 @@ def test_list_datasets_returns_wrapped_array(client: TestClient) -> None:
     assert isinstance(data.get("datasets"), list)
 
 
+def test_health_returns_status(client: TestClient) -> None:
+    r = client.get("/health")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data.get("status") == "healthy"
+    assert "model_loaded" in data
+    assert "model_type" in data
+
+
+def test_list_models_returns_wrapped_array(client: TestClient) -> None:
+    r = client.get("/models")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert isinstance(data.get("models"), list)
+
+
 def test_metrics_prometheus_contains_sloughgpt_series(client: TestClient) -> None:
     r = client.get("/metrics/prometheus")
     assert r.status_code == 200, r.text

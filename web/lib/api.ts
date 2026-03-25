@@ -247,7 +247,22 @@ export const api = {
 
   async getModels(): Promise<Model[]> {
     const res = await fetch(`${API_URL}/models`)
-    return res.json()
+    const body = (await res.json()) as {
+      models?: Array<{
+        id?: string
+        name?: string
+        source?: string
+        size_mb?: number
+      }>
+    }
+    const rows = body.models ?? []
+    return rows.map((m) => ({
+      id: String(m.id ?? m.name ?? ''),
+      name: String(m.name ?? m.id ?? ''),
+      size:
+        typeof m.size_mb === 'number' ? `${m.size_mb} MB` : '—',
+      type: m.source ?? 'unknown',
+    }))
   },
 
   async loadModel(modelId: string) {
