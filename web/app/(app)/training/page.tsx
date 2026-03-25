@@ -198,7 +198,7 @@ export default function TrainingPage() {
                   </div>
                 </div>
 
-                {job.loss !== undefined && job.loss !== null && (
+                {job.loss != null && Number.isFinite(job.loss) && (
                   <div className="flex gap-4 mt-3 text-sm text-slate-500">
                     <span>Loss: {job.loss.toFixed(4)}</span>
                   </div>
