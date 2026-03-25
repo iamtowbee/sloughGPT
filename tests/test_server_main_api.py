@@ -155,6 +155,22 @@ def test_inference_generate_stream_returns_sse_terminal_done(client: TestClient)
     assert last.get("done") is True
 
 
+def test_inference_generate_json_shape(client: TestClient) -> None:
+    """Non-stream inference returns ``text``; errors use ``error`` + empty ``text``."""
+    r = client.post(
+        "/inference/generate",
+        json={"prompt": "Hello", "max_new_tokens": 8},
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert "text" in data
+    assert isinstance(data["text"], str)
+    if data.get("error"):
+        assert data["text"] == ""
+    else:
+        assert isinstance(data.get("tokens_generated"), int)
+
+
 def test_metrics_prometheus_contains_sloughgpt_series(client: TestClient) -> None:
     r = client.get("/metrics/prometheus")
     assert r.status_code == 200, r.text
