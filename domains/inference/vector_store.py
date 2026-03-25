@@ -473,7 +473,10 @@ class VectorStoreFactory:
         **kwargs,
     ) -> VectorStore:
         if isinstance(store_type, str):
-            store_type = VectorStoreType(store_type.lower())
+            try:
+                store_type = VectorStoreType(store_type.lower())
+            except ValueError:
+                return InMemoryVectorStore(**kwargs)
 
         stores = {
             VectorStoreType.PINECONE: PineconeStore,
