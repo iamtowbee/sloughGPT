@@ -258,6 +258,11 @@ def test_list_experiments_returns_json_array(client: TestClient) -> None:
     assert isinstance(r.json(), list)
 
 
+def test_get_experiment_unknown_returns_404(client: TestClient) -> None:
+    r = client.get("/experiments/nonexistent_experiment___")
+    assert r.status_code == 404
+
+
 def test_get_experiment_runs_unknown_returns_empty_list(client: TestClient) -> None:
     r = client.get("/experiments/nonexistent_exp___/runs")
     assert r.status_code == 200, r.text
@@ -394,6 +399,44 @@ def test_benchmark_perplexity_json_shape(client: TestClient) -> None:
     else:
         assert isinstance(data.get("perplexity"), (int, float))
         assert data.get("text_length") == len("hello world")
+
+
+def test_benchmark_run_no_model_or_result_dict(client: TestClient) -> None:
+    r = client.post(
+        "/benchmark/run",
+        params={"max_new_tokens": 4, "num_runs": 1},
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    if data.get("error"):
+        assert "model" in data["error"].lower()
+    else:
+        assert isinstance(data, dict)
+
+
+def test_model_export_no_model_returns_error(client: TestClient) -> None:
+    r = client.post(
+        "/model/export",
+        json={"output_path": "models/out", "format": "safetensors"},
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    if data.get("error"):
+        assert "model" in data["error"].lower()
+    else:
+        assert data.get("status") == "exported"
+
+
+def test_generate_demo_returns_text_without_model(client: TestClient) -> None:
+    r = client.post(
+        "/generate/demo",
+        json={"prompt": "Hello from pytest", "max_new_tokens": 16},
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data.get("model") == "demo"
+    assert isinstance(data.get("text"), str)
+    assert data["text"]
 
 
 def test_v1_infer_rejects_invalid_mode(client: TestClient) -> None:
