@@ -632,6 +632,18 @@ class TestNewSDKMethods(unittest.TestCase):
         from sloughgpt_sdk import AsyncSloughGPTClient
 
         self.assertTrue(callable(AsyncSloughGPTClient))
+
+    def test_coerce_training_jobs_list_accepts_array_or_wrapper(self):
+        """GET /training/jobs returns a list; some proxies may wrap {jobs: [...]}."""
+        from sloughgpt_sdk.client import _coerce_training_jobs_list
+
+        self.assertEqual(_coerce_training_jobs_list([{"id": "a"}]), [{"id": "a"}])
+        self.assertEqual(
+            _coerce_training_jobs_list({"jobs": [{"id": "b"}]}),
+            [{"id": "b"}],
+        )
+        self.assertEqual(_coerce_training_jobs_list({}), [])
+        self.assertEqual(_coerce_training_jobs_list("bad"), [])
     
     def test_experiment_methods_exist(self):
         """Test experiment methods exist on client."""
