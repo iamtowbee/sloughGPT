@@ -87,15 +87,33 @@ export interface Dataset {
 export interface GenerateRequest {
   prompt: string
   model?: string
+  /** Legacy alias; server expects `max_new_tokens`. */
   max_tokens?: number
+  max_new_tokens?: number
   temperature?: number
   top_p?: number
+  top_k?: number
+  personality?: string
 }
 
 export interface GenerateResponse {
   text: string
   model: string
   tokens_generated: number
+}
+
+/** Body shape for `POST /inference/generate` and `/inference/generate/stream` (see server `GenerateRequest`). */
+function buildInferenceGeneratePayload(req: GenerateRequest) {
+  return {
+    prompt: req.prompt,
+    max_new_tokens: req.max_new_tokens ?? req.max_tokens ?? 100,
+    temperature: req.temperature ?? 0.8,
+    top_p: req.top_p ?? 0.9,
+    top_k: req.top_k ?? 50,
+    ...(req.personality != null && req.personality !== ''
+      ? { personality: req.personality }
+      : {}),
+  }
 }
 
 export interface TrainDatasetRef {
@@ -283,35 +301,80 @@ export const api = {
     const res = await fetchWithAuth(`${API_URL}/inference/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req),
+      body: JSON.stringify(buildInferenceGeneratePayload(req)),
     })
     return res.json()
   },
 
+  /**
+   * Stream tokens from `POST /inference/generate/stream` (SSE). Uses fetch + body so prompt
+   * and generation params are sent; EventSource cannot POST a JSON body.
+   */
   generateStream(req: GenerateRequest, onToken: (token: string) => void, onDone: () => void) {
-    const eventSource = new EventSource(`${API_URL}/inference/generate/stream`)
-    
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      if (data.token) {
-        onToken(data.token)
-      }
-      if (data.done) {
-        eventSource.close()
-        onDone()
-      }
-      if (data.error) {
-        eventSource.close()
-        onDone()
-      }
-    }
-    
-    eventSource.onerror = () => {
-      eventSource.close()
+    const ac = new AbortController()
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
       onDone()
     }
-    
-    return () => eventSource.close()
+
+    ;(async () => {
+      try {
+        const res = await fetchWithAuth(`${API_URL}/inference/generate/stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildInferenceGeneratePayload(req)),
+          signal: ac.signal,
+        })
+        if (!res.ok || !res.body) {
+          finish()
+          return
+        }
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? ''
+          for (const line of lines) {
+            const trimmed = line.trimEnd()
+            if (!trimmed.startsWith('data:')) continue
+            const payload = trimmed.slice(5).trim()
+            if (!payload || payload === '[DONE]') continue
+            try {
+              const data = JSON.parse(payload) as {
+                token?: string
+                done?: boolean
+                error?: string
+              }
+              if (data.error) {
+                finish()
+                return
+              }
+              if (data.token) onToken(data.token)
+              if (data.done) {
+                finish()
+                return
+              }
+            } catch {
+              /* ignore partial / malformed frames */
+            }
+          }
+        }
+        finish()
+      } catch {
+        finish()
+      }
+    })()
+
+    return () => {
+      ac.abort()
+      finish()
+    }
   },
 
   async getTrainingJobs(): Promise<TrainingJob[]> {
