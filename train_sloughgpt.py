@@ -257,7 +257,7 @@ def train_sloughgpt(
         model = apply_lora_to_model(model, lora_config)
         print_lora_summary(model)
 
-    print(f"\nModel parameters: {model.num_parameters:,}")
+    print(f"\nModel parameters: {model.num_parameters():,}")
 
     # Split train/val (use block_size from model for correct data splitting)
     model_block_size = model.block_size
@@ -510,38 +510,38 @@ if __name__ == "__main__":
     parser.add_argument(
         "--compile", action="store_true", help="Compile model with torch.compile (PyTorch 2.0+)"
     )
-     parser.add_argument(
-         "--save_format",
-         type=str,
-         default="safetensors",
-         choices=[
-             "safetensors",      # Recommended default
-             "safetensors_bf16", # BF16 precision
-             "onnx",           # Cross-platform (ONNX Runtime)
-             "torch",          # PyTorch checkpoint
-             "gguf",          # Mobile (llama.rn)
-             "sou",           # Soul Unit (personality)
-             "all",           # All formats
-         ],
-         help="Model save format (default: safetensors)",
-     )
-     parser.add_argument(
-         "--save_quantized",
-         type=str,
-         default=None,
-         choices=["Q4_0", "Q4_1", "Q5_0", "Q5_1", "Q8_0", "Q4_K_M", "Q5_K_M", "F16", "F32"],
-         help="Quantization type for GGUF export",
-     )
-     parser.add_argument(
-         "--onnx_seq_len",
-         type=int,
-         default=128,
-         help="Sequence length for ONNX export (default: 128)",
-     )
-     parser.add_argument(
-         "--onnx_opset",
-         type=int,
-         default=17,
+    parser.add_argument(
+        "--save_format",
+        type=str,
+        default="safetensors",
+        choices=[
+            "safetensors",      # Recommended default
+            "safetensors_bf16", # BF16 precision
+            "onnx",           # Cross-platform (ONNX Runtime)
+            "torch",          # PyTorch checkpoint
+            "gguf",          # Mobile (llama.rn)
+            "sou",           # Soul Unit (personality)
+            "all",           # All formats
+        ],
+        help="Model save format (default: safetensors)",
+    )
+    parser.add_argument(
+        "--save_quantized",
+        type=str,
+        default=None,
+        choices=["Q4_0", "Q4_1", "Q5_0", "Q5_1", "Q8_0", "Q4_K_M", "Q5_K_M", "F16", "F32"],
+        help="Quantization type for GGUF export",
+    )
+    parser.add_argument(
+        "--onnx_seq_len",
+        type=int,
+        default=128,
+        help="Sequence length for ONNX export (default: 128)",
+    )
+    parser.add_argument(
+        "--onnx_opset",
+        type=int,
+        default=17,
          help="ONNX opset version (default: 17)",
      )
     parser.add_argument(
