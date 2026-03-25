@@ -705,6 +705,7 @@ class SloughGPTModel(torch.nn.Module, ModelInterface):
             idx_cond = input_ids[:, -self.block_size :]
             logits, _ = self(idx_cond, use_cache=False)
             logits = logits[:, -1, :] / temperature
+            logits = torch.where(torch.isfinite(logits), logits, torch.zeros_like(logits))
 
             if top_k is not None:
                 v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
@@ -724,6 +725,9 @@ class SloughGPTModel(torch.nn.Module, ModelInterface):
                 logits[indices_to_remove] = float("-inf")
 
             probs = torch.nn.functional.softmax(logits, dim=-1)
+            probs = torch.where(torch.isfinite(probs), probs, torch.zeros_like(probs))
+            probs_sum = probs.sum(dim=-1, keepdim=True)
+            probs = probs / (probs_sum + 1e-10)
             idx_next = torch.multinomial(probs, num_samples=1)
             input_ids = torch.cat([input_ids, idx_next], dim=1)
 
