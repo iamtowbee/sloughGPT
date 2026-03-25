@@ -40,7 +40,7 @@ jobs:
       
       - name: Run core tests only
         run: |
-          pytest tests/test_quantization.py tests/test_optimizations.py tests/test_benchmarking.py tests/test_inference.py tests/test_api.py -v --tb=short --ignore=tests/test_core.py --ignore=tests/server/ --ignore=tests/cli/ --ignore=tests/web/ --ignore=tests/ml/
+          pytest tests/test_quantization.py tests/test_optimizations.py tests/test_benchmarking.py tests/test_inference.py tests/test_api.py tests/test_server_main_api.py -v --tb=short --ignore=tests/test_core.py --ignore=tests/server/ --ignore=tests/cli/ --ignore=tests/web/ --ignore=tests/ml/
 
   sdk-test:
     runs-on: ubuntu-latest

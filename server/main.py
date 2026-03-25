@@ -753,8 +753,10 @@ app.add_middleware(PrometheusHttpMetricsMiddleware)
 app.include_router(federated_router)
 
 
-# Serve model files (GGUF, etc.)
-app.mount("/models", StaticFiles(directory="../models"), name="models")
+# Serve model files (GGUF, etc.) when repo ``models/`` exists (path stable regardless of cwd).
+_models_dir = (Path(__file__).resolve().parent.parent / "models").resolve()
+if _models_dir.is_dir():
+    app.mount("/models", StaticFiles(directory=str(_models_dir)), name="models")
 
 
 # WebSocket connection manager
