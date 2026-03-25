@@ -1254,7 +1254,7 @@ SloughGPT Core
 
 ---
 
-## COMPLETE FEATURE SUMMARY (2026-03-24)
+## COMPLETE FEATURE SUMMARY (2026-03-25)
 
 ### Core Architecture
 | Component | Status | Lines |
@@ -1289,6 +1289,16 @@ SloughGPT Core
 | Production Knowledge Graph | ✅ | 550+ |
 | Hallucination Detection | ✅ | Integrated |
 | Citation Tracking | ✅ | Integrated |
+| Grounding Orchestrator | ✅ | Unified system |
+
+### Vector Store (NEW)
+| Provider | Status | Notes |
+|----------|--------|-------|
+| In-Memory | ✅ | Default for development |
+| Pinecone | ✅ | Cloud-hosted |
+| Weaviate | ✅ | Self-hosted or cloud |
+| ChromaDB | ✅ | Local/simplest |
+| Factory Pattern | ✅ | Easy provider switching |
 
 ### Inference Optimization
 | Component | Status | Speedup |
@@ -1297,15 +1307,17 @@ SloughGPT Core
 | Speculative Decoding | ✅ | 2-3x |
 | Continuous Batching | ✅ | 1.5-2x |
 | Quantization (INT4/INT8) | ✅ | 2-4x |
+| Streaming API | ✅ | SSE support |
 
-### Testing
-| Component | Status | Coverage |
-|-----------|--------|---------|
-| Test Suite | ✅ | 34+ tests |
+### Testing (252 tests)
+| Component | Status | Count |
+|-----------|--------|-------|
+| Test Suite | ✅ | 252 pass |
 | Training Tests | ✅ | 22 |
-| RAG Tests | ✅ | Complete |
-| Knowledge Graph Tests | ✅ | Complete |
-| EWC Tests | ✅ | Complete |
+| RAG Tests | ✅ | 9 |
+| Knowledge Graph Tests | ✅ | 14 |
+| EWC Tests | ✅ | 10 |
+| Vector Store Tests | ✅ | 16 |
 
 ### Documentation
 | Document | Status |
@@ -1313,9 +1325,9 @@ SloughGPT Core
 | README.md | ✅ Updated |
 | TODO.md | ✅ Updated |
 | Colab Notebook | ✅ Updated |
-| RAG Architecture | ✅ NEW |
-| RAG Patterns | ✅ NEW |
-| llama.rn Integration | ✅ NEW |
+| RAG Architecture | ✅ |
+| RAG Patterns | ✅ |
+| llama.rn Integration | ✅ |
 
 ### Export Formats
 | Format | Status | Target |
@@ -1324,6 +1336,15 @@ SloughGPT Core
 | GGUF | ✅ | Mobile (llama.rn) |
 | ONNX | ✅ | Cross-platform |
 | .sou | ✅ | Soul format |
+
+### API Endpoints (Server)
+| Category | Endpoints |
+|----------|----------|
+| Generation | `/generate`, `/generate/stream`, `/chat/stream` |
+| Vector Store | `/vector/init`, `/vector/upsert`, `/vector/query`, `/vector/search` |
+| Model | `/models`, `/load`, `/soul` |
+| Training | `/train`, `/training/start` |
+| Metrics | `/metrics`, `/health` |
 
 ### LLM Problem Solutions
 | Problem | Solution | Implementation |
@@ -1335,5 +1356,10 @@ SloughGPT Core
 | Alignment | Constitutional AI + RLHF | Integrated |
 | Data Efficiency | Curriculum Learning | Implemented |
 | No Grounding | Knowledge Graph + RAG | Production-grade |
+
+### Demo
+Run: `python3 demo_complete.py`
+- All 6 components tested and working
+- RAG, Knowledge Graph, Deep Reasoning, EWC, Inference, Grounding
 
 *Always refer to this document for project status and priorities*
