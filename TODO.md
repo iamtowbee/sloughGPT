@@ -605,6 +605,10 @@ uvicorn server.main:app --host 0.0.0.0 --port 8000
 python cli.py --help
 python cli.py quick --prompt "Hello"     # Quick train & generate
 python cli.py train --dataset shakespeare # Full training
+python cli.py demo                      # Run all system demos
+python cli.py demo --component rag      # Run specific component demo
+python cli.py rlhf --steps 100         # Run RLHF training demo
+python cli.py cloud --provider chromadb # Setup cloud vector store
 python cli.py export models/slough.pt --format sou  # Export
 python cli.py export models/slough.pt --format onnx  # ONNX
 python cli.py export models/slough.pt --format gguf_q4_k_m  # GGUF for mobile
