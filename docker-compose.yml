@@ -16,17 +16,15 @@ services:
       - SLAUGHGPT_LOG_LEVEL=INFO
       - SLAUGHGPT_HOST=0.0.0.0
       - SLAUGHGPT_PORT=8000
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-sentence_transformers}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      - PINECONE_API_KEY=${PINECONE_API_KEY:-}
+      - PINECONE_INDEX=${PINECONE_INDEX:-sloughgpt}
+      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT:-us-east-1}
     volumes:
       - ./models:/app/models
       - ./datasets:/app/datasets
       - ./data:/app/data
-      - ./vector_store:/app/vector_store
-    environment:
-      - VECTOR_STORE_PROVIDER=${VECTOR_STORE_PROVIDER:-in_memory}
-      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-sentence_transformers}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
-      - PINECONE_API_KEY=${PINECONE_API_KEY:-}
-      - WEAVIATE_URL=${WEAVIATE_URL:-http://weaviate:8080}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -160,41 +158,6 @@ services:
     networks:
       - sloughgpt-net
 
-  # ChromaDB Vector Store
-  chromadb:
-    image: ghcr.io/chroma-core/chroma:latest
-    container_name: sloughgpt-chromadb
-    ports:
-      - "8002:8000"
-    environment:
-      - IS_PERSISTENT=TRUE
-      - ANONYMIZED_TELEMETRY=FALSE
-    volumes:
-      - chromadb_data:/chroma/chroma
-    profiles:
-      - vector
-    networks:
-      - sloughgpt-net
-
-  # Weaviate Vector Store
-  weaviate:
-    image: semitechnologies/weaviate:latest
-    container_name: sloughgpt-weaviate
-    ports:
-      - "8080:8080"
-    environment:
-      - QUERY_MAXIMUM_RESULTS=100
-      - AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true
-      - PERSISTENCE_DATA_PATH=/var/lib/weaviate
-      - ENABLE_MODULES=text2vec-transformers
-      - TRANSFORMERS_INFERENCE_API=http://t2v-transformers:8080
-    volumes:
-      - weaviate_data:/var/lib/weaviate
-    profiles:
-      - vector
-    networks:
-      - sloughgpt-net
-
   # Web UI
   web:
     build:
@@ -221,9 +184,6 @@ volumes:
   prometheus_data:
   grafana_data:
   redis_data:
-  chromadb_data:
-  weaviate_data:
-  vector_store:
 
 networks:
   sloughgpt-net:

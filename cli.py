@@ -289,45 +289,48 @@ def cmd_rlhf_demo(args):
 
 
 def cmd_cloud_setup(args):
-    """Setup cloud vector store."""
+    """Setup Pinecone vector store."""
     import sys
     import asyncio
     sys.path.insert(0, ".")
     
-    from domains.inference.vector_store import VectorStoreFactory, VectorEntry, simple_embed
+    from domains.inference.vector_store import PineconeVectorStore, VectorEntry, simple_embed
     
     async def setup():
-        if args.test_all:
-            print("Testing all configured providers...")
-            providers = ["chromadb"]
-            if os.getenv("PINECONE_API_KEY"):
-                providers.append("pinecone")
-            if os.getenv("WEAVIATE_URL"):
-                providers.append("weaviate")
-        else:
-            providers = [args.provider]
+        api_key = args.api_key or os.getenv("PINECONE_API_KEY")
+        if not api_key:
+            print("Error: Pinecone API key required (--api-key or PINECONE_API_KEY)")
+            print("\nGet your API key at: https://app.pinecone.io")
+            return
         
-        for provider in providers:
-            print(f"\nSetting up {provider}...")
-            try:
-                store = VectorStoreFactory.create(provider)
-                await store.connect()
-                
-                dim = 768 if provider != "chromadb" else 384
-                entries = [
-                    VectorEntry(
-                        id="test",
-                        vector=simple_embed("test document", dimension=dim),
-                        text="test document",
-                    )
-                ]
-                await store.upsert(entries)
-                count = await store.count()
-                print(f"   ✓ {provider}: {count} documents")
-                
-                await store.disconnect()
-            except Exception as e:
-                print(f"   ✗ {provider}: {e}")
+        print(f"Setting up Pinecone index: {args.index}")
+        print(f"Dimension: {args.dimension}")
+        print(f"Environment: {args.environment}")
+        
+        try:
+            store = PineconeVectorStore(
+                api_key=api_key,
+                index_name=args.index,
+                dimension=args.dimension,
+                environment=args.environment,
+            )
+            await store.connect()
+            
+            entries = [
+                VectorEntry(
+                    id="test",
+                    vector=simple_embed("test document", dimension=args.dimension),
+                    text="test document",
+                    metadata={"created_by": "cli"},
+                )
+            ]
+            await store.upsert(entries)
+            count = await store.count()
+            print(f"   ✓ Pinecone: {count} documents indexed")
+            
+            await store.disconnect()
+        except Exception as e:
+            print(f"   ✗ Pinecone: {e}")
     
     asyncio.run(setup())
 
@@ -2210,10 +2213,11 @@ def main():
     rlhf_parser.set_defaults(func=cmd_rlhf_demo)
 
     # Cloud setup command
-    cloud_parser = subparsers.add_parser("cloud", help="Setup cloud vector store")
-    cloud_parser.add_argument("--provider", choices=["chromadb", "pinecone", "weaviate", "in_memory"],
-                            default="chromadb", help="Vector store provider")
-    cloud_parser.add_argument("--test-all", action="store_true", help="Test all providers")
+    cloud_parser = subparsers.add_parser("cloud", help="Setup Pinecone vector store")
+    cloud_parser.add_argument("--api-key", help="Pinecone API key")
+    cloud_parser.add_argument("--index", default="sloughgpt", help="Index name")
+    cloud_parser.add_argument("--dimension", type=int, default=768, help="Vector dimension")
+    cloud_parser.add_argument("--environment", default="us-east-1", help="Pinecone environment")
     cloud_parser.set_defaults(func=cmd_cloud_setup)
 
     # Train command
