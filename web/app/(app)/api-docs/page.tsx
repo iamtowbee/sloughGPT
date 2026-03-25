@@ -39,6 +39,21 @@ const endpoints: Endpoint[] = [
   },
   {
     method: 'POST',
+    path: '/v1/infer',
+    description:
+      'SloughGPT Standard v1 inference envelope. Optional header X-SloughGPT-Standard: 1. See standards/SLOUGHGPT_STANDARD_V1.md.',
+    body: [
+      { field: 'mode', type: "'generate' | 'chat' | 'structured'", required: true },
+      { field: 'task_type', type: 'string', required: false },
+      { field: 'model_id', type: 'string', required: false },
+      { field: 'input', type: 'object (prompt?, messages?, context?)', required: true },
+      { field: 'generation', type: 'object', required: false },
+      { field: 'retrieval', type: 'object', required: false },
+      { field: 'output_schema_ref', type: 'string', required: false },
+    ],
+  },
+  {
+    method: 'POST',
     path: '/generate/stream',
     description: 'Streaming text generation via Server-Sent Events',
     body: [
@@ -94,18 +109,46 @@ const endpoints: Endpoint[] = [
   {
     method: 'POST',
     path: '/train',
-    description: 'Start a training job',
+    description:
+      'Start char-level training in the background. Exactly one of: dataset (folder under datasets/), manifest_uri, or dataset_ref.',
     body: [
-      { field: 'dataset', type: 'string', required: true },
+      { field: 'dataset', type: 'string', required: false },
+      { field: 'manifest_uri', type: 'string', required: false },
+      { field: 'dataset_ref.dataset_id', type: 'string', required: false },
+      { field: 'dataset_ref.version', type: 'string', required: false },
+      { field: 'dataset_ref.manifest_uri', type: 'string', required: false },
       { field: 'epochs', type: 'number', required: false },
       { field: 'batch_size', type: 'number', required: false },
       { field: 'learning_rate', type: 'number', required: false },
+      { field: 'n_embed', type: 'number', required: false },
+      { field: 'n_layer', type: 'number', required: false },
+      { field: 'n_head', type: 'number', required: false },
+      { field: 'block_size', type: 'number', required: false },
+      { field: 'max_steps', type: 'number', required: false },
+    ],
+  },
+  {
+    method: 'POST',
+    path: '/train/resolve',
+    description:
+      'Resolve corpus to data_path and checkpoint stem (dry run; no training). Same mutually exclusive source fields as POST /train.',
+    body: [
+      { field: 'dataset', type: 'string', required: false },
+      { field: 'manifest_uri', type: 'string', required: false },
+      { field: 'dataset_ref.dataset_id', type: 'string', required: false },
+      { field: 'dataset_ref.version', type: 'string', required: false },
+      { field: 'dataset_ref.manifest_uri', type: 'string', required: false },
     ],
   },
   {
     method: 'GET',
     path: '/train/status',
     description: 'Get training status',
+  },
+  {
+    method: 'GET',
+    path: '/metrics/prometheus',
+    description: 'Prometheus text exposition format (HTTP + SloughGPT metrics when enabled)',
   },
   {
     method: 'GET',
@@ -227,14 +270,24 @@ const endpoints: Endpoint[] = [
   {
     method: 'POST',
     path: '/training/start',
-    description: 'Start a new training job',
+    description:
+      'Start a tracked training job (web UI). Exactly one of: dataset, manifest_uri, or nested dataset_ref.',
     body: [
       { field: 'name', type: 'string', required: true },
       { field: 'model', type: 'string', required: true },
-      { field: 'dataset', type: 'string', required: true },
+      { field: 'dataset', type: 'string', required: false },
+      { field: 'manifest_uri', type: 'string', required: false },
+      { field: 'dataset_ref.dataset_id', type: 'string', required: false },
+      { field: 'dataset_ref.version', type: 'string', required: false },
+      { field: 'dataset_ref.manifest_uri', type: 'string', required: false },
       { field: 'epochs', type: 'number', required: false },
       { field: 'batch_size', type: 'number', required: false },
       { field: 'learning_rate', type: 'number', required: false },
+      { field: 'n_embed', type: 'number', required: false },
+      { field: 'n_layer', type: 'number', required: false },
+      { field: 'n_head', type: 'number', required: false },
+      { field: 'block_size', type: 'number', required: false },
+      { field: 'max_steps', type: 'number', required: false },
     ],
   },
   {
