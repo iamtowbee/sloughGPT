@@ -171,6 +171,16 @@ def test_inference_generate_json_shape(client: TestClient) -> None:
         assert isinstance(data.get("tokens_generated"), int)
 
 
+def test_inference_stats_json_shape(client: TestClient) -> None:
+    """``GET /inference/stats`` returns either engine stats or a clear error object."""
+    r = client.get("/inference/stats")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert isinstance(data, dict)
+    if data.get("error"):
+        assert "Engine" in data["error"] or "engine" in data["error"].lower()
+
+
 def test_metrics_prometheus_contains_sloughgpt_series(client: TestClient) -> None:
     r = client.get("/metrics/prometheus")
     assert r.status_code == 200, r.text
