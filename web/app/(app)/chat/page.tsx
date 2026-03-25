@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '@/components/ThemeProvider'
+import { api } from '@/lib/api'
 import { PUBLIC_API_URL } from '@/lib/config'
 
 interface Message {
@@ -92,8 +93,45 @@ export default function ChatPage() {
       timestamp: new Date(),
     }
     setMessages(prev => [...prev, assistantMessage])
-    
-    // Try streaming endpoint first, fall back to non-streaming
+
+    const appendAssistantToken = (token: string) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId ? { ...m, content: m.content + token } : m,
+        ),
+      )
+    }
+
+    /** Inference stream (POST + JSON body, auth); returns true if any token was received. */
+    const streamViaInference = (): Promise<boolean> =>
+      new Promise((resolve) => {
+        let gotToken = false
+        api.generateStream(
+          {
+            prompt,
+            max_new_tokens: 200,
+            temperature: 0.8,
+            top_p: 0.9,
+            top_k: 50,
+          },
+          (token) => {
+            gotToken = true
+            appendAssistantToken(token)
+          },
+          () => resolve(gotToken),
+        )
+      })
+
+    // Prefer /inference/generate/stream (matches api client); fall back to legacy /generate/* for demos.
+    try {
+      if (await streamViaInference()) {
+        setIsLoading(false)
+        return
+      }
+    } catch (err) {
+      console.log('Inference streaming failed, trying legacy /generate/stream:', err)
+    }
+
     try {
       const response = await fetch(`${PUBLIC_API_URL}/generate/stream`, {
         method: 'POST',
@@ -103,40 +141,44 @@ export default function ChatPage() {
           max_new_tokens: 200,
           temperature: 0.8,
           top_p: 0.9,
-        })
+        }),
       })
-      
+
       if (response.ok && response.body) {
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
-        
+        let buffer = ''
+
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
-          
-          const chunk = decoder.decode(value)
-          const lines = chunk.split('\n').filter(l => l.startsWith('data: '))
-          
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? ''
+
           for (const line of lines) {
+            const trimmed = line.trimEnd()
+            if (!trimmed.startsWith('data:')) continue
+            const payload = trimmed.slice(5).trim()
+            if (!payload || payload === '[DONE]') continue
             try {
-              const data = JSON.parse(line.slice(6))
+              const data = JSON.parse(payload)
               if (data.token) {
-                setMessages(prev => prev.map(m => 
-                  m.id === assistantId 
-                    ? { ...m, content: m.content + data.token } 
-                    : m
-                ))
+                appendAssistantToken(data.token)
               }
               if (data.done) break
-            } catch {}
+            } catch {
+              /* ignore malformed SSE */
+            }
           }
         }
       } else {
         throw new Error(`HTTP ${response.status}`)
       }
     } catch (err) {
-      console.log('Streaming failed, trying non-streaming:', err)
-      
+      console.log('Legacy streaming failed, trying non-streaming:', err)
+
       try {
         const response = await fetch(`${PUBLIC_API_URL}/generate`, {
           method: 'POST',
@@ -146,18 +188,19 @@ export default function ChatPage() {
             max_new_tokens: 200,
             temperature: 0.8,
             top_p: 0.9,
-          })
+          }),
         })
-        
+
         if (response.ok) {
           const data = await response.json()
           const fullContent = data.text || data.generated_text || ''
-          // Stream it locally
           for (let i = 0; i <= fullContent.length; i += 3) {
-            setMessages(prev => prev.map(m => 
-              m.id === assistantId ? { ...m, content: fullContent.slice(0, i) } : m
-            ))
-            await new Promise(r => setTimeout(r, 10))
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, content: fullContent.slice(0, i) } : m,
+              ),
+            )
+            await new Promise((r) => setTimeout(r, 10))
           }
         } else {
           throw new Error(`HTTP ${response.status}`)
@@ -170,17 +213,18 @@ export default function ChatPage() {
         ]
         const fullContent = demoResponses[Math.floor(Math.random() * demoResponses.length)]
         for (let i = 0; i <= fullContent.length; i += 3) {
-          setMessages(prev => prev.map(m => 
-            m.id === assistantId ? { ...m, content: fullContent.slice(0, i) } : m
-          ))
-          await new Promise(r => setTimeout(r, 15))
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, content: fullContent.slice(0, i) } : m,
+            ),
+          )
+          await new Promise((r) => setTimeout(r, 15))
         }
       }
     }
-    
+
     setIsLoading(false)
   }
-
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
   }
