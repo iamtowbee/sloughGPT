@@ -12,10 +12,10 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=sqlite:///./sloughgpt.db
-      - SLAUGHGPT_ENV=production
-      - SLAUGHGPT_LOG_LEVEL=INFO
-      - SLAUGHGPT_HOST=0.0.0.0
-      - SLAUGHGPT_PORT=8000
+      - SLOUGHGPT_ENV=production
+      - SLOUGHGPT_LOG_LEVEL=INFO
+      - SLOUGHGPT_HOST=0.0.0.0
+      - SLOUGHGPT_PORT=8000
       - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-sentence_transformers}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
       - PINECONE_API_KEY=${PINECONE_API_KEY:-}
@@ -46,8 +46,8 @@ services:
       - "8000:8000"
     environment:
       - CUDA_VISIBLE_DEVICES=0
-      - SLAUGHGPT_ENV=production
-      - SLAUGHGPT_LOG_LEVEL=INFO
+      - SLOUGHGPT_ENV=production
+      - SLOUGHGPT_LOG_LEVEL=INFO
     volumes:
       - ./models:/app/models
       - ./datasets:/app/datasets
@@ -76,8 +76,8 @@ services:
       - "8000:8000"
       - "5678:5678"  # Debugger
     environment:
-      - SLAUGHGPT_ENV=development
-      - SLAUGHGPT_LOG_LEVEL=DEBUG
+      - SLOUGHGPT_ENV=development
+      - SLOUGHGPT_LOG_LEVEL=DEBUG
       - DEBUG=true
     volumes:
       - ./:/app

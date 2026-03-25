@@ -68,13 +68,13 @@ PORT=${2:-8000}
 case $MODE in
     development|dev)
         log_info "Starting DEVELOPMENT mode on port $PORT..."
-        export SLAUGHGPT_ENV=development
+        export SLOUGHGPT_ENV=development
         cd "$(dirname "$0")/server"
         python3 main.py
         ;;
     production|prod)
         log_info "Starting PRODUCTION mode on port $PORT..."
-        export SLAUGHGPT_ENV=production
+        export SLOUGHGPT_ENV=production
         uvicorn server.main:app --host 0.0.0.0 --port $PORT --workers 4
         ;;
     docker)

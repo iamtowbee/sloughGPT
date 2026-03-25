@@ -211,8 +211,8 @@ def check_environment():
     print("\n[Environment Variables]")
     
     env_vars = [
-        "SLAUGHGPT_API_KEY",
-        "SLAUGHGPT_JWT_SECRET",
+        "SLOUGHGPT_API_KEY",
+        "SLOUGHGPT_JWT_SECRET",
         "MODEL_PATH",
         "CUDA_VISIBLE_DEVICES",
     ]

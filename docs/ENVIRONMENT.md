@@ -6,17 +6,19 @@ Complete reference for all environment variables used in SloughGPT.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `SLAUGHGPT_API_KEY` | Yes | - | API key for authentication |
-| `SLAUGHGPT_JWT_SECRET` | Yes | - | Secret for JWT token signing |
-| `SLAUGHGPT_ENV` | No | `development` | Environment mode |
-| `SLAUGHGPT_HOST` | No | `0.0.0.0` | Server host |
-| `SLAUGHGPT_PORT` | No | `8000` | Server port |
+| `SLOUGHGPT_API_KEY` | Yes | - | API key for authentication |
+| `SLOUGHGPT_JWT_SECRET` | Yes | - | Secret for JWT token signing |
+| `SLOUGHGPT_ENV` | No | `development` | Environment mode |
+| `SLOUGHGPT_HOST` | No | `0.0.0.0` | Server host |
+| `SLOUGHGPT_PORT` | No | `8000` | Server port |
+
+**Legacy names:** older docs and images used a typo (`SLAUGHGPT_*`). The server still accepts `SLAUGHGPT_API_KEY`, `SLAUGHGPT_JWT_SECRET`, and `SLAUGHGPT_API_KEYS` if the `SLOUGHGPT_*` counterparts are unset. Prefer `SLOUGHGPT_*` for new deployments.
 
 ---
 
 ## Authentication
 
-### SLAUGHGPT_API_KEY
+### SLOUGHGPT_API_KEY
 **Required in production**
 
 API key for authenticating requests.
@@ -26,19 +28,19 @@ API key for authenticating requests.
 openssl rand -hex 32
 
 # Set in .env
-SLAUGHGPT_API_KEY=your-generated-key-here
+SLOUGHGPT_API_KEY=your-generated-key-here
 ```
 
-### SLAUGHGPT_API_KEYS
+### SLOUGHGPT_API_KEYS
 **Optional**
 
 Comma-separated list of multiple valid API keys.
 
 ```bash
-SLAUGHGPT_API_KEYS=key1,key2,key3
+SLOUGHGPT_API_KEYS=key1,key2,key3
 ```
 
-### SLAUGHGPT_JWT_SECRET
+### SLOUGHGPT_JWT_SECRET
 **Required in production**
 
 Secret key for signing JWT tokens.
@@ -48,7 +50,7 @@ Secret key for signing JWT tokens.
 openssl rand -hex 64
 
 # Set in .env
-SLAUGHGPT_JWT_SECRET=your-64-character-secret
+SLOUGHGPT_JWT_SECRET=your-64-character-secret
 ```
 
 ### JWT_ALGORITHM
@@ -113,31 +115,31 @@ CORS_ORIGINS=http://localhost:3000,https://example.com
 
 ## Server Configuration
 
-### SLAUGHGPT_ENV
+### SLOUGHGPT_ENV
 **Optional**
 
 Environment mode.
 
 ```bash
-SLAUGHGPT_ENV=development  # or production
+SLOUGHGPT_ENV=development  # or production
 ```
 
-### SLAUGHGPT_HOST
+### SLOUGHGPT_HOST
 **Optional**
 
 Server bind address.
 
 ```bash
-SLAUGHGPT_HOST=0.0.0.0  # Default
+SLOUGHGPT_HOST=0.0.0.0  # Default
 ```
 
-### SLAUGHGPT_PORT
+### SLOUGHGPT_PORT
 **Optional**
 
 Server port.
 
 ```bash
-SLAUGHGPT_PORT=8000  # Default
+SLOUGHGPT_PORT=8000  # Default
 ```
 
 ### WORKERS
@@ -310,8 +312,8 @@ LOG_FORMAT=json  # or text
 
 ```bash
 # Security (REQUIRED in production)
-SLAUGHGPT_API_KEY=generate-a-secure-32-char-key
-SLAUGHGPT_JWT_SECRET=generate-a-secure-64-char-secret
+SLOUGHGPT_API_KEY=generate-a-secure-32-char-key
+SLOUGHGPT_JWT_SECRET=generate-a-secure-64-char-secret
 JWT_ALGORITHM=HS256
 JWT_EXPIRATION_HOURS=24
 
@@ -320,9 +322,9 @@ RATE_LIMIT_REQUESTS_PER_MINUTE=60
 RATE_LIMIT_BURST_SIZE=10
 
 # Server
-SLAUGHGPT_ENV=production
-SLAUGHGPT_HOST=0.0.0.0
-SLAUGHGPT_PORT=8000
+SLOUGHGPT_ENV=production
+SLOUGHGPT_HOST=0.0.0.0
+SLOUGHGPT_PORT=8000
 WORKERS=4
 
 # Model

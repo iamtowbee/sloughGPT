@@ -1,8 +1,8 @@
 """
 Centralized server configuration from environment.
 
-Keeps secrets and tunables in one place for easier audit and AI-ops documentation.
-Env var spellings match historical names (e.g. ``SLAUGHGPT_API_KEY``).
+Canonical prefixes are ``SLOUGHGPT_*`` (matching the project name SloughGPT).
+The misspelled ``SLAUGHGPT_*`` vars are still read as fallbacks for existing deployments.
 """
 
 from __future__ import annotations
@@ -15,6 +15,24 @@ from functools import lru_cache
 
 def _parse_api_key_list(raw: str) -> frozenset[str]:
     return frozenset(x.strip() for x in raw.split(",") if x.strip())
+
+
+def _getenv_prefer_canonical(canonical: str, legacy_typo: str) -> str | None:
+    """Prefer ``SLOUGHGPT_*``; if unset or blank, use legacy ``SLAUGHGPT_*`` (historical typo)."""
+    v = os.getenv(canonical)
+    if v is not None and str(v).strip() != "":
+        return str(v)
+    leg = os.getenv(legacy_typo)
+    if leg is not None and str(leg).strip() != "":
+        return str(leg)
+    return None
+
+
+def _getenv_api_keys_raw() -> str:
+    c = os.getenv("SLOUGHGPT_API_KEYS")
+    if c is not None and str(c).strip() != "":
+        return str(c)
+    return os.getenv("SLAUGHGPT_API_KEYS", "")
 
 
 @dataclass(frozen=True)
@@ -31,9 +49,11 @@ class SecuritySettings:
 @lru_cache(maxsize=1)
 def get_security_settings() -> SecuritySettings:
     """Return cached security settings (singleton for the process)."""
-    primary = os.getenv("SLAUGHGPT_API_KEY") or secrets.token_urlsafe(32)
-    jwt_secret = os.getenv("SLAUGHGPT_JWT_SECRET") or secrets.token_urlsafe(64)
-    keys = set(_parse_api_key_list(os.getenv("SLAUGHGPT_API_KEYS", "")))
+    primary = _getenv_prefer_canonical("SLOUGHGPT_API_KEY", "SLAUGHGPT_API_KEY") or secrets.token_urlsafe(32)
+    jwt_secret = (
+        _getenv_prefer_canonical("SLOUGHGPT_JWT_SECRET", "SLAUGHGPT_JWT_SECRET") or secrets.token_urlsafe(64)
+    )
+    keys = set(_parse_api_key_list(_getenv_api_keys_raw()))
     if primary:
         keys.add(primary)
     return SecuritySettings(

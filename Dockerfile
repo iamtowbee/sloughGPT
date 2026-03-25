@@ -6,8 +6,8 @@ LABEL description="SloughGPT Model Server - Self-hosted LLM infrastructure"
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    SLAUGHGPT_ENV="production" \
-    SLAUGHGPT_LOG_LEVEL="INFO"
+    SLOUGHGPT_ENV="production" \
+    SLOUGHGPT_LOG_LEVEL="INFO"
 
 WORKDIR /app
 

@@ -2060,9 +2060,9 @@ def cmd_config_validate(args):
     with open(env_file, 'r') as f:
         content = f.read()
     
-    required_vars = ['SLAUGHGPT_API_KEY', 'SLAUGHGPT_JWT_SECRET']
+    required_vars = ['SLOUGHGPT_API_KEY', 'SLOUGHGPT_JWT_SECRET']
     optional_vars = ['DATABASE_URL', 'REDIS_URL', 'MODEL_PATH']
-    security_vars = ['SLAUGHGPT_API_KEY', 'SLAUGHGPT_JWT_SECRET', 'JWT_SECRET_KEY']
+    security_vars = ['SLOUGHGPT_API_KEY', 'SLOUGHGPT_JWT_SECRET', 'JWT_SECRET_KEY']
     
     print(f"\n[CHECK] Validating {env_file}...")
     
@@ -2126,11 +2126,11 @@ def cmd_config_generate(args):
     
     if args.type in ["api-key", "all"]:
         api_key = secrets.token_urlsafe(32)
-        print(f"SLAUGHGPT_API_KEY={api_key}")
+        print(f"SLOUGHGPT_API_KEY={api_key}")
     
     if args.type in ["jwt-secret", "all"]:
         jwt_secret = secrets.token_urlsafe(64)
-        print(f"SLAUGHGPT_JWT_SECRET={jwt_secret}")
+        print(f"SLOUGHGPT_JWT_SECRET={jwt_secret}")
     
     if args.type == "all":
         encryption_key = secrets.token_hex(32)

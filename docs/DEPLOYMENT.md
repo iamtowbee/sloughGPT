@@ -173,7 +173,7 @@ JWT_SECRET_KEY=your-secure-secret
 openssl rand -hex 32
 
 # Add to .env
-SLAUGHGPT_API_KEYS=key1,key2
+SLOUGHGPT_API_KEYS=key1,key2
 ```
 
 ## Monitoring

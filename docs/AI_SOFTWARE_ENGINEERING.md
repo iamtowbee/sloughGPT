@@ -25,7 +25,7 @@ Refactor direction: **shrink `server/main.py`** by moving more `APIRouter` modul
 
 ## Safety and configuration
 
-- **Secrets** — Loaded via `server/settings.py` (`get_security_settings()`): primary API key, JWT secret, optional multi-key list (`SLAUGHGPT_*` env vars). Never commit real keys.
+- **Secrets** — Loaded via `server/settings.py` (`get_security_settings()`): primary API key, JWT secret, optional multi-key list (`SLOUGHGPT_*` env vars; `SLAUGHGPT_*` still honored as legacy fallbacks). Never commit real keys.
 - **Auth** — Enforce consistently on mutating routes when exposing publicly.
 - **Prompt/PII** — Treat prompts as sensitive data in logs and analytics; document retention if you add persistence.
 

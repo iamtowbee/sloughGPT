@@ -38,7 +38,7 @@ COPY LICENSE .
 
 RUN mkdir -p /app/models /app/datasets /app/data && chmod -R 755 /app
 
-ENV SLAUGHGPT_ENV=production
+ENV SLOUGHGPT_ENV=production
 ENV CUDA_VISIBLE_DEVICES=0
 
 EXPOSE 8000

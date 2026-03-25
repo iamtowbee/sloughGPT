@@ -156,10 +156,10 @@ setup_env() {
 # SloughGPT Environment Configuration
 
 # Application
-SLAUGHGPT_ENV=development
-SLAUGHGPT_HOST=0.0.0.0
-SLAUGHGPT_PORT=8000
-SLAUGHGPT_LOG_LEVEL=INFO
+SLOUGHGPT_ENV=development
+SLOUGHGPT_HOST=0.0.0.0
+SLOUGHGPT_PORT=8000
+SLOUGHGPT_LOG_LEVEL=INFO
 
 # Database
 DATABASE_URL=sqlite:///./sloughgpt.db
@@ -384,8 +384,8 @@ EOF
 
 source .venv/bin/activate
 
-export SLAUGHGPT_ENV=development
-export SLAUGHGPT_LOG_LEVEL=DEBUG
+export SLOUGHGPT_ENV=development
+export SLOUGHGPT_LOG_LEVEL=DEBUG
 python -m uvicorn domains.ui.api_server:app --host 0.0.0.0 --port 8000 --reload --log-level debug
 EOF
     chmod +x dev.sh

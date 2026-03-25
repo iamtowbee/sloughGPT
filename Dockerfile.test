@@ -6,8 +6,8 @@ FROM python:3.10-slim
 # Set environment variables for testing
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    SLAUGHGPT_ENV="testing" \
-    SLAUGHGPT_LOG_LEVEL="DEBUG" \
+    SLOUGHGPT_ENV="testing" \
+    SLOUGHGPT_LOG_LEVEL="DEBUG" \
     TESTING="true" \
     DATABASE_URL="sqlite:///:memory:" \
     CACHE_TYPE="memory"
