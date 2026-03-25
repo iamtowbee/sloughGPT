@@ -6,7 +6,6 @@ and common functionality used across all domains.
 """
 
 from .test_framework import TestFramework, TestResult, TestSuite, BenchmarkRunner, test_decorator
-from .lazy_imports import LazyLoader, get_torch, get_numpy
 
 __all__ = [
     "TestFramework",
@@ -14,7 +13,4 @@ __all__ = [
     "TestSuite",
     "BenchmarkRunner",
     "test_decorator",
-    "LazyLoader",
-    "get_torch",
-    "get_numpy",
 ]
