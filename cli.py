@@ -228,6 +228,110 @@ def cmd_quick(args):
     print(f"\nSoul Unit saved to {output_base}.sou")
 
 
+def cmd_demo(args):
+    """Run system demos."""
+    import sys
+    sys.path.insert(0, ".")
+    
+    from domains.cognitive.rag import ProductionRAG
+    from domains.cognitive.knowledge_graph_v2 import KnowledgeGraph
+    from domains.training.ewc import EwcContinualLearner
+    from domains.inference.optimizer import KVCache
+    
+    print("=" * 60)
+    print("SLOUGHGPT DEMO")
+    print("=" * 60)
+    
+    if args.component in ["all", "rag"]:
+        print("\n1. RAG - Document Retrieval")
+        rag = ProductionRAG()
+        rag.add_document("Python is a programming language created by Guido van Rossum in 1991.")
+        results = rag.retrieve("What is Python?")
+        print(f"   Retrieved {len(results)} documents")
+    
+    if args.component in ["all", "kg"]:
+        print("\n2. Knowledge Graph - Fact Verification")
+        kg = KnowledgeGraph()
+        kg.add_fact("python", "is_a", "programming_language")
+        kg.add_fact("python", "created_by", "guido_van_rossum")
+        facts = kg.get_facts("python")
+        print(f"   {len(facts)} facts about python")
+    
+    if args.component in ["all", "ewc"]:
+        print("\n3. EWC - Catastrophic Forgetting Prevention")
+        import numpy as np
+        ewc = EwcContinualLearner(lambda x: np.random.randn(10))
+        ewc.save_snapshot("task1", {})
+        print("   EWC snapshot saved")
+    
+    if args.component in ["all", "inference"]:
+        print("\n4. Inference - KV Cache")
+        cache = KVCache(num_layers=2, num_heads=2, head_dim=64, max_tokens=100)
+        print(f"   KV Cache created: {cache.cache.shape}")
+    
+    print("\n" + "=" * 60)
+    print("Demo complete!")
+
+
+def cmd_rlhf_demo(args):
+    """Run RLHF demo."""
+    import sys
+    sys.path.insert(0, ".")
+    
+    from demo_rlhf import RLHFDemo
+    
+    print("=" * 60)
+    print("RLHF FINE-TUNING DEMO")
+    print("=" * 60)
+    
+    demo = RLHFDemo()
+    demo.run(num_steps=args.steps)
+
+
+def cmd_cloud_setup(args):
+    """Setup cloud vector store."""
+    import sys
+    import asyncio
+    sys.path.insert(0, ".")
+    
+    from domains.inference.vector_store import VectorStoreFactory, VectorEntry, simple_embed
+    
+    async def setup():
+        if args.test_all:
+            print("Testing all configured providers...")
+            providers = ["chromadb"]
+            if os.getenv("PINECONE_API_KEY"):
+                providers.append("pinecone")
+            if os.getenv("WEAVIATE_URL"):
+                providers.append("weaviate")
+        else:
+            providers = [args.provider]
+        
+        for provider in providers:
+            print(f"\nSetting up {provider}...")
+            try:
+                store = VectorStoreFactory.create(provider)
+                await store.connect()
+                
+                dim = 768 if provider != "chromadb" else 384
+                entries = [
+                    VectorEntry(
+                        id="test",
+                        vector=simple_embed("test document", dimension=dim),
+                        text="test document",
+                    )
+                ]
+                await store.upsert(entries)
+                count = await store.count()
+                print(f"   ✓ {provider}: {count} documents")
+                
+                await store.disconnect()
+            except Exception as e:
+                print(f"   ✗ {provider}: {e}")
+    
+    asyncio.run(setup())
+
+
 def cmd_train(args):
     """Start a training job."""
     if not args.api:
@@ -2093,6 +2197,24 @@ def main():
         help="Model architecture (default: sloughgpt)",
     )
     quick_parser.set_defaults(func=cmd_quick)
+
+    # Demo command
+    demo_parser = subparsers.add_parser("demo", help="Run system demos")
+    demo_parser.add_argument("--component", choices=["all", "rag", "kg", "reasoning", "ewc", "inference", "grounding"],
+                          default="all", help="Demo component to run")
+    demo_parser.set_defaults(func=cmd_demo)
+
+    # RLHF demo command
+    rlhf_parser = subparsers.add_parser("rlhf", help="Run RLHF demo")
+    rlhf_parser.add_argument("--steps", type=int, default=20, help="Training steps")
+    rlhf_parser.set_defaults(func=cmd_rlhf_demo)
+
+    # Cloud setup command
+    cloud_parser = subparsers.add_parser("cloud", help="Setup cloud vector store")
+    cloud_parser.add_argument("--provider", choices=["chromadb", "pinecone", "weaviate", "in_memory"],
+                            default="chromadb", help="Vector store provider")
+    cloud_parser.add_argument("--test-all", action="store_true", help="Test all providers")
+    cloud_parser.set_defaults(func=cmd_cloud_setup)
 
     # Train command
     train_parser = subparsers.add_parser("train", help="Start training")
