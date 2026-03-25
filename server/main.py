@@ -3,6 +3,7 @@
 SloughGPT Model Server
 FastAPI server for model inference with HuggingFace fallback.
 """
+from __future__ import annotations
 
 import os
 import sys
@@ -25,15 +26,16 @@ from datetime import datetime, timedelta
 import hashlib
 import secrets
 import re
+import uuid
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Header, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Header, Request, Response
 from fastapi.staticfiles import StaticFiles
 from federated_routes import router as federated_router
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 import torch
 import json
 import asyncio
@@ -299,6 +301,179 @@ class InputValidator:
 
 
 input_validator = InputValidator()
+
+
+def _format_chat_messages_for_standard(messages: List[ChatMessage]) -> str:
+    formatted = ""
+    for msg in messages:
+        role = msg.role
+        content = msg.content
+        if role == "user":
+            formatted += f"User: {content}\n"
+        elif role == "assistant":
+            formatted += f"Assistant: {content}\n"
+        elif role == "system":
+            formatted += f"System: {content}\n"
+        else:
+            formatted += f"{role}: {content}\n"
+    formatted += "Assistant:"
+    return formatted
+
+
+def _generate_core(request: GenerateRequest, client_ip: str) -> Dict[str, Any]:
+    """Shared generation logic for /generate and /v1/infer."""
+    prompt = input_validator.validate_prompt(request.prompt)
+    soul_defaults = get_soul_generation_params()
+    soul_info = get_soul_personality()
+
+    max_tokens = input_validator.validate_max_tokens(
+        request.max_new_tokens
+        if request.max_new_tokens is not None
+        else soul_defaults["max_tokens"]
+    )
+    temperature = input_validator.validate_temperature(
+        request.temperature if request.temperature is not None else soul_defaults["temperature"]
+    )
+    top_p = request.top_p if request.top_p is not None else soul_defaults["top_p"]
+    top_k = request.top_k if request.top_k is not None else soul_defaults["top_k"]
+
+    if soul_engine is not None and soul_engine.is_loaded:
+        try:
+            text = soul_engine.generate(
+                prompt,
+                max_new_tokens=max_tokens,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+            )
+            audit_logger.log("generate", client_ip, resource="/generate", action="soul_engine", status="success")
+            return {
+                "text": text,
+                "model": model_type,
+                "soul": soul_info,
+            }
+        except Exception as e:
+            logger.error(f"SoulEngine generation failed: {e}")
+
+    if model is None:
+        audit_logger.log("generate", client_ip, resource="/generate", action="no_model", status="success")
+        return {
+            "text": f"Demo response to: {prompt[:50]}... (No model loaded)",
+            "model": model_type,
+        }
+
+    if model_type == "gpt2":
+        inputs = tokenizer(request.prompt, return_tensors="pt")
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=request.max_new_tokens,
+                temperature=temperature,
+                top_k=request.top_k,
+                top_p=request.top_p,
+                do_sample=True,
+            )
+        text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return {
+            "text": text,
+            "model": model_type,
+            "personality": request.personality,
+            "soul": soul_info,
+        }
+
+    if model_type == "sloughgpt_finetuned":
+        try:
+            checkpoint = model
+            if isinstance(checkpoint, dict):
+                stoi = checkpoint.get("stoi", {})
+                itos = checkpoint.get("itos", {})
+                if not stoi and "stoi" in checkpoint:
+                    stoi = checkpoint["stoi"]
+                if not itos and "itos" in checkpoint:
+                    itos = checkpoint["itos"]
+                model_to_use = checkpoint.get("model", checkpoint)
+                if not hasattr(model_to_use, "eval") and isinstance(model_to_use, dict):
+                    pass
+                idx = torch.tensor([[stoi.get(c, 0) for c in request.prompt]], dtype=torch.long)
+                model_to_use.eval()
+                with torch.no_grad():
+                    for _ in range(max_tokens):
+                        idx_cond = idx[:, -128:]
+                        logits, _ = model_to_use(idx_cond)
+                        logits = logits[:, -1, :] / temperature
+                        if top_k > 0:
+                            indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
+                            logits[indices_to_remove] = float("-inf")
+                        probs = torch.softmax(logits, dim=-1)
+                        idx_next = torch.multinomial(probs, num_samples=1)
+                        idx = torch.cat([idx, idx_next], dim=1)
+                generated = "".join([itos.get(i, "") for i in idx[0].tolist()])
+                text = generated[len(request.prompt) :]
+                return {
+                    "text": text,
+                    "model": model_type,
+                    "personality": request.personality,
+                    "soul": soul_info,
+                }
+        except Exception as e:
+            logger.error(f"Failed to load NanoGPT model: {e}")
+            audit_logger.log("generate", client_ip, resource="/generate", action="model_error", status="failure")
+            return {
+                "text": f"Demo response to: {prompt[:50]}... (Model loading failed: {str(e)[:50]})",
+                "model": model_type,
+                "error": str(e),
+            }
+
+    return {"text": "Model type not supported", "model": model_type}
+
+
+_CLINICAL_DISCLAIMER = (
+    "Not medical advice; verify with a licensed professional and institutional policy."
+)
+
+
+def _standard_apply_safety(
+    task_type: str,
+    safety_level: str,
+    text: str,
+    *,
+    structured_output: bool = False,
+) -> tuple[str, List[StandardSafetyFlagBody]]:
+    """Minimal v1 hooks; replace with YAML-driven classifiers later."""
+    flags: List[StandardSafetyFlagBody] = []
+    clinical_tasks = {
+        "clinical_assist",
+        "clinical_summarization",
+        "medical_rag_qa",
+        "synthetic_patient_generation",
+    }
+    if safety_level == "clinical_strict" and task_type in clinical_tasks:
+        if structured_output:
+            flags.append(
+                StandardSafetyFlagBody(
+                    rule_id="require_disclaimer_clinical",
+                    severity="info",
+                    message="Clinical disclaimer must be shown in client UI (structured output; not appended to JSON).",
+                )
+            )
+        else:
+            text = f"{text.rstrip()}\n\n{_CLINICAL_DISCLAIMER}"
+            flags.append(
+                StandardSafetyFlagBody(
+                    rule_id="require_disclaimer_clinical",
+                    severity="info",
+                    message="Disclaimer appended per clinical_strict policy.",
+                )
+            )
+    if safety_level == "code_only" and task_type in ("code_completion", "code_rag_qa"):
+        flags.append(
+            StandardSafetyFlagBody(
+                rule_id="code_policy_bundle_hint",
+                severity="info",
+                message="Run tests and SAST before merge.",
+            )
+        )
+    return text, flags
 
 
 # ============ Rate Limiter ============
@@ -686,6 +861,88 @@ class ChatRequest(BaseModel):
     model: Optional[str] = None
 
 
+# ============ SloughGPT Standard v1 inference envelope ============
+class StandardInferenceInput(BaseModel):
+    prompt: Optional[str] = None
+    messages: Optional[List[ChatMessage]] = None
+    context: Optional[str] = None
+
+
+class StandardInferenceGeneration(BaseModel):
+    max_new_tokens: Optional[int] = 100
+    temperature: Optional[float] = 0.8
+    top_p: Optional[float] = 0.9
+    top_k: Optional[int] = 50
+    repetition_penalty: Optional[float] = 1.0
+    seed: Optional[int] = None
+
+
+class StandardInferenceSafety(BaseModel):
+    level: str = "standard"
+    policy_bundle: Optional[str] = None
+
+
+class StandardInferenceRequest(BaseModel):
+    """Request body for POST /v1/infer (see standards/SLOUGHGPT_STANDARD_V1.md)."""
+
+    trace_id: Optional[str] = None
+    tenant_id: Optional[str] = None
+    model_id: Optional[str] = None
+    task_type: str = "general_generate"
+    mode: str = "generate"
+    safety: Optional[StandardInferenceSafety] = None
+    output_schema_ref: Optional[str] = None
+    retrieval: Optional[Dict[str, Any]] = None
+    input: StandardInferenceInput
+    generation: Optional[StandardInferenceGeneration] = None
+
+    @model_validator(mode="after")
+    def _validate_mode_input(self) -> "StandardInferenceRequest":
+        mode = self.mode
+        if mode == "generate":
+            if not (self.input.prompt and self.input.prompt.strip()):
+                raise ValueError("input.prompt is required when mode is 'generate'")
+        elif mode == "chat":
+            if not self.input.messages:
+                raise ValueError("input.messages is required when mode is 'chat'")
+        elif mode == "structured":
+            if not (self.input.prompt and self.input.prompt.strip()) and not self.input.messages:
+                raise ValueError("structured mode requires input.prompt or input.messages")
+        else:
+            raise ValueError("mode must be 'generate', 'chat', or 'structured'")
+        return self
+
+
+class StandardOutputBody(BaseModel):
+    text: Optional[str] = None
+    structured: Optional[Dict[str, Any]] = None
+
+
+class StandardUsageBody(BaseModel):
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+    latency_ms: float = 0.0
+
+
+class StandardSafetyFlagBody(BaseModel):
+    rule_id: str
+    severity: str
+    message: Optional[str] = None
+
+
+class StandardInferenceResponse(BaseModel):
+    trace_id: str
+    model_id: str
+    model_version: str
+    task_type: str
+    mode: str
+    output: StandardOutputBody
+    usage: StandardUsageBody
+    safety_flags: List[StandardSafetyFlagBody] = Field(default_factory=list)
+    citations: List[Dict[str, Any]] = Field(default_factory=list)
+
+
 def load_model():
     """Load the actual sloughgpt model."""
     global model, tokenizer, model_type
@@ -842,6 +1099,7 @@ async def root():
         "soul_engine_active": soul_engine is not None and soul_engine.is_loaded,
         "endpoints": {
             "generate": "/generate (POST)",
+            "v1_infer": "/v1/infer (POST) — SloughGPT Standard v1 envelope",
             "generate_stream": "/generate/stream (POST)",
             "generate_ws": "/ws/generate (WebSocket)",
             "load_soul": "/load-soul (POST) - loads into SoulEngine",
@@ -849,6 +1107,7 @@ async def root():
             "personalities": "/personalities (GET)",
             "models": "/models (GET)",
             "datasets": "/datasets (GET)",
+            "train_resolve": "/train/resolve (POST) — preview manifest → data_path",
             "info": "/info (GET)",
         },
     }
@@ -1187,125 +1446,91 @@ async def generate_demo(request: GenerateRequest):
 @app.post("/generate")
 async def generate(request: GenerateRequest, req: Request):
     client_ip = req.client.host if req.client else "unknown"
+    return _generate_core(request, client_ip)
 
-    prompt = input_validator.validate_prompt(request.prompt)
-    soul_defaults = get_soul_generation_params()
-    soul_info = get_soul_personality()
 
-    max_tokens = input_validator.validate_max_tokens(
-        request.max_new_tokens
-        if request.max_new_tokens is not None
-        else soul_defaults["max_tokens"]
+@app.post("/v1/infer", tags=["inference"])
+async def v1_infer(body: StandardInferenceRequest, req: Request, response: Response) -> StandardInferenceResponse:
+    """SloughGPT Standard v1 inference envelope (see standards/SLOUGHGPT_STANDARD_V1.md)."""
+    response.headers["X-SloughGPT-Standard"] = "1"
+    trace_id = body.trace_id or req.headers.get("X-Trace-Id") or str(uuid.uuid4())
+    client_ip = req.client.host if req.client else "unknown"
+    gen = body.generation or StandardInferenceGeneration()
+
+    if body.mode == "chat":
+        base_prompt = _format_chat_messages_for_standard(body.input.messages or [])
+    elif body.mode == "structured":
+        if body.input.messages:
+            base_prompt = _format_chat_messages_for_standard(body.input.messages)
+        else:
+            base_prompt = (body.input.prompt or "").strip()
+        base_prompt = base_prompt.rstrip() + "\n\nRespond with valid JSON only."
+    else:
+        base_prompt = (body.input.prompt or "").strip()
+
+    if body.input.context:
+        base_prompt = f"Context:\n{body.input.context.strip()}\n\n{base_prompt}"
+
+    gr = GenerateRequest(
+        prompt=base_prompt,
+        max_new_tokens=gen.max_new_tokens,
+        temperature=gen.temperature,
+        top_p=gen.top_p,
+        top_k=gen.top_k,
+        repetition_penalty=gen.repetition_penalty,
+        seed=gen.seed,
+        personality=None,
     )
-    temperature = input_validator.validate_temperature(
-        request.temperature
-        if request.temperature is not None
-        else soul_defaults["temperature"]
+
+    t0 = time.perf_counter()
+    raw = _generate_core(gr, client_ip)
+    latency_ms = (time.perf_counter() - t0) * 1000.0
+    text = raw.get("text") or ""
+
+    safety_level = body.safety.level if body.safety else "standard"
+    safety_flags: List[StandardSafetyFlagBody] = []
+    structured: Optional[Dict[str, Any]] = None
+    structured_ok = False
+    if body.mode == "structured":
+        try:
+            structured = json.loads(text.strip())
+            structured_ok = True
+        except json.JSONDecodeError:
+            safety_flags.append(
+                StandardSafetyFlagBody(
+                    rule_id="structured_parse_failed",
+                    severity="warn",
+                    message="Model output was not valid JSON.",
+                )
+            )
+
+    text_out, policy_flags = _standard_apply_safety(
+        body.task_type,
+        safety_level,
+        text,
+        structured_output=structured_ok,
     )
-    top_p = request.top_p if request.top_p is not None else soul_defaults["top_p"]
-    top_k = request.top_k if request.top_k is not None else soul_defaults["top_k"]
+    safety_flags.extend(policy_flags)
 
-    if soul_engine is not None and soul_engine.is_loaded:
-        try:
-            text = soul_engine.generate(
-                prompt,
-                max_new_tokens=max_tokens,
-                temperature=temperature,
-                top_k=top_k,
-                top_p=top_p,
-            )
-            audit_logger.log("generate", client_ip, resource="/generate", action="soul_engine", status="success")
-            return {
-                "text": text,
-                "model": model_type,
-                "soul": soul_info,
-            }
-        except Exception as e:
-            logger.error(f"SoulEngine generation failed: {e}")
+    if body.mode == "structured" and structured_ok:
+        display_text = text
+    else:
+        display_text = text_out
 
-    if model is None:
-        audit_logger.log("generate", client_ip, resource="/generate", action="no_model", status="success")
-        return {
-            "text": f"Demo response to: {prompt[:50]}... (No model loaded)",
-            "model": model_type,
-        }
+    model_id_out = body.model_id or raw.get("model") or model_type
+    audit_logger.log("v1_infer", client_ip, resource="/v1/infer", action=body.task_type, status="success")
 
-    if model_type == "gpt2":
-        inputs = tokenizer(request.prompt, return_tensors="pt")
-        with torch.no_grad():
-            outputs = model.generate(
-                **inputs,
-                max_new_tokens=request.max_new_tokens,
-                temperature=temperature,
-                top_k=request.top_k,
-                top_p=request.top_p,
-                do_sample=True,
-            )
-        text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        return {
-            "text": text,
-            "model": model_type,
-            "personality": request.personality,
-            "soul": soul_info,
-        }
-
-    if model_type == "sloughgpt_finetuned":
-        # This is actually a NanoGPT model - use nanogpt generation logic
-        try:
-            checkpoint = model  # model is the full checkpoint
-            if isinstance(checkpoint, dict):
-                stoi = checkpoint.get("stoi", {})
-                itos = checkpoint.get("itos", {})
-                
-                # Handle case where we might not have stoi/itos in checkpoint
-                if not stoi and 'stoi' in checkpoint:
-                    stoi = checkpoint['stoi']
-                if not itos and 'itos' in checkpoint:
-                    itos = checkpoint['itos']
-
-                # Handle case where model is stored separately
-                model_to_use = checkpoint.get('model', checkpoint)
-                
-                # If we still don't have the right model, try to infer it
-                if not hasattr(model_to_use, 'eval') and isinstance(model_to_use, dict):
-                    # This might be the state dict - we'd need to reconstruct the model
-                    # For now, fall back to the simple character-level approach used elsewhere
-                    pass
-                
-                idx = torch.tensor([[stoi.get(c, 0) for c in request.prompt]], dtype=torch.long)
-
-                model_to_use.eval()
-                with torch.no_grad():
-                    for _ in range(max_tokens):
-                        idx_cond = idx[:, -128:]
-                        logits, _ = model_to_use(idx_cond)
-                        logits = logits[:, -1, :] / temperature
-                        if top_k > 0:
-                            indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
-                            logits[indices_to_remove] = float("-inf")
-                        probs = torch.softmax(logits, dim=-1)
-                        idx_next = torch.multinomial(probs, num_samples=1)
-                        idx = torch.cat([idx, idx_next], dim=1)
-
-                generated = "".join([itos.get(i, "") for i in idx[0].tolist()])
-                text = generated[len(request.prompt) :]
-                return {
-                    "text": text,
-                    "model": model_type,
-                    "personality": request.personality,
-                    "soul": soul_info,
-                }
-        except Exception as e:
-            logger.error(f"Failed to load NanoGPT model: {e}")
-            # Fallback to demo response
-            audit_logger.log("generate", client_ip, resource="/generate", action="model_error", status="failure")
-            return {
-                "text": f"Demo response to: {prompt[:50]}... (Model loading failed: {str(e)[:50]})",
-                "model": model_type,
-                "error": str(e)
-            }
-
-    return {"text": "Model type not supported", "model": model_type}
+    return StandardInferenceResponse(
+        trace_id=trace_id,
+        model_id=str(model_id_out),
+        model_version=str(model_type),
+        task_type=body.task_type,
+        mode=body.mode,
+        output=StandardOutputBody(text=display_text, structured=structured),
+        usage=StandardUsageBody(latency_ms=round(latency_ms, 3)),
+        safety_flags=safety_flags,
+        citations=[],
+    )
 
 
 @app.post("/generate/stream")
@@ -1765,8 +1990,37 @@ async def list_datasets():
     return {"datasets": datasets}
 
 
-class TrainRequest(BaseModel):
-    dataset: str
+class TrainDatasetRef(BaseModel):
+    """Standard v1 dataset pointer (see standards/v1/schemas/dataset_manifest.json)."""
+
+    dataset_id: str
+    version: str
+    manifest_uri: str
+
+
+class TrainDataSourceBody(BaseModel):
+    """Exactly one training corpus selector (legacy folder, manifest file, or versioned ref)."""
+
+    dataset: Optional[str] = None
+    manifest_uri: Optional[str] = None
+    dataset_ref: Optional[TrainDatasetRef] = None
+
+    @model_validator(mode="after")
+    def _exactly_one_dataset_source(self) -> TrainDataSourceBody:
+        has_d = self.dataset is not None and str(self.dataset).strip() != ""
+        has_m = self.manifest_uri is not None and str(self.manifest_uri).strip() != ""
+        has_r = self.dataset_ref is not None
+        if sum(bool(x) for x in (has_d, has_m, has_r)) != 1:
+            raise ValueError(
+                "Specify exactly one of: `dataset` (folder under datasets/), "
+                "`manifest_uri`, or `dataset_ref`."
+            )
+        return self
+
+
+class TrainRequest(TrainDataSourceBody):
+    """Train char-level model from ``datasets/<name>/input.txt`` or from a v1 manifest."""
+
     epochs: Optional[int] = 3
     batch_size: Optional[int] = 32
     learning_rate: Optional[float] = 1e-3
@@ -1777,10 +2031,62 @@ class TrainRequest(BaseModel):
     max_steps: Optional[int] = None
 
 
-class TrainingRequest(BaseModel):
+class TrainResolveRequest(TrainDataSourceBody):
+    """Preview resolved training file path without starting a job."""
+
+    pass
+
+
+def _resolve_training_inputs(
+    dataset: Optional[str],
+    manifest_uri: Optional[str],
+    dataset_ref: Optional[TrainDatasetRef],
+) -> tuple[str, str, Optional[Dict[str, Any]], str]:
+    """
+    Returns (data_path_str, out_stem, manifest_meta | None, source_kind).
+
+    source_kind is ``legacy`` | ``manifest`` | ``ref``.
+    """
+    from pathlib import Path
+
+    from domains.training.dataset_manifest import ManifestError, resolve_training_data_path
+
+    manifest_meta: Optional[Dict[str, Any]] = None
+
+    if dataset_ref is not None:
+        ref = dataset_ref
+        data_path, manifest = resolve_training_data_path(ref.manifest_uri)
+        if manifest.get("dataset_id") != ref.dataset_id:
+            raise ManifestError(
+                f"dataset_ref.dataset_id {ref.dataset_id!r} does not match "
+                f"manifest dataset_id {manifest.get('dataset_id')!r}"
+            )
+        if str(manifest.get("version")) != str(ref.version):
+            raise ManifestError(
+                f"dataset_ref.version {ref.version!r} does not match "
+                f"manifest version {manifest.get('version')!r}"
+            )
+        manifest_meta = {"dataset_id": manifest["dataset_id"], "version": manifest["version"]}
+        return str(data_path), ref.dataset_id, manifest_meta, "ref"
+
+    if manifest_uri is not None and str(manifest_uri).strip():
+        data_path, manifest = resolve_training_data_path(manifest_uri)
+        manifest_meta = {"dataset_id": manifest["dataset_id"], "version": manifest["version"]}
+        out_stem = str(manifest.get("dataset_id", "dataset"))
+        return str(data_path), out_stem, manifest_meta, "manifest"
+
+    stem = str(dataset).strip()
+    p = Path("datasets") / stem / "input.txt"
+    if not p.is_file():
+        raise ManifestError(f"Missing training file: {p}")
+    return str(p.resolve()), stem, None, "legacy"
+
+
+class TrainingRequest(TrainDataSourceBody):
+    """UI/orchestrator training job (metadata + same corpus selectors as ``TrainRequest``)."""
+
     name: str
     model: str
-    dataset: str
     epochs: Optional[int] = 3
     batch_size: Optional[int] = 32
     learning_rate: Optional[float] = 1e-3
@@ -1790,36 +2096,83 @@ class TrainingRequest(BaseModel):
 async def train(request: TrainRequest):
     """Start a training job."""
     import threading
+
+    from domains.training.dataset_manifest import ManifestError
     from domains.training.train_pipeline import SloughGPTTrainer
+
+    try:
+        data_path_str, out_stem, manifest_meta, _source_kind = _resolve_training_inputs(
+            request.dataset,
+            request.manifest_uri,
+            request.dataset_ref,
+        )
+    except ManifestError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    req_snapshot = request.model_dump()
 
     def train_model():
         try:
             trainer = SloughGPTTrainer(
-                data_path=f"datasets/{request.dataset}/input.txt",
-                n_embed=request.n_embed,
-                n_layer=request.n_layer,
-                n_head=request.n_head,
-                block_size=request.block_size,
-                batch_size=request.batch_size,
-                epochs=request.epochs,
-                lr=request.learning_rate,
-                max_steps=request.max_steps,
+                data_path=data_path_str,
+                n_embed=req_snapshot["n_embed"],
+                n_layer=req_snapshot["n_layer"],
+                n_head=req_snapshot["n_head"],
+                block_size=req_snapshot["block_size"],
+                batch_size=req_snapshot["batch_size"],
+                epochs=req_snapshot["epochs"],
+                lr=req_snapshot["learning_rate"],
+                max_steps=req_snapshot["max_steps"],
             )
             trainer.train()
-            trainer.save(f"models/{request.dataset}_trained.pt")
+            safe_stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in out_stem)[:120]
+            trainer.save(f"models/{safe_stem}_trained.pt")
         except Exception as e:
             print(f"Training error: {e}")
 
-    # Run training in background thread
     thread = threading.Thread(target=train_model, daemon=True)
     thread.start()
 
-    return {
+    out: Dict[str, Any] = {
         "status": "started",
-        "dataset": request.dataset,
+        "data_path": data_path_str,
+        "output_checkpoint_stem": out_stem,
+        "data_source": _source_kind,
         "epochs": request.epochs,
         "message": "Training started in background",
     }
+    if request.dataset is not None:
+        out["dataset"] = request.dataset.strip()
+    if manifest_meta is not None:
+        out["manifest"] = manifest_meta
+    return out
+
+
+@app.post("/train/resolve", tags=["training"])
+async def train_resolve(body: TrainResolveRequest) -> Dict[str, Any]:
+    """Resolve `data_path` and checkpoint stem from a dataset folder or v1 manifest (no training)."""
+    from domains.training.dataset_manifest import ManifestError
+
+    try:
+        data_path_str, out_stem, manifest_meta, source_kind = _resolve_training_inputs(
+            body.dataset,
+            body.manifest_uri,
+            body.dataset_ref,
+        )
+    except ManifestError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    out: Dict[str, Any] = {
+        "ok": True,
+        "data_path": data_path_str,
+        "output_checkpoint_stem": out_stem,
+        "data_source": source_kind,
+    }
+    if body.dataset is not None:
+        out["dataset"] = body.dataset.strip()
+    if manifest_meta is not None:
+        out["manifest"] = manifest_meta
+    return out
 
 
 @app.get("/train/status")
@@ -1848,18 +2201,34 @@ async def get_training_job(job_id: str):
 @app.post("/training/start", tags=["training"])
 async def start_training(request: TrainingRequest):
     """Start a new training job."""
+    from domains.training.dataset_manifest import ManifestError
+
+    try:
+        data_path_str, out_stem, manifest_meta, source_kind = _resolve_training_inputs(
+            request.dataset,
+            request.manifest_uri,
+            request.dataset_ref,
+        )
+    except ManifestError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
     job_id = f"job_{len(training_jobs) + 1}"
-    job = {
+    job: Dict[str, Any] = {
         "id": job_id,
         "name": request.name,
         "model": request.model,
-        "dataset": request.dataset,
+        "dataset": request.dataset.strip() if request.dataset else out_stem,
+        "data_path": data_path_str,
+        "output_checkpoint_stem": out_stem,
+        "data_source": source_kind,
         "status": "running",
         "progress": 0,
         "epochs": request.epochs,
         "current_epoch": 0,
         "loss": None,
     }
+    if manifest_meta is not None:
+        job["manifest"] = manifest_meta
     training_jobs[job_id] = job
 
     def run_training():
@@ -2052,14 +2421,14 @@ def get_inference_engine():
 
 
 @app.post("/inference/generate", tags=["inference"])
-async def inference_generate(request: GenerateRequest):
+async def inference_generate(gr: GenerateRequest, req: Request):
     """Generate text using the production inference engine."""
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = req.client.host if req.client else "unknown"
 
     # Validate input
-    prompt = input_validator.validate_prompt(request.prompt)
-    max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
-    temperature = input_validator.validate_temperature(request.temperature or 0.8)
+    prompt = input_validator.validate_prompt(gr.prompt)
+    max_tokens = input_validator.validate_max_tokens(gr.max_new_tokens or 100)
+    temperature = input_validator.validate_temperature(gr.temperature or 0.8)
 
     try:
         engine = get_inference_engine()
@@ -2072,8 +2441,8 @@ async def inference_generate(request: GenerateRequest):
             prompt=prompt,
             max_new_tokens=max_tokens,
             temperature=temperature,
-            top_p=request.top_p,
-            top_k=request.top_k,
+            top_p=gr.top_p,
+            top_k=gr.top_k,
             repetition_penalty=1.0,
         )
 
