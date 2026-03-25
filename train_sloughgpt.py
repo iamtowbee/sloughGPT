@@ -180,6 +180,7 @@ def train_sloughgpt(
     save_quantized=None,
     save_path=None,
     soul_name=None,
+    checkpoint_interval=0,  # Save checkpoint every N batches (0 = disabled)
 ):
     """Train SloughGPT model."""
 
@@ -378,6 +379,25 @@ def train_sloughgpt(
                     "lr": f"{scheduler.get_last_lr()[0]:.2e}",
                 }
             )
+            
+            # Periodic checkpoint saving
+            if checkpoint_interval and (batch_idx + 1) % checkpoint_interval == 0:
+                step = epoch * len(train_loader) + batch_idx + 1
+                checkpoint_path = f"models/checkpoint_step_{step}.pt"
+                checkpoint = {
+                    "step": step,
+                    "epoch": epoch,
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "scheduler_state_dict": scheduler.state_dict(),
+                    "train_loss": loss.item() * gradient_accumulation,
+                    "metadata": metadata,
+                    "stoi": stoi,
+                    "itos": itos,
+                }
+                os.makedirs("models", exist_ok=True)
+                torch.save(checkpoint, checkpoint_path)
+                print(f"  ✓ Checkpoint saved: checkpoint_step_{step}.pt")
 
         if max_steps:
             break
@@ -551,6 +571,12 @@ if __name__ == "__main__":
         help="Output path (without extension, format added automatically)",
     )
     parser.add_argument(
+        "--checkpoint_interval",
+        type=int,
+        default=0,
+        help="Save checkpoint every N batches (0 = disabled, default: disabled)",
+    )
+    parser.add_argument(
         "--export_sou",
         action="store_true",
         help="Also export as .sou Soul Unit (self-contained model + soul profile)",
@@ -591,6 +617,7 @@ if __name__ == "__main__":
         save_quantized=args.save_quantized,
         save_path=args.save_path,
         soul_name=args.soul_name,
+        checkpoint_interval=args.checkpoint_interval,
     )
 
     # Generate sample
