@@ -134,6 +134,21 @@ def test_health_returns_status(client: TestClient) -> None:
     assert "model_type" in data
 
 
+def test_health_live_returns_alive(client: TestClient) -> None:
+    r = client.get("/health/live")
+    assert r.status_code == 200, r.text
+    assert r.json().get("status") == "alive"
+
+
+def test_health_ready_includes_model_loaded(client: TestClient) -> None:
+    r = client.get("/health/ready")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data.get("status") in ("ready", "initializing")
+    assert isinstance(data.get("model_loaded"), bool)
+    assert "model_type" in data
+
+
 def test_list_models_returns_wrapped_array(client: TestClient) -> None:
     r = client.get("/models")
     assert r.status_code == 200, r.text
