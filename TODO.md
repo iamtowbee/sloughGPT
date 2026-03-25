@@ -1369,27 +1369,39 @@ SloughGPT Core
 | Data Efficiency | Curriculum Learning | Implemented |
 | No Grounding | Knowledge Graph + RAG | Production-grade |
 
-### Demo
-Run: `python3 demo_complete.py`
-- All 6 components tested and working
-- RAG, Knowledge Graph, Deep Reasoning, EWC, Inference, Grounding
-- Executes in ~5 seconds
+### Demos
+| Demo | Command | Description |
+|------|---------|-------------|
+| Complete System | `python3 demo_complete.py` | All 6 components working |
+| RLHF Fine-tuning | `python3 demo_rlhf.py` | Reward model training demo |
 
 ### Training
 Run: `python3 train_sloughgpt.py --data data/training.txt --epochs 5`
 - Model created, trained, and saved to `models/sloughgpt.safetensors`
 - Training pipeline fully functional
 
+### Cloud Setup
+Run: `python3 setup_cloud.py --provider chromadb`
+- ChromaDB (local, no setup)
+- Pinecone (cloud)
+- Weaviate (cloud)
+
 ### Quick Commands
 ```bash
 # Demo
 python3 demo_complete.py
+
+# RLHF Demo
+python3 demo_rlhf.py
 
 # Tests (252 pass)
 python3 -m pytest tests/ -v
 
 # Train a model
 python3 train_sloughgpt.py --data data/training.txt --epochs 5
+
+# Cloud setup
+python3 setup_cloud.py --provider chromadb
 
 # Docker deployment
 docker-compose up -d api
