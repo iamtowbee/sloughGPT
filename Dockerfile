@@ -21,6 +21,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY server/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install additional ML dependencies
+RUN pip install --no-cache-dir \
+    sentence-transformers \
+    chromadb \
+    torch \
+    torchvision
+
 COPY server/ ./server/
 COPY sloughgpt_sdk/ ./sloughgpt_sdk/
 COPY training/ ./training/
@@ -28,11 +35,12 @@ COPY inference/ ./inference/
 COPY monitoring/ ./monitoring/
 COPY evaluation/ ./evaluation/
 COPY experiments/ ./experiments/
+COPY domains/ ./domains/
 COPY pyproject.toml .
 COPY README.md .
 COPY LICENSE .
 
-RUN mkdir -p /app/data /app/logs /app/cache /app/models /app/datasets
+RUN mkdir -p /app/data /app/logs /app/cache /app/models /app/datasets /app/vector_store
 
 ENV CUDA_VISIBLE_DEVICES=""
 
