@@ -17,9 +17,19 @@ import os
 import hashlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import numpy as np
+
+
+class VectorStoreType(str, Enum):
+    """Backend identifiers for create_vector_store."""
+
+    IN_MEMORY = "in_memory"
+    PINECONE = "pinecone"
+    WEAVIATE = "weaviate"
+    CHROMADB = "chromadb"
 
 
 @dataclass
@@ -67,6 +77,67 @@ class VectorStore(ABC):
     @abstractmethod
     async def count(self) -> int:
         pass
+
+
+def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    denom = (np.linalg.norm(a) * np.linalg.norm(b)) + 1e-10
+    return float(np.dot(a, b) / denom)
+
+
+class InMemoryVectorStore(VectorStore):
+    """Simple cosine-similarity store for development and tests."""
+
+    def __init__(self, dimension: int = 768):
+        self.dimension = dimension
+        self._entries: Dict[str, VectorEntry] = {}
+
+    async def connect(self) -> bool:
+        return True
+
+    async def disconnect(self) -> None:
+        pass
+
+    async def upsert(self, entries: List[VectorEntry]) -> int:
+        for e in entries:
+            self._entries[e.id] = e
+        return len(entries)
+
+    async def query(
+        self,
+        vector: List[float],
+        top_k: int = 5,
+        filter_metadata: Optional[Dict[str, Any]] = None,
+    ) -> List[QueryResult]:
+        if not self._entries:
+            return []
+        q = np.asarray(vector, dtype=np.float64)
+        scored: List[tuple[float, VectorEntry]] = []
+        for entry in self._entries.values():
+            if filter_metadata and entry.metadata:
+                if not all(entry.metadata.get(k) == v for k, v in filter_metadata.items()):
+                    continue
+            v = np.asarray(entry.vector, dtype=np.float64)
+            scored.append((_cosine_similarity(q, v), entry))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        out: List[QueryResult] = []
+        for score, entry in scored[:top_k]:
+            out.append(
+                QueryResult(
+                    id=entry.id,
+                    score=score,
+                    text=entry.text,
+                    metadata=dict(entry.metadata),
+                )
+            )
+        return out
+
+    async def delete(self, ids: List[str]) -> bool:
+        for i in ids:
+            self._entries.pop(i, None)
+        return True
+
+    async def count(self) -> int:
+        return len(self._entries)
 
 
 class PineconeVectorStore(VectorStore):
@@ -195,6 +266,31 @@ class PineconeVectorStore(VectorStore):
         return stats.get("total_vector_count", 0)
 
 
+async def create_vector_store(provider: str = "in_memory", **kwargs: Any) -> VectorStore:
+    """Factory used by ``server/main.py`` for ``/vector/*`` endpoints."""
+    key = (provider or "in_memory").lower()
+    if key in ("in_memory", "memory", "local"):
+        dim = int(kwargs.get("dimension", 768))
+        store = InMemoryVectorStore(dimension=dim)
+        await store.connect()
+        return store
+    if key == "pinecone":
+        store = PineconeVectorStore(
+            api_key=kwargs.get("api_key"),
+            index_name=kwargs.get("index") or kwargs.get("index_name") or "sloughgpt",
+            environment=kwargs.get("environment", "us-east-1"),
+            dimension=int(kwargs.get("dimension", 768)),
+        )
+        ok = await store.connect()
+        if not ok:
+            raise RuntimeError("Pinecone connection failed")
+        return store
+    raise NotImplementedError(
+        f"Vector store provider {provider!r} is not implemented. "
+        f"Use 'in_memory' or 'pinecone'."
+    )
+
+
 def simple_embed(text: str, dimension: int = 768) -> List[float]:
     vec = np.zeros(dimension)
     words = text.lower().split()
@@ -211,8 +307,11 @@ def simple_embed(text: str, dimension: int = 768) -> List[float]:
 
 __all__ = [
     "VectorStore",
+    "VectorStoreType",
     "VectorEntry",
     "QueryResult",
+    "InMemoryVectorStore",
     "PineconeVectorStore",
+    "create_vector_store",
     "simple_embed",
 ]

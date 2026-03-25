@@ -16,7 +16,8 @@ os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "0"
 from pathlib import Path
 from contextlib import asynccontextmanager
 from collections import defaultdict
-from typing import Dict, List, Optional
+import threading
+from typing import Any, Dict, List, Optional, Tuple
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -33,7 +34,6 @@ from federated_routes import router as federated_router
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
-from typing import Optional, List, Any
 import torch
 import json
 import asyncio
@@ -43,6 +43,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sloughgpt")
 
+_PROCESS_START_MONOTONIC = time.monotonic()
 
 # ============ Redis Caching ============
 class RedisCache:
@@ -343,6 +344,134 @@ class RateLimiter:
 rate_limiter = RateLimiter(requests_per_minute=60, burst_size=10)
 
 
+# ----- HTTP metrics for Prometheus (counters + histogram) -----
+_HTTP_HIST_BOUNDS: Tuple[float, ...] = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)
+
+
+def _uuid_like(segment: str) -> bool:
+    if len(segment) == 36 and segment.count("-") == 4:
+        return all(
+            len(p) == ind and all(c in "0123456789abcdefABCDEF" for c in p)
+            for p, ind in zip(segment.split("-"), (8, 4, 4, 4, 12))
+        )
+    if len(segment) == 32 and all(c in "0123456789abcdefABCDEF" for c in segment):
+        return True
+    return False
+
+
+def _normalize_endpoint(path: str) -> str:
+    if not path or path == "/":
+        return "/"
+    parts: List[str] = []
+    for segment in path.split("/"):
+        if not segment:
+            continue
+        if segment.isdigit() or _uuid_like(segment):
+            parts.append("{id}")
+        else:
+            parts.append(segment)
+    return "/" + "/".join(parts[:12])
+
+
+def _prometheus_label_value(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+
+class HttpMetricsCollector:
+    """In-process HTTP RED-style metrics (thread-safe for async workers)."""
+
+    __slots__ = ("_lock", "requests_total", "dur_sum", "dur_count", "dur_buckets")
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.requests_total: Dict[Tuple[str, str, str], int] = defaultdict(int)
+        self.dur_sum: Dict[Tuple[str, str], float] = defaultdict(float)
+        self.dur_count: Dict[Tuple[str, str], int] = defaultdict(int)
+        n_buckets = len(_HTTP_HIST_BOUNDS) + 1
+        self.dur_buckets: Dict[Tuple[str, str], List[int]] = defaultdict(lambda: [0] * n_buckets)
+
+    def observe(self, method: str, endpoint: str, status_code: int, duration_s: float) -> None:
+        ep = _normalize_endpoint(endpoint)
+        st = str(status_code)
+        key_ct = (method.upper(), ep, st)
+        key_d = (method.upper(), ep)
+        with self._lock:
+            self.requests_total[key_ct] += 1
+            self.dur_sum[key_d] += duration_s
+            self.dur_count[key_d] += 1
+            row = self.dur_buckets[key_d]
+            placed = False
+            for i, bound in enumerate(_HTTP_HIST_BOUNDS):
+                if duration_s <= bound:
+                    for j in range(i, len(row)):
+                        row[j] += 1
+                    placed = True
+                    break
+            if not placed:
+                row[-1] += 1
+
+    def prometheus_lines(self) -> List[str]:
+        lines: List[str] = [
+            "# HELP http_requests_total Total HTTP requests",
+            "# TYPE http_requests_total counter",
+        ]
+        with self._lock:
+            totals = sorted(self.requests_total.items())
+            d_keys = sorted(self.dur_sum.keys())
+            sums = {k: self.dur_sum[k] for k in d_keys}
+            counts = {k: self.dur_count[k] for k in d_keys}
+            buckets_snapshot = {k: list(self.dur_buckets[k]) for k in d_keys}
+        for (method, endpoint, status), n in totals:
+            ml = _prometheus_label_value(method)
+            el = _prometheus_label_value(endpoint)
+            sl = _prometheus_label_value(status)
+            lines.append(f'http_requests_total{{method="{ml}",endpoint="{el}",status="{sl}"}} {n}')
+        lines.extend(
+            [
+                "",
+                "# HELP http_request_duration_seconds HTTP request duration in seconds",
+                "# TYPE http_request_duration_seconds histogram",
+            ]
+        )
+        for method, endpoint in d_keys:
+            ml = _prometheus_label_value(method)
+            elms = _prometheus_label_value(endpoint)
+            row = buckets_snapshot[(method, endpoint)]
+            for bound, c in zip(_HTTP_HIST_BOUNDS, row):
+                le = str(bound)
+                lines.append(
+                    f'http_request_duration_seconds_bucket{{method="{ml}",endpoint="{elms}",le="{le}"}} {c}'
+                )
+            lines.append(
+                f'http_request_duration_seconds_bucket{{method="{ml}",endpoint="{elms}",le="+Inf"}} {row[-1]}'
+            )
+            lines.append(f'http_request_duration_seconds_sum{{method="{ml}",endpoint="{elms}"}} {sums[(method, endpoint)]}')
+            lines.append(f'http_request_duration_seconds_count{{method="{ml}",endpoint="{elms}"}} {counts[(method, endpoint)]}')
+        return lines
+
+
+http_metrics = HttpMetricsCollector()
+
+
+class PrometheusHttpMetricsMiddleware(BaseHTTPMiddleware):
+    """Record request counts and latencies for /metrics/prometheus (skips scrape endpoints)."""
+
+    SKIP_PATHS = frozenset({"/metrics", "/metrics/prometheus"})
+
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path in self.SKIP_PATHS:
+            return await call_next(request)
+        start = time.perf_counter()
+        status_code = 500
+        try:
+            response = await call_next(request)
+            status_code = response.status_code
+            return response
+        finally:
+            duration = time.perf_counter() - start
+            http_metrics.observe(request.method, request.url.path, status_code, duration)
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Rate limiting middleware."""
 
@@ -442,6 +571,7 @@ app.add_middleware(
 
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(PrometheusHttpMetricsMiddleware)
 
 
 # ============ Federated Learning Routes ============
@@ -963,10 +1093,11 @@ async def prometheus_metrics():
     """
     import psutil
 
+    uptime_s = time.monotonic() - _PROCESS_START_MONOTONIC
     lines = [
         "# HELP sloughgpt_uptime_seconds Server uptime in seconds",
         "# TYPE sloughgpt_uptime_seconds gauge",
-        f"sloughgpt_uptime_seconds {time.time()}",
+        f"sloughgpt_uptime_seconds {uptime_s}",
         "",
         "# HELP sloughgpt_rate_limit_requests Rate limit requests per minute",
         "# TYPE sloughgpt_rate_limit_requests gauge",
@@ -992,6 +1123,8 @@ async def prometheus_metrics():
         "# TYPE sloughgpt_system_memory_percent gauge",
         f"sloughgpt_system_memory_percent {psutil.virtual_memory().percent}",
     ]
+    lines.append("")
+    lines.extend(http_metrics.prometheus_lines())
 
     return StreamingResponse(iter(lines), media_type="text/plain")
 
@@ -1531,17 +1664,21 @@ async def list_models():
 
     models_dir = Path("models")
     if models_dir.exists():
-        for m in models_dir.glob("*.pt"):
-            size = m.stat().st_size / (1024 * 1024)
-            models.append(
-                {
-                    "id": f"local/{m.stem}",
-                    "name": m.stem,
-                    "path": str(m),
-                    "size_mb": round(size, 2),
-                    "source": "local",
-                }
-            )
+        extensions = (".pt", ".pth", ".sou", ".safetensors", ".onnx")
+        for pattern in ("*.pt", "*.pth", "*.sou", "*.safetensors", "*.onnx"):
+            for m in models_dir.glob(pattern):
+                if m.suffix.lower() not in extensions:
+                    continue
+                size = m.stat().st_size / (1024 * 1024)
+                models.append(
+                    {
+                        "id": f"local/{m.stem}",
+                        "name": m.stem,
+                        "path": str(m),
+                        "size_mb": round(size, 2),
+                        "source": "local",
+                    }
+                )
 
     try:
         from domains.training.model_registry import get_available_hf_models
@@ -2383,27 +2520,6 @@ async def get_registry_stats():
         "by_status": dict(by_status),
         "by_framework": dict(by_framework),
     }
-
-
-@app.get("/models", tags=["model"])
-async def list_models():
-    """List available models in models/ directory."""
-    import os
-    models_dir = "models"
-    os.makedirs(models_dir, exist_ok=True)
-    
-    models = []
-    for f in os.listdir(models_dir):
-        if f.endswith(('.pt', '.pth', '.sou', '.safetensors', '.onnx')):
-            path = os.path.join(models_dir, f)
-            size_mb = os.path.getsize(path) / (1024 * 1024)
-            models.append({
-                "name": f,
-                "path": path,
-                "size_mb": round(size_mb, 2),
-            })
-    
-    return {"models": models}
 
 
 # ============ Vector Store ============

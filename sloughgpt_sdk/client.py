@@ -394,27 +394,33 @@ class SloughGPTClient:
         return MetricsData.from_response(response.json())
     
     def metrics_prometheus(self) -> str:
-        """Get metrics in Prometheus format."""
-        response = self._request(
-            "GET",
-            "/metrics",
-            headers={"Accept": "text/plain"}
-        )
+        """Get metrics in Prometheus text exposition format."""
+        response = self._request("GET", "/metrics/prometheus")
         return response.text
     
     # Authentication
     
-    def login(self, username: str, password: str) -> Dict[str, Any]:
-        """Login and get access token."""
-        response = self._request("POST", "/auth/login", json={
-            "username": username,
-            "password": password
-        })
+    def create_token(self, api_key: str) -> Dict[str, Any]:
+        """Exchange API key for JWT (POST /auth/token)."""
+        response = self._request("POST", "/auth/token", json={"api_key": api_key})
         return response.json()
+
+    def login(self, username: str, password: str) -> Dict[str, Any]:
+        """Deprecated alias: server uses API keys, not username/password.
+
+        If ``password`` looks like an API key (non-empty), it is sent as ``api_key``.
+        Otherwise ``username`` is sent as the API key (for backwards compatibility).
+        """
+        api_key = password if password else username
+        return self.create_token(api_key)
     
-    def refresh_token(self) -> Dict[str, Any]:
-        """Refresh access token."""
-        response = self._request("POST", "/auth/refresh")
+    def refresh_token(self, access_token: str) -> Dict[str, Any]:
+        """Refresh JWT (POST /auth/refresh with Bearer token)."""
+        response = self._request(
+            "POST",
+            "/auth/refresh",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
         return response.json()
     
     # Training

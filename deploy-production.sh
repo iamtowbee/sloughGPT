@@ -409,7 +409,7 @@ data:
       - job_name: 'sloughgpt'
         static_configs:
           - targets: ['sloughgpt-api:8000']
-        metrics_path: /metrics
+        metrics_path: /metrics/prometheus
         scrape_interval: 5s
 ---
 apiVersion: apps/v1
@@ -567,18 +567,20 @@ echo "🌐 Getting service endpoints..."
 
 API_IP=$(kubectl get service sloughgpt-api -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 GRAFANA_IP=$(kubectl get service grafana -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+PROM_CLUSTER_IP=$(kubectl get service prometheus -n $NAMESPACE -o jsonpath='{.spec.clusterIP}')
 
 echo "🎉 Deployment Complete!"
 echo "======================="
 echo ""
 echo "🌐 SloughGPT API: http://api.sloughgpt.com"
 echo "📊 Grafana Dashboard: http://$GRAFANA_IP:3000"
-echo "🔍 Prometheus: http://$API_IP:9090"
+echo "🔍 Prometheus (ClusterIP): http://$PROM_CLUSTER_IP:9090 — from your machine: kubectl port-forward -n $NAMESPACE svc/prometheus 9090:9090"
 echo ""
 echo "👤 Grafana Admin: admin / admin123"
 echo ""
 echo "🔍 API Health: http://api.sloughgpt.com/health"
-echo "📈 API Metrics: http://api.sloughgpt.com/metrics"
+echo "📈 API metrics (JSON): http://api.sloughgpt.com/metrics"
+echo "📈 API metrics (Prometheus text): http://api.sloughgpt.com/metrics/prometheus"
 echo ""
 
 # Cleanup temporary resources
