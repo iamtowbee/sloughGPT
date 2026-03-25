@@ -146,6 +146,27 @@ def test_v1_infer_generate_return_shape(client: TestClient) -> None:
     assert body["output"]["text"] is not None
 
 
+def test_v1_infer_chat_mode_return_shape(client: TestClient) -> None:
+    r = client.post(
+        "/v1/infer",
+        json={
+            "task_type": "chat",
+            "mode": "chat",
+            "input": {
+                "messages": [
+                    {"role": "user", "content": "Say hi in one short sentence."},
+                ],
+            },
+            "generation": {"max_new_tokens": 16},
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.headers.get("X-SloughGPT-Standard") == "1"
+    body = r.json()
+    assert body["mode"] == "chat"
+    assert body["output"]["text"] is not None
+
+
 def test_training_request_exactly_one_source() -> None:
     from pydantic import ValidationError
 
