@@ -2012,7 +2012,7 @@ async def create_experiment(
     
     exp = tracker.get_experiment(experiment_id)
     if exp:
-        return exp.to_dict()
+        return exp.to_api_dict()
     return {"experiment_id": experiment_id, "name": name}
 
 
@@ -2021,7 +2021,7 @@ async def list_experiments():
     """List all experiments."""
     tracker = get_experiment_tracker()
     experiments = tracker.list_experiments()
-    return [exp.to_dict() for exp in experiments]
+    return [exp.to_api_dict() for exp in experiments]
 
 
 @app.get("/experiments/{experiment_id}", tags=["experiments"])
@@ -2031,7 +2031,7 @@ async def get_experiment(experiment_id: str):
     exp = tracker.get_experiment(experiment_id)
     if exp is None:
         raise HTTPException(status_code=404, detail="Experiment not found")
-    return exp.to_dict()
+    return exp.to_api_dict()
 
 
 @app.post("/experiments/{experiment_id}/log_metric", tags=["experiments"])

@@ -181,6 +181,23 @@ def test_inference_stats_json_shape(client: TestClient) -> None:
         assert "Engine" in data["error"] or "engine" in data["error"].lower()
 
 
+def test_list_experiments_returns_json_array(client: TestClient) -> None:
+    r = client.get("/experiments")
+    assert r.status_code == 200, r.text
+    assert isinstance(r.json(), list)
+
+
+def test_get_experiment_runs_unknown_returns_empty_list(client: TestClient) -> None:
+    r = client.get("/experiments/nonexistent_exp___/runs")
+    assert r.status_code == 200, r.text
+    assert r.json() == []
+
+
+def test_get_run_unknown_returns_404(client: TestClient) -> None:
+    r = client.get("/runs/nonexistent_run___")
+    assert r.status_code == 404
+
+
 def test_metrics_prometheus_contains_sloughgpt_series(client: TestClient) -> None:
     r = client.get("/metrics/prometheus")
     assert r.status_code == 200, r.text

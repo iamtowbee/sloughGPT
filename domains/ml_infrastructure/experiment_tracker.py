@@ -10,6 +10,7 @@ import time
 import uuid
 import hashlib
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
@@ -59,6 +60,7 @@ class Experiment:
         return None
 
     def to_dict(self) -> Dict[str, Any]:
+        """Shape used for JSON persistence (``experiments.json``)."""
         return {
             "experiment_id": self.experiment_id,
             "name": self.name,
@@ -74,6 +76,51 @@ class Experiment:
             "end_time": self.end_time,
             "tags": self.tags,
             "run_id": self.run_id,
+        }
+
+    def to_api_dict(self) -> Dict[str, Any]:
+        """REST-friendly experiment object (flat latest metrics, ``id``, ``created_at``)."""
+        latest: Dict[str, float] = {}
+        for key, points in self.metrics.items():
+            if points:
+                latest[key] = points[-1].value
+        return {
+            "experiment_id": self.experiment_id,
+            "id": self.experiment_id,
+            "name": self.name,
+            "description": self.description,
+            "status": self.status.value,
+            "parameters": self.parameters,
+            "params": self.parameters,
+            "metrics": latest,
+            "artifacts": self.artifacts,
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "tags": self.tags,
+            "run_id": self.run_id,
+            "created_at": datetime.fromtimestamp(self.start_time, tz=timezone.utc).isoformat(),
+        }
+
+
+@dataclass
+class RunRecord:
+    """Single run row exposed by ``GET /runs/{run_id}`` (backed by experiment storage)."""
+
+    experiment_id: str
+    run_id: str
+    status: str
+    parameters: Dict[str, Any]
+    metrics: Dict[str, float]
+    start_time: float
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.run_id,
+            "experiment_id": self.experiment_id,
+            "status": self.status,
+            "metrics": self.metrics,
+            "params": self.parameters,
+            "created_at": datetime.fromtimestamp(self.start_time, tz=timezone.utc).isoformat(),
         }
 
 
@@ -273,6 +320,42 @@ class ExperimentTracker:
         """Get experiment by ID."""
         return self.experiments.get(experiment_id)
 
+    def _flatten_last_metrics(self, exp: Experiment) -> Dict[str, float]:
+        out: Dict[str, float] = {}
+        for key, points in exp.metrics.items():
+            if points:
+                out[key] = points[-1].value
+        return out
+
+    def get_experiment_runs(self, experiment_id: str) -> List[Dict[str, Any]]:
+        """Runs for an experiment (current storage uses one ``run_id`` per experiment)."""
+        exp = self.get_experiment(experiment_id)
+        if exp is None:
+            return []
+        rec = RunRecord(
+            experiment_id=exp.experiment_id,
+            run_id=exp.run_id,
+            status=exp.status.value,
+            parameters=exp.parameters,
+            metrics=self._flatten_last_metrics(exp),
+            start_time=exp.start_time,
+        )
+        return [rec.to_dict()]
+
+    def get_run(self, run_id: str) -> Optional[RunRecord]:
+        """Lookup a run by ``run_id`` (matches experiment ``run_id``)."""
+        for exp in self.experiments.values():
+            if exp.run_id == run_id:
+                return RunRecord(
+                    experiment_id=exp.experiment_id,
+                    run_id=exp.run_id,
+                    status=exp.status.value,
+                    parameters=exp.parameters,
+                    metrics=self._flatten_last_metrics(exp),
+                    start_time=exp.start_time,
+                )
+        return None
+
     def get_experiment_by_name(self, name: str) -> Optional[Experiment]:
         """Get experiment by name (returns latest if multiple)."""
         matches = [e for e in self.experiments.values() if e.name == name]
@@ -382,6 +465,7 @@ def log_artifact(name: str, path: str):
 __all__ = [
     "ExperimentTracker",
     "Experiment",
+    "RunRecord",
     "MetricPoint",
     "ExperimentStatus",
     "tracker",
