@@ -363,7 +363,31 @@ export const api = {
 
   async getDatasets(): Promise<Dataset[]> {
     const res = await fetch(`${API_URL}/datasets`)
-    return res.json()
+    const body = (await res.json()) as {
+      datasets?: Array<{
+        id?: string
+        name?: string
+        path?: string
+        size_bytes?: number
+        size_formatted?: string
+        size_kb?: number
+        type?: string
+      }>
+    }
+    const rows = body.datasets ?? []
+    return rows.map((d) => ({
+      id: String(d.id ?? d.name ?? ''),
+      name: String(d.name ?? d.id ?? ''),
+      size:
+        d.size_formatted ??
+        (typeof d.size_bytes === 'number'
+          ? `${(d.size_bytes / 1024).toFixed(1)} KB`
+          : typeof d.size_kb === 'number'
+            ? `${d.size_kb.toFixed(1)} KB`
+            : '—'),
+      samples: 0,
+      type: d.type ?? 'text',
+    }))
   },
 
   async downloadDataset(datasetId: string) {

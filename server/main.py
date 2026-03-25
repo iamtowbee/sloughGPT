@@ -1976,23 +1976,6 @@ async def list_hf_models():
         return {"error": str(e), "models": []}
 
 
-@app.get("/datasets")
-async def list_datasets():
-    """List available datasets."""
-    from pathlib import Path
-
-    datasets_dir = Path("datasets")
-    datasets = []
-
-    if datasets_dir.exists():
-        for d in datasets_dir.iterdir():
-            if d.is_dir():
-                size = sum(f.stat().st_size for f in d.rglob("*") if f.is_file())
-                datasets.append({"name": d.name, "path": str(d), "size_kb": round(size / 1024, 2)})
-
-    return {"datasets": datasets}
-
-
 _experiment_tracker = None
 
 

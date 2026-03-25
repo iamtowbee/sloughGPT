@@ -111,9 +111,9 @@ checkpoints/
 *.bin
 *.pkl
 
-# Data directories
+# Data directories (repo root only — do not ignore web/app/(app)/datasets)
 data/
-datasets/
+/datasets/
 runs/
 out*
 
