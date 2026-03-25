@@ -369,6 +369,33 @@ def test_registry_best_empty_or_model(client: TestClient) -> None:
     assert data.get("error") == "No models found" or "id" in data
 
 
+def test_registry_model_not_found_returns_404(client: TestClient) -> None:
+    r = client.get("/registry/models/no_such_model___")
+    assert r.status_code == 404
+
+
+def test_registry_model_metrics_not_found_returns_404(client: TestClient) -> None:
+    r = client.get("/registry/models/no_such_model___/metrics")
+    assert r.status_code == 404
+
+
+def test_dataset_stats_unknown_returns_404(client: TestClient) -> None:
+    r = client.get("/datasets/nonexistent___/stats")
+    assert r.status_code == 404
+
+
+def test_benchmark_perplexity_json_shape(client: TestClient) -> None:
+    """No model → error; otherwise perplexity + text_length."""
+    r = client.post("/benchmark/perplexity", params={"text": "hello world"})
+    assert r.status_code == 200, r.text
+    data = r.json()
+    if data.get("error"):
+        assert "model" in data["error"].lower() or "text" in data["error"].lower()
+    else:
+        assert isinstance(data.get("perplexity"), (int, float))
+        assert data.get("text_length") == len("hello world")
+
+
 def test_v1_infer_rejects_invalid_mode(client: TestClient) -> None:
     r = client.post(
         "/v1/infer",
