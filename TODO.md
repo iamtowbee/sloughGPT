@@ -1375,6 +1375,11 @@ Run: `python3 demo_complete.py`
 - RAG, Knowledge Graph, Deep Reasoning, EWC, Inference, Grounding
 - Executes in ~5 seconds
 
+### Training
+Run: `python3 train_sloughgpt.py --data data/training.txt --epochs 5`
+- Model created, trained, and saved to `models/sloughgpt.safetensors`
+- Training pipeline fully functional
+
 ### Quick Commands
 ```bash
 # Demo
@@ -1383,11 +1388,11 @@ python3 demo_complete.py
 # Tests (252 pass)
 python3 -m pytest tests/ -v
 
+# Train a model
+python3 train_sloughgpt.py --data data/training.txt --epochs 5
+
 # Docker deployment
 docker-compose up -d api
-
-# Train a model
-python train_sloughgpt.py --epochs 3
 ```
 
 *Always refer to this document for project status and priorities*
