@@ -48,6 +48,36 @@ else:
     MetricsData = models.MetricsData
 
 
+def _build_training_start_payload(
+    model_name: str,
+    dataset_id: str,
+    epochs: int = 3,
+    batch_size: int = 8,
+    learning_rate: float = 5e-5,
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """JSON body for POST /training/start (server ``TrainingRequest``)."""
+    opts = dict(kwargs)
+    name = opts.pop("name", f"{model_name}-training")
+    manifest_uri = opts.pop("manifest_uri", None)
+    dataset_ref = opts.pop("dataset_ref", None)
+    payload: Dict[str, Any] = {
+        "name": name,
+        "model": model_name,
+        "epochs": epochs,
+        "batch_size": batch_size,
+        "learning_rate": learning_rate,
+    }
+    if manifest_uri is not None:
+        payload["manifest_uri"] = manifest_uri
+    elif dataset_ref is not None:
+        payload["dataset_ref"] = dataset_ref
+    else:
+        payload["dataset"] = dataset_id
+    payload.update(opts)
+    return payload
+
+
 class SloughGPTClient:
     """
     Python client for the SloughGPT API.
@@ -435,28 +465,40 @@ class SloughGPTClient:
         **kwargs
     ) -> Dict[str, Any]:
         """
-        Start a training job.
-        
+        Start a training job (POST /training/start).
+
         Args:
-            model_name: Base model to train.
-            dataset_id: Training dataset.
-            epochs: Number of training epochs.
-            batch_size: Training batch size.
+            model_name: Passed as JSON ``model``.
+            dataset_id: Folder name under ``datasets/<id>/input.txt`` when not using manifest/ref.
+            epochs: Training epochs.
+            batch_size: Batch size.
             learning_rate: Learning rate.
-            **kwargs: Additional training parameters.
-        
+            **kwargs: Optional ``name``, ``manifest_uri``, ``dataset_ref``, ``n_embed``, etc.
+                Provide exactly one corpus selector: default ``dataset``, or ``manifest_uri`` / ``dataset_ref``.
+
         Returns:
             Training job information.
         """
-        payload = {
-            "model_name": model_name,
-            "dataset_id": dataset_id,
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "learning_rate": learning_rate,
-            **kwargs
-        }
+        payload = _build_training_start_payload(
+            model_name,
+            dataset_id,
+            epochs=epochs,
+            batch_size=batch_size,
+            learning_rate=learning_rate,
+            **kwargs,
+        )
         response = self._request("POST", "/training/start", json=payload)
+        return response.json()
+
+    def resolve_training(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Dry-run corpus resolver (POST /train/resolve)."""
+        response = self._request("POST", "/train/resolve", json=body)
+        return response.json()
+
+    def infer_v1(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """SloughGPT Standard v1 inference (POST /v1/infer)."""
+        hdrs = {**dict(self._session.headers), "X-SloughGPT-Standard": "1"}
+        response = self._request("POST", "/v1/infer", json=body, headers=hdrs)
         return response.json()
     
     def get_training_status(self, job_id: str) -> Dict[str, Any]:
@@ -781,11 +823,13 @@ class AsyncSloughGPTClient:
     async def _request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
         """Make an async HTTP request."""
         import httpx
-        
+
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         kwargs.setdefault("timeout", self.timeout)
-        
-        async with httpx.AsyncClient(verify=self.verify_ssl, headers=self._headers) as client:
+        extra_headers = kwargs.pop("extra_headers", None)
+        merged = {**self._headers, **(extra_headers or {})}
+
+        async with httpx.AsyncClient(verify=self.verify_ssl, headers=merged) as client:
             response = await client.request(method, url, **kwargs)
             response.raise_for_status()
             return response.json()
@@ -822,10 +866,38 @@ class AsyncSloughGPTClient:
         data = await self._request("GET", "/metrics")
         return MetricsData.from_response(data)
     
-    async def start_training(self, model_name: str, dataset_id: str, **kwargs) -> Dict[str, Any]:
+    async def start_training(
+        self,
+        model_name: str,
+        dataset_id: str,
+        epochs: int = 3,
+        batch_size: int = 8,
+        learning_rate: float = 5e-5,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
         """Start a training job."""
-        payload = {"model_name": model_name, "dataset_id": dataset_id, **kwargs}
+        payload = _build_training_start_payload(
+            model_name,
+            dataset_id,
+            epochs=epochs,
+            batch_size=batch_size,
+            learning_rate=learning_rate,
+            **kwargs,
+        )
         return await self._request("POST", "/training/start", json=payload)
+
+    async def resolve_training(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Dry-run corpus resolver (POST /train/resolve)."""
+        return await self._request("POST", "/train/resolve", json=body)
+
+    async def infer_v1(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """SloughGPT Standard v1 inference (POST /v1/infer)."""
+        return await self._request(
+            "POST",
+            "/v1/infer",
+            json=body,
+            extra_headers={"X-SloughGPT-Standard": "1"},
+        )
     
     async def get_training_status(self, job_id: str) -> Dict[str, Any]:
         """Get training job status."""

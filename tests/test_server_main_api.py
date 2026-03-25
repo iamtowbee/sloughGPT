@@ -45,6 +45,38 @@ def test_train_resolve_rejects_missing_legacy_dataset(client: TestClient) -> Non
     assert "Missing training file" in str(detail)
 
 
+def test_train_resolve_dataset_ref_happy_path(client: TestClient, tmp_path: Path) -> None:
+    bundle = tmp_path / "bundle_ref"
+    bundle.mkdir()
+    (bundle / "input.txt").write_text("hello world " * 100, encoding="utf-8")
+    manifest = {
+        "schema_version": "1.0",
+        "dataset_id": "pytest_ref_corpus",
+        "version": "1.2.3",
+        "domain": "general",
+        "pii_policy": "none_expected",
+        "sources": [{"type": "local_path", "uri": "./input.txt"}],
+        "splits": {"train": "input.txt"},
+    }
+    mp = bundle / "dataset_manifest.json"
+    mp.write_text(json.dumps(manifest), encoding="utf-8")
+    r = client.post(
+        "/train/resolve",
+        json={
+            "dataset_ref": {
+                "dataset_id": "pytest_ref_corpus",
+                "version": "1.2.3",
+                "manifest_uri": str(mp.resolve()),
+            }
+        },
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["ok"] is True
+    assert data["data_source"] == "ref"
+    assert data["output_checkpoint_stem"] == "pytest_ref_corpus"
+
+
 def test_train_resolve_manifest_happy_path(client: TestClient, tmp_path: Path) -> None:
     bundle = tmp_path / "bundle"
     bundle.mkdir()
@@ -68,6 +100,25 @@ def test_train_resolve_manifest_happy_path(client: TestClient, tmp_path: Path) -
     assert data["data_source"] == "manifest"
     assert data["output_checkpoint_stem"] == "pytest_corpus"
     assert "input.txt" in data["data_path"]
+
+
+def test_metrics_prometheus_contains_sloughgpt_series(client: TestClient) -> None:
+    r = client.get("/metrics/prometheus")
+    assert r.status_code == 200, r.text
+    assert r.headers.get("content-type", "").startswith("text/plain")
+    assert b"sloughgpt_uptime_seconds" in r.content
+
+
+def test_v1_infer_rejects_invalid_mode(client: TestClient) -> None:
+    r = client.post(
+        "/v1/infer",
+        json={
+            "task_type": "general_generate",
+            "mode": "not_a_mode",
+            "input": {"prompt": "Hello"},
+        },
+    )
+    assert r.status_code == 422
 
 
 def test_v1_infer_generate_return_shape(client: TestClient) -> None:
