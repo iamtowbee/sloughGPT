@@ -36,7 +36,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install transformers fastapi uvicorn pydantic httpx numpy scipy pytest pytest-asyncio pytest-cov
+          pip install transformers fastapi uvicorn pydantic httpx numpy scipy psutil pytest pytest-asyncio pytest-cov
       
       - name: Run core tests only
         run: |
