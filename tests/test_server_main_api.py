@@ -149,6 +149,50 @@ def test_health_ready_includes_model_loaded(client: TestClient) -> None:
     assert "model_type" in data
 
 
+def test_health_detailed_json_shape(client: TestClient) -> None:
+    r = client.get("/health/detailed")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data.get("status") == "healthy"
+    assert isinstance(data.get("model_loaded"), bool)
+    assert "model_type" in data
+    assert isinstance(data.get("rate_limiter"), dict)
+    assert isinstance(data.get("websocket"), dict)
+    assert isinstance(data.get("security"), dict)
+    assert isinstance(data.get("system"), dict)
+
+
+def test_security_keys_json_shape(client: TestClient) -> None:
+    r = client.get("/security/keys")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data.get("rate_limiting_enabled") is True
+    assert isinstance(data.get("jwt_auth_enabled"), bool)
+    assert isinstance(data.get("api_keys_configured"), int)
+
+
+def test_security_audit_returns_logs_array(client: TestClient) -> None:
+    r = client.get("/security/audit")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert isinstance(data.get("logs"), list)
+
+
+def test_personalities_returns_list_or_error(client: TestClient) -> None:
+    r = client.get("/personalities")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    if data.get("error"):
+        assert isinstance(data["error"], str)
+    else:
+        assert isinstance(data.get("personalities"), list)
+
+
+def test_get_dataset_unknown_returns_404(client: TestClient) -> None:
+    r = client.get("/datasets/nonexistent_dataset___xyz___")
+    assert r.status_code == 404
+
+
 def test_info_returns_api_version_and_model_block(client: TestClient) -> None:
     r = client.get("/info")
     assert r.status_code == 200, r.text
