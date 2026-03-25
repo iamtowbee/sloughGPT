@@ -1254,7 +1254,7 @@ SloughGPT Core
 
 ---
 
-## COMPLETE FEATURE SUMMARY (2026-03-25)
+## COMPLETE FEATURE SUMMARY (2026-03-26)
 
 ### Core Architecture
 | Component | Status | Lines |
@@ -1319,7 +1319,7 @@ SloughGPT Core
 | Quantization (INT4/INT8) | ✅ | 2-4x |
 | Streaming API | ✅ | SSE support |
 
-### Testing (252 tests)
+### Testing (252 tests, ~10s)
 | Component | Status | Count |
 |-----------|--------|-------|
 | Test Suite | ✅ | 252 pass |
@@ -1328,6 +1328,7 @@ SloughGPT Core
 | Knowledge Graph Tests | ✅ | 14 |
 | EWC Tests | ✅ | 10 |
 | Vector Store Tests | ✅ | 16 |
+| Inference Tests | ✅ | Complete |
 
 ### Documentation
 | Document | Status |
@@ -1372,5 +1373,21 @@ SloughGPT Core
 Run: `python3 demo_complete.py`
 - All 6 components tested and working
 - RAG, Knowledge Graph, Deep Reasoning, EWC, Inference, Grounding
+- Executes in ~5 seconds
+
+### Quick Commands
+```bash
+# Demo
+python3 demo_complete.py
+
+# Tests (252 pass)
+python3 -m pytest tests/ -v
+
+# Docker deployment
+docker-compose up -d api
+
+# Train a model
+python train_sloughgpt.py --epochs 3
+```
 
 *Always refer to this document for project status and priorities*
