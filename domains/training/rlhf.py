@@ -264,6 +264,8 @@ class PPOTrainer:
         # Simplified - in practice would need proper masking
         inputs = torch.cat([prompts, responses], dim=1)
         outputs = self.policy(inputs)
+        if isinstance(outputs, tuple):
+            outputs = outputs[0]  # Get logits only
         log_probs = F.log_softmax(outputs, dim=-1)
 
         # Get probs for actual response tokens
@@ -285,7 +287,9 @@ class PPOTrainer:
         inputs = torch.cat([prompts, responses], dim=1)
         with torch.no_grad():
             outputs = self.ref_model(inputs)
-        log_probs = F.log_softmax(outputs, dim=-1)
+            if isinstance(outputs, tuple):
+                outputs = outputs[0]
+            log_probs = F.log_softmax(outputs, dim=-1)
 
         response_start = prompts.size(1)
         response_log_probs = log_probs[:, response_start - 1 : -1, :]
@@ -298,12 +302,16 @@ class PPOTrainer:
     def _get_values(self, responses: torch.Tensor) -> torch.Tensor:
         """Get value estimates for responses."""
         values = self.value(responses)
+        if isinstance(values, tuple):
+            values = values[0]
         return values.squeeze(-1)
 
     def _entropy(self, responses: torch.Tensor) -> torch.Tensor:
         """Compute entropy of policy."""
         inputs = responses
         outputs = self.policy(inputs)
+        if isinstance(outputs, tuple):
+            outputs = outputs[0]
         probs = F.softmax(outputs, dim=-1)
         entropy = -(probs * outputs).sum(dim=-1).mean()
         return entropy
@@ -332,6 +340,8 @@ class RewardModel(nn.Module):
             rewards: Scalar rewards [batch_size]
         """
         hidden = self.base_model(input_ids)
+        if isinstance(hidden, tuple):
+            hidden = hidden[0]  # Get logits only
         # Use last hidden state
         last_hidden = hidden[:, -1, :]
         reward = self.reward_head(last_hidden)
