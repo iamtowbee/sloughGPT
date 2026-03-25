@@ -109,6 +109,22 @@ def test_list_training_jobs_returns_json_array(client: TestClient) -> None:
     assert isinstance(data, list)
 
 
+def test_root_returns_api_metadata(client: TestClient) -> None:
+    r = client.get("/")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data.get("name") == "SloughGPT API"
+    assert "endpoints" in data
+    assert "v1_infer" in data["endpoints"]
+
+
+def test_list_datasets_returns_wrapped_array(client: TestClient) -> None:
+    r = client.get("/datasets")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert isinstance(data.get("datasets"), list)
+
+
 def test_metrics_prometheus_contains_sloughgpt_series(client: TestClient) -> None:
     r = client.get("/metrics/prometheus")
     assert r.status_code == 200, r.text
