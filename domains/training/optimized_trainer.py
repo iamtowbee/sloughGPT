@@ -448,12 +448,16 @@ class OptimizedTrainer:
             loss = loss / self.config.gradient_accumulation_steps
         
         # Backward pass with gradient scaling
-        self.scaler.scale(loss).backward()
+        if self.scaler is not None:
+            self.scaler.scale(loss).backward()
+        else:
+            loss.backward()
         
         # Gradient accumulation
         if (self.step + 1) % self.config.gradient_accumulation_steps == 0:
             # Unscale gradients for clipping
-            self.scaler.unscale_(self.optimizer)
+            if self.scaler is not None:
+                self.scaler.unscale_(self.optimizer)
             
             # Clip gradients
             torch.nn.utils.clip_grad_norm_(
@@ -462,8 +466,11 @@ class OptimizedTrainer:
             )
             
             # Optimizer step
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
+            if self.scaler is not None:
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                self.optimizer.step()
             self.optimizer.zero_grad()
             self.scheduler.step()
         
