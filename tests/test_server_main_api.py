@@ -252,6 +252,43 @@ def test_inference_stats_json_shape(client: TestClient) -> None:
         assert "Engine" in data["error"] or "engine" in data["error"].lower()
 
 
+def test_inference_batch_returns_results_wrapped(client: TestClient) -> None:
+    r = client.post(
+        "/inference/batch",
+        json={"prompts": ["Hello", "World"], "max_new_tokens": 8},
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert isinstance(data.get("results"), list)
+    assert len(data["results"]) == 2
+    assert data.get("count") == 2
+    assert "cache_stats" in data
+
+
+def test_get_soul_returns_status(client: TestClient) -> None:
+    r = client.get("/soul")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data.get("status") in ("no_soul", "loaded")
+
+
+def test_delete_cache_returns_stats(client: TestClient) -> None:
+    r = client.delete("/cache")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert "cache_stats" in data
+
+
+def test_inference_quantize_no_model_or_ok(client: TestClient) -> None:
+    r = client.post("/inference/quantize", json={"quantization_type": "fp16"})
+    assert r.status_code == 200, r.text
+    data = r.json()
+    if data.get("error"):
+        assert "model" in data["error"].lower()
+    else:
+        assert data.get("status") == "quantized"
+
+
 def test_list_experiments_returns_json_array(client: TestClient) -> None:
     r = client.get("/experiments")
     assert r.status_code == 200, r.text

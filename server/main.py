@@ -2235,22 +2235,22 @@ class BatchGenerateItem(BaseModel):
 
 
 @app.post("/inference/batch", tags=["inference"])
-async def batch_generate(request: BatchGenerateRequest):
+async def batch_generate(batch: BatchGenerateRequest, http_request: Request):
     """
     Batch text generation for multiple prompts.
     Optionally uses caching for identical prompts.
     """
-    client_ip = request.client.host if request.client else "unknown" if hasattr(request, 'client') else "unknown"
+    client_ip = http_request.client.host if http_request.client else "unknown"
     results: List[BatchGenerateItem] = []
 
-    for prompt in request.prompts[:50]:
+    for prompt in batch.prompts[:50]:
         validated_prompt = input_validator.validate_prompt(prompt)
-        max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
-        temp = input_validator.validate_temperature(request.temperature or 0.8)
+        max_tokens = input_validator.validate_max_tokens(batch.max_new_tokens or 100)
+        temp = input_validator.validate_temperature(batch.temperature or 0.8)
 
-        cache_key_str = cache_key(validated_prompt, max_tokens=max_tokens, temp=temp, top_p=request.top_p, top_k=request.top_k)
+        cache_key_str = cache_key(validated_prompt, max_tokens=max_tokens, temp=temp, top_p=batch.top_p, top_k=batch.top_k)
 
-        if request.use_cache:
+        if batch.use_cache:
             cached_result = cache.get(cache_key_str)
             if cached_result:
                 results.append(BatchGenerateItem(prompt=prompt, text=cached_result, cached=True))
@@ -2268,8 +2268,8 @@ async def batch_generate(request: BatchGenerateRequest):
                         **inputs,
                         max_new_tokens=max_tokens,
                         temperature=temp,
-                        top_k=request.top_k,
-                        top_p=request.top_p,
+                        top_k=batch.top_k,
+                        top_p=batch.top_p,
                         do_sample=True,
                     )
                 text = tokenizer.decode(outputs[0][len(inputs.input_ids[0]):], skip_special_tokens=True)
@@ -2280,7 +2280,7 @@ async def batch_generate(request: BatchGenerateRequest):
         except Exception as e:
             results.append(BatchGenerateItem(prompt=prompt, text="", error=str(e)))
 
-    audit_logger.log("batch_generate", client_ip, resource="/inference/batch", action="batch", status="success", details={"count": len(request.prompts)})
+    audit_logger.log("batch_generate", client_ip, resource="/inference/batch", action="batch", status="success", details={"count": len(batch.prompts)})
 
     return {
         "results": [r.model_dump() for r in results],
