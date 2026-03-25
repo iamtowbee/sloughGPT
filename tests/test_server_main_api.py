@@ -251,6 +251,31 @@ def test_rate_limit_status_json_shape(client: TestClient) -> None:
     assert isinstance(data.get("active_clients"), int)
 
 
+def test_rate_limit_check_json_shape(client: TestClient) -> None:
+    r = client.get("/rate-limit/check")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert "client_ip" in data
+    assert isinstance(data.get("requests_used"), int)
+    assert isinstance(data.get("requests_remaining"), int)
+    assert "retry_after" in data
+
+
+def test_get_export_formats_returns_formats_map(client: TestClient) -> None:
+    r = client.get("/model/export/formats")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert isinstance(data.get("formats"), dict)
+    assert "safetensors" in data["formats"]
+
+
+def test_registry_models_list_wrapped(client: TestClient) -> None:
+    r = client.get("/registry/models")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert isinstance(data.get("models"), list)
+
+
 def test_v1_infer_rejects_invalid_mode(client: TestClient) -> None:
     r = client.post(
         "/v1/infer",
