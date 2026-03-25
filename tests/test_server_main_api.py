@@ -276,6 +276,24 @@ def test_registry_models_list_wrapped(client: TestClient) -> None:
     assert isinstance(data.get("models"), list)
 
 
+def test_cache_stats_json_shape(client: TestClient) -> None:
+    r = client.get("/cache/stats")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert "size" in data
+    assert isinstance(data.get("hits"), int)
+    assert isinstance(data.get("misses"), int)
+    assert isinstance(data.get("hit_rate"), (int, float))
+
+
+def test_vector_stats_json_shape(client: TestClient) -> None:
+    r = client.get("/vector/stats")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert "provider" in data
+    assert isinstance(data.get("count"), int)
+
+
 def test_v1_infer_rejects_invalid_mode(client: TestClient) -> None:
     r = client.post(
         "/v1/infer",
