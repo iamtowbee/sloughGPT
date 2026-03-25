@@ -7,11 +7,18 @@ Shows all components working together:
 3. Reasoning - Chain of Thought
 4. EWC - Catastrophic forgetting prevention
 5. Inference - Streaming output
+
+Uses lazy imports to avoid blocking when torch is unavailable.
 """
 
 import asyncio
+import sys
+import os
 from dataclasses import dataclass
 from typing import Any, Dict, List
+
+# Disable CUDA to prevent blocking
+os.environ['CUDA_VISIBLE_DEVICES'] = ''
 
 # =============================================================================
 # DEMO: ALL COMPONENTS TOGETHER
