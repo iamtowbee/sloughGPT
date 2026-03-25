@@ -246,7 +246,7 @@ def cmd_demo(args):
         print("\n1. RAG - Document Retrieval")
         rag = ProductionRAG()
         rag.add_document("Python is a programming language created by Guido van Rossum in 1991.")
-        results = rag.retrieve("What is Python?")
+        results = rag.query("What is Python?")
         print(f"   Retrieved {len(results)} documents")
     
     if args.component in ["all", "kg"]:
@@ -254,20 +254,21 @@ def cmd_demo(args):
         kg = KnowledgeGraph()
         kg.add_fact("python", "is_a", "programming_language")
         kg.add_fact("python", "created_by", "guido_van_rossum")
-        facts = kg.get_facts("python")
+        facts = kg.query(subject="python")
         print(f"   {len(facts)} facts about python")
     
     if args.component in ["all", "ewc"]:
         print("\n3. EWC - Catastrophic Forgetting Prevention")
-        import numpy as np
-        ewc = EwcContinualLearner(lambda x: np.random.randn(10))
-        ewc.save_snapshot("task1", {})
-        print("   EWC snapshot saved")
+        from domains.models import SloughGPTModel
+        ewc_model = SloughGPTModel(vocab_size=50, n_embed=32, n_layer=2, n_head=2, block_size=16)
+        ewc = EwcContinualLearner(ewc_model)
+        print(f"   Fisher matrix size: {len(ewc.fisher_estimator.fisher_accum)} params")
+        print("   EWC ready for continual learning")
     
     if args.component in ["all", "inference"]:
         print("\n4. Inference - KV Cache")
-        cache = KVCache(num_layers=2, num_heads=2, head_dim=64, max_tokens=100)
-        print(f"   KV Cache created: {cache.cache.shape}")
+        cache = KVCache(num_layers=2, num_heads=2, head_dim=64, max_length=100)
+        print(f"   KV Cache created: {cache.max_length} max tokens")
     
     print("\n" + "=" * 60)
     print("Demo complete!")
