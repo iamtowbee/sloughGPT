@@ -1299,6 +1299,16 @@ SloughGPT Core
 | Weaviate | ✅ | Self-hosted or cloud |
 | ChromaDB | ✅ | Local/simplest |
 | Factory Pattern | ✅ | Easy provider switching |
+| Cloud Setup CLI | ✅ | `python -m domains.inference.cloud_vector_store` |
+
+### Embedding Models (NEW)
+| Provider | Status | Notes |
+|----------|--------|-------|
+| sentence-transformers | ✅ | Default, high quality |
+| OpenAI | ✅ | text-embedding-3-small/large |
+| HuggingFace | ✅ | Any HF model |
+| In-Memory | ✅ | Fast, lower quality |
+| BatchEmbedder | ✅ | Caching support |
 
 ### Inference Optimization
 | Component | Status | Speedup |
@@ -1328,6 +1338,7 @@ SloughGPT Core
 | RAG Architecture | ✅ |
 | RAG Patterns | ✅ |
 | llama.rn Integration | ✅ |
+| DEPLOYMENT.md | ✅ NEW |
 
 ### Export Formats
 | Format | Status | Target |
