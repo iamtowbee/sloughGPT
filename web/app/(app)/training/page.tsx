@@ -176,7 +176,9 @@ export default function TrainingPage() {
                           ? 'bg-green-100 text-green-700'
                           : job.status === 'pending'
                             ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-red-100 text-red-700'
+                            : job.status === 'failed'
+                              ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200'
+                              : 'bg-red-100 text-red-700'
                     }`}
                   >
                     {job.status}
@@ -200,6 +202,12 @@ export default function TrainingPage() {
                   <div className="flex gap-4 mt-3 text-sm text-slate-500">
                     <span>Loss: {job.loss.toFixed(4)}</span>
                   </div>
+                )}
+                {job.checkpoint && (
+                  <p className="text-xs text-slate-500 mt-2 font-mono break-all">Checkpoint: {job.checkpoint}</p>
+                )}
+                {job.error && (
+                  <p className="text-xs text-orange-700 dark:text-orange-300 mt-2">{job.error}</p>
                 )}
               </div>
             ))}

@@ -106,7 +106,7 @@ Extend as needed; unknown `task_type` MUST be rejected or defaulted with explici
 2. **Pydantic**: v1 models live in `server/main.py` (`StandardInferenceRequest`, etc.); optional fields on `GenerateRequest` / `ChatRequest` remain future work.
 3. **Middleware**: `trace_id` from body or `X-Trace-Id`; audit event `v1_infer`.
 4. **Training**: `POST /train` and `POST /training/start` accept exactly one of **`dataset`**, **`manifest_uri`**, or **`dataset_ref`**. Use **`POST /train/resolve`** to validate a manifest and preview `data_path` / checkpoint stem without training. Resolution: `domains/training/dataset_manifest.py` (`resolve_training_data_path`) plus `_resolve_training_inputs` in `server/main.py`.
-5. **CLI**: `python scripts/validate_dataset_manifest.py <path-to-manifest.json> [--resolve]` uses `domains/training/dataset_manifest.py`. Optional CI: add `jsonschema` against `standards/v1/schemas/dataset_manifest.json`.
+5. **CLI**: `python scripts/validate_dataset_manifest.py <path-to-manifest.json> [--resolve]` (runtime resolution). **Schema CI**: `pip install jsonschema && python scripts/validate_standards_schemas.py` (example JSON under `standards/v1/examples/`).
 
 ## 7. Versioning
 

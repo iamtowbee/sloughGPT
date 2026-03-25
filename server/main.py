@@ -2090,6 +2090,11 @@ class TrainingRequest(TrainDataSourceBody):
     epochs: Optional[int] = 3
     batch_size: Optional[int] = 32
     learning_rate: Optional[float] = 1e-3
+    n_embed: Optional[int] = 128
+    n_layer: Optional[int] = 4
+    n_head: Optional[int] = 4
+    block_size: Optional[int] = 128
+    max_steps: Optional[int] = None
 
 
 @app.post("/train")
@@ -2231,15 +2236,42 @@ async def start_training(request: TrainingRequest):
         job["manifest"] = manifest_meta
     training_jobs[job_id] = job
 
+    req_snapshot = request.model_dump()
+    data_path_for_thread = data_path_str
+    out_stem_for_thread = out_stem
+    jid = job_id
+
     def run_training():
-        import time
-        for epoch in range(request.epochs or 3):
-            training_jobs[job_id]["current_epoch"] = epoch + 1
-            training_jobs[job_id]["loss"] = 2.5 - (epoch * 0.3)
-            training_jobs[job_id]["progress"] = int(((epoch + 1) / (request.epochs or 3)) * 100)
-            time.sleep(1)
-        training_jobs[job_id]["status"] = "completed"
-        training_jobs[job_id]["progress"] = 100
+        from domains.training.train_pipeline import SloughGPTTrainer
+
+        try:
+            training_jobs[jid]["progress"] = 5
+            trainer = SloughGPTTrainer(
+                data_path=data_path_for_thread,
+                n_embed=int(req_snapshot.get("n_embed") or 128),
+                n_layer=int(req_snapshot.get("n_layer") or 4),
+                n_head=int(req_snapshot.get("n_head") or 4),
+                block_size=int(req_snapshot.get("block_size") or 128),
+                batch_size=int(req_snapshot.get("batch_size") or 32),
+                epochs=int(req_snapshot.get("epochs") or 3),
+                lr=float(req_snapshot.get("learning_rate") or 1e-3),
+                max_steps=req_snapshot.get("max_steps"),
+            )
+            training_jobs[jid]["progress"] = 15
+            result = trainer.train()
+            safe_stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in out_stem_for_thread)[:120]
+            trainer.save(f"models/{safe_stem}_trained.pt")
+            training_jobs[jid]["status"] = "completed"
+            training_jobs[jid]["progress"] = 100
+            training_jobs[jid]["current_epoch"] = int(req_snapshot.get("epochs") or 3)
+            bel = result.get("best_eval_loss")
+            training_jobs[jid]["loss"] = bel if bel is not None and bel < float("inf") else None
+            training_jobs[jid]["checkpoint"] = f"models/{safe_stem}_trained.pt"
+        except Exception as e:
+            logger.exception("Training job %s failed", jid)
+            training_jobs[jid]["status"] = "failed"
+            training_jobs[jid]["error"] = str(e)
+            training_jobs[jid]["progress"] = 0
 
     thread = threading.Thread(target=run_training, daemon=True)
     thread.start()
