@@ -16,7 +16,7 @@ python3 cli.py quick --steps 100 --prompt "Hello world"
 
 ### 3. Start API Server
 ```bash
-python3 server/main.py
+python3 apps/api/server/main.py
 # Access at http://localhost:8000/docs
 ```
 

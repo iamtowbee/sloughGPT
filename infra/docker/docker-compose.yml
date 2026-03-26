@@ -4,8 +4,8 @@ services:
   # API Server (CPU)
   api:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
     container_name: sloughgpt-api
     image: sloughgpt/api:latest
     ports:
@@ -22,9 +22,9 @@ services:
       - PINECONE_INDEX=${PINECONE_INDEX:-sloughgpt}
       - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT:-us-east-1}
     volumes:
-      - ./models:/app/models
-      - ./datasets:/app/datasets
-      - ./data:/app/data
+      - ../../models:/app/models
+      - ../../datasets:/app/datasets
+      - ../../data:/app/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -38,8 +38,8 @@ services:
   # GPU version (NVIDIA CUDA)
   api-gpu:
     build:
-      context: .
-      dockerfile: Dockerfile.gpu
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.gpu
     container_name: sloughgpt-api-gpu
     image: sloughgpt/api:gpu
     ports:
@@ -49,9 +49,9 @@ services:
       - SLOUGHGPT_ENV=production
       - SLOUGHGPT_LOG_LEVEL=INFO
     volumes:
-      - ./models:/app/models
-      - ./datasets:/app/datasets
-      - ./data:/app/data
+      - ../../models:/app/models
+      - ../../datasets:/app/datasets
+      - ../../data:/app/data
     restart: unless-stopped
     deploy:
       resources:
@@ -68,8 +68,8 @@ services:
   # Development mode with hot reload
   dev:
     build:
-      context: .
-      dockerfile: Dockerfile.dev
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.dev
     container_name: sloughgpt-dev
     image: sloughgpt/dev:latest
     ports:
@@ -80,9 +80,9 @@ services:
       - SLOUGHGPT_LOG_LEVEL=DEBUG
       - DEBUG=true
     volumes:
-      - ./:/app
+      - ../../:/app
       - /app/__pycache__  # Exclude cache
-    command: uvicorn domains.ui.api_server:app --reload --host 0.0.0.0 --port 8000
+    command: uvicorn apps.api.server.main:app --reload --host 0.0.0.0 --port 8000
     profiles:
       - dev
     networks:
@@ -91,8 +91,8 @@ services:
   # Model Server (lightweight inference)
   model-server:
     build:
-      context: .
-      dockerfile: server/Dockerfile
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.server
     container_name: sloughgpt-model
     image: sloughgpt/model:latest
     ports:
@@ -101,7 +101,7 @@ services:
       - MODEL_PATH=/app/models/sloughgpt.pt
       - DEVICE=cpu
     volumes:
-      - ./models:/app/models
+      - ../../models:/app/models
     restart: unless-stopped
     profiles:
       - model
@@ -115,7 +115,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../k8s/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -137,8 +137,8 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning
-      - ./grafana/dashboards:/etc/grafana/dashboards
+      - ../k8s/grafana/provisioning:/etc/grafana/provisioning
+      - ../k8s/grafana/dashboards:/etc/grafana/dashboards
       - grafana_data:/var/lib/grafana
     profiles:
       - monitoring
@@ -162,7 +162,7 @@ services:
   # Web UI
   web:
     build:
-      context: ./web
+      context: ../../apps/web/web
       dockerfile: Dockerfile
     container_name: sloughgpt-web
     image: sloughgpt/web:latest

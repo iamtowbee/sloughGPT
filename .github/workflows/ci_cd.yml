@@ -108,7 +108,7 @@ jobs:
         run: npm run build
 
       - name: Test
-        working-directory: typescript-sdk
+        working-directory: packages/sdk-ts/typescript-sdk
         run: npm test
 
   # Build Docker images
