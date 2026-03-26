@@ -117,7 +117,7 @@ ModelSelector = _registry.ModelSelector
 ModelStatus = _registry.ModelStatus
 ModelTag = _registry.ModelTag
 
-_http_path = os.path.join(_package_dir, "http.py")
+_http_path = os.path.join(_package_dir, "http_client.py")
 _http_spec = importlib.util.spec_from_file_location("sloughgpt_sdk.http", _http_path)
 _http = importlib.util.module_from_spec(_http_spec)
 _http_spec.loader.exec_module(_http)
