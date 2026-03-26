@@ -1,7 +1,7 @@
 """
-Tests for FastAPI app in server/main.py (training resolve, v1 infer, request validation).
+Tests for FastAPI app in apps/api/server/main.py (training resolve, v1 infer, request validation).
 
-Imports use ``server/`` on ``sys.path`` (same as ``uvicorn`` working directory) so
+Imports use ``apps/api/server/`` on ``sys.path`` (same as ``uvicorn`` working directory) so
 ``federated_routes`` and other sibling modules resolve.
 """
 
@@ -17,7 +17,7 @@ pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_SERVER_DIR = _REPO_ROOT / "server"
+_SERVER_DIR = _REPO_ROOT / "apps" / "api" / "server"
 if str(_SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(_SERVER_DIR))
 

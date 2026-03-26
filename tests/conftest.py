@@ -1,3 +1,22 @@
+"""Test path bootstrap for monorepo layout."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_PATHS = [
+    _REPO_ROOT / "packages" / "core-py",
+    _REPO_ROOT / "packages" / "sdk-py",
+    _REPO_ROOT / "apps" / "api" / "server",
+    _REPO_ROOT,
+]
+
+for _p in _PATHS:
+    _s = str(_p)
+    if _s not in sys.path:
+        sys.path.insert(0, _s)
 """
 Pytest configuration and shared fixtures
 """

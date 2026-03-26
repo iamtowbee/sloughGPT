@@ -1,4 +1,4 @@
-"""Tests for ``server/settings.py`` (canonical vs legacy env names)."""
+"""Tests for ``apps/api/server/settings.py`` (canonical vs legacy env names)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-_SERVER_DIR = Path(__file__).resolve().parent.parent / "server"
+_SERVER_DIR = Path(__file__).resolve().parent.parent / "apps" / "api" / "server"
 if str(_SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(_SERVER_DIR))
 

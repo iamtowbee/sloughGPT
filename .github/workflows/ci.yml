@@ -58,8 +58,8 @@ jobs:
       
       - name: Run SDK tests
         run: |
-          cd sloughgpt_sdk
-          pytest ../tests/test_sdk.py -v --tb=short
+          cd packages/sdk-py/sloughgpt_sdk
+          pytest ../../../tests/test_sdk.py -v --tb=short
 
   security-test:
     runs-on: ubuntu-latest
@@ -89,9 +89,9 @@ jobs:
       
       - name: Check Python syntax
         run: |
-          python -m py_compile domains/training/*.py 2>/dev/null || true
-          python -m py_compile domains/inference/*.py 2>/dev/null || true
-          python -m py_compile domains/ml_infrastructure/*.py 2>/dev/null || true
+          python -m py_compile packages/core-py/domains/training/*.py 2>/dev/null || true
+          python -m py_compile packages/core-py/domains/inference/*.py 2>/dev/null || true
+          python -m py_compile packages/core-py/domains/ml_infrastructure/*.py 2>/dev/null || true
 
   standards-schemas:
     runs-on: ubuntu-latest

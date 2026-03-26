@@ -44,10 +44,10 @@ python3 cli.py generate "Hello world"
 ### Start Server
 ```bash
 # CPU mode (default for Intel Macs)
-python3 server/main.py
+python3 apps/api/server/main.py
 
 # With uvicorn
-python3 -m uvicorn server.main:app --port 8000
+python3 -m uvicorn apps.api.server.main:app --port 8000
 ```
 
 ### Docker
