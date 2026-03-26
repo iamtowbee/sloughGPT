@@ -187,7 +187,7 @@ def check_api_server():
         except:
             print(f"  Response: {out}")
     else:
-        print("  API Server: NOT RUNNING (start with: python3 server/main.py)")
+        print("  API Server: NOT RUNNING (start with: python3 apps/api/server/main.py)")
 
 
 def check_experiments():

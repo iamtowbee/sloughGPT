@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Validate example JSON under standards/v1/examples against JSON Schemas (requires jsonschema).
+Validate example JSON under packages/standards/standards/v1/examples against JSON Schemas (requires jsonschema).
 
   pip install jsonschema
   python scripts/validate_standards_schemas.py
@@ -13,12 +13,18 @@ import sys
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_SCHEMA_DIR = _REPO_ROOT / "standards" / "v1" / "schemas"
+_SCHEMA_DIR = _REPO_ROOT / "packages" / "standards" / "standards" / "v1" / "schemas"
 
 # (example path relative to repo, schema filename)
 _EXAMPLES: list[tuple[str, str]] = [
-    ("standards/v1/examples/dataset_manifest.github_code.example.json", "dataset_manifest.json"),
-    ("standards/v1/examples/dataset_manifest.local_txt.example.json", "dataset_manifest.json"),
+    (
+        "packages/standards/standards/v1/examples/dataset_manifest.github_code.example.json",
+        "dataset_manifest.json",
+    ),
+    (
+        "packages/standards/standards/v1/examples/dataset_manifest.local_txt.example.json",
+        "dataset_manifest.json",
+    ),
 ]
 
 

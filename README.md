@@ -300,10 +300,10 @@ pip install torch transformers fastapi uvicorn
 
 ```bash
 # Run server
-python3 server/main.py
+python3 apps/api/server/main.py
 
 # Train a model
-python3 domains/training/train_pipeline.py --data datasets/shakespeare/input.txt --epochs 5
+python3 packages/core-py/domains/training/train_pipeline.py --data datasets/shakespeare/input.txt --epochs 5
 ```
 
 ## License

@@ -30,7 +30,7 @@ def main():
     except Exception as e:
         print(f"\nError: {e}")
         print("\nStart the API server first:")
-        print("  python3 server/main.py")
+        print("  python3 apps/api/server/main.py")
         print("\nOr use the CLI:")
         print("  python3 cli.py generate 'The quick brown fox'")
 
