@@ -310,6 +310,14 @@ class InputValidator:
 input_validator = InputValidator()
 
 
+def _first_trainable_device(module: Any) -> torch.device:
+    """Device for placing tokenized inputs beside a loaded HF ``model``."""
+    try:
+        return next(module.parameters()).device
+    except (StopIteration, AttributeError, TypeError):
+        return torch.device("cpu")
+
+
 def _format_chat_messages_for_standard(messages: List[ChatMessage]) -> str:
     formatted = ""
     for msg in messages:
@@ -371,13 +379,16 @@ def _generate_core(request: GenerateRequest, client_ip: str) -> Dict[str, Any]:
 
     if model_type == "gpt2":
         inputs = tokenizer(request.prompt, return_tensors="pt")
+        dev = _first_trainable_device(model)
+        if dev.type != "meta":
+            inputs = {k: v.to(dev) for k, v in inputs.items()}
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
-                max_new_tokens=request.max_new_tokens,
+                max_new_tokens=max_tokens,
                 temperature=temperature,
                 top_k=request.top_k,
-                top_p=request.top_p,
+                top_p=top_p,
                 do_sample=True,
             )
         text = tokenizer.decode(outputs[0], skip_special_tokens=True)
