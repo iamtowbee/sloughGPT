@@ -1,33 +1,30 @@
 #!/bin/bash
-# Quick verification script for SloughGPT
+# Quick verification script for SloughGPT (monorepo paths)
 
 echo "🔍 Verifying SloughGPT installation..."
 
 # Check Python
 echo "Checking Python..."
-python --version
+python3 --version
 
-# Check Node
+# Check Node (optional for web)
 echo "Checking Node..."
-node --version
+if command -v node &>/dev/null; then
+    node --version
+else
+    echo "(node not found — skip web checks)"
+fi
 
-# Check if required files exist
 echo ""
 echo "Checking required files..."
 
 files=(
-    "domains/ui/api_server.py"
-    "web/package.json"
-    "web/src/App.tsx"
-    "web/src/main.tsx"
-    "web/src/store/index.ts"
-    "web/src/utils/api.ts"
-    "web/src/components/Chat.tsx"
-    "web/src/components/Datasets.tsx"
-    "web/src/components/Models.tsx"
-    "web/src/components/Training.tsx"
-    "web/src/components/Monitoring.tsx"
-    "web/src/components/Home.tsx"
+    "apps/api/server/main.py"
+    "packages/core-py/domains/ui/api_server.py"
+    "apps/web/web/package.json"
+    "apps/web/web/app/(app)/page.tsx"
+    "apps/web/web/app/(app)/chat/page.tsx"
+    "pyproject.toml"
 )
 
 all_found=true
@@ -42,13 +39,16 @@ done
 
 if [ "$all_found" = true ]; then
     echo ""
-    echo "✅ All files present!"
+    echo "✅ Core paths present!"
     echo ""
     echo "To start SloughGPT:"
-    echo "1. Terminal 1: python -m uvicorn:app --reload --port 8000"
-    echo domains.ui.api_server "2. Terminal 2: cd web && npm run dev"
+    echo "  1. API:  python3 apps/api/server/main.py"
+    echo "     or:  cd apps/api/server && python3 -m uvicorn main:app --reload --port 8000"
+    echo "  2. Web: cd apps/web/web && npm run dev"
     echo ""
-    echo "Then open http://localhost:3000"
+    echo "Docker: docker compose -f infra/docker/docker-compose.yml up -d api"
+    echo ""
+    echo "Then open the web dev URL (often http://localhost:3000)"
 else
     echo ""
     echo "❌ Some files are missing!"

@@ -4,6 +4,19 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+COMPOSE_FILE="$SCRIPT_DIR/infra/docker/docker-compose.yml"
+DOCKERFILE="$SCRIPT_DIR/infra/docker/Dockerfile"
+DOCKERFILE_GPU="$SCRIPT_DIR/infra/docker/Dockerfile.gpu"
+
+compose() {
+    if docker compose version &>/dev/null; then
+        docker compose -f "$COMPOSE_FILE" "$@"
+    else
+        docker-compose -f "$COMPOSE_FILE" "$@"
+    fi
+}
+
 echo "🚀 SloughGPT Production Deployment"
 echo "=================================="
 
@@ -37,9 +50,8 @@ check_prerequisites() {
         exit 1
     fi
     
-    # Check Docker Compose
-    if ! command -v docker-compose &> /dev/null; then
-        print_error "Docker Compose is not installed. Please install Docker Compose first."
+    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+        print_error "Docker Compose is not installed. Install Docker Compose v2 or docker-compose."
         exit 1
     fi
     
@@ -66,10 +78,10 @@ build_image() {
     print_status "Building SloughGPT Docker image..."
     
     if [ "$GPU_AVAILABLE" = true ]; then
-        docker build -t sloughgpt:latest-gpu .
+        docker build -t sloughgpt:latest-gpu -f "$DOCKERFILE_GPU" "$SCRIPT_DIR"
         docker tag sloughgpt:latest-gpu sloughgpt:latest
     else
-        docker build -t sloughgpt:latest .
+        docker build -t sloughgpt:latest -f "$DOCKERFILE" "$SCRIPT_DIR"
     fi
     
     print_status "Docker image built successfully."
@@ -134,10 +146,10 @@ start_services() {
     
     if [ "$GPU_AVAILABLE" = true ]; then
         print_status "Starting with GPU support..."
-        docker-compose --profile gpu -f docker-compose.yml up -d
+        compose --profile gpu up -d
     else
         print_status "Starting CPU-only version..."
-        docker-compose -f docker-compose.yml up -d
+        compose up -d
     fi
     
     print_status "Services started successfully."
@@ -195,7 +207,7 @@ run_health_checks() {
 # Show service status
 show_status() {
     print_status "Service Status:"
-    docker-compose ps
+    compose ps
     
     echo ""
     print_status "Service URLs:"
@@ -208,7 +220,7 @@ show_status() {
 # Stop services
 stop_services() {
     print_status "Stopping SloughGPT services..."
-    docker-compose down
+    compose down
     print_status "Services stopped."
 }
 
@@ -217,7 +229,7 @@ cleanup() {
     print_status "Cleaning up deployment..."
     
     # Stop and remove containers
-    docker-compose down -v
+    compose down -v
     
     # Remove images
     docker rmi sloughgpt:latest 2>/dev/null || true
@@ -237,14 +249,14 @@ cleanup() {
 # Show logs
 show_logs() {
     print_status "Showing service logs..."
-    docker-compose logs -f
+    compose logs -f
 }
 
 # Scale services
 scale_services() {
     local replicas=${1:-2}
     print_status "Scaling SloughGPT services to $replicas replicas..."
-    docker-compose up --scale sloughgpt-api=$replicas
+    compose up -d --scale "api=$replicas"
     print_status "Services scaled to $replicas replicas."
 }
 

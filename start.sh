@@ -5,6 +5,9 @@
 
 set -e
 
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+COMPOSE="docker compose -f $ROOT/infra/docker/docker-compose.yml"
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -88,15 +91,13 @@ case $MODE in
         ;;
     docker-gpu|gpu)
         log_info "Starting with Docker GPU..."
-        docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+        docker compose -f "$ROOT/infra/docker/docker-compose.yml" --profile gpu up -d
         ;;
     all)
         log_info "Starting ALL services..."
-        docker compose up -d
-        cd server
-        python3 main.py &
-        cd ..
-        npm run dev --prefix web &
+        eval "$COMPOSE up -d"
+        ( cd "$ROOT/apps/api/server" && python3 main.py ) &
+        npm run dev --prefix "$ROOT/apps/web/web" &
         log_success "All services started"
         echo "  API: http://localhost:8000"
         echo "  UI:  http://localhost:3000"

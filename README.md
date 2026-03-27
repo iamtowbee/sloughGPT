@@ -245,39 +245,20 @@ curl -X POST http://localhost:8000/generate \
 
 ```
 SloughGPT/
-├── domains/
-│   ├── core/               # Soul Engine & cognitive modules
-│   │   ├── soul.py         # SoulEngine - THE core model wrapper
-│   │   ├── reasoning.py    # Cognitive reasoning engine
-│   │   └── cognitive/      # LearningOptimizer, CreativityEngine
-│   ├── models/             # Model interface & SloughGPTModel
-│   │   ├── __init__.py    # OUR OWN architecture (RoPE, SwiGLU, RMSNorm)
-│   │   └── external.py    # External model support (HF, Ollama, GGUF)
-│   ├── inference/          # Inference engine
-│   │   ├── engine.py       # Production inference
-│   │   ├── quantization.py  # FP16/INT8/INT4, Q4/Q5/Q8
-│   │   ├── optimizations.py # KV cache, batching
-│   │   └── sou_format.py   # .sou model format
-│   ├── training/           # Training infrastructure
-│   │   ├── train_pipeline.py
-│   │   ├── optimized_trainer.py  # Optimized training
-│   │   ├── onnx_export.py       # ONNX export
-│   │   ├── gguf_export.py       # GGUF export (15+ architectures)
-│   │   ├── huggingface/    # HF model support
-│   │   └── lora.py         # LoRA/QLoRA fine-tuning
-│   └── ml_infrastructure/
-│       ├── experiment_tracker.py
-│       └── benchmarking.py
-├── server/
-│   └── main.py              # FastAPI server (100+ endpoints)
-├── sloughgpt_sdk/           # Python SDK
-├── typescript-sdk/          # TypeScript SDK
-├── cli.py                    # CLI commands
-├── setup.sh                  # Setup script
-├── docker-compose.yml        # Docker deployment
-├── k8s/                      # Kubernetes manifests
-├── helm/                     # Helm charts
-└── tests/                   # Unit tests
+├── apps/
+│   ├── api/server/main.py   # FastAPI app (primary API)
+│   ├── cli/                 # CLI implementation
+│   └── web/web/             # Next.js UI
+├── packages/
+│   ├── core-py/domains/     # Soul engine, training, inference, etc.
+│   ├── sdk-py/sloughgpt_sdk/
+│   ├── typescript-sdk/
+│   └── standards/
+├── infra/docker/            # Dockerfiles & docker-compose.yml
+├── infra/k8s/               # Kubernetes & Helm
+├── tests/
+├── cli.py                   # CLI entry (wrapper)
+└── pyproject.toml
 ```
 
 ## Supported Models

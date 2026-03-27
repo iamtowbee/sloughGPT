@@ -341,15 +341,12 @@ SloughGPT/
 │   └── ml_infrastructure/  # Infrastructure
 │       ├── benchmarking.py
 │       └── experiment_tracker.py
-├── server/
-│   └── main.py              # FastAPI server (100+ endpoints)
+├── apps/api/server/main.py  # FastAPI server
 ├── cli.py                    # CLI commands
-├── k8s/                     # Kubernetes manifests
-├── helm/                    # Helm charts
-├── grafana/                 # Grafana dashboards
+├── infra/k8s/               # Kubernetes, Helm, Grafana assets
 ├── tests/                   # Unit tests (100+ tests)
 ├── datasets/                # Training data
-├── docker-compose.yml       # Docker deployment
+├── infra/docker/docker-compose.yml  # Docker deployment
 └── sloughgpt_colab.ipynb   # Colab notebook
 ```
 

@@ -368,11 +368,12 @@ create_scripts() {
     cat > start.sh << 'EOF'
 #!/bin/bash
 # Start SloughGPT API server
-
-source .venv/bin/activate
-
+set -e
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+source "$ROOT/.venv/bin/activate"
 export CUDA_VISIBLE_DEVICES=""
-python -m uvicorn domains.ui.api_server:app --host 0.0.0.0 --port 8000 --reload
+cd "$ROOT/apps/api/server"
+exec python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 EOF
     chmod +x start.sh
     print_status "Created start.sh"
