@@ -5,6 +5,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
@@ -28,16 +30,16 @@ def test_onnx_export():
 
     try:
         example_input = torch.zeros(1, 32, dtype=torch.long)
-        result = export_sloughgpt_to_onnx(model=model, output_path=output_path, example_input=example_input, seq_len=32)
-        print(f"✓ ONNX export successful: {result}")
+        export_sloughgpt_to_onnx(model=model, output_path=output_path, example_input=example_input, seq_len=32)
         file_size = Path(output_path).stat().st_size
-        print(f"  File size: {file_size / 1024:.2f} KB")
-        return True
+        print(f"✓ ONNX export successful, file size: {file_size / 1024:.2f} KB")
+        assert file_size > 0
     except Exception as e:
         print(f"✗ ONNX export failed: {e}")
         import traceback
+
         traceback.print_exc()
-        return False
+        raise
     finally:
         Path(output_path).unlink(missing_ok=True)
 
@@ -61,19 +63,18 @@ def test_gguf_export():
         output_path = f.name
 
     try:
-        result = export_to_gguf(model=model, output_path=output_path, tokenizer=None, config=GGUFExportConfig(quantization="Q4_K_M"))
-        print(f"✓ GGUF export successful: {result}")
+        export_to_gguf(model=model, output_path=output_path, tokenizer=None, config=GGUFExportConfig(quantization="Q4_K_M"))
         file_size = Path(output_path).stat().st_size
-        print(f"  File size: {file_size / 1024:.2f} KB")
-        return True
+        print(f"✓ GGUF export successful, file size: {file_size / 1024:.2f} KB")
+        assert file_size > 0
     except ImportError as e:
-        print(f"⊘ GGUF export skipped: {e}")
-        return None
+        pytest.skip(str(e))
     except Exception as e:
         print(f"✗ GGUF export failed: {e}")
         import traceback
+
         traceback.print_exc()
-        return False
+        raise
     finally:
         Path(output_path).unlink(missing_ok=True)
 
@@ -94,16 +95,16 @@ def test_safetensors_export():
         output_path = f.name
 
     try:
-        result = export_to_safetensors(model=model, output_path=output_path, metadata={"format": "safetensors", "model_type": "sloughgpt"})
-        print(f"✓ SafeTensors export successful: {result}")
+        export_to_safetensors(model=model, output_path=output_path, metadata={"format": "safetensors", "model_type": "sloughgpt"})
         file_size = Path(output_path).stat().st_size
-        print(f"  File size: {file_size / 1024:.2f} KB")
-        return True
+        print(f"✓ SafeTensors export successful, file size: {file_size / 1024:.2f} KB")
+        assert file_size > 0
     except Exception as e:
         print(f"✗ SafeTensors export failed: {e}")
         import traceback
+
         traceback.print_exc()
-        return False
+        raise
     finally:
         Path(output_path).unlink(missing_ok=True)
         meta_path = output_path.replace(".safetensors", ".meta.json")
@@ -125,7 +126,7 @@ def test_onnx_model_conversion():
 
     try:
         export_model = SloughGPTONNXExport.from_pretrained(model)
-        print(f"✓ ONNX-compatible model created")
+        print("✓ ONNX-compatible model created")
         print(f"  Original params: {model.num_parameters():,}")
         print(f"  Export model params: {export_model.num_parameters():,}")
 
@@ -136,41 +137,14 @@ def test_onnx_model_conversion():
         rope_sin = torch.zeros(seq_len, head_dim)
         output = export_model(example_input, rope_cos, rope_sin)
         print(f"  Forward pass successful, output shape: {output.shape}")
-        return True
+        assert output.shape[0] == 1
     except Exception as e:
         print(f"✗ ONNX model conversion failed: {e}")
         import traceback
+
         traceback.print_exc()
-        return False
-
-
-def main():
-    print("=" * 50)
-    print("SloughGPT Export Tests")
-    print("=" * 50)
-
-    results = {
-        "SafeTensors": test_safetensors_export(),
-        "ONNX Model Conversion": test_onnx_model_conversion(),
-        "ONNX Export": test_onnx_export(),
-        "GGUF Export": test_gguf_export(),
-    }
-
-    print("\n" + "=" * 50)
-    print("Summary")
-    print("=" * 50)
-
-    for name, result in results.items():
-        if result is True:
-            status = "✓ PASS"
-        elif result is False:
-            status = "✗ FAIL"
-        else:
-            status = "⊘ SKIP"
-        print(f"  {name}: {status}")
-
-    return 0 if all(r is True or r is None for r in results.values()) else 1
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(pytest.main([__file__, "-v", *sys.argv[1:]]))
