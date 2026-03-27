@@ -108,7 +108,7 @@ git commit -m "feat: add your feature description"
 ```
 
 5. **Create Pull Request**
-   - Ensure CI passes
+   - Ensure the **CI/CD** GitHub Actions workflow passes
    - Request code review
    - Update documentation
 
@@ -741,7 +741,7 @@ async def chat_endpoint(request: ChatRequest):
 
 ### Code Review Process
 
-- **Automated Checks**: CI runs automated tests and linting
+- **Automated Checks**: The CI/CD workflow runs automated tests and linting
 - **Peer Review**: At least one maintainer must review
 - **Security Review**: Security-focused review for sensitive changes
 - **Architecture Review**: Ensure consistency with domain architecture
