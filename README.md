@@ -42,6 +42,9 @@ python3 cli.py generate "Hello world"
 
 # Interactive chat (starts the API with uvicorn if it is not already running)
 python3 cli.py chat
+
+# Interactive chat + auto-load a model first
+python3 cli.py chat --auto-model gpt2
 ```
 
 ### Start Server

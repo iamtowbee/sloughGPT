@@ -41,6 +41,12 @@ python3 cli.py quick --no-optimize
 # Generate text
 python3 cli.py generate "Hello world" --max-tokens 100
 
+# Interactive chat (auto-start API if needed)
+python3 cli.py chat
+
+# Interactive chat with model preload (recommended)
+python3 cli.py chat --auto-model gpt2
+
 # HuggingFace model
 python3 cli.py hf-serve gpt2
 

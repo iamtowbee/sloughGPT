@@ -199,7 +199,8 @@ def cmd_chat(args):
 
     print(f"SloughGPT Chat ({base_url})")
     try:
-        print("Type 'quit' to exit\n")
+        print("Type 'quit' to exit")
+        print("Tip: use --auto-model gpt2 to preload a model before chatting.\n")
         if getattr(args, "auto_model", None):
             print(f"Auto-loading model: {args.auto_model}")
             try_load_model(args.auto_model)
@@ -231,7 +232,8 @@ def cmd_chat(args):
                         and not printed_no_model_hint
                     ):
                         print("Hint: load or serve a model first, then retry chat.")
-                        print("  python3 cli.py hf-serve gpt2")
+                        print("  python3 cli.py chat --auto-model gpt2")
+                        print("  # or in another terminal: python3 cli.py hf-serve gpt2")
                         print()
                         printed_no_model_hint = True
                 else:
