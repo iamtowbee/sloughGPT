@@ -267,7 +267,7 @@ class PineconeVectorStore(VectorStore):
 
 
 async def create_vector_store(provider: str = "in_memory", **kwargs: Any) -> VectorStore:
-    """Factory used by ``server/main.py`` for ``/vector/*`` endpoints."""
+    """Factory used by ``apps/api/server/main.py`` for ``/vector/*`` endpoints."""
     key = (provider or "in_memory").lower()
     if key in ("in_memory", "memory", "local"):
         dim = int(kwargs.get("dimension", 768))

@@ -350,10 +350,10 @@ EOF
     
     if [ "$GPU_SUPPORT" = true ]; then
         print_info "Building GPU-enabled images..."
-        docker build -t sloughgpt:gpu -f Dockerfile.gpu . 2>/dev/null || \
-            docker build -t sloughgpt:latest -f Dockerfile . || true
+        docker build -t sloughgpt:gpu -f infra/docker/Dockerfile.gpu . 2>/dev/null || \
+            docker build -t sloughgpt:latest -f infra/docker/Dockerfile . || true
     else
-        docker build -t sloughgpt:latest -f Dockerfile .
+        docker build -t sloughgpt:latest -f infra/docker/Dockerfile .
     fi
     
     print_status "Docker image built successfully"
@@ -381,12 +381,13 @@ EOF
     cat > dev.sh << 'EOF'
 #!/bin/bash
 # Start SloughGPT in development mode with debug logging
-
-source .venv/bin/activate
-
+set -e
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+source "$ROOT/.venv/bin/activate"
 export SLOUGHGPT_ENV=development
 export SLOUGHGPT_LOG_LEVEL=DEBUG
-python -m uvicorn domains.ui.api_server:app --host 0.0.0.0 --port 8000 --reload --log-level debug
+cd "$ROOT/apps/api/server"
+exec python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
 EOF
     chmod +x dev.sh
     print_status "Created dev.sh"
@@ -395,8 +396,14 @@ EOF
     cat > docker-start.sh << 'EOF'
 #!/bin/bash
 # Start SloughGPT with Docker Compose
-
-docker-compose up -d
+set -e
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT"
+if docker compose version &>/dev/null; then
+  docker compose -f infra/docker/docker-compose.yml up -d
+else
+  docker-compose -f infra/docker/docker-compose.yml up -d
+fi
 echo "API running at http://localhost:8000"
 echo "Docs at http://localhost:8000/docs"
 EOF
@@ -488,7 +495,7 @@ print_next_steps() {
     echo "3. Start the API server:"
     echo -e "   ${GREEN}./start.sh${NC}"
     echo "   or"
-    echo -e "   ${GREEN}./run.sh python -m uvicorn domains.ui.api_server:app --reload${NC}"
+    echo -e "   ${GREEN}./run.sh python -m uvicorn main:app --app-dir apps/api/server --reload${NC}"
     echo ""
     echo "4. Access the API:"
     echo "   - API: http://localhost:8000"
@@ -500,7 +507,7 @@ print_next_steps() {
         echo "5. Docker deployment:"
         echo -e "   ${GREEN}./docker-start.sh${NC}"
         echo "   or"
-        echo -e "   ${GREEN}docker-compose up -d${NC}"
+        echo -e "   ${GREEN}docker compose -f infra/docker/docker-compose.yml up -d${NC}"
         echo ""
     fi
     

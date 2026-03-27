@@ -19,6 +19,10 @@ def _chat_repository_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
+def _docker_compose_file() -> Path:
+    return _chat_repository_root() / "infra" / "docker" / "docker-compose.yml"
+
+
 def _chat_uvicorn_bind_host(client_host: str) -> str:
     """Use a concrete bind address for uvicorn; localhost/127.0.0.1 stay local."""
     if client_host in ("localhost", "127.0.0.1"):
@@ -1900,11 +1904,14 @@ def cmd_setup(args):
     # Docker setup
     if not args.local_only:
         print("\nDocker setup:")
-        if os.path.exists("Dockerfile"):
-            print("  ✓ Dockerfile found")
-        if os.path.exists("docker-compose.yml"):
-            print("  ✓ docker-compose.yml found")
-        print("  Run 'docker-compose up -d' to start with Docker")
+        repo = _chat_repository_root()
+        df = repo / "infra" / "docker" / "Dockerfile"
+        cf = _docker_compose_file()
+        if df.is_file():
+            print(f"  ✓ {df.relative_to(repo)} found")
+        if cf.is_file():
+            print(f"  ✓ {cf.relative_to(repo)} found")
+        print("  Run: docker compose -f infra/docker/docker-compose.yml up -d")
     
     print("\n" + "=" * 50)
     print("Setup complete!")
@@ -1919,58 +1926,92 @@ def cmd_setup(args):
 def cmd_docker_start(args):
     """Start Docker services."""
     import subprocess
-    
-    profile = ""
+
+    compose = _docker_compose_file()
+    if not compose.is_file():
+        print(f"Compose file not found: {compose}")
+        return
+
+    profile: list[str] = []
     if args.dev:
-        profile = "--profile dev"
+        profile = ["--profile", "dev"]
     elif args.gpu:
-        profile = "--profile gpu"
-    
+        profile = ["--profile", "gpu"]
+
     print("Starting Docker services...")
-    subprocess.run(f"docker compose up -d {profile}", shell=True)
+    subprocess.run(["docker", "compose", "-f", str(compose), "up", "-d", *profile])
     print("\nServices started!")
-    subprocess.run("docker compose ps", shell=True)
+    subprocess.run(["docker", "compose", "-f", str(compose), "ps"])
 
 
 def cmd_docker_stop(args):
     """Stop Docker services."""
     import subprocess
-    
+
+    compose = _docker_compose_file()
+    if not compose.is_file():
+        print(f"Compose file not found: {compose}")
+        return
+
     print("Stopping Docker services...")
-    subprocess.run("docker compose down", shell=True)
+    subprocess.run(["docker", "compose", "-f", str(compose), "down"])
     print("Services stopped.")
 
 
 def cmd_docker_status(args):
     """Show Docker status."""
     import subprocess
-    
-    subprocess.run("docker compose ps", shell=True)
+
+    compose = _docker_compose_file()
+    if not compose.is_file():
+        print(f"Compose file not found: {compose}")
+        return
+
+    subprocess.run(["docker", "compose", "-f", str(compose), "ps"])
 
 
 def cmd_docker_logs(args):
     """Show Docker logs."""
     import subprocess
-    
-    service = args.service if args.service else ""
-    subprocess.run(f"docker compose logs -f {service}", shell=True)
+
+    compose = _docker_compose_file()
+    if not compose.is_file():
+        print(f"Compose file not found: {compose}")
+        return
+
+    cmd = ["docker", "compose", "-f", str(compose), "logs", "-f"]
+    if getattr(args, "service", None):
+        cmd.append(args.service)
+    subprocess.run(cmd)
 
 
 def cmd_docker_build(args):
     """Build Docker images."""
     import subprocess
-    
-    cache = "" if args.no_cache else ""
+
+    compose = _docker_compose_file()
+    if not compose.is_file():
+        print(f"Compose file not found: {compose}")
+        return
+
+    cmd = ["docker", "compose", "-f", str(compose), "build"]
+    if getattr(args, "no_cache", False):
+        cmd.append("--no-cache")
     print("Building Docker images...")
-    subprocess.run(f"docker compose build {cache}", shell=True)
+    subprocess.run(cmd)
     print("Build complete!")
 
 
 def cmd_docker_shell(args):
     """Shell into Docker container."""
     import subprocess
-    
-    subprocess.run(f"docker compose exec {args.service} /bin/bash", shell=True)
+
+    compose = _docker_compose_file()
+    if not compose.is_file():
+        print(f"Compose file not found: {compose}")
+        return
+
+    subprocess.run(["docker", "compose", "-f", str(compose), "exec", args.service, "/bin/bash"])
 
 
 def cmd_system(args):

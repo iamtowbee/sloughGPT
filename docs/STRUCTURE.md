@@ -1,22 +1,18 @@
 # Monorepo structure
 
-This repository is organized as a lightweight monorepo:
+Lightweight layout:
 
-- `packages/core/` — training, model code, services, configs, notebooks
-- `packages/apps/` — view-layer apps and UI entrypoints
-- `datasets/` — all datasets (legacy `data/` symlink)
-- `runs/` — training outputs (legacy `out*` symlinks)
-- `tests/` — symlink to `packages/core/tests`
-- `docs/policies/` — changelog, contributing, security, release notes
-- `config/` — symlink to `packages/core/src/configs`
+- `apps/` — API server (`apps/api/server/`), CLI (`apps/cli/`), web UI (`apps/web/web/`)
+- `packages/core-py/` — domains and shared Python core (`domains/`, `utils/`)
+- `packages/sdk-py/sloughgpt_sdk/` — Python API client SDK
+- `packages/standards/` — standards docs and JSON schemas
+- `tests/` — pytest suite (root `pyproject.toml` `testpaths`)
+- `infra/docker/` — Dockerfiles and Compose file for local runs
 
-## Package installs (optional)
-
-You can install packages in editable mode:
+Install the core package from the repository root:
 
 ```sh
-pip install -e packages/core
-pip install -e packages/apps
+pip install -e .
 ```
 
-Root wrappers (`train.py`, `api_server.py`, etc.) still work without installation.
+See `docs/REPO_STRUCTURE_MIGRATION.md` for the full move map.

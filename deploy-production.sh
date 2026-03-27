@@ -39,24 +39,15 @@ check_command helm
 # Docker build
 echo "🏗️ Building Docker images..."
 
-# Build main application
-docker build -t sloughgpt/api:$VERSION -f Dockerfile .
+# Build main API image (monorepo: Dockerfile lives under infra/docker/)
+docker build -t sloughgpt/api:$VERSION -f infra/docker/Dockerfile .
 echo "✅ Built API image: sloughgpt/api:$VERSION"
-
-# Build specialized images
-docker build -t sloughgpt/learning:$VERSION -f Dockerfile.learning .
-echo "✅ Built Learning image: sloughgpt/learning:$VERSION"
-
-docker build -t sloughgpt/training:$VERSION -f Dockerfile.training .
-echo "✅ Built Training image: sloughgpt/training:$VERSION"
 
 # Tag for registry
 REGISTRY=${REGISTRY:-your-registry.com}
 docker tag sloughgpt/api:$VERSION $REGISTRY/sloughgpt/api:$VERSION
-docker tag sloughgpt/learning:$VERSION $REGISTRY/sloughgpt/learning:$VERSION
-docker tag sloughgpt/training:$VERSION $REGISTRY/sloughgpt/training:$VERSION
 
-echo "✅ Images tagged for registry: $REGISTRY"
+echo "✅ Image tagged for registry: $REGISTRY/sloughgpt/api:$VERSION"
 
 # Kubernetes deployment
 echo "☸️ Deploying to Kubernetes..."
