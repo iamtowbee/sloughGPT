@@ -1949,12 +1949,17 @@ async def load_hf_model_endpoint(request: LoadModelRequest):
     try:
         from domains.training.model_registry import load_hf_model
 
-        client = load_hf_model(request.model_id, mode=request.mode)
+        load_kwargs: Dict[str, Any] = {}
+        if (request.mode or "local") == "local":
+            load_kwargs["device"] = request.device if request.device is not None else "auto"
+
+        client = load_hf_model(request.model_id, mode=request.mode, **load_kwargs)
         model_type = f"hf/{request.model_id}"
         return {
             "status": "loaded",
             "model": request.model_id,
             "mode": request.mode,
+            "device": request.device,
         }
     except Exception as e:
         return {"status": "error", "error": str(e)}

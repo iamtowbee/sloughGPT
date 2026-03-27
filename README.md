@@ -45,6 +45,9 @@ python3 cli.py chat
 
 # Interactive chat + auto-load a model first
 python3 cli.py chat --auto-model gpt2
+
+# Same, but pin HF local load device (forwarded to POST /models/load)
+python3 cli.py chat --auto-model gpt2 --device mps --load-mode local
 ```
 
 ### Start Server

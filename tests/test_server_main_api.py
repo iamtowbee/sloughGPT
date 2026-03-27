@@ -140,6 +140,52 @@ def test_health_live_returns_alive(client: TestClient) -> None:
     assert r.json().get("status") == "alive"
 
 
+def test_models_load_forwards_device_in_local_mode(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: dict = {}
+
+    def fake_load(model_id: str, mode: str = "local", **kwargs):
+        captured["model_id"] = model_id
+        captured["mode"] = mode
+        captured["kwargs"] = kwargs
+        return object()
+
+    monkeypatch.setattr("domains.training.model_registry.load_hf_model", fake_load)
+
+    r = client.post(
+        "/models/load",
+        json={"model_id": "gpt2", "mode": "local", "device": "cpu"},
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["status"] == "loaded"
+    assert data["device"] == "cpu"
+    assert captured["model_id"] == "gpt2"
+    assert captured["mode"] == "local"
+    assert captured["kwargs"].get("device") == "cpu"
+
+
+def test_models_load_omits_device_for_api_mode(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: dict = {}
+
+    def fake_load(model_id: str, mode: str = "local", **kwargs):
+        captured["kwargs"] = kwargs
+        return object()
+
+    monkeypatch.setattr("domains.training.model_registry.load_hf_model", fake_load)
+
+    r = client.post(
+        "/models/load",
+        json={"model_id": "gpt2", "mode": "api", "device": "cpu"},
+    )
+    assert r.status_code == 200, r.text
+    assert "device" not in captured["kwargs"]
+    assert r.json().get("status") == "loaded"
+
+
 def test_health_ready_includes_model_loaded(client: TestClient) -> None:
     r = client.get("/health/ready")
     assert r.status_code == 200, r.text
