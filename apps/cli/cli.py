@@ -89,6 +89,27 @@ def cmd_chat(args):
         except Exception:
             return False
 
+    def try_load_model(model_id: str) -> bool:
+        import requests
+
+        try:
+            r = requests.post(
+                f"{base_url}/models/load",
+                json={"model_id": model_id, "mode": "inference", "device": "auto"},
+                timeout=120,
+            )
+        except Exception as e:
+            print(f"Warning: failed to request model load for '{model_id}': {e}")
+            return False
+
+        if r.ok:
+            print(f"Model ready: {model_id}")
+            return True
+
+        body = r.text.strip()
+        print(f"Warning: could not load model '{model_id}' ({r.status_code}): {body}")
+        return False
+
     if not api_reachable():
         if getattr(args, "no_serve", False):
             print("Cannot connect to the API and --no-serve was set.")
@@ -179,6 +200,10 @@ def cmd_chat(args):
     print(f"SloughGPT Chat ({base_url})")
     try:
         print("Type 'quit' to exit\n")
+        if getattr(args, "auto_model", None):
+            print(f"Auto-loading model: {args.auto_model}")
+            try_load_model(args.auto_model)
+            print()
 
         while True:
             user_input = input("You: ")
@@ -2460,6 +2485,11 @@ def main():
         "--no-serve",
         action="store_true",
         help="Do not auto-start uvicorn if the API is down (fail fast with instructions)",
+    )
+    chat_parser.add_argument(
+        "--auto-model",
+        default=None,
+        help="Optional model id to load via /models/load before first prompt (e.g. gpt2)",
     )
     chat_parser.set_defaults(func=cmd_chat)
 
