@@ -753,7 +753,7 @@ SloughGPT Core
 │
 ├── Inference Engine
 │   ├── Local model loading (local_loader.py)
-│   ├── Streaming API (server/main.py)
+│   ├── Streaming API (apps/api/server/main.py)
 │   ├── Custom .sou format
 │   └── Quantization (Q4/Q8/FP16)
 │
@@ -927,14 +927,14 @@ SloughGPT Core
 - ✅ Next.js standalone output for Docker
 
 ### Phase 8: API Security & Performance
-- ✅ Rate Limiting (`server/main.py`)
+- ✅ Rate Limiting (`apps/api/server/main.py`)
   - Token bucket rate limiter (60 requests/minute)
   - RateLimitMiddleware with X-RateLimit headers
   - Endpoints: /rate-limit/status, /rate-limit/check
   - Skip paths: /health, /docs, /openapi.json
 
 ### Phase 9: Advanced API Security
-- ✅ JWT Authentication (`server/main.py`)
+- ✅ JWT Authentication (`apps/api/server/main.py`)
   - JWTAuth class with HS256 signing
   - Token creation, verification, refresh
   - Configurable expiration (default 24h)
@@ -1211,7 +1211,7 @@ SloughGPT Core
 - ✅ `scripts/examples/train_example.py` - refactored
 - ✅ All `from domains.training.models.nanogpt import NanoGPT` → `from domains.models import NanoGPTModel`
 
-**Server (`server/main.py`):**
+**Server (`apps/api/server/main.py`):**
 - ✅ `soul_engine` global - `SoulEngine` instance
 - ✅ `get_soul_generation_params()` - helper for soul params
 - ✅ `get_soul_personality()` - helper for soul traits

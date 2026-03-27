@@ -8,46 +8,19 @@ SloughGPT is an enterprise-grade AI framework with production-ready ML infrastru
 
 ```
 /Users/mac/sloughGPT/
-├── server/              # FastAPI backend (port 8000)
-│   ├── main.py         # API server with auth, training, inference
-│   ├── requirements.txt
-│   └── Dockerfile
-├── web/                # Next.js 14 frontend (port 3000)
-│   ├── app/(app)/     # Pages: home, chat, training, models, etc.
-│   ├── components/    # Sidebar, AppLayout
-│   └── lib/          # API client, auth store
-├── sloughgpt/        # CLI package
-│   ├── cli.py        # Main CLI
-│   ├── config.py     # Config loader
-│   └── completion.py  # Shell completions
-├── domains/
-│   ├── training/     # ML training infrastructure
-│   │   ├── unified_training.py    # Main training pipeline
-│   │   ├── lr_schedulers.py      # Cosine, warmup, onecycle
-│   │   ├── zero_optimizer.py     # ZeRO stage 1-3
-│   │   ├── distributed.py        # DDP + FSDP
-│   │   ├── memory_optimization.py
-│   │   ├── lora.py              # LoRA/QLoRA/LoRA+/IA3
-│   │   ├── rlhf.py             # RLHF/PPO training
-│   │   ├── pruning.py            # Model pruning
-│   │   ├── distillation.py       # Knowledge distillation
-│   │   ├── efficient_inference.py # INT4/INT8 quantization
-│   │   ├── distributed_checkpoint.py
-│   │   ├── huggingface/         # HF integration
-│   │   └── model_registry.py     # 14 model architectures
-│   ├── ml_infrastructure/
-│   │   ├── evaluation.py
-│   │   ├── callbacks.py
-│   │   ├── experiment_tracker.py
-│   │   ├── mlflow_integration.py
-│   │   ├── wandb_integration.py
-│   │   └── external_integrations.py
-│   └── multimodal/              # Vision models (disabled for now)
-├── tests/               # TDD test suites
-│   ├── ml/test_infrastructure.py
-│   ├── cli/test_cli.py
-│   └── web/test_frontend.py
-└── TODO.md              # Project roadmap
+├── apps/
+│   ├── api/server/          # FastAPI app (main.py), API requirements.txt
+│   ├── web/web/             # Next.js 14 UI (port 3000)
+│   └── cli/                 # cli.py (repo-root launcher may wrap this)
+├── packages/
+│   ├── core-py/domains/     # Python domains (training, inference, models, …)
+│   ├── sdk-py/              # Python SDK
+│   ├── typescript-sdk/      # TypeScript SDK
+│   └── standards/           # SloughGPT Standard v1 docs
+├── infra/docker/            # docker-compose and deployment assets
+├── tests/                   # pytest suites
+├── requirements.txt         # Root Python deps (install first)
+└── TODO.md                  # Roadmap notes
 ```
 
 ## Key Features
@@ -106,13 +79,13 @@ python3 apps/cli/cli.py --help
 - **Backend**: FastAPI, SQLite, WebSocket
 - **Frontend**: Next.js 14, Tailwind CSS, Zustand
 - **ML**: PyTorch, Transformers
-- **Testing**: Custom test framework
+- **Testing**: pytest (`tests/`)
 
 ## Important Notes
 
 1. **No downloads required** - Everything runs locally
 2. **Auth uses query params** - Not JSON body (for /auth/login, /auth/register)
-3. **87 tests passing** - ML Infrastructure, CLI, Frontend
+3. **Run `python3 -m pytest tests/`** - full suite is the source of truth for pass count
 4. **Quantization reduces memory**: 7B model = 14GB (FP16) → 3.3GB (INT4)
 5. **Multi-modal is disabled** - Focus on core LLM training
 
