@@ -20,6 +20,15 @@ python3 apps/api/server/main.py
 # Access at http://localhost:8000/docs
 ```
 
+Load a Hugging Face model for real generation (optional):
+
+```bash
+curl -s -X POST http://localhost:8000/models/load \
+  -H "Content-Type: application/json" \
+  -d '{"model_id":"gpt2","mode":"local","device":"cpu"}'
+# Response includes "effective_device" when weights are attached to globals.
+```
+
 ---
 
 ## CLI Commands
