@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
 echo "🚀 Setting up SloughGPT Development Environment"
 
 # Check Python version
@@ -13,34 +16,31 @@ echo "📌 Node.js version: $node_version"
 
 # Install Python dependencies
 echo "📦 Installing Python dependencies..."
-cd server
 pip install -r requirements.txt
-cd ..
+pip install -r apps/api/server/requirements.txt
 
 # Install Node.js dependencies
 echo "📦 Installing Node.js dependencies..."
-cd web
-npm install
-cd ..
+( cd apps/web/web && npm install )
 
 # Create .env files if they don't exist
 echo "📝 Setting up environment files..."
 
-if [ ! -f "server/.env" ]; then
-    cp server/.env.example server/.env 2>/dev/null || echo "API_URL=http://localhost:8000" > server/.env
-    echo "Created server/.env"
+if [ ! -f ".env" ]; then
+    cp .env.example .env 2>/dev/null || echo "API_URL=http://localhost:8000" > .env
+    echo "Created .env at repo root"
 fi
 
-if [ ! -f "web/.env.local" ]; then
-    cp web/.env.example web/.env.local 2>/dev/null || echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > web/.env.local
-    echo "Created web/.env.local"
+if [ ! -f "apps/web/web/.env.local" ]; then
+    cp apps/web/web/.env.example apps/web/web/.env.local 2>/dev/null || echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > apps/web/web/.env.local
+    echo "Created apps/web/web/.env.local"
 fi
 
 echo "✅ Setup complete!"
 echo ""
 echo "To start development:"
-echo "  Terminal 1: cd server && python main.py"
-echo "  Terminal 2: cd web && npm run dev"
+echo "  Terminal 1: cd apps/api/server && python3 main.py"
+echo "  Terminal 2: cd apps/web/web && npm run dev"
 echo ""
 echo "Or use Docker:"
-echo "  docker-compose up"
+echo "  docker compose -f infra/docker/docker-compose.yml up"

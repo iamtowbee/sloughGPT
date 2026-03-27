@@ -76,16 +76,16 @@ SloughGPT is an enterprise-grade AI framework with production-ready ML infrastru
 
 ```bash
 # Start API server
-cd server && python3 main.py
+cd apps/api/server && python3 main.py
 
 # Start web UI
-cd web && npm run dev
+cd apps/web/web && npm run dev
 
 # Run tests
-python3 tests/run_tests.py
+python3 -m pytest tests/ -q
 
-# CLI (when server running)
-python3 -m sloughgpt.cli --help
+# CLI (repo root)
+python3 apps/cli/cli.py --help
 ```
 
 ## API Endpoints
