@@ -34,18 +34,18 @@ cd SloughGPT
 cp .env.example .env
 # Edit .env with production values
 
-# 3. Start services
-docker-compose up -d
+# 3. Start services (repo root; Compose file lives under infra/docker)
+docker compose -f infra/docker/docker-compose.yml up -d api
 
 # 4. Check status
-docker-compose ps
-docker-compose logs -f api
+docker compose -f infra/docker/docker-compose.yml ps
+docker compose -f infra/docker/docker-compose.yml logs -f api
 ```
 
 ### Using Docker (Manual)
 ```bash
-# Build image
-docker build -t sloughgpt/api:latest .
+# Build image (repository root as context)
+docker build -f infra/docker/Dockerfile -t sloughgpt/api:latest .
 
 # Run container
 docker run -d \

@@ -29,10 +29,10 @@ import re
 import uuid
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_API_APP_ROOT = Path(__file__).resolve().parent.parent
+_SERVER_ROOT = Path(__file__).resolve().parent
 _CORE_PY_ROOT = _REPO_ROOT / "packages" / "core-py"
 
-for _p in (_API_APP_ROOT, _CORE_PY_ROOT, _REPO_ROOT):
+for _p in (_SERVER_ROOT, _CORE_PY_ROOT, _REPO_ROOT):
     _s = str(_p)
     if _s not in sys.path:
         sys.path.insert(0, _s)

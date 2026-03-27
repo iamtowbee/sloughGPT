@@ -82,7 +82,7 @@ services:
     volumes:
       - ../../:/app
       - /app/__pycache__  # Exclude cache
-    command: uvicorn apps.api.server.main:app --reload --host 0.0.0.0 --port 8000
+    command: sh -c "cd /app/apps/api/server && uvicorn main:app --reload --host 0.0.0.0 --port 8000"
     profiles:
       - dev
     networks:

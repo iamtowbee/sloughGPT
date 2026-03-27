@@ -18,27 +18,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY server/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Install additional ML dependencies
-RUN pip install --no-cache-dir \
+COPY apps/api/server/requirements.txt /tmp/requirements-api.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-api.txt \
+    && pip install --no-cache-dir \
     sentence-transformers \
     chromadb \
-    torch \
-    torchvision
+    torchvision \
+    scipy \
+    psutil
 
-COPY server/ ./server/
-COPY sloughgpt_sdk/ ./sloughgpt_sdk/
-COPY training/ ./training/
-COPY inference/ ./inference/
-COPY monitoring/ ./monitoring/
-COPY evaluation/ ./evaluation/
-COPY experiments/ ./experiments/
-COPY domains/ ./domains/
-COPY pyproject.toml .
-COPY README.md .
-COPY LICENSE .
+COPY apps/api/server /app/apps/api/server
+COPY packages/core-py /app/packages/core-py
+COPY packages/sdk-py/sloughgpt_sdk /app/packages/sdk-py/sloughgpt_sdk
+COPY pyproject.toml README.md LICENSE /app/
 
 RUN mkdir -p /app/data /app/logs /app/cache /app/models /app/datasets /app/vector_store
 
@@ -49,4 +41,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-ENTRYPOINT ["python", "server/main.py"]
+CMD ["python", "/app/apps/api/server/main.py"]
