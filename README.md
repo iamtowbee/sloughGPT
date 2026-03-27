@@ -39,6 +39,9 @@ python3 cli.py system
 
 # Generate text
 python3 cli.py generate "Hello world"
+
+# Interactive chat (starts the API with uvicorn if it is not already running)
+python3 cli.py chat
 ```
 
 ### Start Server
