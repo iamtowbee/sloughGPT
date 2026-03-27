@@ -78,6 +78,7 @@ def cmd_chat(args):
     server_proc = None
     started_server_here = False
     log_path = None
+    printed_no_model_hint = False
 
     def api_reachable() -> bool:
         try:
@@ -197,7 +198,17 @@ def cmd_chat(args):
 
                 if response.status_code == 200:
                     data = response.json()
-                    print(f"SloughGPT: {data.get('text', data)}\n")
+                    text = data.get("text", data)
+                    print(f"SloughGPT: {text}\n")
+                    if (
+                        isinstance(text, str)
+                        and "No model loaded" in text
+                        and not printed_no_model_hint
+                    ):
+                        print("Hint: load or serve a model first, then retry chat.")
+                        print("  python3 cli.py hf-serve gpt2")
+                        print()
+                        printed_no_model_hint = True
                 else:
                     print(f"Error: {response.status_code} {response.text}\n")
 
