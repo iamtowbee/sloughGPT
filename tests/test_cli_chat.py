@@ -134,5 +134,6 @@ def test_chat_auto_model_takes_precedence_over_legacy_model(monkeypatch, capsys)
     cli.cmd_chat(_chat_args(model="gpt2", auto_model="distilgpt2"))
     out = capsys.readouterr().out
 
+    assert "using --auto-model" in out
     assert "Auto-loading model: distilgpt2" in out
     assert payloads and payloads[0]["model_id"] == "distilgpt2"

@@ -201,7 +201,13 @@ def cmd_chat(args):
     try:
         print("Type 'quit' to exit")
         print("Tip: use --auto-model gpt2 to preload a model before chatting.\n")
-        model_to_autoload = getattr(args, "auto_model", None) or getattr(args, "model", None)
+        auto_model = getattr(args, "auto_model", None)
+        legacy_model = getattr(args, "model", None)
+        if auto_model and legacy_model:
+            print(
+                "Note: both --auto-model and legacy --model were provided; using --auto-model."
+            )
+        model_to_autoload = auto_model or legacy_model
         if model_to_autoload:
             print(f"Auto-loading model: {model_to_autoload}")
             try_load_model(model_to_autoload)
