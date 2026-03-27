@@ -92,10 +92,12 @@ def cmd_chat(args):
     def try_load_model(model_id: str) -> bool:
         import requests
 
+        load_mode = getattr(args, "load_mode", "local")
+        device = getattr(args, "device", "auto")
         try:
             r = requests.post(
                 f"{base_url}/models/load",
-                json={"model_id": model_id, "mode": "inference", "device": "auto"},
+                json={"model_id": model_id, "mode": load_mode, "device": device},
                 timeout=120,
             )
         except Exception as e:
@@ -2503,6 +2505,17 @@ def main():
         "--auto-model",
         default=None,
         help="Model id to load via /models/load before first prompt (e.g. gpt2); overrides --model",
+    )
+    chat_parser.add_argument(
+        "--load-mode",
+        choices=["local", "api"],
+        default="local",
+        help="HuggingFace client mode sent to POST /models/load (default: local)",
+    )
+    chat_parser.add_argument(
+        "--device",
+        default="auto",
+        help="Device hint sent to POST /models/load (auto, cuda, cpu, mps)",
     )
     chat_parser.set_defaults(func=cmd_chat)
 

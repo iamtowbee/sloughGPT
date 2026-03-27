@@ -28,6 +28,8 @@ def _chat_args(**overrides) -> SimpleNamespace:
         no_serve=False,
         model=None,
         auto_model=None,
+        load_mode="local",
+        device="auto",
     )
     base.update(overrides)
     return SimpleNamespace(**base)
@@ -137,3 +139,25 @@ def test_chat_auto_model_takes_precedence_over_legacy_model(monkeypatch, capsys)
     assert "using --auto-model" in out
     assert "Auto-loading model: distilgpt2" in out
     assert payloads and payloads[0]["model_id"] == "distilgpt2"
+    assert payloads[0]["mode"] == "local"
+    assert payloads[0]["device"] == "auto"
+
+
+def test_chat_load_respects_load_mode_and_device(monkeypatch, capsys) -> None:
+    payloads: list[dict | None] = []
+
+    def fake_get(_url, timeout=0):  # noqa: ANN001
+        return _Resp(status_code=200, payload={})
+
+    def fake_post(url, json=None, timeout=0):  # noqa: ANN001
+        if url.endswith("/models/load"):
+            payloads.append(json)
+            return _Resp(status_code=200, payload={"ok": True})
+        return _Resp(status_code=200, payload={"text": "ok"})
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: "quit")
+    monkeypatch.setattr("requests.get", fake_get)
+    monkeypatch.setattr("requests.post", fake_post)
+
+    cli.cmd_chat(_chat_args(auto_model="gpt2", load_mode="api", device="cpu"))
+    assert payloads == [{"model_id": "gpt2", "mode": "api", "device": "cpu"}]
