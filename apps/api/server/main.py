@@ -318,6 +318,18 @@ def _first_trainable_device(module: Any) -> torch.device:
         return torch.device("cpu")
 
 
+def _inputs_to_model_device(inputs: Any, model: Any) -> Any:
+    """Move tokenizer outputs (``BatchEncoding`` or ``dict``) to the module device."""
+    dev = _first_trainable_device(model)
+    if dev.type == "meta":
+        return inputs
+    if hasattr(inputs, "to"):
+        return inputs.to(dev)
+    if isinstance(inputs, dict):
+        return {k: v.to(dev) for k, v in inputs.items()}
+    return inputs
+
+
 def _format_chat_messages_for_standard(messages: List[ChatMessage]) -> str:
     formatted = ""
     for msg in messages:
@@ -379,15 +391,13 @@ def _generate_core(request: GenerateRequest, client_ip: str) -> Dict[str, Any]:
 
     if model_type == "gpt2":
         inputs = tokenizer(request.prompt, return_tensors="pt")
-        dev = _first_trainable_device(model)
-        if dev.type != "meta":
-            inputs = {k: v.to(dev) for k, v in inputs.items()}
+        inputs = _inputs_to_model_device(inputs, model)
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
                 max_new_tokens=max_tokens,
                 temperature=temperature,
-                top_k=request.top_k,
+                top_k=top_k,
                 top_p=top_p,
                 do_sample=True,
             )
@@ -1557,6 +1567,9 @@ async def v1_infer(body: StandardInferenceRequest, req: Request, response: Respo
 @app.post("/generate/stream")
 async def generate_stream(request: GenerateRequest):
     """Streaming text generation using Server-Sent Events."""
+    max_gen = input_validator.validate_max_tokens(request.max_new_tokens or 100)
+    temperature = input_validator.validate_temperature(request.temperature or 0.8)
+    top_p_val = max(0.0, min(1.0, float(request.top_p if request.top_p is not None else 0.9)))
 
     async def generate_stream_tokens():
         if model is None:
@@ -1569,20 +1582,23 @@ async def generate_stream(request: GenerateRequest):
 
         if model_type == "gpt2":
             loop = asyncio.get_event_loop()
-            inputs = await loop.run_in_thread(
-                None, lambda: tokenizer(request.prompt, return_tensors="pt")
-            )
+
+            def _first_inputs():
+                enc = tokenizer(request.prompt, return_tensors="pt")
+                return _inputs_to_model_device(enc, model)
+
+            inputs = await loop.run_in_thread(None, _first_inputs)
 
             generated_text = request.prompt
-            for i in range(request.max_new_tokens):
+            for i in range(max_gen):
                 outputs = await loop.run_in_thread(
                     None,
                     lambda inp=inputs: model.generate(
                         **inp,
                         max_new_tokens=1,
-                        temperature=request.temperature,
+                        temperature=temperature,
                         top_k=request.top_k,
-                        top_p=request.top_p,
+                        top_p=top_p_val,
                         do_sample=True,
                         return_dict_in_generate=True,
                     ),
@@ -1591,9 +1607,14 @@ async def generate_stream(request: GenerateRequest):
                 if token:
                     generated_text += token
                     yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
-                inputs = tokenizer(token, return_tensors="pt")
 
-                if i >= request.max_new_tokens - 1:
+                def _next_inputs(tok: str):
+                    enc = tokenizer(tok, return_tensors="pt")
+                    return _inputs_to_model_device(enc, model)
+
+                inputs = await loop.run_in_thread(None, _next_inputs, token)
+
+                if i >= max_gen - 1:
                     break
 
         yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
@@ -1604,6 +1625,9 @@ async def generate_stream(request: GenerateRequest):
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
     """Streaming chat completion using Server-Sent Events."""
+    max_gen = input_validator.validate_max_tokens(request.max_new_tokens or 100)
+    temperature = input_validator.validate_temperature(request.temperature or 0.8)
+    top_p_val = max(0.0, min(1.0, float(request.top_p if request.top_p is not None else 0.9)))
 
     def format_chat_prompt(messages):
         formatted = ""
@@ -1632,16 +1656,21 @@ async def chat_stream(request: ChatRequest):
 
         if model_type == "gpt2":
             loop = asyncio.get_event_loop()
-            inputs = await loop.run_in_thread(None, lambda: tokenizer(prompt, return_tensors="pt"))
 
-            for i in range(request.max_new_tokens):
+            def _first_chat_inputs():
+                enc = tokenizer(prompt, return_tensors="pt")
+                return _inputs_to_model_device(enc, model)
+
+            inputs = await loop.run_in_thread(None, _first_chat_inputs)
+
+            for i in range(max_gen):
                 outputs = await loop.run_in_thread(
                     None,
                     lambda inp=inputs: model.generate(
                         **inp,
                         max_new_tokens=1,
-                        temperature=request.temperature,
-                        top_p=request.top_p,
+                        temperature=temperature,
+                        top_p=top_p_val,
                         do_sample=True,
                         return_dict_in_generate=True,
                     ),
@@ -1649,9 +1678,14 @@ async def chat_stream(request: ChatRequest):
                 token = tokenizer.decode(outputs.sequences[0][-1], skip_special_tokens=True)
                 if token:
                     yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
-                inputs = tokenizer(token, return_tensors="pt")
 
-                if i >= request.max_new_tokens - 1:
+                def _next_chat_inputs(tok: str):
+                    enc = tokenizer(tok, return_tensors="pt")
+                    return _inputs_to_model_device(enc, model)
+
+                inputs = await loop.run_in_thread(None, _next_chat_inputs, token)
+
+                if i >= max_gen - 1:
                     break
 
         yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
@@ -1752,7 +1786,7 @@ async def websocket_generate(websocket: WebSocket):
                 await websocket.send_json({"status": "done", "text": generated, "done": True})
 
             elif model_type == "gpt2" and tokenizer:
-                inputs = tokenizer(prompt, return_tensors="pt")
+                inputs = _inputs_to_model_device(tokenizer(prompt, return_tensors="pt"), model)
 
                 model.eval()
                 generated = ""
@@ -1763,6 +1797,7 @@ async def websocket_generate(websocket: WebSocket):
                             **inputs,
                             max_new_tokens=1,
                             temperature=temperature,
+                            top_p=top_p_val,
                             do_sample=True,
                             return_dict_in_generate=True,
                         )
@@ -1774,7 +1809,7 @@ async def websocket_generate(websocket: WebSocket):
                             {"token": token, "generated": generated, "done": False}
                         )
 
-                        inputs = tokenizer(token, return_tensors="pt")
+                        inputs = _inputs_to_model_device(tokenizer(token, return_tensors="pt"), model)
 
                 await websocket.send_json({"status": "done", "text": generated, "done": True})
 
@@ -2200,7 +2235,10 @@ async def inference_generate(gr: GenerateRequest, req: Request):
     # Validate input
     prompt = input_validator.validate_prompt(gr.prompt)
     max_tokens = input_validator.validate_max_tokens(gr.max_new_tokens or 100)
-    temperature = input_validator.validate_temperature(gr.temperature or 0.8)
+    temperature = input_validator.validate_temperature(gr.temperature if gr.temperature is not None else 0.8)
+    top_p_val = max(0.0, min(1.0, float(gr.top_p if gr.top_p is not None else 0.9)))
+    top_k = gr.top_k if gr.top_k is not None else 50
+    top_k = max(1, min(500, int(top_k)))
 
     try:
         engine = get_inference_engine()
@@ -2213,8 +2251,8 @@ async def inference_generate(gr: GenerateRequest, req: Request):
             prompt=prompt,
             max_new_tokens=max_tokens,
             temperature=temperature,
-            top_p=gr.top_p,
-            top_k=gr.top_k,
+            top_p=top_p_val,
+            top_k=top_k,
             repetition_penalty=1.0,
         )
 
@@ -2233,6 +2271,11 @@ async def inference_generate(gr: GenerateRequest, req: Request):
 async def inference_generate_stream(request: GenerateRequest):
     """Streaming generation using the production inference engine."""
     engine = get_inference_engine()
+    max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
+    temperature = input_validator.validate_temperature(request.temperature if request.temperature is not None else 0.8)
+    top_p_val = max(0.0, min(1.0, float(request.top_p if request.top_p is not None else 0.9)))
+    top_k = request.top_k if request.top_k is not None else 50
+    top_k = max(1, min(500, int(top_k)))
 
     async def token_stream():
         if engine is None:
@@ -2240,10 +2283,10 @@ async def inference_generate_stream(request: GenerateRequest):
             return
         async for token in engine.generate_stream(
             prompt=request.prompt,
-            max_new_tokens=request.max_new_tokens,
-            temperature=request.temperature,
-            top_p=request.top_p,
-            top_k=request.top_k,
+            max_new_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p_val,
+            top_k=top_k,
         ):
             yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
         yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
@@ -2290,8 +2333,11 @@ async def batch_generate(batch: BatchGenerateRequest, http_request: Request):
         validated_prompt = input_validator.validate_prompt(prompt)
         max_tokens = input_validator.validate_max_tokens(batch.max_new_tokens or 100)
         temp = input_validator.validate_temperature(batch.temperature or 0.8)
+        top_p_val = max(0.0, min(1.0, float(batch.top_p if batch.top_p is not None else 0.9)))
+        top_k = batch.top_k if batch.top_k is not None else 50
+        top_k = max(1, min(500, int(top_k)))
 
-        cache_key_str = cache_key(validated_prompt, max_tokens=max_tokens, temp=temp, top_p=batch.top_p, top_k=batch.top_k)
+        cache_key_str = cache_key(validated_prompt, max_tokens=max_tokens, temp=temp, top_p=top_p_val, top_k=top_k)
 
         if batch.use_cache:
             cached_result = cache.get(cache_key_str)
@@ -2306,13 +2352,14 @@ async def batch_generate(batch: BatchGenerateRequest, http_request: Request):
         try:
             if model_type == "gpt2" and tokenizer:
                 inputs = tokenizer(validated_prompt, return_tensors="pt")
+                inputs = _inputs_to_model_device(inputs, model)
                 with torch.no_grad():
                     outputs = model.generate(
                         **inputs,
                         max_new_tokens=max_tokens,
                         temperature=temp,
-                        top_k=batch.top_k,
-                        top_p=batch.top_p,
+                        top_k=top_k,
+                        top_p=top_p_val,
                         do_sample=True,
                     )
                 text = tokenizer.decode(outputs[0][len(inputs.input_ids[0]):], skip_special_tokens=True)
