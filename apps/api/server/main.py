@@ -1949,17 +1949,37 @@ async def load_hf_model_endpoint(request: LoadModelRequest):
     try:
         from domains.training.model_registry import load_hf_model
 
+        mode = request.mode or "local"
         load_kwargs: Dict[str, Any] = {}
-        if (request.mode or "local") == "local":
+        if mode == "local":
             load_kwargs["device"] = request.device if request.device is not None else "auto"
 
-        client = load_hf_model(request.model_id, mode=request.mode, **load_kwargs)
-        model_type = f"hf/{request.model_id}"
+        hf_client = load_hf_model(request.model_id, mode=mode, **load_kwargs)
+
+        if mode == "local":
+            loader = getattr(hf_client, "_client", None)
+            if (
+                loader is not None
+                and getattr(loader, "model", None) is not None
+                and getattr(loader, "tokenizer", None) is not None
+            ):
+                model = loader.model
+                tokenizer = loader.tokenizer
+                model_type = "gpt2"
+            else:
+                model_type = f"hf/{request.model_id}"
+                logger.warning(
+                    "HF local load did not expose model/tokenizer on loader; /generate may stay in demo mode"
+                )
+        else:
+            model_type = f"hf/{request.model_id}"
+
         return {
             "status": "loaded",
             "model": request.model_id,
-            "mode": request.mode,
+            "mode": mode,
             "device": request.device,
+            "model_type": model_type,
         }
     except Exception as e:
         return {"status": "error", "error": str(e)}

@@ -164,6 +164,7 @@ def test_models_load_forwards_device_in_local_mode(
     assert captured["model_id"] == "gpt2"
     assert captured["mode"] == "local"
     assert captured["kwargs"].get("device") == "cpu"
+    assert data["model_type"] == "hf/gpt2"
 
 
 def test_models_load_omits_device_for_api_mode(
@@ -183,7 +184,50 @@ def test_models_load_omits_device_for_api_mode(
     )
     assert r.status_code == 200, r.text
     assert "device" not in captured["kwargs"]
-    assert r.json().get("status") == "loaded"
+    data = r.json()
+    assert data.get("status") == "loaded"
+    assert data["model_type"] == "hf/gpt2"
+
+
+def test_models_load_wires_globals_for_local_hf_client(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import main as app_main
+
+    saved_model, saved_tok, saved_type = app_main.model, app_main.tokenizer, app_main.model_type
+    try:
+
+        class _FakeLoader:
+            def __init__(self) -> None:
+                self.model = object()
+                self.tokenizer = object()
+
+        class _FakeHF:
+            def __init__(self, loader: _FakeLoader) -> None:
+                self._client = loader
+
+        fake_loader = _FakeLoader()
+
+        def fake_load(model_id: str, mode: str = "local", **_kwargs):  # noqa: ANN001
+            assert model_id == "gpt2"
+            assert mode == "local"
+            return _FakeHF(fake_loader)
+
+        monkeypatch.setattr("domains.training.model_registry.load_hf_model", fake_load)
+
+        r = client.post("/models/load", json={"model_id": "gpt2", "mode": "local"})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["status"] == "loaded"
+        assert body["model_type"] == "gpt2"
+
+        h = client.get("/health")
+        assert h.status_code == 200, h.text
+        assert h.json()["model_loaded"] is True
+        assert app_main.model is fake_loader.model
+        assert app_main.tokenizer is fake_loader.tokenizer
+    finally:
+        app_main.model, app_main.tokenizer, app_main.model_type = saved_model, saved_tok, saved_type
 
 
 def test_health_ready_includes_model_loaded(client: TestClient) -> None:
