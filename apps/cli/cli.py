@@ -31,7 +31,7 @@ def _chat_uvicorn_bind_host(client_host: str) -> str:
 
 
 def _chat_find_available_port(bind_host: str, start_port: int, max_attempts: int = 10) -> int:
-    """Pick the first bindable TCP port on bind_host, same idea as apps.api.server.main.find_available_port."""
+    """Pick the first bindable TCP port on bind_host (same idea as ``find_available_port`` in apps/api/server/main.py)."""
     import socket
 
     for port in range(start_port, start_port + max_attempts):
