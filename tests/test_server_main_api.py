@@ -165,6 +165,7 @@ def test_models_load_forwards_device_in_local_mode(
     assert captured["mode"] == "local"
     assert captured["kwargs"].get("device") == "cpu"
     assert data["model_type"] == "hf/gpt2"
+    assert data.get("effective_device") is None
 
 
 def test_models_load_omits_device_for_api_mode(
@@ -220,6 +221,7 @@ def test_models_load_wires_globals_for_local_hf_client(
         body = r.json()
         assert body["status"] == "loaded"
         assert body["model_type"] == "gpt2"
+        assert body.get("effective_device") == "cpu"
 
         h = client.get("/health")
         assert h.status_code == 200, h.text

@@ -330,6 +330,19 @@ def _inputs_to_model_device(inputs: Any, model: Any) -> Any:
     return inputs
 
 
+def _inference_engine_device_str(module: Any) -> str:
+    """String device for ``InferenceEngine`` — match where ``module`` parameters live."""
+    if module is None:
+        return "cpu"
+    try:
+        dev = _first_trainable_device(module)
+    except Exception:
+        return "cpu"
+    if dev.type == "meta":
+        return "cpu"
+    return str(dev.type)
+
+
 def _format_chat_messages_for_standard(messages: List[ChatMessage]) -> str:
     formatted = ""
     for msg in messages:
@@ -2020,11 +2033,16 @@ async def load_hf_model_endpoint(request: LoadModelRequest):
         else:
             model_type = f"hf/{request.model_id}"
 
+        effective = None
+        if mode == "local" and model is not None:
+            effective = _inference_engine_device_str(model)
+
         return {
             "status": "loaded",
             "model": request.model_id,
             "mode": mode,
             "device": request.device,
+            "effective_device": effective,
             "model_type": model_type,
         }
     except Exception as e:
@@ -2215,10 +2233,13 @@ def get_inference_engine():
     
     if model is None or tokenizer is None:
         return None
-    
+
+    if _inference_engine is not None and getattr(_inference_engine, "model", None) is not model:
+        _inference_engine = None
+
     if _inference_engine is None:
         from domains.inference.engine import InferenceEngine
-        device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+        device = _inference_engine_device_str(model)
         _inference_engine = InferenceEngine(
             model=model,
             tokenizer=tokenizer,
