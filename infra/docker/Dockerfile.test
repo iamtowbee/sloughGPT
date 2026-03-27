@@ -1,9 +1,8 @@
-# SloughGPT Testing Dockerfile
-# Optimized for running tests and CI/CD
+# SloughGPT test image — mirrors .github/workflows/reusable-ci-core.yml test job.
+# Build from repository root: docker build -f infra/docker/Dockerfile.test -t sloughgpt:test .
 
 FROM python:3.10-slim
 
-# Set environment variables for testing
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     SLOUGHGPT_ENV="testing" \
@@ -12,8 +11,7 @@ ENV PYTHONUNBUFFERED=1 \
     DATABASE_URL="sqlite:///:memory:" \
     CACHE_TYPE="memory"
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
@@ -23,37 +21,22 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app directory
 WORKDIR /app
 
-# Copy requirements files
-COPY requirements.txt requirements-dev.txt packages/core/tests/requirements-test.txt ./
-
-# Install Python dependencies
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt && \
-    pip install -r requirements-dev.txt && \
-    pip install -r requirements-test.txt
-
-# Copy application code
+# Full tree (editable install + tests need packages/, apps/, root cli.)
 COPY . .
 
-# Install application
-RUN pip install -e .
+RUN pip install --upgrade pip && \
+    pip install torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install transformers fastapi uvicorn pydantic httpx numpy scipy psutil && \
+    pip install pytest pytest-cov pytest-asyncio && \
+    pip install -e .
 
-# Create non-root user for testing
-RUN groupadd -r tester && \
-    useradd -r -g tester -d /app -s /bin/bash tester
-
-# Create test directories
-RUN mkdir -p /app/test_results /app/coverage /app/test_data && \
-    chown -R tester:tester /app
-
-# Switch to tester user
-USER tester
-
-# Set working directory for tests
-WORKDIR /app/packages/core/tests
-
-# Default test command
-CMD ["python", "run_tests.py", "--type", "all", "--coverage"]
+# Same selection as reusable-ci-core.yml
+CMD ["python", "-m", "pytest", \
+    "tests/test_quantization.py", "tests/test_optimizations.py", "tests/test_benchmarking.py", \
+    "tests/test_inference.py", "tests/test_api.py", "tests/test_server_main_api.py", \
+    "tests/test_server_settings.py", "tests/test_security.py", \
+    "-v", "--tb=short", \
+    "--ignore=tests/test_core.py", "--ignore=tests/server/", "--ignore=tests/cli/", \
+    "--ignore=tests/web/", "--ignore=tests/ml/"]

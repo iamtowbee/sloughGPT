@@ -12,10 +12,18 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Configuration
+# Configuration (run this script from the repository root)
 PROJECT_NAME="sloughgpt"
-COMPOSE_FILE="docker-compose.yml"
+COMPOSE_FILE="${COMPOSE_FILE:-infra/docker/docker-compose.yml}"
 ENV_FILE=".env"
+
+compose() {
+    if docker compose version &> /dev/null; then
+        docker compose -f "$COMPOSE_FILE" "$@"
+    else
+        docker-compose -f "$COMPOSE_FILE" "$@"
+    fi
+}
 
 # Helper functions
 log_info() {
@@ -76,14 +84,10 @@ setup_environment() {
 build_images() {
     log_info "Building Docker images..."
     
-    # Build production image
-    docker build -t ${PROJECT_NAME}:latest -f Dockerfile .
-    
-    # Build development image
-    docker build -t ${PROJECT_NAME}:dev -f Dockerfile.dev .
-    
-    # Build test image
-    docker build -t ${PROJECT_NAME}:test -f Dockerfile.test .
+    docker build -t ${PROJECT_NAME}:latest -f infra/docker/Dockerfile .
+    docker build -t ${PROJECT_NAME}:dev -f infra/docker/Dockerfile.dev .
+    docker build -t ${PROJECT_NAME}:test -f infra/docker/Dockerfile.test .
+    docker build -t ${PROJECT_NAME}:sdk -f infra/docker/Dockerfile.sdk .
     
     log_success "Docker images built successfully"
 }
@@ -95,7 +99,7 @@ start_production() {
     check_dependencies
     setup_environment
     
-    docker-compose -f $COMPOSE_FILE up -d
+    compose up -d
     
     log_success "Production services started"
     show_status
@@ -108,7 +112,7 @@ start_development() {
     check_dependencies
     setup_environment
     
-    docker-compose -f $COMPOSE_FILE --profile dev up -d
+    compose --profile dev up -d
     
     log_success "Development services started"
     show_status
@@ -127,7 +131,7 @@ start_gpu() {
         exit 1
     fi
     
-    docker-compose -f $COMPOSE_FILE --profile gpu up -d
+    compose --profile gpu up -d
     
     log_success "GPU-enabled services started"
     show_status
@@ -137,7 +141,7 @@ start_gpu() {
 stop_services() {
     log_info "Stopping services..."
     
-    docker-compose -f $COMPOSE_FILE down
+    compose down
     
     log_success "Services stopped"
 }
@@ -146,7 +150,7 @@ stop_services() {
 clean_services() {
     log_info "Stopping and removing all services and volumes..."
     
-    docker-compose -f $COMPOSE_FILE down -v --remove-orphans
+    compose down -v --remove-orphans
     
     log_success "All services and volumes removed"
 }
@@ -155,15 +159,15 @@ clean_services() {
 show_status() {
     log_info "Service status:"
     
-    docker-compose -f $COMPOSE_FILE ps
+    compose ps
     
     echo ""
     log_info "Service URLs:"
     
     # Get the port mappings
-    API_PORT=$(docker-compose -f $COMPOSE_FILE port sloughgpt 8000 2>/dev/null | cut -d: -f2)
-    REDIS_PORT=$(docker-compose -f $COMPOSE_FILE port redis 6379 2>/dev/null | cut -d: -f2)
-    POSTGRES_PORT=$(docker-compose -f $COMPOSE_FILE port postgres 5432 2>/dev/null | cut -d: -f2)
+    API_PORT=$(compose port api 8000 2>/dev/null | cut -d: -f2)
+    REDIS_PORT=$(compose port redis 6379 2>/dev/null | cut -d: -f2)
+    POSTGRES_PORT=$(compose port postgres 5432 2>/dev/null | cut -d: -f2)
     
     if [ ! -z "$API_PORT" ]; then
         echo "  API:          http://localhost:$API_PORT"
@@ -185,35 +189,23 @@ show_logs() {
     
     if [ -z "$service" ]; then
         log_info "Showing logs for all services..."
-        docker-compose -f $COMPOSE_FILE logs -f
+        compose logs -f
     else
         log_info "Showing logs for $service..."
-        docker-compose -f $COMPOSE_FILE logs -f "$service"
+        compose logs -f "$service"
     fi
 }
 
-# Run tests
+# Run tests (core pytest suite in disposable image; see infra/docker/Dockerfile.test)
 run_tests() {
     log_info "Running tests in Docker..."
     
     check_dependencies
-    setup_environment
     
-    # Start test services
-    docker-compose -f $COMPOSE_FILE --profile test up -d
+    docker build -t ${PROJECT_NAME}:test -f infra/docker/Dockerfile.test .
+    docker run --rm ${PROJECT_NAME}:test
     
-    # Wait for services to be ready
-    log_info "Waiting for test services to be ready..."
-    sleep 10
-    
-    # Run tests
-    docker-compose -f $COMPOSE_FILE exec -T sloughgpt-test python packages/core/tests/run_tests.py --type all --coverage
-    
-    # Capture test results
     TEST_EXIT_CODE=$?
-    
-    # Stop test services
-    docker-compose -f $COMPOSE_FILE --profile test down
     
     if [ $TEST_EXIT_CODE -eq 0 ]; then
         log_success "All tests passed!"
@@ -231,8 +223,8 @@ backup_data() {
     mkdir -p "$BACKUP_DIR"
     
     # Backup PostgreSQL
-    if docker-compose -f $COMPOSE_FILE ps postgres | grep -q "Up"; then
-        docker-compose -f $COMPOSE_FILE exec -T postgres pg_dump -U sloughgpt sloughgpt > "$BACKUP_DIR/postgres_backup.sql"
+    if compose ps postgres 2>/dev/null | grep -q "Up"; then
+        compose exec -T postgres pg_dump -U sloughgpt sloughgpt > "$BACKUP_DIR/postgres_backup.sql"
         log_success "PostgreSQL data backed up"
     fi
     
@@ -266,9 +258,9 @@ restore_data() {
     
     # Restore PostgreSQL
     if [ -f "$backup_dir/postgres_backup.sql" ]; then
-        docker-compose -f $COMPOSE_FILE exec -T postgres psql -U sloughgpt -c "DROP DATABASE IF EXISTS sloughgpt;"
-        docker-compose -f $COMPOSE_FILE exec -T postgres psql -U sloughgpt -c "CREATE DATABASE sloughgpt;"
-        docker-compose -f $COMPOSE_FILE exec -T postgres psql -U sloughgpt sloughgpt < "$backup_dir/postgres_backup.sql"
+        compose exec -T postgres psql -U sloughgpt -c "DROP DATABASE IF EXISTS sloughgpt;"
+        compose exec -T postgres psql -U sloughgpt -c "CREATE DATABASE sloughgpt;"
+        compose exec -T postgres psql -U sloughgpt sloughgpt < "$backup_dir/postgres_backup.sql"
         log_success "PostgreSQL data restored"
     fi
     
@@ -300,12 +292,12 @@ update_services() {
 
 # Scale services
 scale_services() {
-    local service=${1:-sloughgpt}
+    local service=${1:-api}
     local replicas=${2:-2}
     
     log_info "Scaling $service to $replicas replicas..."
     
-    docker-compose -f $COMPOSE_FILE up -d --scale "$service=$replicas"
+    compose up -d --scale "$service=$replicas"
     
     log_success "$service scaled to $replicas replicas"
 }
@@ -336,8 +328,8 @@ show_help() {
     echo "Examples:"
     echo "  $0 start                    # Start production services"
     echo "  $0 dev                      # Start development services"
-    echo "  $0 logs sloughgpt           # Show logs for sloughgpt service"
-    echo "  $0 scale sloughgpt 3        # Scale sloughgpt to 3 replicas"
+    echo "  $0 logs api                 # Show logs for API service"
+    echo "  $0 scale api 3             # Scale api to 3 replicas"
     echo "  $0 restore backups/20231201_120000  # Restore from backup"
 }
 
@@ -385,7 +377,7 @@ case "${1:-}" in
         update_services
         ;;
     "scale")
-        scale_services "${2:-sloughgpt}" "${3:-2}"
+        scale_services "${2:-api}" "${3:-2}"
         ;;
     "help"|"--help"|"-h")
         show_help
