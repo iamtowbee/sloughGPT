@@ -68,6 +68,15 @@ python3 -m uvicorn apps.api.server.main:app --port 8000
 ./docker-manage.sh gpu
 ```
 
+### Google Colab
+Use `sloughgpt_colab.ipynb` in the repo root. After the runtime can see the repo (clone or upload), a typical one-shot chat + model load is:
+
+```bash
+python3 cli.py chat --auto-model gpt2
+```
+
+If your editor reformats the notebook JSON on save, prefer small cell edits or restore with `git checkout -- sloughgpt_colab.ipynb` to avoid large diffs.
+
 ## GPU Support
 
 | Hardware | Support | Speed |
