@@ -72,18 +72,18 @@ case $MODE in
     development|dev)
         log_info "Starting DEVELOPMENT mode on port $PORT..."
         export SLOUGHGPT_ENV=development
-        cd "$(dirname "$0")/server"
+        cd "$ROOT/apps/api/server"
         python3 main.py
         ;;
     production|prod)
         log_info "Starting PRODUCTION mode on port $PORT..."
         export SLOUGHGPT_ENV=production
-        uvicorn server.main:app --host 0.0.0.0 --port $PORT --workers 4
+        uvicorn main:app --app-dir "$ROOT/apps/api/server" --host 0.0.0.0 --port "$PORT" --workers 4
         ;;
     docker)
         log_info "Starting with Docker..."
-        docker compose up -d api
-        docker compose logs -f api
+        eval "$COMPOSE up -d api"
+        eval "$COMPOSE logs -f api"
         ;;
     kubernetes|k8s)
         log_info "Checking Kubernetes..."

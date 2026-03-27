@@ -31,7 +31,7 @@ Clients SHOULD send:
 - **`safety.level`**: `clinical_strict` | `standard` | `internal_dev` | `code_only`.
 - **`input`**: mode-specific payload (`prompt` or `messages` plus optional `context` / `retrieval_query`).
 
-This **extends** existing FastAPI bodies such as `GenerateRequest` and `ChatRequest` (`server/main.py`): add optional top-level fields so old clients keep working.
+This **extends** existing FastAPI bodies such as `GenerateRequest` and `ChatRequest` (`apps/api/server/main.py`): add optional top-level fields so old clients keep working.
 
 ### Canonical response
 
@@ -64,7 +64,7 @@ Example: `standards/v1/examples/dataset_manifest.github_code.example.json`.
 
 ## 3. Training job (v1)
 
-Standard fields for orchestration (CLI, web training UI, `TrainRequest` / `TrainingRequest` in `server/main.py`):
+Standard fields for orchestration (CLI, web training UI, `TrainRequest` / `TrainingRequest` in `apps/api/server/main.py`):
 
 - **`job_id`**, **`name`**, **`status`**.
 - **`dataset_ref`**: `{dataset_id, version}` pointing to a manifest.
@@ -102,10 +102,10 @@ Extend as needed; unknown `task_type` MUST be rejected or defaulted with explici
 
 ## 6. Implementation checklist (repository)
 
-1. **Inference**: `POST /v1/infer` in `server/main.py` accepts `StandardInferenceRequest` and returns `StandardInferenceResponse` (header `X-SloughGPT-Standard: 1`). Legacy `POST /generate` is unchanged and shares `_generate_core`.
-2. **Pydantic**: v1 models live in `server/main.py` (`StandardInferenceRequest`, etc.); optional fields on `GenerateRequest` / `ChatRequest` remain future work.
+1. **Inference**: `POST /v1/infer` in `apps/api/server/main.py` accepts `StandardInferenceRequest` and returns `StandardInferenceResponse` (header `X-SloughGPT-Standard: 1`). Legacy `POST /generate` is unchanged and shares `_generate_core`.
+2. **Pydantic**: v1 models live in `apps/api/server/main.py` (`StandardInferenceRequest`, etc.); optional fields on `GenerateRequest` / `ChatRequest` remain future work.
 3. **Middleware**: `trace_id` from body or `X-Trace-Id`; audit event `v1_infer`.
-4. **Training**: `POST /train` and `POST /training/start` accept exactly one of **`dataset`**, **`manifest_uri`**, or **`dataset_ref`**. Use **`POST /train/resolve`** to validate a manifest and preview `data_path` / checkpoint stem without training. Resolution: `domains/training/dataset_manifest.py` (`resolve_training_data_path`) plus `_resolve_training_inputs` in `server/main.py`.
+4. **Training**: `POST /train` and `POST /training/start` accept exactly one of **`dataset`**, **`manifest_uri`**, or **`dataset_ref`**. Use **`POST /train/resolve`** to validate a manifest and preview `data_path` / checkpoint stem without training. Resolution: `domains/training/dataset_manifest.py` (`resolve_training_data_path`) plus `_resolve_training_inputs` in `apps/api/server/main.py`.
 5. **CLI**: `python scripts/validate_dataset_manifest.py <path-to-manifest.json> [--resolve]` (runtime resolution). **Schema CI**: `pip install jsonschema && python scripts/validate_standards_schemas.py` (example JSON under `standards/v1/examples/`).
 
 ## 7. Versioning
