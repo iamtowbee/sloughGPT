@@ -55,8 +55,8 @@ python3 cli.py chat --auto-model gpt2 --device mps --load-mode local
 # CPU mode (default for Intel Macs)
 python3 apps/api/server/main.py
 
-# With uvicorn
-python3 -m uvicorn apps.api.server.main:app --port 8000
+# With uvicorn (from repo root)
+python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000
 ```
 
 ### Docker
@@ -170,6 +170,14 @@ curl http://localhost:8000/metrics/prometheus
 
 # Security audit logs
 curl http://localhost:8000/security/audit
+```
+
+### Models (Hugging Face local load)
+```bash
+curl -s -X POST http://localhost:8000/models/load \
+  -H "Content-Type: application/json" \
+  -d '{"model_id":"gpt2","mode":"local","device":"cpu"}'
+# Response includes effective_device when weights attach to inference globals.
 ```
 
 ### Inference

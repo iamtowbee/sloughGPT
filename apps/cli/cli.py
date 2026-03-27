@@ -116,7 +116,7 @@ def cmd_chat(args):
         if getattr(args, "no_serve", False):
             print("Cannot connect to the API and --no-serve was set.")
             print("Start the server manually, for example:")
-            print("  uvicorn apps.api.server.main:app --host 0.0.0.0 --port 8000")
+            print("  python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000")
             print()
             return
 
@@ -125,7 +125,7 @@ def cmd_chat(args):
         if not marker.is_file():
             print("Cannot auto-start the API: not inside the SloughGPT repo (missing apps/api/server/main.py).")
             print("Start the server from the repository root, for example:")
-            print("  uvicorn apps.api.server.main:app --host 0.0.0.0 --port 8000")
+            print("  python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000")
             print()
             return
 
@@ -147,11 +147,14 @@ def cmd_chat(args):
         log_path = log_f.name
         log_f.close()
 
+        server_dir = repo / "apps" / "api" / "server"
         cmd = [
             sys.executable,
             "-m",
             "uvicorn",
-            "apps.api.server.main:app",
+            "main:app",
+            "--app-dir",
+            str(server_dir),
             "--host",
             bind_host,
             "--port",
