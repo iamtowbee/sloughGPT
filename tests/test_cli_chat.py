@@ -26,6 +26,7 @@ def _chat_args(**overrides) -> SimpleNamespace:
         max_tokens=64,
         temperature=0.8,
         no_serve=False,
+        model=None,
         auto_model=None,
     )
     base.update(overrides)
@@ -88,3 +89,27 @@ def test_chat_no_model_response_prints_actionable_hint(monkeypatch, capsys) -> N
     assert post_calls["count"] == 1
     assert "Hint: load or serve a model first, then retry chat." in out
     assert "python3 cli.py chat --auto-model gpt2" in out
+
+
+def test_chat_legacy_model_flag_also_autoloads(monkeypatch, capsys) -> None:
+    calls: list[tuple[str, str, dict | None]] = []
+
+    def fake_get(url, timeout=0):  # noqa: ANN001
+        calls.append(("GET", url, None))
+        return _Resp(status_code=200, payload={})
+
+    def fake_post(url, json=None, timeout=0):  # noqa: ANN001
+        calls.append(("POST", url, json))
+        if url.endswith("/models/load"):
+            return _Resp(status_code=200, payload={"ok": True})
+        return _Resp(status_code=200, payload={"text": "ok"})
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: "quit")
+    monkeypatch.setattr("requests.get", fake_get)
+    monkeypatch.setattr("requests.post", fake_post)
+
+    cli.cmd_chat(_chat_args(model="gpt2"))
+    out = capsys.readouterr().out
+
+    assert "Auto-loading model: gpt2" in out
+    assert any(u.endswith("/models/load") for m, u, _ in calls if m == "POST")

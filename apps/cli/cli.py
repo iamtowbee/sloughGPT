@@ -201,9 +201,10 @@ def cmd_chat(args):
     try:
         print("Type 'quit' to exit")
         print("Tip: use --auto-model gpt2 to preload a model before chatting.\n")
-        if getattr(args, "auto_model", None):
-            print(f"Auto-loading model: {args.auto_model}")
-            try_load_model(args.auto_model)
+        model_to_autoload = getattr(args, "auto_model", None) or getattr(args, "model", None)
+        if model_to_autoload:
+            print(f"Auto-loading model: {model_to_autoload}")
+            try_load_model(model_to_autoload)
             print()
 
         while True:
@@ -2480,7 +2481,11 @@ def main():
 
     # Chat command
     chat_parser = subparsers.add_parser("chat", help="Start interactive chat")
-    chat_parser.add_argument("--model", default="sloughgpt", help="Model to use")
+    chat_parser.add_argument(
+        "--model",
+        default=None,
+        help="Legacy alias for --auto-model (model id to load before chat)",
+    )
     chat_parser.add_argument("--max-tokens", type=int, default=100, help="Max tokens")
     chat_parser.add_argument("--temperature", type=float, default=0.8, help="Temperature")
     chat_parser.add_argument(
