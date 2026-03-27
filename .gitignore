@@ -137,6 +137,7 @@ typescript-sdk/package-lock.json
 
 # Next.js build
 web/.next/
+apps/web/web/.next/
 
 # Model artifacts
 models/*.gguf

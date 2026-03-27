@@ -14,40 +14,208 @@ import json
 from pathlib import Path
 
 
-def cmd_chat(args):
-    """Start an interactive chat session."""
+def _chat_repository_root() -> Path:
+    """Resolve repo root from apps/cli/cli.py."""
+    return Path(__file__).resolve().parent.parent.parent
+
+
+def _chat_uvicorn_bind_host(client_host: str) -> str:
+    """Use a concrete bind address for uvicorn; localhost/127.0.0.1 stay local."""
+    if client_host in ("localhost", "127.0.0.1"):
+        return "127.0.0.1"
+    return client_host
+
+
+def _chat_find_available_port(bind_host: str, start_port: int, max_attempts: int = 10) -> int:
+    """Pick the first bindable TCP port on bind_host, same idea as apps.api.server.main.find_available_port."""
+    import socket
+
+    for port in range(start_port, start_port + max_attempts):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((bind_host, port))
+            sock.close()
+            return port
+        except OSError:
+            continue
+    raise RuntimeError(
+        f"No free port on {bind_host} in range {start_port}-{start_port + max_attempts - 1}"
+    )
+
+
+def _chat_wait_for_health(base_url: str, timeout_sec: float = 45.0) -> bool:
+    import time
+
     import requests
 
-    base_url = f"http://{args.host}:{args.port}"
+    deadline = time.monotonic() + timeout_sec
+    url = f"{base_url.rstrip('/')}/health"
+    while time.monotonic() < deadline:
+        try:
+            r = requests.get(url, timeout=2)
+            if r.status_code == 200:
+                return True
+        except Exception:
+            pass
+        time.sleep(0.25)
+    return False
+
+
+def cmd_chat(args):
+    """Start an interactive chat session against the FastAPI server (starts uvicorn if needed)."""
+    import subprocess
+    import tempfile
+
+    import requests
+    from requests.exceptions import ConnectionError as RequestsConnectionError
+
+    base_url = f"http://{args.host}:{args.port}".rstrip("/")
+    server_proc = None
+    started_server_here = False
+    log_path = None
+
+    def api_reachable() -> bool:
+        try:
+            r = requests.get(f"{base_url}/health", timeout=3)
+            return r.status_code == 200
+        except RequestsConnectionError:
+            return False
+        except Exception:
+            return False
+
+    if not api_reachable():
+        if getattr(args, "no_serve", False):
+            print("Cannot connect to the API and --no-serve was set.")
+            print("Start the server manually, for example:")
+            print("  uvicorn apps.api.server.main:app --host 0.0.0.0 --port 8000")
+            print()
+            return
+
+        repo = _chat_repository_root()
+        marker = repo / "apps" / "api" / "server" / "main.py"
+        if not marker.is_file():
+            print("Cannot auto-start the API: not inside the SloughGPT repo (missing apps/api/server/main.py).")
+            print("Start the server from the repository root, for example:")
+            print("  uvicorn apps.api.server.main:app --host 0.0.0.0 --port 8000")
+            print()
+            return
+
+        bind_host = _chat_uvicorn_bind_host(args.host)
+        try:
+            listen_port = _chat_find_available_port(bind_host, args.port)
+        except RuntimeError as e:
+            print(f"{e}\n")
+            return
+        if listen_port != args.port:
+            print(
+                f"Port {args.port} is not available on {bind_host}; "
+                f"starting embedded server on {listen_port} instead."
+            )
+        base_url = f"http://{args.host}:{listen_port}".rstrip("/")
+
+        print("API not reachable; starting server with uvicorn ...")
+        log_f = tempfile.NamedTemporaryFile(prefix="sloughgpt-chat-", suffix=".log", delete=False)
+        log_path = log_f.name
+        log_f.close()
+
+        cmd = [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "apps.api.server.main:app",
+            "--host",
+            bind_host,
+            "--port",
+            str(listen_port),
+        ]
+        try:
+            with open(log_path, "wb") as out:
+                server_proc = subprocess.Popen(
+                    cmd,
+                    cwd=str(repo),
+                    stdout=out,
+                    stderr=subprocess.STDOUT,
+                )
+            started_server_here = True
+        except OSError as e:
+            print(f"Failed to start server: {e}\n")
+            try:
+                os.unlink(log_path)
+            except OSError:
+                pass
+            return
+
+        if not _chat_wait_for_health(base_url):
+            if server_proc.poll() is None:
+                server_proc.terminate()
+                try:
+                    server_proc.wait(timeout=8)
+                except subprocess.TimeoutExpired:
+                    server_proc.kill()
+            print("Server did not respond on /health in time. Log:")
+            try:
+                with open(log_path, encoding="utf-8", errors="replace") as lf:
+                    tail = lf.read()[-4000:]
+                if tail.strip():
+                    print(tail)
+                else:
+                    print("(empty log; check that uvicorn is installed: pip install uvicorn)")
+            except OSError:
+                pass
+            try:
+                os.unlink(log_path)
+            except OSError:
+                pass
+            return
+
+        print("Server is ready.\n")
 
     print(f"SloughGPT Chat ({base_url})")
-    print("Type 'quit' to exit\n")
+    try:
+        print("Type 'quit' to exit\n")
 
-    while True:
-        user_input = input("You: ")
-        if user_input.lower() in ["quit", "exit", "q"]:
-            break
+        while True:
+            user_input = input("You: ")
+            if user_input.lower() in ["quit", "exit", "q"]:
+                break
 
-        try:
-            response = requests.post(
-                f"{base_url}/infer",
-                json={
-                    "prompt": user_input,
-                    "max_length": args.max_tokens,
-                    "temperature": args.temperature,
-                    "model": args.model,
-                },
-                timeout=30,
-            )
+            try:
+                response = requests.post(
+                    f"{base_url}/generate",
+                    json={
+                        "prompt": user_input,
+                        "max_new_tokens": args.max_tokens,
+                        "temperature": args.temperature,
+                    },
+                    timeout=120,
+                )
 
-            if response.status_code == 200:
-                data = response.json()
-                print(f"SloughGPT: {data['text']}\n")
-            else:
-                print(f"Error: {response.text}\n")
+                if response.status_code == 200:
+                    data = response.json()
+                    print(f"SloughGPT: {data.get('text', data)}\n")
+                else:
+                    print(f"Error: {response.status_code} {response.text}\n")
 
-        except Exception as e:
-            print(f"Error: {e}\n")
+            except RequestsConnectionError:
+                print(
+                    "Lost connection to the API. If it was started by this chat session, it may have crashed.\n"
+                )
+            except Exception as e:
+                print(f"Error: {e}\n")
+    finally:
+        if started_server_here and server_proc is not None and server_proc.poll() is None:
+            print("\nStopping API server ...")
+            server_proc.terminate()
+            try:
+                server_proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                server_proc.kill()
+        if log_path:
+            try:
+                os.unlink(log_path)
+            except OSError:
+                pass
 
 
 def cmd_models(args):
@@ -2236,6 +2404,11 @@ def main():
     chat_parser.add_argument("--model", default="sloughgpt", help="Model to use")
     chat_parser.add_argument("--max-tokens", type=int, default=100, help="Max tokens")
     chat_parser.add_argument("--temperature", type=float, default=0.8, help="Temperature")
+    chat_parser.add_argument(
+        "--no-serve",
+        action="store_true",
+        help="Do not auto-start uvicorn if the API is down (fail fast with instructions)",
+    )
     chat_parser.set_defaults(func=cmd_chat)
 
     # Quick command - train and generate locally (OPTIMIZED)

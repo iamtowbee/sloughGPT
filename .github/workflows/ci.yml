@@ -6,78 +6,29 @@ on:
   pull_request:
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-      
-      - name: Install lint tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install ruff
-      
-      - name: Run Ruff lint
-        run: ruff check . --exit-non-zero || true
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install transformers fastapi uvicorn pydantic httpx numpy scipy psutil pytest pytest-asyncio pytest-cov
-      
-      - name: Run core tests only
-        run: |
-          pytest tests/test_quantization.py tests/test_optimizations.py tests/test_benchmarking.py tests/test_inference.py tests/test_api.py tests/test_server_main_api.py tests/test_server_settings.py -v --tb=short --ignore=tests/test_core.py --ignore=tests/server/ --ignore=tests/cli/ --ignore=tests/web/ --ignore=tests/ml/
+  ci-core:
+    uses: ./.github/workflows/reusable-ci-core.yml
 
   sdk-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-      
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
       - name: Install SDK dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests httpx pytest pytest-asyncio
-      
+          python -m pip install requests httpx pytest pytest-asyncio
+
       - name: Run SDK tests
         run: |
           cd packages/sdk-py/sloughgpt_sdk
-          pytest ../../../tests/test_sdk.py -v --tb=short
-
-  security-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pytest requests
-      
-      - name: Run security tests
-        run: |
-          pytest tests/test_security.py -v --tb=short
+          python -m pytest ../../../tests/test_sdk.py -v --tb=short
 
   typecheck:
     runs-on: ubuntu-latest
@@ -86,7 +37,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-      
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
       - name: Check Python syntax
         run: |
           python -m py_compile packages/core-py/domains/training/*.py 2>/dev/null || true
@@ -100,8 +53,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - name: Validate v1 example manifests against JSON Schema
         run: |
           python -m pip install --upgrade pip
-          pip install jsonschema
+          python -m pip install jsonschema
           python scripts/validate_standards_schemas.py

@@ -29,13 +29,14 @@ jobs:
           pip install build
 
       - name: Build package
+        working-directory: .
         run: python -m build
 
       - name: Publish to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.TEST_PYPI_TOKEN }}
-          repository_url: https://test.pypi.org/legacy/
+          repository-url: https://test.pypi.org/legacy/
 
   publish-prod:
     name: Publish to PyPI
@@ -55,6 +56,7 @@ jobs:
           pip install build
 
       - name: Build package
+        working-directory: .
         run: python -m build
 
       - name: Publish to PyPI
@@ -74,7 +76,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install SDK from PyPI
+      - name: Install package from PyPI
         run: |
-          pip install sloughgpt-sdk
-          sloughgpt-cli --version
+          pip install sloughgpt
+          sloughgpt --help

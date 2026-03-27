@@ -75,10 +75,13 @@ Homepage = "https://github.com/sloughgpt/sloughgpt"
 Documentation = "https://github.com/sloughgpt/sloughgpt#readme"
 Repository = "https://github.com/sloughgpt/sloughgpt"
 
+[tool.setuptools]
+package-dir = {"" = "packages/core-py"}
+
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["domains*", "utils*", "server*"]
-exclude = ["tests*", "scripts*", "typescript*"]
+where = ["packages/core-py"]
+include = ["domains*", "utils*"]
+exclude = ["tests*"]
 
 [tool.black]
 line-length = 100
