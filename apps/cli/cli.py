@@ -2496,7 +2496,7 @@ def main():
     chat_parser.add_argument(
         "--auto-model",
         default=None,
-        help="Optional model id to load via /models/load before first prompt (e.g. gpt2)",
+        help="Model id to load via /models/load before first prompt (e.g. gpt2); overrides --model",
     )
     chat_parser.set_defaults(func=cmd_chat)
 

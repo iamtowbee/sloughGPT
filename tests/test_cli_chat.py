@@ -113,3 +113,26 @@ def test_chat_legacy_model_flag_also_autoloads(monkeypatch, capsys) -> None:
 
     assert "Auto-loading model: gpt2" in out
     assert any(u.endswith("/models/load") for m, u, _ in calls if m == "POST")
+
+
+def test_chat_auto_model_takes_precedence_over_legacy_model(monkeypatch, capsys) -> None:
+    payloads: list[dict | None] = []
+
+    def fake_get(_url, timeout=0):  # noqa: ANN001
+        return _Resp(status_code=200, payload={})
+
+    def fake_post(url, json=None, timeout=0):  # noqa: ANN001
+        if url.endswith("/models/load"):
+            payloads.append(json)
+            return _Resp(status_code=200, payload={"ok": True})
+        return _Resp(status_code=200, payload={"text": "ok"})
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: "quit")
+    monkeypatch.setattr("requests.get", fake_get)
+    monkeypatch.setattr("requests.post", fake_post)
+
+    cli.cmd_chat(_chat_args(model="gpt2", auto_model="distilgpt2"))
+    out = capsys.readouterr().out
+
+    assert "Auto-loading model: distilgpt2" in out
+    assert payloads and payloads[0]["model_id"] == "distilgpt2"
