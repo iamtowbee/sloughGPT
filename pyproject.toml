@@ -71,9 +71,9 @@ all = [
 sloughgpt = "apps.cli.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/sloughgpt/sloughgpt"
-Documentation = "https://github.com/sloughgpt/sloughgpt#readme"
-Repository = "https://github.com/sloughgpt/sloughgpt"
+Homepage = "https://github.com/iamtowbee/sloughGPT"
+Documentation = "https://github.com/iamtowbee/sloughGPT#readme"
+Repository = "https://github.com/iamtowbee/sloughGPT"
 
 [tool.setuptools]
 package-dir = {"" = "packages/core-py", "apps" = "apps"}

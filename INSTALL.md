@@ -1,12 +1,14 @@
 # SloughGPT Installation Script
 
+**Canonical repository:** [github.com/iamtowbee/sloughGPT](https://github.com/iamtowbee/sloughGPT). For a maintained local setup, start with **QUICKSTART.md** (`pip install -e ".[dev]"` from the repo root, then `./verify.sh`).
+
 ## 🚀 Automated Installation
 
 This script provides a quick way to set up SloughGPT and resolve common dependency issues.
 
 ```bash
 # Download and run the installation script
-curl -fsSL https://raw.githubusercontent.com/sloughgpt/sloughgpt/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/iamtowbee/sloughGPT/main/install.sh | bash
 ```
 
 ## Manual Installation Steps
@@ -45,19 +47,19 @@ pip install aiofiles aiohttp websockets
 ### 4. Verify Installation
 
 ```bash
-# Test Python import
+# After: pip install -e .  (from the cloned repo root)
 python3 -c "
 import sys
 try:
-    import sloughgpt
-    print('✅ SloughGPT imported successfully')
+    import domains
+    print('✅ domains package import OK')
 except ImportError as e:
     print(f'❌ Import failed: {e}')
     sys.exit(1)
 "
 
-# Test launcher
-python3 sloughgpt.py version
+# CLI entrypoint (console script from pyproject.toml)
+sloughgpt --help
 ```
 
 ## Docker Installation (Recommended)
@@ -65,8 +67,8 @@ python3 sloughgpt.py version
 ### Using Pre-built Docker Image
 
 ```bash
-# Pull the latest image
-docker pull sloughgpt/sloughgpt:latest
+# Image tag/registry may vary; Helm default is ghcr.io/iamtowbee/sloughgpt (see infra/k8s/helm/sloughgpt/values.yaml)
+docker pull ghcr.io/iamtowbee/sloughgpt:latest
 
 # Run with environment variables
 docker run -d \
@@ -75,18 +77,18 @@ docker run -d \
   -p 8080:8080 \
   -e DATABASE_URL=sqlite:///sloughgpt.db \
   -e JWT_SECRET_KEY=your-secret-key \
-  sloughgpt/sloughgpt:latest
+  ghcr.io/iamtowbee/sloughgpt:latest
 ```
 
 ### Building from Source
 
 ```bash
 # Clone repository
-git clone https://github.com/sloughgpt/sloughgpt.git
-cd sloughgpt
+git clone https://github.com/iamtowbee/sloughGPT.git
+cd sloughGPT
 
-# Build Docker image
-docker build -t sloughgpt:local .
+# Build Docker image (compose/Dockerfiles live under infra/docker/)
+docker build -f infra/docker/Dockerfile -t sloughgpt:local .
 
 # Run with custom configuration
 docker run -d \
@@ -103,15 +105,15 @@ docker run -d \
 ### Helm Chart
 
 ```bash
-# Add SloughGPT Helm repository
-helm repo add sloughgpt https://charts.sloughgpt.ai
+# Chart source and values: infra/k8s/helm/sloughgpt/ (see README there)
+helm repo add sloughgpt https://iamtowbee.github.io/sloughGPT
 helm repo update
 
 # Install with default values
-helm install sloughgpt sloughgpt/sloughgpt
+helm install sloughgpt sloughgpt/sloughgpt --namespace sloughgpt --create-namespace
 
 # Install with custom values
-helm install sloughgpt sloughgpt/sloughgpt -f values.yaml
+helm install sloughgpt sloughgpt/sloughgpt -f values.yaml --namespace sloughgpt --create-namespace
 ```
 
 ### Kubernetes Manifests
@@ -291,15 +293,15 @@ conda install pytorch torchvision torchaudio cpuonly -c pytorch
 
 After successful installation:
 
-1. **Start API Server**: `python3 sloughgpt.py serve`
-2. **Launch Admin Dashboard**: `python3 sloughgpt.py admin`
-3. **Check Health**: `python3 sloughgpt.py health`
-4. **View Documentation**: http://localhost:8080/docs
+1. **Start API server**: `python3 apps/api/server/main.py` (or `cd apps/api/server && python3 -m uvicorn main:app --reload --port 8000`)
+2. **Web UI (dev)**: `cd apps/web/web && npm run dev`
+3. **Check health**: `curl -s http://localhost:8000/health`
+4. **API docs**: http://localhost:8000/docs
 
 ## Support
 
 - **Documentation**: https://docs.sloughgpt.ai
-- **Issues**: https://github.com/sloughgpt/sloughgpt/issues
+- **Issues**: https://github.com/iamtowbee/sloughGPT/issues
 - **Community**: https://community.sloughgpt.ai
 - **Enterprise Support**: enterprise@sloughgpt.ai
 
