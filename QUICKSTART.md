@@ -252,18 +252,20 @@ python3 cli.py optimize
 
 ## Docker Deployment
 
+From the **repository root**, pass the stack file explicitly:
+
 ```bash
 # Start API server
-docker compose up -d api
+docker compose -f infra/docker/docker-compose.yml up -d api
 
 # Development mode
-docker compose --profile dev up -d
+docker compose -f infra/docker/docker-compose.yml --profile dev up -d dev
 
 # GPU mode (NVIDIA)
-docker compose --profile gpu up -d
+docker compose -f infra/docker/docker-compose.yml --profile gpu up -d
 
 # Stop
-docker compose down
+docker compose -f infra/docker/docker-compose.yml down
 ```
 
 ## Kubernetes Deployment
@@ -272,8 +274,8 @@ docker compose down
 # Create namespace
 kubectl create namespace sloughgpt
 
-# Apply manifests
-kubectl apply -f k8s/deployment.yaml
+# Apply manifests (from repository root)
+kubectl apply -f infra/k8s/k8s/
 
 # Check status
 kubectl get pods -n sloughgpt
@@ -281,8 +283,8 @@ kubectl get pods -n sloughgpt
 # View logs
 kubectl logs -n sloughgpt -l app=sloughgpt-api
 
-# Helm chart
-helm install sloughgpt ./helm/sloughgpt -n sloughgpt
+# Helm chart (bundled in repo)
+helm install sloughgpt ./infra/k8s/helm/sloughgpt/ -n sloughgpt --create-namespace
 ```
 
 ---

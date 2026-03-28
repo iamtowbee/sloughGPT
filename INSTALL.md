@@ -117,8 +117,8 @@ helm install sloughgpt sloughgpt/sloughgpt -f values.yaml
 ### Kubernetes Manifests
 
 ```bash
-# Apply all manifests
-kubectl apply -f k8s/
+# Apply all manifests (from repository root)
+kubectl apply -f infra/k8s/k8s/
 
 # Check deployment status
 kubectl get pods -n sloughgpt
