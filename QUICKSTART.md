@@ -7,12 +7,10 @@
 git clone https://github.com/iamtowbee/sloughGPT.git
 cd sloughGPT
 pip install torch transformers fastapi uvicorn pydantic pytest
-# Optional: editable install registers the sloughgpt console script (entry: apps.cli.cli)
-pip install -e .
-
-# Optional: verify monorepo paths and run the same Ruff smoke as CI (needs dev extras: ruff)
+# Editable install + dev tools (ruff, pytest, …) and the ``sloughgpt`` console script
 pip install -e ".[dev]"
 ./verify.sh
+# Minimal editable install only: pip install -e .  (add dev extras or pip install ruff to use ./verify.sh lint)
 ```
 
 ### 2. Quick Training (CLI)
