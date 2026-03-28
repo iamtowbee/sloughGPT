@@ -15,7 +15,7 @@ SloughGPT is an enterprise-grade AI framework with production-ready ML infrastru
 ├── packages/
 │   ├── core-py/domains/     # Python domains (training, inference, models, …)
 │   ├── sdk-py/              # Python SDK
-│   ├── typescript-sdk/      # TypeScript SDK
+│   ├── sdk-ts/typescript-sdk/  # TypeScript SDK (npm package root)
 │   └── standards/           # SloughGPT Standard v1 docs
 ├── infra/docker/            # docker-compose and deployment assets
 ├── tests/                   # pytest suites

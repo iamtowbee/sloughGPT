@@ -283,7 +283,7 @@ SloughGPT/
 ├── packages/
 │   ├── core-py/domains/     # Soul engine, training, inference, etc.
 │   ├── sdk-py/sloughgpt_sdk/
-│   ├── typescript-sdk/
+│   ├── sdk-ts/typescript-sdk/
 │   └── standards/
 ├── infra/docker/            # Dockerfiles & docker-compose.yml
 ├── infra/k8s/               # Kubernetes & Helm
