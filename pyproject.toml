@@ -81,7 +81,7 @@ package-dir = {"" = "packages/core-py", "apps" = "apps"}
 [tool.setuptools.packages.find]
 where = ["packages/core-py", "."]
 include = ["domains*", "utils*", "apps*"]
-exclude = ["tests*"]
+exclude = ["tests*", "apps.web*"]
 
 [tool.black]
 line-length = 100
