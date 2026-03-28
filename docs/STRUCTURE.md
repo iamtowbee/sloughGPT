@@ -2,7 +2,7 @@
 
 Lightweight layout:
 
-- `apps/` — API server (`apps/api/server/`), CLI (`apps/cli/`), web UI (`apps/web/web/`)
+- `apps/` — runnable apps (see **[apps/README.md](../apps/README.md)**): API (`apps/api/server/`), CLI (`apps/cli/`), web (`apps/web/web/`)
 - `packages/core-py/` — domains and shared Python core (`domains/`, `utils/`)
 - `packages/sdk-py/sloughgpt_sdk/` — Python API client SDK
 - `packages/sdk-ts/typescript-sdk/` — TypeScript SDK (npm package root)
