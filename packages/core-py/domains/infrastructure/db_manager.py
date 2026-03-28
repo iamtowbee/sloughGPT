@@ -34,8 +34,7 @@ try:
         JSON,
         Boolean,
     )
-    from sqlalchemy.ext.declarative import declarative_base
-    from sqlalchemy.orm import sessionmaker, Session
+    from sqlalchemy.orm import sessionmaker, Session, declarative_base
 
     SQLALCHEMY_AVAILABLE = True
 except ImportError:
