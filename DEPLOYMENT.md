@@ -159,7 +159,7 @@ ab -n 1000 -c 10 http://sloughgpt.example.com/health
 # Rollback to previous version
 docker compose -f infra/docker/docker-compose.yml down
 git checkout v1.0.0
-docker compose -f infra/docker/docker-compose.yml up -d
+docker compose -f infra/docker/docker-compose.yml up -d api
 ```
 
 ### Kubernetes
