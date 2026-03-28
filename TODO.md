@@ -807,15 +807,15 @@ SloughGPT Core
 - ✅ All API endpoints working on port 8000
 
 ### Phase 3: Web UI & Integration
-- ✅ Web UI API integration (web/lib/api.ts)
+- ✅ Web UI API integration (`apps/web/web/lib/api.ts`)
   - Benchmarking: runBenchmark, calculatePerplexity, compareBenchmarks
   - Export: exportModel, getExportFormats, listModels
   - Experiments: logMetric, logParam
-- ✅ Benchmark dashboard (web/app/(app)/benchmark/page.tsx)
-- ✅ Export page (web/app/(app)/export/page.tsx)
-- ✅ API documentation page (web/app/(app)/api-docs/page.tsx)
-- ✅ Model comparison dashboard (web/app/(app)/compare/page.tsx)
-- ✅ Training visualization (web/app/(app)/training/page.tsx)
+- ✅ Benchmark dashboard (`apps/web/web/app/(app)/benchmark/page.tsx`)
+- ✅ Export page (`apps/web/web/app/(app)/export/page.tsx`)
+- ✅ API documentation page (`apps/web/web/app/(app)/api-docs/page.tsx`)
+- ✅ Model comparison dashboard (`apps/web/web/app/(app)/compare/page.tsx`)
+- ✅ Training visualization (`apps/web/web/app/(app)/training/page.tsx`)
 
 ### Phase 4: Testing & Polish
 - ✅ Unit Tests (72 tests)
