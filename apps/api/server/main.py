@@ -1755,6 +1755,8 @@ async def websocket_generate(websocket: WebSocket):
             prompt = input_validator.validate_prompt(request_data.get("prompt", ""))
             max_tokens = input_validator.validate_max_tokens(request_data.get("max_tokens", 100))
             temperature = input_validator.validate_temperature(request_data.get("temperature", 0.8))
+            raw_top_p = request_data.get("top_p", 0.9)
+            top_p_val = max(0.0, min(1.0, float(raw_top_p if raw_top_p is not None else 0.9)))
             model_name = request_data.get("model", None)
 
             await websocket.send_json({"status": "generating", "prompt": prompt})
