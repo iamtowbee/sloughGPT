@@ -95,14 +95,14 @@ python3 apps/cli/cli.py --help
 ## Testing
 
 ```bash
-# Run all tests
-python3 tests/run_tests.py
+# Full suite (from repo root)
+python3 -m pytest tests/ -q
 
-# Run specific test suite
-python3 tests/ml/test_infrastructure.py
-python3 tests/cli/test_cli.py
-python3 tests/web/test_frontend.py
+# Optional: path checks + same ruff smoke as CI
+./verify.sh
 ```
+
+CI runs a subset of tests; see `.github/workflows/reusable-ci-core.yml`.
 
 ## Environment
 

@@ -30,6 +30,15 @@
   },
   "keywords": ["sloughgpt", "ai", "llm", "typescript", "react", "react-native"],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iamtowbee/sloughGPT.git",
+    "directory": "packages/sdk-ts/typescript-sdk"
+  },
+  "homepage": "https://github.com/iamtowbee/sloughGPT/tree/main/packages/sdk-ts/typescript-sdk",
+  "bugs": {
+    "url": "https://github.com/iamtowbee/sloughGPT/issues"
+  },
   "peerDependencies": {
     "react": ">=17.0.0"
   },
