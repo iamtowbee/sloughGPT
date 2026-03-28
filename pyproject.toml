@@ -47,10 +47,11 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "black>=23.0.0",
-    "ruff>=0.1.0",
-    "pytest>=7.4.0",
+    "jsonschema>=4.0.0",
     "mypy>=1.7.0",
+    "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
+    "ruff>=0.1.0",
 ]
 gguf = [
     "llama-cpp-python>=0.2.0",

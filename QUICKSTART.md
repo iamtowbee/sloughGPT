@@ -14,7 +14,7 @@ pip install -e ".[dev]"
 # Next.js (apps/web/web): npm ci && npm run lint && npm run typecheck — same as CI job test-web
 # TypeScript SDK (packages/sdk-ts/typescript-sdk): npm ci && npm run lint && npm run build && npm test — job test-sdk-ts
 # Python SDK: python3 -m pytest tests/test_sdk.py — job sdk-test-py
-# Standards: pip install jsonschema && python3 scripts/validate_standards_schemas.py — job standards-schemas
+# Standards: python3 scripts/validate_standards_schemas.py (jsonschema in .[dev]) — job standards-schemas
 ```
 
 ### 2. Quick Training (CLI)

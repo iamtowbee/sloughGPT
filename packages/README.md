@@ -13,4 +13,4 @@ For **npm** work (`sdk-ts/typescript-sdk/` and **`apps/web/web/`**), use the **N
 
 For **`sdk-py/`** changes, run **`python3 -m pytest tests/test_sdk.py`** (CI job **`sdk-test-py`**).
 
-For **`standards/`** changes, run **`pip install jsonschema && python3 scripts/validate_standards_schemas.py`** (CI job **`standards-schemas`**).
+For **`standards/`** changes, run **`python3 scripts/validate_standards_schemas.py`** (**`jsonschema`** is included in **`pip install -e ".[dev]"`**; otherwise **`pip install jsonschema`**). CI job **`standards-schemas`**.

@@ -10,7 +10,7 @@ What does this change and why?
 - [ ] If **`apps/web/web/`** changed: `cd apps/web/web && npm ci && npm run lint && npm run typecheck`
 - [ ] If **`packages/sdk-ts/typescript-sdk/`** changed: `cd packages/sdk-ts/typescript-sdk && npm ci && npm run lint && npm run build && npm test`
 - [ ] If **`packages/sdk-py/sloughgpt_sdk/`** changed: `python3 -m pytest tests/test_sdk.py -q`
-- [ ] If **`packages/standards/`** or **`scripts/validate_standards_schemas.py`** changed: `pip install jsonschema && python scripts/validate_standards_schemas.py`
+- [ ] If **`packages/standards/`** or **`scripts/validate_standards_schemas.py`** changed: `python3 scripts/validate_standards_schemas.py` (ensure **`jsonschema`**: **`pip install -e ".[dev]"`** or **`pip install jsonschema`**)
 
 ## Notes
 

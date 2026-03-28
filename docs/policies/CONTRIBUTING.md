@@ -11,7 +11,7 @@ Thanks for helping improve SloughGPT.
    - If you touch **`apps/web/web/`**: `cd apps/web/web && npm ci && npm run lint && npm run typecheck` (job **`test-web`**).
    - If you touch **`packages/sdk-ts/typescript-sdk/`**: `cd packages/sdk-ts/typescript-sdk && npm ci && npm run lint && npm run build && npm test` (job **`test-sdk-ts`**).
    - If you touch **`packages/sdk-py/sloughgpt_sdk/`**: `python3 -m pytest tests/test_sdk.py -q` (job **`sdk-test-py`**).
-   - If you change **`packages/standards/`** or schemas: `pip install jsonschema && python scripts/validate_standards_schemas.py` (job **`standards-schemas`**).
+   - If you change **`packages/standards/`** or schemas: `python3 scripts/validate_standards_schemas.py` (**`jsonschema`** is in **`pip install -e ".[dev]"`**; otherwise `pip install jsonschema`). Job **`standards-schemas`**.
 4. **Open a PR** with a clear description of intent and scope (see **`.github/pull_request_template.md`**).
 
 ## Issues

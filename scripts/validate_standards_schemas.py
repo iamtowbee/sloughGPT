@@ -2,7 +2,7 @@
 """
 Validate example JSON under packages/standards/standards/v1/examples against JSON Schemas (requires jsonschema).
 
-  pip install jsonschema
+  pip install -e ".[dev]"   # includes jsonschema
   python scripts/validate_standards_schemas.py
 """
 
