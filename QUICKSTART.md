@@ -10,7 +10,8 @@ pip install torch transformers fastapi uvicorn pydantic pytest
 # Optional: editable install registers the sloughgpt console script (entry: apps.cli.cli)
 pip install -e .
 
-# Optional: verify monorepo paths and run the same Ruff smoke as CI (needs: pip install ruff)
+# Optional: verify monorepo paths and run the same Ruff smoke as CI (needs dev extras: ruff)
+pip install -e ".[dev]"
 ./verify.sh
 ```
 

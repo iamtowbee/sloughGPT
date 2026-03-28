@@ -72,10 +72,10 @@ python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000
 ```
 
 ### Verify install (optional)
-From the repo root, `verify.sh` checks core paths and (if **`ruff`** is installed) runs the same lint smoke as CI. See **QUICKSTART.md** for the full install flow.
+From the repo root, `verify.sh` checks core paths and (if **`ruff`** is available) runs the same lint smoke as CI. See **QUICKSTART.md** for the full install flow.
 
 ```bash
-pip install ruff   # optional; skip if you only want path checks
+pip install -e ".[dev]"   # optional; includes ruff + pytest among dev tools
 ./verify.sh
 ```
 
