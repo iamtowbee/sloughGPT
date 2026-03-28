@@ -2,6 +2,15 @@
   "name": "sloughgpt-web",
   "version": "3.0.0",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iamtowbee/sloughGPT.git",
+    "directory": "apps/web/web"
+  },
+  "homepage": "https://github.com/iamtowbee/sloughGPT/tree/main/apps/web/web",
+  "bugs": {
+    "url": "https://github.com/iamtowbee/sloughGPT/issues"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
