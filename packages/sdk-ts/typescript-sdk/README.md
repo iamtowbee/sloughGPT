@@ -8,6 +8,17 @@ Type-safe JavaScript/TypeScript client for the SloughGPT API. Works in **Node.js
 npm install @sloughgpt/typescript-sdk
 ```
 
+## Development (monorepo)
+
+When working inside **sloughGPT**, use the **Node** version from the repo root **`.nvmrc`** (`nvm use` / `fnm use`; matches **`test-sdk-ts`** in **`.github/workflows/ci_cd.yml`**). From this package directory:
+
+```bash
+npm ci
+npm run lint    # tsc --noEmit
+npm run build
+npm test
+```
+
 ## Quick Start
 
 ```typescript

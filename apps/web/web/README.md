@@ -13,12 +13,10 @@ Modern TypeScript-based web interface for SloughGPT using Base UI components.
 
 ## Tech Stack
 
-- **Framework**: React 18 with TypeScript
+- **Framework**: Next.js 14 (App Router), React 18, TypeScript
 - **UI Library**: Base UI
 - **State Management**: Zustand
-- **Routing**: React Router DOM
 - **Charts**: Recharts
-- **Build Tool**: Vite
 - **Styling**: Tailwind CSS
 
 ## Getting Started
@@ -49,6 +47,8 @@ npm run dev
 
 # The app will open at http://localhost:3000
 ```
+
+Before pushing changes, run the same checks as CI: **`npm ci && npm run lint && npm run typecheck`** (from this directory).
 
 ### Build for Production
 
