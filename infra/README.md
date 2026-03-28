@@ -2,6 +2,8 @@
 
 Deployment and operations assets.
 
-- `docker/` Dockerfiles, compose, container scripts.
-- `k8s/` Kubernetes, Helm, Grafana, Prometheus.
-- `scripts/` deployment/ops scripts.
+- `docker/` — Dockerfiles, Compose file, container helpers.
+- `k8s/` — Kubernetes, Helm, Grafana, Prometheus.
+- `scripts/` — deployment/ops scripts.
+
+**Compose (API only, from repo root):** `docker compose -f infra/docker/docker-compose.yml up -d api` — profiles and stacks are documented in **docs/DEPLOYMENT.md** and **QUICKSTART.md**.

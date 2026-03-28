@@ -401,9 +401,9 @@ set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 if docker compose version &>/dev/null; then
-  docker compose -f infra/docker/docker-compose.yml up -d
+  docker compose -f infra/docker/docker-compose.yml up -d api
 else
-  docker-compose -f infra/docker/docker-compose.yml up -d
+  docker-compose -f infra/docker/docker-compose.yml up -d api
 fi
 echo "API running at http://localhost:8000"
 echo "Docs at http://localhost:8000/docs"
@@ -508,7 +508,7 @@ print_next_steps() {
         echo "5. Docker deployment:"
         echo -e "   ${GREEN}./docker-start.sh${NC}"
         echo "   or"
-        echo -e "   ${GREEN}docker compose -f infra/docker/docker-compose.yml up -d${NC}"
+        echo -e "   ${GREEN}docker compose -f infra/docker/docker-compose.yml up -d api${NC}"
         echo ""
     fi
     
