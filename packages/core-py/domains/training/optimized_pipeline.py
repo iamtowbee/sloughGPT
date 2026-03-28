@@ -437,7 +437,8 @@ class OptimizedTrainer:
 
         # Initialize components
         self.memory_optimizer = MemoryOptimizer(self.device)
-        self.grad_scaler = GradScaler() if self.opt.GradScaler_enabled else None
+        use_amp_scaler = torch.cuda.is_available() and self.opt.GradScaler_enabled
+        self.grad_scaler = GradScaler() if use_amp_scaler else None
         self.optimizer = None
         self.scheduler = None
 
