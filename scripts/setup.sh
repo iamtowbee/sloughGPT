@@ -39,9 +39,12 @@ fi
 
 echo "✅ Setup complete!"
 echo ""
+echo "Optional sanity check:"
+echo "  ./verify.sh"
+echo ""
 echo "To start development:"
 echo "  Terminal 1: cd apps/api/server && python3 main.py"
 echo "  Terminal 2: cd apps/web/web && npm run dev"
 echo ""
 echo "Or use Docker:"
-echo "  docker compose -f infra/docker/docker-compose.yml up"
+echo "  docker compose -f infra/docker/docker-compose.yml up -d api"
