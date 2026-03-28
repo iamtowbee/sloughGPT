@@ -997,7 +997,7 @@ SloughGPT Core
 - ✅ Kubernetes Health Probes
   - GET /health/live - Liveness probe
   - GET /health/ready - Readiness probe (model loaded check)
-  - Updated k8s/deployment.yaml with proper probes
+  - Updated `infra/k8s/k8s/deployment.yaml` with proper probes
 
 ### Phase 12: Documentation & Testing
 - ✅ Unit Tests (`tests/test_security.py`)
