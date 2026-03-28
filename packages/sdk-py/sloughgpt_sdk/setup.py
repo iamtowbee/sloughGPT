@@ -17,11 +17,11 @@ setup(
     description="Python SDK for SloughGPT API",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/sloughgpt/sloughgpt",
+    url="https://github.com/iamtowbee/sloughGPT",
     project_urls={
-        "Bug Tracker": "https://github.com/sloughgpt/sloughgpt/issues",
-        "Documentation": "https://github.com/sloughgpt/sloughgpt#readme",
-        "Source Code": "https://github.com/sloughgpt/sloughgpt",
+        "Bug Tracker": "https://github.com/iamtowbee/sloughGPT/issues",
+        "Documentation": "https://github.com/iamtowbee/sloughGPT#readme",
+        "Source Code": "https://github.com/iamtowbee/sloughGPT",
     },
     packages=find_packages(exclude=["tests", "tests.*", "scripts", "scripts.*"]),
     package_data={

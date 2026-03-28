@@ -1,6 +1,6 @@
 # SloughGPT - Enterprise AI Framework
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/sloughgpt/sloughgpt)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/iamtowbee/sloughGPT)
 [![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](https://codecov.io)
@@ -11,7 +11,7 @@ A **comprehensive enterprise-grade AI framework** for training, deploying, and m
 
 ```bash
 # Clone the repository
-git clone https://github.com/sloughgpt/sloughgpt.git
+git clone https://github.com/iamtowbee/sloughGPT.git
 cd sloughgpt
 
 # Install dependencies
@@ -208,7 +208,7 @@ Access the admin dashboard at `http://localhost:8080`:
 
 ```bash
 # Clone repository
-git clone https://github.com/sloughgpt/sloughgpt.git
+git clone https://github.com/iamtowbee/sloughGPT.git
 cd sloughgpt
 
 # Create virtual environment
@@ -306,7 +306,7 @@ For enterprise support, custom development, or deployment assistance:
 - **Email**: enterprise@sloughgpt.ai
 - **Documentation**: https://docs.sloughgpt.ai
 - **Community**: https://community.sloughgpt.ai
-- **Issues**: https://github.com/sloughgpt/sloughgpt/issues
+- **Issues**: https://github.com/iamtowbee/sloughGPT/issues
 
 ## 📄 License
 

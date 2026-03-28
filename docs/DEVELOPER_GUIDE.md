@@ -65,7 +65,7 @@ SloughGPT uses a domain-driven architecture where each domain represents a bound
 
 ```bash
 # Clone repository
-git clone https://github.com/sloughgpt/sloughgpt.git
+git clone https://github.com/iamtowbee/sloughGPT.git
 cd sloughgpt
 
 # Create virtual environment
@@ -763,7 +763,7 @@ async def chat_endpoint(request: ChatRequest):
 
 ```bash
 # Clone and set up
-git clone https://github.com/sloughgpt/sloughgpt.git
+git clone https://github.com/iamtowbee/sloughGPT.git
 cd sloughgpt
 python -m venv venv
 source venv/bin/activate

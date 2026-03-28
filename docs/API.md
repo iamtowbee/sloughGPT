@@ -513,8 +513,8 @@ pytest tests/api/ --cov=domains.api --cov-report=html
 
 ### Getting Help
 - **Documentation**: [API Documentation](https://docs.sloughgpt.ai/api)
-- **Issues**: [GitHub Issues](https://github.com/sloughgpt/sloughgpt/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/sloughgpt/sloughgpt/discussions)
+- **Issues**: [GitHub Issues](https://github.com/iamtowbee/sloughGPT/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/iamtowbee/sloughGPT/discussions)
 - **Community**: [SloughGPT Community](https://community.sloughgpt.ai)
 
 ### Reporting Issues

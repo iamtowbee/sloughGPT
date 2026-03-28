@@ -19,7 +19,7 @@ Usage:
 __version__ = "1.0.0"
 __author__ = "SloughGPT"
 __email__ = "dev@sloughgpt.ai"
-__url__ = "https://github.com/sloughgpt/sloughgpt"
+__url__ = "https://github.com/iamtowbee/sloughGPT"
 
 import sys
 import importlib.util
