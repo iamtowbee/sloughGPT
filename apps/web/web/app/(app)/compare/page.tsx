@@ -150,7 +150,9 @@ export default function ComparePage() {
 
       {comparisonData.length === 0 && !loading && (
         <div className="bg-gray-50 rounded-lg p-8 text-center">
-          <p className="text-gray-500">Click "Run Comparison" to compare benchmark results</p>
+          <p className="text-gray-500">
+            Click &quot;Run Comparison&quot; to compare benchmark results
+          </p>
         </div>
       )}
     </div>

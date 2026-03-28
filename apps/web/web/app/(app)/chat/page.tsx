@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTheme } from '@/components/ThemeProvider'
 import { api } from '@/lib/api'
 
@@ -63,7 +63,10 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null
-  const messages = activeSession?.messages ?? []
+  const messages = useMemo(
+    () => activeSession?.messages ?? [],
+    [activeSession],
+  )
   const selectedModel = activeSession?.selectedModel ?? 'gpt2'
   const settings = activeSession?.settings ?? defaultSettings
 

@@ -63,6 +63,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# TypeScript (tsc --incremental)
+*.tsbuildinfo
+
 # IDE
 .vscode/
 .idea/
