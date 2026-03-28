@@ -31,8 +31,8 @@ Modern TypeScript-based web interface for SloughGPT using Base UI components.
 ### Installation
 
 ```bash
-# Navigate to web directory
-cd web
+# From repository root — Next.js app lives under apps/web/web
+cd apps/web/web
 
 # Install dependencies
 npm install

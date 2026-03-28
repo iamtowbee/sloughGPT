@@ -618,7 +618,7 @@ python cli.py hf-download gpt2          # Download HF model
 python train_sloughgpt.py --epochs 3 --batch_size 32
 
 # Web UI
-cd web && npm run dev
+cd apps/web/web && npm run dev
 ```
 
 ---
@@ -1402,7 +1402,7 @@ python3 cli.py train --dataset shakespeare --epochs 3
 python3 cli.py cloud --api-key YOUR_KEY
 
 # Docker deployment
-docker-compose up -d api
+docker compose -f infra/docker/docker-compose.yml up -d api
 ```
 
 *Always refer to this document for project status and priorities*

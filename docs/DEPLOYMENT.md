@@ -1,5 +1,7 @@
 # SloughGPT Deployment Guide
 
+Compose examples use **Docker Compose V2** and the stack file at **`infra/docker/docker-compose.yml`** (run all commands from the **repository root**).
+
 ## Quick Start
 
 ```bash
@@ -8,7 +10,7 @@ git clone https://github.com/iamtowbee/sloughGPT.git
 cd sloughGPT
 
 # 2. Start with Docker Compose
-docker-compose up -d api
+docker compose -f infra/docker/docker-compose.yml up -d api
 
 # 3. Access the API
 curl http://localhost:8000/health
@@ -20,7 +22,7 @@ curl http://localhost:8000/health
 
 ```bash
 # Start API server
-docker-compose --profile dev up dev
+docker compose -f infra/docker/docker-compose.yml --profile dev up -d dev
 
 # Access at http://localhost:8000
 ```
@@ -28,35 +30,35 @@ docker-compose --profile dev up dev
 ### 2. Production (CPU)
 
 ```bash
-docker-compose up -d api
+docker compose -f infra/docker/docker-compose.yml up -d api
 ```
 
 ### 3. Production (GPU)
 
 ```bash
-docker-compose --profile gpu up -d api-gpu
+docker compose -f infra/docker/docker-compose.yml --profile gpu up -d api-gpu
 ```
 
 ### 4. Full Stack with Monitoring
 
 ```bash
-docker-compose --profile monitoring up -d prometheus grafana api
+docker compose -f infra/docker/docker-compose.yml --profile monitoring up -d prometheus grafana api
 ```
 
 ### 5. With Vector Store
 
 ```bash
 # ChromaDB (local)
-docker-compose --profile vector up -d chromadb api
+docker compose -f infra/docker/docker-compose.yml --profile vector up -d chromadb api
 
 # Or with Weaviate
-docker-compose --profile vector up -d weaviate api
+docker compose -f infra/docker/docker-compose.yml --profile vector up -d weaviate api
 ```
 
 ### 6. Full Production Stack
 
 ```bash
-docker-compose up -d api redis prometheus grafana
+docker compose -f infra/docker/docker-compose.yml up -d api redis prometheus grafana
 ```
 
 ## Environment Configuration
@@ -81,10 +83,10 @@ Key variables:
 
 ```bash
 # Apply Kubernetes manifests
-kubectl apply -f k8s/
+kubectl apply -f infra/k8s/k8s/
 
 # Or use Helm
-helm install sloughgpt ./helm/sloughgpt/
+helm install sloughgpt ./infra/k8s/helm/sloughgpt/ -n sloughgpt --create-namespace
 ```
 
 ### GPU Support in K8s
@@ -93,8 +95,8 @@ helm install sloughgpt ./helm/sloughgpt/
 # Install NVIDIA Device Plugin
 kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.14.5/nvidia-device-plugin.yml
 
-# Deploy with GPU
-kubectl apply -f k8s/deployment-gpu.yaml
+# Deploy with GPU: set resources.api (nvidia.com/gpu) in infra/k8s/helm/sloughgpt/values.yaml, then:
+helm upgrade --install sloughgpt ./infra/k8s/helm/sloughgpt/ -n sloughgpt --create-namespace
 ```
 
 ## API Endpoints
@@ -138,7 +140,7 @@ curl http://localhost:8000/health/ready
 kubectl scale deployment sloughgpt-api --replicas=3
 
 # Or with Docker Compose
-docker-compose up -d --scale api=3
+docker compose -f infra/docker/docker-compose.yml up -d --scale api=3
 ```
 
 ### Load Balancing
@@ -202,7 +204,7 @@ Password: admin
 
 ```bash
 # Check logs
-docker-compose logs api
+docker compose -f infra/docker/docker-compose.yml logs api
 
 # Check resource limits
 docker stats
@@ -215,7 +217,7 @@ docker stats
 MODEL_BATCH_SIZE=2
 
 # Use quantization
-docker-compose up -d api --env-file .env.minimal
+docker compose --env-file .env.minimal -f infra/docker/docker-compose.yml up -d api
 ```
 
 ### GPU Not Detected

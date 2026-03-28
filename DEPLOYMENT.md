@@ -83,11 +83,8 @@ kubectl logs -n sloughgpt -l app.kubernetes.io/component=api
 
 ### Using kubectl (Manifests)
 ```bash
-# 1. Apply manifests
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/deployment.yaml
-kubectl apply -f k8s/service.yaml
-kubectl apply -f k8s/ingress.yaml
+# 1. Apply manifests (from repository root; review YAMLs before production)
+kubectl apply -f infra/k8s/k8s/
 
 # 2. For GPU support, ensure device plugin is installed
 kubectl apply -f https://raw.githubusercontent.com/NVIDIA/device-plugin/master/nvidia-device-plugin.yml
@@ -160,9 +157,9 @@ ab -n 1000 -c 10 http://sloughgpt.example.com/health
 ### Docker Compose
 ```bash
 # Rollback to previous version
-docker-compose down
+docker compose -f infra/docker/docker-compose.yml down
 git checkout v1.0.0
-docker-compose up -d
+docker compose -f infra/docker/docker-compose.yml up -d
 ```
 
 ### Kubernetes

@@ -569,14 +569,14 @@ python -m domains --reload
 ### Production Deployment
 
 ```bash
-# Docker Compose
-docker-compose -f docker-compose.prod.yml up -d
+# Docker Compose (from repository root)
+docker compose -f infra/docker/docker-compose.yml up -d api
 
-# Kubernetes
-kubectl apply -f k8s/
+# Kubernetes (raw manifests under infra/k8s/k8s/)
+kubectl apply -f infra/k8s/k8s/
 
 # Health check
-curl http://localhost:8000/api/health
+curl http://localhost:8000/health
 ```
 
 ### Environment Configuration
