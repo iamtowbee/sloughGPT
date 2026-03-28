@@ -19,3 +19,5 @@ pip install -e ".[dev]"
 Minimal install without dev tools: `pip install -e .`
 
 See `docs/REPO_STRUCTURE_MIGRATION.md` for the full move map.
+
+Contributor and security policies: **[CONTRIBUTING.md](../CONTRIBUTING.md)** and **[SECURITY.md](../SECURITY.md)** at the repo root (symlinks to `docs/policies/`).
