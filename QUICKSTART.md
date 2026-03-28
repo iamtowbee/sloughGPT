@@ -261,8 +261,8 @@ docker compose -f infra/docker/docker-compose.yml up -d api
 # Development mode
 docker compose -f infra/docker/docker-compose.yml --profile dev up -d dev
 
-# GPU mode (NVIDIA)
-docker compose -f infra/docker/docker-compose.yml --profile gpu up -d
+# GPU mode (NVIDIA) — api-gpu only (stop the CPU api service first to avoid port 8000 conflicts)
+docker compose -f infra/docker/docker-compose.yml --profile gpu up -d api-gpu
 
 # Stop
 docker compose -f infra/docker/docker-compose.yml down
