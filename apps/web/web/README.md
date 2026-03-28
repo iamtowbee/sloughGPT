@@ -84,37 +84,28 @@ VITE_API_BASE_URL=http://your-api-server:8000
 
 ## Project Structure
 
+From the monorepo root, this app lives at **`apps/web/web/`**:
+
 ```
-web/
-├── src/
-│   ├── components/     # React components
-│   │   ├── Chat.tsx    # Chat interface
-│   │   ├── Datasets.tsx # Dataset management
-│   │   ├── Models.tsx  # Model management
-│   │   ├── Monitoring.tsx # System monitoring
-│   │   └── Home.tsx   # Dashboard home
-│   ├── store/          # Zustand state management
-│   ├── utils/          # Utility functions and API client
-│   ├── App.tsx        # Main app component
-│   ├── main.tsx       # Entry point
-│   └── index.css      # Global styles
-├── public/            # Static assets
-├── index.html        # HTML template
-├── package.json      # Dependencies
-├── vite.config.ts   # Vite configuration
-├── tailwind.config.js # Tailwind configuration
-└── tsconfig.json    # TypeScript configuration
+apps/web/web/
+├── app/                 # Next.js App Router (routes, layouts, `globals.css`)
+├── components/          # Shared React components
+├── lib/                 # API client and helpers (e.g. `lib/api.ts`)
+├── next.config.js
+├── tailwind.config.js
+├── tsconfig.json
+└── package.json
 ```
 
 ## Connecting to Backend
 
-The web UI proxies API requests through Vite's dev server. Make sure your FastAPI backend is running at `http://localhost:8000`.
+Set **`NEXT_PUBLIC_API_URL`** (see **`.env.example`**, copied to **`.env.local`** in dev) to your API base URL, usually `http://localhost:8000`.
 
-To start the backend:
+Start the API from the repo root:
 
 ```bash
-# From the project root
-python -m uvicorn domains.ui.webui:app --reload --port 8000
+python3 apps/api/server/main.py
+# or: cd apps/api/server && python3 -m uvicorn main:app --reload --port 8000
 ```
 
 ## License

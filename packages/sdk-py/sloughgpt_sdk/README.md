@@ -23,6 +23,10 @@ For all features:
 pip install sloughgpt-sdk[all]
 ```
 
+## Development (monorepo)
+
+When developing inside the **sloughGPT** repository, install from the **repo root** (`pip install -e ".[dev]"`) and run **`python3 -m pytest tests/test_sdk.py`** (same checks as CI job **`sdk-test-py`** in **`.github/workflows/ci_cd.yml`**).
+
 ## Quick Start
 
 ```python
