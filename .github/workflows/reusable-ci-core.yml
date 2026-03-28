@@ -22,7 +22,10 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+            apps/api/server/requirements.txt
 
       - name: Install lint tools
         run: |
@@ -42,7 +45,10 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+            apps/api/server/requirements.txt
 
       - name: Install dependencies
         run: |
