@@ -30,7 +30,7 @@ jobs:
           python -m pip install ruff
 
       - name: Run Ruff
-        run: ruff check . --exit-non-zero
+        run: ruff check .
 
   test:
     runs-on: ubuntu-latest
