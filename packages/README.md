@@ -8,3 +8,5 @@ Shared libraries consumed by apps.
 - `standards/` — contracts/schemas.
 
 Install from the **repository root** so imports resolve: `pip install -e ".[dev]"` (see **pyproject.toml**). Layout overview: **docs/STRUCTURE.md**.
+
+For **npm** work (`sdk-ts/typescript-sdk/` and **`apps/web/web/`**), use the **Node** version in **`.nvmrc`** at the repo root (`nvm use` / `fnm use`; matches CI).
