@@ -41,6 +41,18 @@ if [ "$all_found" = true ]; then
     echo ""
     echo "✅ Core paths present!"
     echo ""
+    if python3 -m ruff --version &>/dev/null; then
+        echo "Ruff smoke (same rules as CI)..."
+        python3 -m ruff check tests/ apps/cli/ apps/api/server/ --select E9,F63,F7,F82 || {
+            echo "❌ Ruff smoke failed"
+            exit 1
+        }
+        echo "✓ Ruff smoke passed"
+        echo ""
+    else
+        echo "(Optional: pip install ruff to run the CI lint smoke check locally.)"
+        echo ""
+    fi
     echo "To start SloughGPT:"
     echo "  1. API:  python3 apps/api/server/main.py"
     echo "     or:  cd apps/api/server && python3 -m uvicorn main:app --reload --port 8000"
