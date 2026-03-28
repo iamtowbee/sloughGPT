@@ -71,6 +71,14 @@ python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000
 ./docker-manage.sh gpu
 ```
 
+### Verify install (optional)
+From the repo root, `verify.sh` checks core paths and (if **`ruff`** is installed) runs the same lint smoke as CI. See **QUICKSTART.md** for the full install flow.
+
+```bash
+pip install ruff   # optional; skip if you only want path checks
+./verify.sh
+```
+
 ### Google Colab
 Use `sloughgpt_colab.ipynb` in the repo root. After the runtime can see the repo (clone or upload), a typical one-shot chat + model load is:
 
