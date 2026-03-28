@@ -12,6 +12,7 @@ pip install -e ".[dev]"
 ./verify.sh
 # Minimal editable install only: pip install -e .  (add dev extras or pip install ruff to use ./verify.sh lint)
 # Next.js (apps/web/web): npm ci && npm run lint && npm run typecheck — same as CI job test-web
+# TypeScript SDK (packages/sdk-ts/typescript-sdk): npm ci && npm run lint && npm run build && npm test — job test-sdk-ts
 ```
 
 ### 2. Quick Training (CLI)

@@ -64,6 +64,9 @@ if [ "$all_found" = true ]; then
     echo ""
     echo "Web CI parity (job test-web in .github/workflows/ci_cd.yml):"
     echo "  cd apps/web/web && npm ci && npm run lint && npm run typecheck"
+    echo ""
+    echo "TypeScript SDK CI parity (job test-sdk-ts):"
+    echo "  cd packages/sdk-ts/typescript-sdk && npm ci && npm run lint && npm run build && npm test"
 else
     echo ""
     echo "❌ Some files are missing!"
