@@ -20,9 +20,10 @@ pip install -r requirements.txt
 pip install -r apps/api/server/requirements.txt
 pip install -e ".[dev]"
 
-# Install Node.js dependencies
+# Install Node.js dependencies (web + TS SDK; use .nvmrc / Node 20 if you can)
 echo "📦 Installing Node.js dependencies..."
 ( cd apps/web/web && npm install )
+( cd packages/sdk-ts/typescript-sdk && npm install )
 
 # Create .env files if they don't exist
 echo "📝 Setting up environment files..."
