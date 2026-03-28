@@ -4,7 +4,7 @@ Runnable services and application entrypoints.
 
 - `api/` — FastAPI server and routers (`api/server/main.py`).
 - `web/web/` — Next.js frontend (app router under `app/`).
-- `cli/` — CLI (`sloughgpt` entrypoint via `pyproject.toml`).
+- `cli/` — CLI (`sloughgpt` entrypoint via `pyproject.toml`; see **`cli/README.md`**).
 
 ### Quick start (repo root)
 
