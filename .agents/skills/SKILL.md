@@ -48,6 +48,9 @@ SloughGPT is an enterprise-grade AI framework with production-ready ML infrastru
 ## Commands
 
 ```bash
+# Editable install (domains + apps.cli; dev extras: ruff, pytest, sloughgpt CLI)
+pip install -e ".[dev]"
+
 # Start API server
 cd apps/api/server && python3 main.py
 

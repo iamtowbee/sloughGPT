@@ -9,10 +9,12 @@ Lightweight layout:
 - `tests/` — pytest suite (root `pyproject.toml` `testpaths`)
 - `infra/docker/` — Dockerfiles and Compose file for local runs
 
-Install the core package from the repository root:
+Install the package from the repository root (dev extras include **ruff**, **pytest**, and the **`sloughgpt`** CLI entry):
 
 ```sh
-pip install -e .
+pip install -e ".[dev]"
 ```
+
+Minimal install without dev tools: `pip install -e .`
 
 See `docs/REPO_STRUCTURE_MIGRATION.md` for the full move map.
