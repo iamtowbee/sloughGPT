@@ -359,11 +359,12 @@ class OptimizedTrainer:
         # Optimizer with proper weight decay
         self.optimizer = self._create_optimizer()
         
-        # Mixed precision scaler
+        # Mixed precision scaler (CUDA amp only; CPU has no GradScaler)
         self.scaler = None
         if config.use_mixed_precision:
             dtype = torch.bfloat16 if config.dtype == "bf16" else torch.float16
-            self.scaler = GradScaler(enabled=True, init_scale=2**15)
+            if torch.cuda.is_available():
+                self.scaler = GradScaler(enabled=True, init_scale=2**15)
             print(f"Mixed precision enabled: {dtype}")
         
         # Learning rate scheduler with warmup
