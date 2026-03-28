@@ -61,6 +61,9 @@ if [ "$all_found" = true ]; then
     echo "Docker: docker compose -f infra/docker/docker-compose.yml up -d api"
     echo ""
     echo "Then open the web dev URL (often http://localhost:3000)"
+    echo ""
+    echo "Web CI parity (job test-web in .github/workflows/ci_cd.yml):"
+    echo "  cd apps/web/web && npm ci && npm run lint && npm run typecheck"
 else
     echo ""
     echo "❌ Some files are missing!"
