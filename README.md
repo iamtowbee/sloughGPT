@@ -321,6 +321,11 @@ python3 apps/api/server/main.py
 python3 packages/core-py/domains/training/train_pipeline.py --data datasets/shakespeare/input.txt --epochs 5
 ```
 
+## Contributing & security
+
+- **Contributing** — [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Security** — [SECURITY.md](SECURITY.md)
+
 ## License
 
 MIT
