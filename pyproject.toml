@@ -75,6 +75,14 @@ Homepage = "https://github.com/sloughgpt/sloughgpt"
 Documentation = "https://github.com/sloughgpt/sloughgpt#readme"
 Repository = "https://github.com/sloughgpt/sloughgpt"
 
+[tool.setuptools]
+package-dir = {"" = "packages/core-py", "apps" = "apps"}
+
+[tool.setuptools.packages.find]
+where = ["packages/core-py", "."]
+include = ["domains*", "utils*", "apps*"]
+exclude = ["tests*"]
+
 [tool.black]
 line-length = 100
 target-version = ["py39", "py310", "py311"]
