@@ -3,8 +3,8 @@
 Shared libraries consumed by apps.
 
 - `core-py/` — Python shared domain logic (`domains` package on the import path when the repo is installed); see **`core-py/README.md`**.
-- `sdk-py/` — Python SDK (`sloughgpt_sdk`).
-- `sdk-ts/typescript-sdk/` — TypeScript SDK (npm package).
+- `sdk-py/` — Python SDK (`sloughgpt_sdk`); see **`sdk-py/sloughgpt_sdk/README.md`**.
+- `sdk-ts/typescript-sdk/` — TypeScript SDK (npm package); see **`sdk-ts/typescript-sdk/README.md`**.
 - `standards/` — contracts/schemas; see **`standards/README.md`**.
 
 Install from the **repository root** so imports resolve: `pip install -e ".[dev]"` (see **pyproject.toml**). Layout overview: **docs/STRUCTURE.md**.
@@ -12,3 +12,5 @@ Install from the **repository root** so imports resolve: `pip install -e ".[dev]
 For **npm** work (`sdk-ts/typescript-sdk/` and **`apps/web/web/`**), use the **Node** version in **`.nvmrc`** at the repo root (`nvm use` / `fnm use`; matches CI).
 
 For **`sdk-py/`** changes, run **`python3 -m pytest tests/test_sdk.py`** (CI job **`sdk-test-py`**).
+
+For **`standards/`** changes, run **`pip install jsonschema && python3 scripts/validate_standards_schemas.py`** (CI job **`standards-schemas`**).
