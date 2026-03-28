@@ -80,7 +80,7 @@ pip install -e ".[dev]"   # optional; includes ruff + pytest among dev tools
 ```
 
 ### Google Colab
-Use `sloughgpt_colab.ipynb` in the repo root. After the runtime can see the repo (clone or upload), a typical one-shot chat + model load is:
+Use `sloughgpt_colab.ipynb` in the repo root. After the runtime can see the repo (clone or upload), run the dependency cell: it installs base packages plus **`pip install -e .`** so **`cli.py`** and **`domains`** imports resolve. Then a typical one-shot chat + model load is:
 
 ```bash
 python3 cli.py chat --auto-model gpt2

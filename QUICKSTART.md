@@ -375,7 +375,7 @@ SloughGPT/
 
 ## Next Steps
 
-1. **Run the notebook**: `jupyter notebook sloughgpt_colab.ipynb` (in Colab, try `python3 cli.py chat --auto-model gpt2` after setup)
+1. **Run the notebook**: `jupyter notebook sloughgpt_colab.ipynb` (in Colab: run the install cell—includes **`pip install -e .`**—then try `python3 cli.py chat --auto-model gpt2`)
 2. **Try different datasets**: Shakespeare, TinyStories, custom
 3. **Explore model architecture**: Section 5 in the notebook
 4. **Deploy with Docker**: See Docker section above
