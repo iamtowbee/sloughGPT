@@ -70,6 +70,9 @@ if [ "$all_found" = true ]; then
     echo ""
     echo "Python SDK CI parity (job sdk-test-py):"
     echo "  python3 -m pytest tests/test_sdk.py -q"
+    echo ""
+    echo "Standards CI parity (job standards-schemas):"
+    echo "  pip install jsonschema && python3 scripts/validate_standards_schemas.py"
 else
     echo ""
     echo "❌ Some files are missing!"

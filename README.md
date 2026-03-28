@@ -72,7 +72,7 @@ python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000
 ```
 
 ### Verify install (optional)
-From the repo root, `verify.sh` checks core paths and (if **`ruff`** is available) runs the same lint smoke as CI. It also prints commands that mirror CI (**`test-web`**, **`test-sdk-ts`**, **`sdk-test-py`** in **`.github/workflows/ci_cd.yml`**). See **QUICKSTART.md** for the full install flow.
+From the repo root, `verify.sh` checks core paths and (if **`ruff`** is available) runs the same lint smoke as CI. It also prints commands that mirror CI (**`test-web`**, **`test-sdk-ts`**, **`sdk-test-py`**, **`standards-schemas`** in **`.github/workflows/ci_cd.yml`**). See **QUICKSTART.md** for the full install flow.
 
 ```bash
 pip install -e ".[dev]"   # optional; includes ruff + pytest among dev tools

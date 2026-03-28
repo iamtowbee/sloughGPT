@@ -58,3 +58,6 @@ echo "  cd packages/sdk-ts/typescript-sdk && npm ci && npm run lint && npm run b
 echo ""
 echo "Before PRs that touch packages/sdk-py/sloughgpt_sdk (sdk-test-py):"
 echo "  python3 -m pytest tests/test_sdk.py -q"
+echo ""
+echo "Before PRs that touch packages/standards (standards-schemas):"
+echo "  pip install jsonschema && python3 scripts/validate_standards_schemas.py"
