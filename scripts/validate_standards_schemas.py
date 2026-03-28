@@ -33,7 +33,10 @@ def main() -> int:
         import jsonschema
         from jsonschema import validators
     except ImportError:
-        print("Install jsonschema: pip install jsonschema", file=sys.stderr)
+        print(
+            "Missing jsonschema: pip install -e \".[dev]\" (from repo root) or pip install jsonschema",
+            file=sys.stderr,
+        )
         return 1
 
     for rel, schema_name in _EXAMPLES:
