@@ -68,20 +68,12 @@ all = [
 ]
 
 [project.scripts]
-sloughgpt = "cli:main"
+sloughgpt = "apps.cli.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/sloughgpt/sloughgpt"
 Documentation = "https://github.com/sloughgpt/sloughgpt#readme"
 Repository = "https://github.com/sloughgpt/sloughgpt"
-
-[tool.setuptools]
-package-dir = {"" = "packages/core-py"}
-
-[tool.setuptools.packages.find]
-where = ["packages/core-py"]
-include = ["domains*", "utils*"]
-exclude = ["tests*"]
 
 [tool.black]
 line-length = 100

@@ -7,6 +7,8 @@
 git clone https://github.com/iamtowbee/sloughGPT.git
 cd sloughGPT
 pip install torch transformers fastapi uvicorn pydantic pytest
+# Optional: editable install registers the sloughgpt console script (entry: apps.cli.cli)
+pip install -e .
 ```
 
 ### 2. Quick Training (CLI)
