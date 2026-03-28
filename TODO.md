@@ -820,7 +820,7 @@ SloughGPT Core
 ### Phase 4: Testing & Polish
 - ✅ Unit Tests (72 tests)
 - ✅ Performance Testing (CLI: `python3 cli.py benchmark -m gpt2 -d mps`)
-- ✅ Docker Setup (Dockerfile, docker-compose.yml)
+- ✅ Docker Setup (Dockerfile, `infra/docker/docker-compose.yml`)
 - ✅ CLI Integration (benchmark, setup, docker, system)
 
 ### Phase 5: Industry Standard Optimizations
@@ -878,44 +878,44 @@ SloughGPT Core
 - Voice input
 
 ### Phase 6: Production Infrastructure & Monitoring
-- ✅ Kubernetes Deployment (`k8s/deployment.yaml`)
+- ✅ Kubernetes Deployment (`infra/k8s/k8s/deployment.yaml`)
   - API server deployment with HPA (2-10 replicas)
   - Model server deployment with GPU support
   - ConfigMap for environment variables
   - PersistentVolumeClaim for model storage
   - Service (ClusterIP + LoadBalancer)
-- ✅ Kubernetes Ingress (`k8s/ingress.yaml`)
+- ✅ Kubernetes Ingress (`infra/k8s/k8s/ingress.yaml`)
   - TLS configuration
   - WebSocket support for streaming
   - Separate routing for API and web
-- ✅ Kubernetes RBAC (`k8s/rbac.yaml`)
+- ✅ Kubernetes RBAC (`infra/k8s/k8s/rbac.yaml`)
   - ServiceAccount, Role, RoleBinding
   - ClusterRole, ClusterRoleBinding
   - Proper permissions for API server
-- ✅ Network Policies (`k8s/network-policy.yaml`)
+- ✅ Network Policies (`infra/k8s/k8s/network-policy.yaml`)
   - API, model server, and web network isolation
   - Ingress/Egress rules per service
-- ✅ Prometheus Monitoring (`k8s/prometheus.yaml`)
+- ✅ Prometheus Monitoring (`infra/k8s/k8s/prometheus.yaml`)
   - ServiceMonitor for API and model server
   - PodMonitor for detailed metrics
   - Alerting rules (high latency, error rate, GPU memory)
-- ✅ Grafana Dashboard (`grafana/dashboards/sloughgpt-dashboard.yaml`)
+- ✅ Grafana Dashboard (`infra/k8s/grafana/dashboards/sloughgpt-dashboard.yaml`)
   - Request rate and error rate panels
   - Latency percentiles (P50, P95, P99)
   - GPU memory and utilization
   - Real-time metrics visualization
 - ✅ Web UI Pages
-  - Benchmark dashboard (`web/app/(app)/benchmark/page.tsx`)
-  - Model comparison (`web/app/(app)/compare/page.tsx`)
-  - Export page (`web/app/(app)/export/page.tsx`)
+  - Benchmark dashboard (`apps/web/web/app/(app)/benchmark/page.tsx`)
+  - Model comparison (`apps/web/web/app/(app)/compare/page.tsx`)
+  - Export page (`apps/web/web/app/(app)/export/page.tsx`)
 
 ### Phase 7: Helm Chart & Docker Compose
-- ✅ Helm Chart (`helm/sloughgpt/`)
+- ✅ Helm Chart (`infra/k8s/helm/sloughgpt/`)
   - Chart.yaml with metadata
   - values.yaml with all configurable options
   - Templates: deployment, configmap, services, ingress, PVC, HPA, RBAC
   - README with usage documentation
-- ✅ Docker Compose (`docker-compose.yml`)
+- ✅ Docker Compose (`infra/docker/docker-compose.yml`)
   - API server (CPU)
   - GPU version (NVIDIA CUDA)
   - Development mode with hot reload

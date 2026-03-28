@@ -56,15 +56,17 @@ kubectl logs -n sloughgpt -l app.kubernetes.io/component=api
 
 ## Production Usage
 
+From the **repository root** (chart path is `infra/k8s/helm/sloughgpt`):
+
 ```bash
 # Create namespace
 kubectl create namespace sloughgpt
 
 # Install with values file
-helm install sloughgpt ./helm/sloughgpt -n sloughgpt -f values-production.yaml
+helm install sloughgpt ./infra/k8s/helm/sloughgpt/ -n sloughgpt -f values-production.yaml
 
 # Upgrade
-helm upgrade sloughgpt ./helm/sloughgpt -n sloughgpt
+helm upgrade sloughgpt ./infra/k8s/helm/sloughgpt/ -n sloughgpt
 ```
 
 ## GPU Support
