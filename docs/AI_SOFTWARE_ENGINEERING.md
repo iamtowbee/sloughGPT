@@ -7,7 +7,7 @@ This document describes how SloughGPT is structured for **reliable, observable, 
 1. **HTTP boundary** — FastAPI routes validate and serialize I/O (`apps/api/server/training/router.py`, standards-based `/v1/infer`). No heavyweight model logic here beyond orchestration.
 2. **Domain** — Training pipelines, manifests, evaluation (`packages/core-py/domains/training/`, `packages/core-py/domains/ml_infrastructure/`). Pure-ish logic, testable without the server.
 3. **Model runtime** — Loading, generation, quantization (API globals and `packages/core-py/domains/`). Keep a single ownership path for “what model is loaded” to avoid split brain.
-4. **Clients** — Web (`apps/web/web/lib/api.ts`), Python SDK (`packages/sdk-py/sloughgpt_sdk/`): mirror server field names for JSON (`snake_case` from Pydantic).
+4. **Clients** — Web (`apps/web/web/lib/api.ts`), Python SDK (`packages/sdk-py/sloughgpt_sdk/`), TypeScript SDK (`packages/sdk-ts/typescript-sdk/`): mirror server field names for JSON (`snake_case` from Pydantic).
 
 Refactor direction: **shrink `apps/api/server/main.py`** by moving more `APIRouter` modules under `apps/api/server/<domain>/` (see `apps/api/server/training/` for the pattern: `schemas.py`, `resolution.py`, `jobs.py`, `router.py`).
 
