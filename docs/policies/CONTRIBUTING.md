@@ -10,6 +10,7 @@ Thanks for helping improve SloughGPT.
    - `./verify.sh` and `python3 -m pytest tests/` (Python; CI subset in **`.github/workflows/reusable-ci-core.yml`**).
    - If you touch **`apps/web/web/`**: `cd apps/web/web && npm ci && npm run lint && npm run typecheck` (job **`test-web`**).
    - If you touch **`packages/sdk-ts/typescript-sdk/`**: `cd packages/sdk-ts/typescript-sdk && npm ci && npm run lint && npm run build && npm test` (job **`test-sdk-ts`**).
+   - If you touch **`packages/sdk-py/sloughgpt_sdk/`**: `python3 -m pytest tests/test_sdk.py -q` (job **`sdk-test-py`**).
 4. **Open a PR** with a clear description of intent and scope (see **`.github/pull_request_template.md`**).
 
 ## Issues

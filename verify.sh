@@ -67,6 +67,9 @@ if [ "$all_found" = true ]; then
     echo ""
     echo "TypeScript SDK CI parity (job test-sdk-ts):"
     echo "  cd packages/sdk-ts/typescript-sdk && npm ci && npm run lint && npm run build && npm test"
+    echo ""
+    echo "Python SDK CI parity (job sdk-test-py):"
+    echo "  python3 -m pytest tests/test_sdk.py -q"
 else
     echo ""
     echo "❌ Some files are missing!"
