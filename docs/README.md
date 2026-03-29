@@ -1,7 +1,7 @@
 # SloughGPT - Enterprise AI Framework
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/iamtowbee/sloughGPT)
-[![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
+[![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](https://codecov.io)
 
@@ -14,20 +14,26 @@ A **comprehensive enterprise-grade AI framework** for training, deploying, and m
 ```bash
 # Clone the repository
 git clone https://github.com/iamtowbee/sloughGPT.git
-cd sloughgpt
+cd sloughGPT
 
-# Install dependencies
-pip install -r requirements.txt
+# Editable install + dev tools (ruff, pytest, jsonschema, sloughgpt CLI)
+pip install -e ".[dev]"
 
-# Initialize the framework
-python -m sloughgpt setup
+# Optional: path checks + CI parity hints
+./verify.sh
 
-# Start the API server
-python -m sloughgpt serve --host 0.0.0.0 --port 8000
+# API (FastAPI)
+python3 apps/api/server/main.py
+# Docs: http://localhost:8000/docs
 
-# Launch admin dashboard
-python -m sloughgpt admin --port 8080
+# Web UI (separate terminal; needs Node per repo root .nvmrc)
+cd apps/web/web && npm install && npm run dev
+
+# CLI
+python3 cli.py --help
 ```
+
+See **[QUICKSTART.md](../QUICKSTART.md)** for the full flow.
 
 ## ✨ Features
 
