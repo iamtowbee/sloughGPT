@@ -55,10 +55,10 @@ SloughGPT uses a domain-driven architecture where each domain represents a bound
 
 ### Prerequisites
 
-- **Python**: 3.8+ with type hints support
+- **Python**: 3.9+ with type hints support
 - **Git**: For version control
 - **Docker**: For containerized development
-- **Node.js**: 16+ (for web development)
+- **Node.js**: 20 (match repo root **`.nvmrc`** for the web app)
 - **Make**: For build automation
 
 ### Environment Setup
@@ -66,11 +66,11 @@ SloughGPT uses a domain-driven architecture where each domain represents a bound
 ```bash
 # Clone repository
 git clone https://github.com/iamtowbee/sloughGPT.git
-cd sloughgpt
+cd sloughGPT
 
 # Create virtual environment
-python -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 
 # Install development dependencies
 pip install -e ".[dev]"
@@ -98,7 +98,7 @@ git checkout -b feature/your-feature-name
 
 3. **Run Tests**
 ```bash
-pytest tests/your-domain/ -v --cov=domains.your_domain
+pytest tests/ -q -k "your_keyword"
 ```
 
 4. **Commit Changes**
@@ -308,20 +308,17 @@ omit = [
 ### Running Tests
 
 ```bash
-# Run all tests
-pytest
+# Run all tests (from repository root)
+python3 -m pytest tests/ -q
 
-# Run specific test suite
-pytest tests/unit/ -v
+# Run a subset
+python3 -m pytest tests/test_api.py -v
 
-# Run with coverage
-pytest --cov=domains --cov-report=html
+# Run with coverage (domains live under packages/core-py)
+python3 -m pytest tests/ --cov=domains --cov-report=html
 
-# Run performance tests
-pytest tests/performance/ -v
-
-# Run specific test file
-pytest tests/unit/test_memory.py -v -k "test_store_memory"
+# Run integration-focused tests
+python3 -m pytest tests/test_integration.py -v
 ```
 
 ## 📊 Monitoring & Debugging
@@ -557,13 +554,13 @@ class JWTManager:
 ### Development Deployment
 
 ```bash
-# Run all services locally
-python -m domains
+# API (FastAPI; default port 8000)
+python3 apps/api/server/main.py
+# or, with reload:
+# cd apps/api/server && python3 -m uvicorn main:app --reload --port 8000
 
-# Run with hot reload
-export FLASK_ENV=development
-export SLOUGHGPT_DEBUG=1
-python -m domains --reload
+# Web UI (separate terminal; port 3000)
+cd apps/web/web && npm install && npm run dev
 ```
 
 ### Production Deployment
@@ -764,9 +761,9 @@ async def chat_endpoint(request: ChatRequest):
 ```bash
 # Clone and set up
 git clone https://github.com/iamtowbee/sloughGPT.git
-cd sloughgpt
-python -m venv venv
-source venv/bin/activate
+cd sloughGPT
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e ".[dev]"
 
 # Set up environment
@@ -777,27 +774,24 @@ cp .env.example .env
 ### Running Tests
 
 ```bash
-# Run specific domain tests
-pytest tests/cognitive/ -v
+# Full suite
+python3 -m pytest tests/ -q
 
-# Run integration tests
-pytest tests/integration/ -v
+# Integration tests
+python3 -m pytest tests/test_integration.py -v
 
 # Run with coverage
-pytest --cov=domains --cov-report=html
+python3 -m pytest tests/ --cov=domains --cov-report=html
 ```
 
-### Development Server
+### Development servers
 
 ```bash
-# Run all services
-python -m domains
+# API (http://localhost:8000 — OpenAPI at /docs)
+python3 apps/api/server/main.py
 
-# Run with configuration
-python -m domains --config development.toml
-
-# Run with reload
-python -m domains --reload --port 8080
+# Web UI (http://localhost:3000)
+cd apps/web/web && npm run dev
 ```
 
 ---

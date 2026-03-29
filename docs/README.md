@@ -80,7 +80,7 @@ See **[QUICKSTART.md](../QUICKSTART.md)** for the full flow.
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Web Client   │    │  Admin Dashboard │    │  API Client    │
+│   Web Client   │    │   Web UI (Next)  │    │  API Client    │
 └─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
           │                      │                      │
           └──────────────────────┼──────────────────────┘
