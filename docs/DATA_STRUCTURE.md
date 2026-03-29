@@ -3,6 +3,8 @@
 We store codebase data in JSONL so it can be streamed efficiently and turned
 into `train.bin` / `val.bin` later.
 
+**Note:** A **`repo_obtainer.py`** driver is **not** checked into this repository; the commands below are the **intended** interface once that tool exists or is vendored. Use **`python3`** on Unix/macOS.
+
 ## JSONL schema (corpus export)
 ```json
 {
@@ -38,7 +40,7 @@ This writes to `runs/repo_corpus/<repo>.jsonl`.
 
 Generate:
 ```sh
-python repo_obtainer.py export --source https://github.com/user/repo.git --format map
+python3 repo_obtainer.py export --source https://github.com/user/repo.git --format map
 ```
 
 This writes to `runs/repo_map/<repo>.jsonl`.
