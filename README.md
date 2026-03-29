@@ -325,6 +325,7 @@ python3 packages/core-py/domains/training/train_pipeline.py --data datasets/shak
 
 - **Contributing** — [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Security** — [SECURITY.md](SECURITY.md)
+- **Agents / automation** — [AGENTS.md](AGENTS.md) (links [`.agents/skills/SKILL.md`](.agents/skills/SKILL.md) and structure docs)
 
 ## License
 

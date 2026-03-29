@@ -392,5 +392,6 @@ SloughGPT/
 - **GitHub**: https://github.com/iamtowbee/sloughGPT
 - **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Security**: [SECURITY.md](SECURITY.md)
+- **Agents**: [AGENTS.md](AGENTS.md)
 - **API Docs**: http://localhost:8000/docs
 - **Tests**: `python3 -m pytest tests/`
