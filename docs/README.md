@@ -200,76 +200,34 @@ response = requests.post("http://localhost:8000/generate",
 print(response.json())
 ```
 
-### Admin Dashboard
+### Web UI & API
 
-Access the admin dashboard at `http://localhost:8080`:
-
-- **Real-time Metrics** - Monitor system health and performance
-- **User Management** - Manage users, roles, and permissions  
-- **Cost Analytics** - Track usage and optimize spending
-- **Model Management** - Deploy and monitor AI models
-- **Audit Logs** - Review system activity and security events
+- **Web (dev):** `http://localhost:3000` — `cd apps/web/web && npm run dev` (Node per repo root **`.nvmrc`**).
+- **API docs:** `http://localhost:8000/docs` — `python3 apps/api/server/main.py` from the repo root.
 
 ## 🔧 Development
 
-### Setup Development Environment
+### Setup development environment
 
 ```bash
-# Clone repository
 git clone https://github.com/iamtowbee/sloughGPT.git
-cd sloughgpt
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install development dependencies
-pip install -r requirements-dev.txt
-
-# Run tests
-python -m pytest sloughgpt/tests/ -v
-
-# Run with coverage
-python -m pytest --cov=sloughgpt --cov-report=html
+cd sloughGPT
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+./verify.sh
+python3 -m pytest tests/ -q
 ```
 
-### Project Structure
+See **[QUICKSTART.md](../QUICKSTART.md)** and **[CONTRIBUTING.md](../CONTRIBUTING.md)** (CI parity, PR template).
 
-```
-sloughgpt/
-├── sloughgpt/              # Main package
-│   ├── core/              # Core infrastructure
-│   │   ├── database.py    # Database management
-│   │   ├── security.py    # Security middleware
-│   │   ├── performance.py # Performance optimization
-│   │   └── logging_system.py # Structured logging
-│   ├── admin/             # Admin dashboard
-│   │   ├── admin_app.py   # FastAPI admin server
-│   │   ├── admin_routes.py # API endpoints
-│   │   └── admin_utils.py # Dashboard utilities
-│   ├── tests/             # Test suite
-│   │   ├── test_integration.py # Integration tests
-│   │   └── conftest.py    # Test configuration
-│   ├── config.py          # Configuration management
-│   ├── neural_network.py   # Transformer model
-│   ├── trainer.py         # Training framework
-│   ├── api_server.py      # Main API server
-│   └── ...                # Other modules
-├── docs/                  # Documentation
-├── scripts/               # Utility scripts
-├── requirements.txt       # Dependencies
-└── README.md             # This file
-```
+### Project structure
+
+See **[STRUCTURE.md](STRUCTURE.md)** for `apps/`, `packages/`, `tests/`, `infra/`, and CI workflows.
 
 ### Contributing
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes and add tests
-4. Run the test suite: `python -m pytest`
-5. Commit your changes: `git commit -m 'Add amazing feature'`
-6. Push to the branch: `git push origin feature/amazing-feature`
-7. Open a Pull Request
+Follow **[CONTRIBUTING.md](../CONTRIBUTING.md)** and **[SECURITY.md](../SECURITY.md)**.
 
 ## 📊 Benchmarks
 
