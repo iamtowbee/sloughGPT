@@ -2,14 +2,16 @@
 
 This guide explains how to export SloughGPT models for use with [llama.rn](https://github.com/nicktasios/llama.rn), a React Native library for running GGUF-format language models on mobile devices.
 
+Run **`python`** / **`python3`** examples from the **repository root** (where **`cli.py`** and **`train_sloughgpt.py`** live) after `pip install -e ".[dev]"` (or `pip install -e .`).
+
 ## Quick Start
 
 ```bash
 # Export a model in GGUF format optimized for mobile
-python cli.py export models/sloughgpt.safetensors --format gguf_q4_k_m
+python3 cli.py export models/sloughgpt.safetensors --format gguf_q4_k_m
 
-# Or with the training script
-python train_sloughgpt.py --save_format gguf --save_quantized Q4_K_M
+# Or with the training script (writes GGUF per --save_path / defaults)
+python3 train_sloughgpt.py --save_format gguf --save_quantized Q4_K_M
 ```
 
 ## Supported Quantization Formats
@@ -92,22 +94,22 @@ for await (const chunk of session.prompt('Tell me a story', {
 
 ```bash
 # Q4_K_M (recommended for most devices)
-python cli.py export models/sloughgpt.safetensors --format gguf_q4_k_m
+python3 cli.py export models/sloughgpt.safetensors --format gguf_q4_k_m
 
 # Q5_K_M (higher quality)
-python cli.py export models/sloughgpt.safetensors --format gguf_q5_k_m
+python3 cli.py export models/sloughgpt.safetensors --format gguf_q5_k_m
 
 # Q8_0 (near-perfect quality)
-python cli.py export models/sloughgpt.safetensors --format gguf_q8_0
+python3 cli.py export models/sloughgpt.safetensors --format gguf_q8_0
 
 # FP16 (development only - very large)
-python cli.py export models/sloughgpt.safetensors --format gguf_fp16
+python3 cli.py export models/sloughgpt.safetensors --format gguf_fp16
 ```
 
 ### From Training Script
 
 ```bash
-python train_sloughgpt.py \
+python3 train_sloughgpt.py \
   --data datasets/shakespeare/input.txt \
   --epochs 10 \
   --save_format gguf \

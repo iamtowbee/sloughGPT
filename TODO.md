@@ -598,24 +598,25 @@ domains/inference/
 ## Quick Reference: Commands
 
 ```bash
-# API Server
-uvicorn server.main:app --host 0.0.0.0 --port 8000
+# API Server (repo root)
+python3 apps/api/server/main.py
+# or: cd apps/api/server && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
 
-# CLI
-python cli.py --help
-python cli.py quick --prompt "Hello"     # Quick train & generate
-python cli.py train --dataset shakespeare # Full training
-python cli.py demo                      # Run all system demos
-python cli.py demo --component rag      # Run specific component demo
-python cli.py rlhf --steps 100         # Run RLHF training demo
-python cli.py cloud --api-key KEY # Setup Pinecone vector store
-python cli.py export models/slough.pt --format sou  # Export
-python cli.py export models/slough.pt --format onnx  # ONNX
-python cli.py export models/slough.pt --format gguf_q4_k_m  # GGUF for mobile
-python cli.py hf-download gpt2          # Download HF model
+# CLI (repo root)
+python3 cli.py --help
+python3 cli.py quick --prompt "Hello"     # Quick train & generate
+python3 cli.py train --dataset shakespeare # Full training
+python3 cli.py demo                      # Run all system demos
+python3 cli.py demo --component rag      # Run specific component demo
+python3 cli.py rlhf --steps 100         # Run RLHF training demo
+python3 cli.py cloud --api-key KEY # Setup Pinecone vector store
+python3 cli.py export models/slough.pt --format sou  # Export
+python3 cli.py export models/slough.pt --format onnx  # ONNX
+python3 cli.py export models/slough.pt --format gguf_q4_k_m  # GGUF for mobile
+python3 cli.py hf-download gpt2          # Download HF model
 
-# Training script
-python train_sloughgpt.py --epochs 3 --batch_size 32
+# Training script (repo root)
+python3 train_sloughgpt.py --epochs 3 --batch_size 32
 
 # Web UI
 cd apps/web/web && npm run dev
@@ -1199,7 +1200,7 @@ SloughGPT Core
 
 **NanoGPT Refactoring (24→0 files):**
 - ✅ `cli.py` - uses `SoulEngine` + `NanoGPTModel` from `domains.models`
-- ✅ `train_sloughgpt.py` - uses `NanoGPTModel` from `domains.models`
+- ✅ `train_sloughgpt.py` - uses `SloughGPTModel` from `domains.models`
 - ✅ `domains/training/train_pipeline.py` - uses `NanoGPTModel`
 - ✅ `domains/training/model_loader.py` - uses `NanoGPTModel`
 - ✅ `domains/training/inference_engine.py` - uses `NanoGPTModel`
