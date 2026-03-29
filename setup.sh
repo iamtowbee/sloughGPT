@@ -477,7 +477,7 @@ print_next_steps() {
         echo -e "   ${GREEN}conda activate $CONDA_ENV${NC}"
         echo ""
         echo "2. Or use conda run (no activation needed):"
-        echo -e "   ${GREEN}conda run -n $CONDA_ENV python cli.py train --epochs 3${NC}"
+        echo -e "   ${GREEN}conda run -n $CONDA_ENV python3 cli.py train --epochs 3${NC}"
         echo -e "   ${GREEN}./run.sh python -c \"import torch; print(torch.__version__)\"${NC}"
         echo ""
     else
@@ -489,7 +489,7 @@ print_next_steps() {
         echo -e "   ${GREEN}source $VENV_DIR/bin/activate${NC}"
         echo ""
         echo "2. Or use ./run.sh (no activation needed):"
-        echo -e "   ${GREEN}./run.sh python cli.py train --epochs 3${NC}"
+        echo -e "   ${GREEN}./run.sh python3 cli.py train --epochs 3${NC}"
         echo ""
     fi
     

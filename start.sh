@@ -39,7 +39,7 @@ echo ""
 # Check Python
 log_info "Checking Python..."
 if ! command -v python3 &> /dev/null; then
-    log_error "Python 3 not found. Please install Python 3.8+"
+    log_error "Python 3 not found. Please install Python 3.9+"
     exit 1
 fi
 PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
@@ -115,7 +115,7 @@ case $MODE in
         echo ""
         echo "Examples:"
         echo "  $0                    # Dev mode, port 8000"
-        echo "  $0 production 8080     # Prod mode, port 8080"
+        echo "  $0 production 8080     # Prod API (uvicorn) on port 8080"
         echo "  $0 docker             # Docker mode"
         ;;
     *)

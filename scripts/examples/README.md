@@ -4,15 +4,14 @@ Example scripts demonstrating SloughGPT features.
 
 ## Running Examples
 
+From the **repository root**, after `pip install -e ".[dev]"` (or `pip install -e .`):
+
 ```bash
-# Training example
-python train_example.py
+cd scripts/examples
 
-# Inference example
-python inference_example.py
-
-# Benchmark example
-python benchmark_example.py
+python3 train_example.py
+python3 inference_example.py
+python3 benchmark_example.py
 ```
 
 ## Examples

@@ -1,6 +1,8 @@
 # SLO Configuration System
 
-This system provides a Dockerfile/Modelfile-style configuration format for SLO training.
+**Status:** This document describes a **planned** `.config` format. This repository does **not** currently ship a `train.py` driver or `config/*.config` files at the repo root. For working training flows today, use **`train_sloughgpt.py`**, **`domains.training.train_pipeline`**, or **`cli.py train`** (see **QUICKSTART.md**).
+
+This system is intended to provide a Dockerfile/Modelfile-style configuration format for SLO training.
 
 ## Format
 
@@ -42,16 +44,14 @@ DDP backend=nccl
 - `ADVANCED` - Advanced model features
 - `ENV` - Environment variables
 
-## Usage
+## Usage (planned)
 
 ```bash
-# Use new .config files
-python train.py config/small.config
-python train.py config/standard.config --batch_size=16
-python train.py config/large.config
-
-# Still supports legacy .py files
-python train.py config/train_mydata.py
+# Intended interface (not present in the repo yet)
+python3 train.py config/small.config
+python3 train.py config/standard.config --batch_size=16
+python3 train.py config/large.config
+python3 train.py config/train_mydata.py
 ```
 
 ## Inheritance
