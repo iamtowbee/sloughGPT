@@ -215,7 +215,7 @@ python3 train_sloughgpt.py --data data.txt --export_sou --soul_name "MyModel"
 
 ### Export from any checkpoint
 ```bash
-python -c "from domains.training.export import export_model, ExportConfig; \
+python3 -c "from domains.training.export import export_model, ExportConfig; \
   from domains.inference.sou_format import create_soul_profile; \
   export_model(ExportConfig(input_path='model.pt', output_path='model', format='sou'))"
 ```

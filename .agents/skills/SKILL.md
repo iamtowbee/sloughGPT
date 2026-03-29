@@ -59,6 +59,7 @@ cd apps/web/web && npm run dev
 
 # Run tests
 python3 -m pytest tests/ -q
+# or (uses .venv when present): ./run.sh python3 -m pytest tests/ -q
 
 # CLI (repo root)
 python3 apps/cli/cli.py --help

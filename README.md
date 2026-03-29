@@ -77,6 +77,7 @@ From the repo root, `verify.sh` checks core paths and (if **`ruff`** is availabl
 ```bash
 pip install -e ".[dev]"   # optional; includes ruff + pytest among dev tools
 ./verify.sh
+# ./run.sh puts .venv/bin on PATH when present — e.g. ./run.sh python3 -m pytest tests/ -q
 ```
 
 ### Google Colab

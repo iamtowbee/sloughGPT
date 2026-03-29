@@ -16,9 +16,9 @@ echo "📌 Node.js version: $node_version"
 
 # Install Python dependencies
 echo "📦 Installing Python dependencies..."
-pip install -r requirements.txt
-pip install -r apps/api/server/requirements.txt
-pip install -e ".[dev]"
+python3 -m pip install -r requirements.txt
+python3 -m pip install -r apps/api/server/requirements.txt
+python3 -m pip install -e ".[dev]"
 
 # Install Node.js dependencies (web + TS SDK; use .nvmrc / Node 20 if you can)
 echo "📦 Installing Node.js dependencies..."
