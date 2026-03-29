@@ -140,44 +140,21 @@ LOG_LEVEL=INFO
 
 ### Basic Usage
 
+Training and model code live under **`packages/core-py/domains/`** (import as **`domains`** after `pip install -e .` from the repo root).
+
 ```python
-from sloughgpt import SloughGPTConfig, SloughGPT, SloughGPTTrainer
-from sloughgpt.auth import AuthManager
-from sloughgpt.cost_optimization import CostOptimizer
+from domains.training.train_pipeline import SloughGPTTrainer
 
-# Initialize configuration
-config = SloughGPTConfig(
-    model_config={
-        "model_name": "gpt2-medium",
-        "hidden_size": 1024,
-        "num_attention_heads": 16,
-        "num_hidden_layers": 24
-    }
+# Text file corpus; trainer builds the model and runs the loop (see train_pipeline.py)
+trainer = SloughGPTTrainer(
+    data_path="path/to/corpus.txt",
+    epochs=1,
+    max_steps=500,
 )
-
-# Create model
-model = SloughGPT(config)
-
-# Initialize trainer
-trainer = SloughGPTTrainer(config)
-
-# Start training
-trainer.train(model, data="your_training_data")
-
-# Setup authentication
-auth = AuthManager()
-user = await auth.create_user(
-    email="user@example.com",
-    password="secure_password"
-)
-
-# Track costs
-cost_optimizer = CostOptimizer()
-await cost_optimizer.set_user_budget(
-    user_id=user.id,
-    monthly_budget=500.0
-)
+trainer.train()
 ```
+
+For HTTP access to a running API, use the **Python SDK** (`packages/sdk-py/sloughgpt_sdk`) or **TypeScript SDK** (`packages/sdk-ts/typescript-sdk`); see **`docs/API.md`**.
 
 ### API Integration
 
@@ -188,15 +165,18 @@ import requests
 response = requests.get("http://localhost:8000/health")
 print(response.json())
 
-# Generate text
-headers = {"Authorization": "Bearer your_token"}
+# Generate text (body matches FastAPI GenerateRequest in apps/api/server/main.py)
+headers = {"Authorization": "Bearer your_token"}  # if your deployment requires auth
 data = {
     "prompt": "Explain artificial intelligence",
-    "max_tokens": 100,
-    "temperature": 0.7
+    "max_new_tokens": 100,
+    "temperature": 0.7,
 }
-response = requests.post("http://localhost:8000/generate", 
-                        json=data, headers=headers)
+response = requests.post(
+    "http://localhost:8000/generate",
+    json=data,
+    headers=headers,
+)
 print(response.json())
 ```
 

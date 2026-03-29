@@ -214,8 +214,9 @@ conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvi
 
 **Solution**:
 ```bash
-chmod +x sloughgpt.py
-chmod +x install.sh
+chmod +x install.sh verify.sh
+# Optional: repo-root CLI wrapper
+chmod +x cli.py
 ```
 
 ### Verification Steps
