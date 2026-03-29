@@ -98,16 +98,17 @@ python3 apps/cli/cli.py --help
 # Full suite (from repo root)
 python3 -m pytest tests/ -q
 
-# Optional: path checks + same ruff smoke as CI
+# Optional: path checks + same ruff smoke as CI (prints parity commands for ci_cd.yml jobs)
 ./verify.sh
 ```
 
-CI runs a subset of tests; see `.github/workflows/reusable-ci-core.yml`.
+- **Python CI subset:** `.github/workflows/reusable-ci-core.yml` (`workflow_call`).
+- **Also in `ci_cd.yml`:** `test-web`, `test-sdk-ts`, `sdk-test-py`, `standards-schemas` (run `python3 scripts/validate_standards_schemas.py`; `jsonschema` is in `pip install -e ".[dev]"`).
 
 ## Environment
 
 - Python 3.9+ (use `python3` command)
-- Node.js for web
+- Node.js **20** for web / TS SDK (repo root **`.nvmrc`**; matches CI `setup-node`)
 - SQLite for data (server/database.sqlite)
 
 ## Gaps Filled (Recent)
