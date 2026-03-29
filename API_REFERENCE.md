@@ -793,9 +793,9 @@ X-RateLimit-Reset: 1709522400
 ## Support
 
 For API support:
-- Documentation: https://docs.sloughgpt.io/api
-- Issues: https://github.com/your-org/sloughgpt/issues
-- Email: api-support@sloughgpt.io
+- Documentation: https://github.com/iamtowbee/sloughGPT#readme
+- Issues: https://github.com/iamtowbee/sloughGPT/issues
+- Email: dev@sloughgpt.ai (see **pyproject.toml** authors)
 
 ---
 

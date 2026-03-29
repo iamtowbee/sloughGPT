@@ -419,38 +419,25 @@ API requests are rate-limited to prevent abuse:
 
 ### Python SDK
 ```python
-from sloughgpt.client import SloughGPTClient
+from sloughgpt_sdk import SloughGPTClient
 
-# Initialize client
-client = SloughGPTClient(
-    base_url="http://localhost:8000",
-    api_key="your-api-key"
-)
+# Initialize client (package: packages/sdk-py/sloughgpt_sdk)
+client = SloughGPTClient(base_url="http://localhost:8000", api_key="your-api-key")
 
-# Authentication
-client.login("username", "password")
-
-# Chat
-response = client.chat.send_message("Hello, AI!")
-print(response.response)
+# Use client methods per SDK README (chat, inference, etc.)
 ```
 
-### JavaScript SDK
+### JavaScript / TypeScript SDK
 ```javascript
-import { SloughGPTClient } from '@sloughgpt/client';
+import { SloughGPTClient } from '@sloughgpt/typescript-sdk';
 
-// Initialize client
+// Initialize client (package: packages/sdk-ts/typescript-sdk)
 const client = new SloughGPTClient({
-    baseURL: 'http://localhost:8000',
-    apiKey: 'your-api-key'
+  baseURL: 'http://localhost:8000',
+  apiKey: 'your-api-key',
 });
 
-// Authentication
-await client.authenticate('username', 'password');
-
-// Chat
-const response = await client.chat.sendMessage('Hello, AI!');
-console.log(response.response);
+// Use client methods per SDK README
 ```
 
 ## 🚀 WebSocket Support
@@ -489,17 +476,14 @@ The complete OpenAPI 3.0 specification is available at:
 
 ### Running Tests
 ```bash
-# Install test dependencies
-pip install -e ".[test]"
+# From repository root (dev extras: pytest, pytest-cov, …)
+pip install -e ".[dev]"
 
-# Run all tests
-pytest tests/api/
+# API-related tests live under tests/
+python3 -m pytest tests/test_api.py tests/server/ -q
 
-# Run specific test suite
-pytest tests/api/test_auth.py -v
-
-# Run with coverage
-pytest tests/api/ --cov=domains.api --cov-report=html
+# With coverage
+python3 -m pytest tests/ --cov=domains --cov-report=html
 ```
 
 ### Test Coverage

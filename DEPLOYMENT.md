@@ -28,7 +28,7 @@
 ```bash
 # 1. Clone repository
 git clone https://github.com/iamtowbee/sloughGPT.git
-cd SloughGPT
+cd sloughGPT
 
 # 2. Copy environment file
 cp .env.example .env

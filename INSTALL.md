@@ -74,7 +74,6 @@ docker pull ghcr.io/iamtowbee/sloughgpt:latest
 docker run -d \
   --name sloughgpt-api \
   -p 8000:8000 \
-  -p 8080:8080 \
   -e DATABASE_URL=sqlite:///sloughgpt.db \
   -e JWT_SECRET_KEY=your-secret-key \
   ghcr.io/iamtowbee/sloughgpt:latest
@@ -94,7 +93,6 @@ docker build -f infra/docker/Dockerfile -t sloughgpt:local .
 docker run -d \
   --name sloughgpt-local \
   -p 8000:8000 \
-  -p 8080:8080 \
   -v $(pwd)/config:/app/config \
   -v $(pwd)/data:/app/data \
   sloughgpt:local
@@ -144,7 +142,7 @@ BCRYPT_ROUNDS=12
 # API Settings
 API_HOST=0.0.0.0
 API_PORT=8000
-ADMIN_PORT=8080
+# Web UI (local dev): Next.js in apps/web/web — typically http://localhost:3000
 
 # Logging
 LOG_LEVEL=INFO
@@ -224,7 +222,7 @@ chmod +x install.sh
 
 ```bash
 # 1. Check Python version
-python3 --version  # Should be 3.8+
+python3 --version  # Should be 3.9+
 
 # 2. Check critical imports
 python3 -c "
@@ -235,19 +233,18 @@ except ImportError as e:
     print(f'❌ Missing dependency: {e}')
 "
 
-# 3. Test basic functionality
+# 3. Test basic functionality (after pip install -e . from repo root)
 python3 -c "
 try:
-    from sloughgpt import SloughGPTConfig
-    config = SloughGPTConfig()
-    print('✅ Configuration system OK')
+    import domains
+    print('✅ domains package OK')
 except Exception as e:
-    print(f'❌ Configuration error: {e}')
+    print(f'❌ Import error: {e}')
 "
 
-# 4. Check ports
-lsof -i :8000  # Should be free
-lsof -i :8080  # Should be free
+# 4. Check ports (API vs Next.js dev server)
+lsof -i :8000  # Should be free before starting API
+lsof -i :3000  # Should be free before npm run dev (web)
 ```
 
 ## Platform-Specific Instructions

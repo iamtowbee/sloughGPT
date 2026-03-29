@@ -23,19 +23,19 @@ check_python() {
     
     if command -v python3 &> /dev/null; then
         PYTHON_VERSION=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-        REQUIRED_VERSION="3.8"
+        REQUIRED_VERSION="3.9"
         
-        if python3 -c "import sys; exit(0 if sys.version_info >= (3, 8) else 1)"; then
+        if python3 -c "import sys; exit(0 if sys.version_info >= (3, 9) else 1)"; then
             echo -e "${GREEN}✅ Python $PYTHON_VERSION found${NC}"
             PYTHON_CMD="python3"
         else
             echo -e "${RED}❌ Python $PYTHON_VERSION found (requires >= $REQUIRED_VERSION)${NC}"
-            echo -e "${YELLOW}Please install Python 3.8 or higher${NC}"
+            echo -e "${YELLOW}Please install Python 3.9 or higher${NC}"
             exit 1
         fi
     else
         echo -e "${RED}❌ Python 3 not found${NC}"
-        echo -e "${YELLOW}Please install Python 3.8 or higher${NC}"
+        echo -e "${YELLOW}Please install Python 3.9 or higher${NC}"
         exit 1
     fi
 }
@@ -177,7 +177,7 @@ BCRYPT_ROUNDS=12
 # API Settings
 API_HOST=127.0.0.1
 API_PORT=8000
-ADMIN_PORT=8080
+# Web UI (local): cd apps/web/web && npm run dev — http://localhost:3000
 
 # Logging
 LOG_LEVEL=INFO
@@ -210,13 +210,11 @@ run_tests() {
     echo -e "${BLUE}   Testing SloughGPT import...${NC}"
     $PYTHON_CMD -c "
 try:
-    import sys
-    sys.path.insert(0, '.')
-    from sloughgpt import SloughGPTConfig
-    config = SloughGPTConfig()
-    print('✅ SloughGPT import successful')
+    import domains
+    print('✅ domains package import successful')
 except Exception as e:
     print(f'❌ Import failed: {e}')
+    import sys
     sys.exit(1)
 "
     
@@ -232,14 +230,14 @@ except Exception as e:
 show_next_steps() {
     echo -e "${BLUE}🎯 Installation Complete! Next Steps:${NC}"
     echo
-    echo -e "${GREEN}1. Start API Server:${NC}"
-    echo -e "   $PYTHON_CMD sloughgpt.py serve"
+    echo -e "${GREEN}1. Start API (from cloned repo root):${NC}"
+    echo -e "   $PYTHON_CMD apps/api/server/main.py"
     echo
-    echo -e "${GREEN}2. Launch Admin Dashboard:${NC}"
-    echo -e "   $PYTHON_CMD sloughgpt.py admin"
+    echo -e "${GREEN}2. Web UI (separate terminal; Node per .nvmrc):${NC}"
+    echo -e "   cd apps/web/web && npm install && npm run dev"
     echo
-    echo -e "${GREEN}3. Check System Health:${NC}"
-    echo -e "   $PYTHON_CMD sloughgpt.py health"
+    echo -e "${GREEN}3. CLI:${NC}"
+    echo -e "   $PYTHON_CMD cli.py --help   # or: sloughgpt --help (after pip install -e .)"
     echo
     echo -e "${GREEN}4. View Documentation:${NC}"
     echo -e "   📖 README.md - Complete overview"
