@@ -7,6 +7,8 @@
 
 A **comprehensive enterprise-grade AI framework** for training, deploying, and managing large language models with advanced cognitive capabilities, real-time monitoring, and production-ready infrastructure.
 
+**Current repo docs:** start at the repository root **[README.md](../README.md)** and **[QUICKSTART.md](../QUICKSTART.md)**. For layout and CI parity, see **[docs/STRUCTURE.md](STRUCTURE.md)** and **[AGENTS.md](../AGENTS.md)**.
+
 ## 🚀 Quick Start
 
 ```bash
