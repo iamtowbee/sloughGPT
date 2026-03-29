@@ -382,7 +382,7 @@ asyncio.run(main())
 
 ```python
 # Use debugpy for remote debugging
-python -m debugpy --listen 5678 --wait-for-client your-app.py
+python3 -m debugpy --listen 5678 --wait-for-client your-app.py
 ```
 
 ## 🚀 Performance Optimization

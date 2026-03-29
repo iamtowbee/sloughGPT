@@ -10,9 +10,10 @@ Repository: https://github.com/iamtowbee/webui
 - Centralize settings and tools
 
 ## Integration approach
-1. **Run sloughGPT API**
+1. **Run sloughGPT API** (from this monorepo’s root; see **QUICKSTART.md**)
    ```sh
-   python api_server.py --out_dir=out-mydata --port=8000
+   python3 apps/api/server/main.py
+   # or: cd apps/api/server && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
    ```
 2. **Run OpenWebUI**
    - Use the OpenWebUI source repo as the UI shell.

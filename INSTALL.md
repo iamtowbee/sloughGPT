@@ -17,8 +17,8 @@ curl -fsSL https://raw.githubusercontent.com/iamtowbee/sloughGPT/main/install.sh
 
 ```bash
 # Fix NumPy 2.x compatibility issue
-pip install "numpy<2.0"
-pip install --force-reinstall torch torchvision torchaudio
+python3 -m pip install "numpy<2.0"
+python3 -m pip install --force-reinstall torch torchvision torchaudio
 ```
 
 ### 2. Install Core Dependencies
@@ -185,8 +185,8 @@ GRAFANA_PORT=3000
 
 **Solution**:
 ```bash
-pip install "numpy<2.0"
-pip install --force-reinstall torch torchvision torchaudio
+python3 -m pip install "numpy<2.0"
+python3 -m pip install --force-reinstall torch torchvision torchaudio
 ```
 
 #### 2. Import Error for get_database_manager
@@ -277,9 +277,9 @@ python3.9 -m pip install sloughgpt
 ### Windows
 
 ```bash
-# Use PowerShell
-python -m pip install "numpy<2.0"
-python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+# Use PowerShell (use `py -3 -m pip` if `python3` is not on PATH)
+python3 -m pip install "numpy<2.0"
+python3 -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
 # Or use conda
 conda create -n sloughgpt python=3.9

@@ -17,7 +17,7 @@ into `train.bin` / `val.bin` later.
 
 ## How to generate
 ```sh
-python repo_obtainer.py export --source https://github.com/user/repo.git
+python3 repo_obtainer.py export --source https://github.com/user/repo.git
 ```
 
 This writes to `runs/repo_corpus/<repo>.jsonl`.
