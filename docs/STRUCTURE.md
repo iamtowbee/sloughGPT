@@ -9,7 +9,7 @@ Lightweight layout:
 - `packages/standards/` — standards docs and JSON schemas; see **[packages/standards/README.md](../packages/standards/README.md)**
 - `tests/` — pytest suite (root `pyproject.toml` `testpaths`)
 - `infra/docker/` — Dockerfiles and Compose file for local runs
-- `.cursor/rules/`, `.agents/skills/` — editor/agent guidance (not part of the installable Python package)
+- `.cursor/rules/`, `.agents/skills/` — editor/agent guidance (not part of the installable Python package). Entry **`AGENTS.md`** at the repo root links here.
 
 Install the package from the repository root (dev extras include **ruff**, **pytest**, **jsonschema**, and the **`sloughgpt`** CLI entry):
 
