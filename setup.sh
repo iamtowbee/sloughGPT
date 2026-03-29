@@ -364,7 +364,8 @@ EOF
 create_scripts() {
     print_info "Creating convenience scripts..."
     
-    # Start script
+    # Start script (do not overwrite repo-shipped start.sh)
+    if [ ! -f start.sh ]; then
     cat > start.sh << 'EOF'
 #!/bin/bash
 # Start SloughGPT API server
@@ -373,12 +374,16 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 source "$ROOT/.venv/bin/activate"
 export CUDA_VISIBLE_DEVICES=""
 cd "$ROOT/apps/api/server"
-exec python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+exec python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 EOF
     chmod +x start.sh
     print_status "Created start.sh"
+    else
+    print_status "Keeping existing start.sh"
+    fi
     
     # Development script
+    if [ ! -f dev.sh ]; then
     cat > dev.sh << 'EOF'
 #!/bin/bash
 # Start SloughGPT in development mode with debug logging
@@ -388,12 +393,16 @@ source "$ROOT/.venv/bin/activate"
 export SLOUGHGPT_ENV=development
 export SLOUGHGPT_LOG_LEVEL=DEBUG
 cd "$ROOT/apps/api/server"
-exec python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
+exec python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
 EOF
     chmod +x dev.sh
     print_status "Created dev.sh"
+    else
+    print_status "Keeping existing dev.sh"
+    fi
     
     # Docker start script
+    if [ ! -f docker-start.sh ]; then
     cat > docker-start.sh << 'EOF'
 #!/bin/bash
 # Start SloughGPT with Docker Compose
@@ -410,8 +419,12 @@ echo "Docs at http://localhost:8000/docs"
 EOF
     chmod +x docker-start.sh
     print_status "Created docker-start.sh"
+    else
+    print_status "Keeping existing docker-start.sh"
+    fi
     
     # Test script
+    if [ ! -f test.sh ]; then
     cat > test.sh << 'EOF'
 #!/bin/bash
 # Run SloughGPT tests
@@ -421,16 +434,20 @@ source .venv/bin/activate
 export CUDA_VISIBLE_DEVICES=""
 
 echo "Running unit tests..."
-python -m pytest tests/test_*.py -v
+python3 -m pytest tests/test_*.py -v
 
 echo ""
 echo "Running with coverage..."
-python -m pytest tests/ --cov=domains --cov-report=html --cov-report=term
+python3 -m pytest tests/ --cov=domains --cov-report=html --cov-report=term
 EOF
     chmod +x test.sh
     print_status "Created test.sh"
+    else
+    print_status "Keeping existing test.sh"
+    fi
     
     # Benchmark script
+    if [ ! -f benchmark.sh ]; then
     cat > benchmark.sh << 'EOF'
 #!/bin/bash
 # Run performance benchmarks
@@ -440,7 +457,7 @@ source .venv/bin/activate
 export CUDA_VISIBLE_DEVICES=""
 
 echo "Running benchmarks..."
-python -c "
+python3 -c "
 from domains.inference.engine import create_engine
 from domains.ml_infrastructure.benchmarking import benchmark_model
 
@@ -457,6 +474,9 @@ print(f'Throughput: {result.throughput_tokens_per_sec:.2f} tokens/sec')
 EOF
     chmod +x benchmark.sh
     print_status "Created benchmark.sh"
+    else
+    print_status "Keeping existing benchmark.sh"
+    fi
     
     echo ""
 }
@@ -478,7 +498,7 @@ print_next_steps() {
         echo ""
         echo "2. Or use conda run (no activation needed):"
         echo -e "   ${GREEN}conda run -n $CONDA_ENV python3 cli.py train --epochs 3${NC}"
-        echo -e "   ${GREEN}./run.sh python -c \"import torch; print(torch.__version__)\"${NC}"
+        echo -e "   ${GREEN}./run.sh python3 -c \"import torch; print(torch.__version__)\"${NC}"
         echo ""
     else
         echo "Virtual environment: ${GREEN}$VENV_DIR${NC}"
@@ -496,7 +516,7 @@ print_next_steps() {
     echo "3. Start the API server:"
     echo -e "   ${GREEN}./start.sh${NC}"
     echo "   or"
-    echo -e "   ${GREEN}./run.sh python -m uvicorn main:app --app-dir apps/api/server --reload${NC}"
+    echo -e "   ${GREEN}./run.sh python3 -m uvicorn main:app --app-dir apps/api/server --reload${NC}"
     echo ""
     echo "4. Access the API:"
     echo "   - API: http://localhost:8000"
@@ -513,11 +533,11 @@ print_next_steps() {
     fi
     
     echo "6. Run tests:"
-    echo -e "   ${GREEN}./run.sh pytest tests/ -x${NC}"
+    echo -e "   ${GREEN}./run.sh python3 -m pytest tests/ -x${NC}"
     echo ""
     
     echo "7. Verify PyTorch:"
-    echo -e "   ${GREEN}./run.sh python -c \"import torch; print(f'PyTorch {torch.__version__}')\"${NC}"
+    echo -e "   ${GREEN}./run.sh python3 -c \"import torch; print(f'PyTorch {torch.__version__}')\"${NC}"
     echo ""
 }
 
