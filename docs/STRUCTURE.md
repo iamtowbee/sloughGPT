@@ -15,10 +15,10 @@ Lightweight layout:
 Install the package from the repository root (dev extras include **ruff**, **pytest**, **jsonschema**, and the **`sloughgpt`** CLI entry):
 
 ```sh
-pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 ```
 
-Minimal install without dev tools: `pip install -e .`
+Minimal install without dev tools: `python3 -m pip install -e .`
 
 See `docs/REPO_STRUCTURE_MIGRATION.md` for the full move map.
 

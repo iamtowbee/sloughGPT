@@ -6,12 +6,12 @@
 ```bash
 git clone https://github.com/iamtowbee/sloughGPT.git
 cd sloughGPT
-pip install torch transformers fastapi uvicorn pydantic pytest
+python3 -m pip install torch transformers fastapi uvicorn pydantic pytest
 # Editable install + dev tools (ruff, pytest, …) and the ``sloughgpt`` console script
-pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 ./verify.sh
 # With a .venv, prefix commands so they use that interpreter: ./run.sh python3 -m pytest tests/ -q
-# Minimal editable install only: pip install -e .  (add dev extras or pip install ruff to use ./verify.sh lint)
+# Minimal editable install only: python3 -m pip install -e .  (add dev extras or python3 -m pip install ruff to use ./verify.sh lint)
 # Next.js (apps/web/web): npm ci && npm run lint && npm run typecheck — same as CI job test-web
 # TypeScript SDK (packages/sdk-ts/typescript-sdk): npm ci && npm run lint && npm run build && npm test — job test-sdk-ts
 # Python SDK: python3 -m pytest tests/test_sdk.py — job sdk-test-py
@@ -380,7 +380,7 @@ SloughGPT/
 
 ## Next Steps
 
-1. **Run the notebook**: `jupyter notebook sloughgpt_colab.ipynb` (in Colab: run the install cell—includes **`pip install -e .`**—then try `python3 cli.py chat --auto-model gpt2`)
+1. **Run the notebook**: `jupyter notebook sloughgpt_colab.ipynb` (in Colab: run the install cell—includes **`python3 -m pip install -e .`**—then try `python3 cli.py chat --auto-model gpt2`)
 2. **Try different datasets**: Shakespeare, TinyStories, custom
 3. **Explore model architecture**: Section 5 in the notebook
 4. **Deploy with Docker**: See Docker section above

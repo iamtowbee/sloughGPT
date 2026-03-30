@@ -1,6 +1,6 @@
 # SloughGPT Installation Script
 
-**Canonical repository:** [github.com/iamtowbee/sloughGPT](https://github.com/iamtowbee/sloughGPT). For a maintained local setup, start with **QUICKSTART.md** (`pip install -e ".[dev]"` from the repo root, then `./verify.sh`).
+**Canonical repository:** [github.com/iamtowbee/sloughGPT](https://github.com/iamtowbee/sloughGPT). For a maintained local setup, start with **QUICKSTART.md** (`python3 -m pip install -e ".[dev]"` from the repo root, then `./verify.sh`).
 
 ## 🚀 Automated Installation
 
@@ -25,29 +25,29 @@ python3 -m pip install --force-reinstall torch torchvision torchaudio
 
 ```bash
 # Install without torch first to avoid conflicts
-pip install fastapi uvicorn sqlalchemy alembic redis
-pip install pydantic python-jose[cryptography] passlib[bcrypt]
-pip install python-multipart psutil prometheus-client
-pip install aiosmtplib pytest pytest-asyncio
+python3 -m pip install fastapi uvicorn sqlalchemy alembic redis
+python3 -m pip install pydantic "python-jose[cryptography]" "passlib[bcrypt]"
+python3 -m pip install python-multipart psutil prometheus-client
+python3 -m pip install aiosmtplib pytest pytest-asyncio
 
 # Then install torch with compatibility
-pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0
+python3 -m pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0
 ```
 
 ### 3. Install Additional Dependencies
 
 ```bash
 # Install remaining dependencies
-pip install scikit-learn pandas numpy matplotlib seaborn
-pip install jupyter ipykernel notebook
-pip install plotly dash streamlit
-pip install aiofiles aiohttp websockets
+python3 -m pip install scikit-learn pandas numpy matplotlib seaborn
+python3 -m pip install jupyter ipykernel notebook
+python3 -m pip install plotly dash streamlit
+python3 -m pip install aiofiles aiohttp websockets
 ```
 
 ### 4. Verify Installation
 
 ```bash
-# After: pip install -e .  (from the cloned repo root)
+# After: python3 -m pip install -e .  (from the cloned repo root)
 python3 -c "
 import sys
 try:
@@ -202,7 +202,7 @@ python3 -m pip install --force-reinstall torch torchvision torchaudio
 **Solution**:
 ```bash
 # Install with specific version
-pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0
+python3 -m pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0
 
 # Or use conda
 conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
@@ -234,7 +234,7 @@ except ImportError as e:
     print(f'❌ Missing dependency: {e}')
 "
 
-# 3. Test basic functionality (after pip install -e . from repo root)
+# 3. Test basic functionality (after python3 -m pip install -e . from repo root)
 python3 -c "
 try:
     import domains

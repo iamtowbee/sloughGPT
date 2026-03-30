@@ -17,7 +17,7 @@ git clone https://github.com/iamtowbee/sloughGPT.git
 cd sloughGPT
 
 # Editable install + dev tools (ruff, pytest, jsonschema, sloughgpt CLI)
-pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 
 # Optional: path checks + CI parity hints
 ./verify.sh
@@ -194,7 +194,7 @@ git clone https://github.com/iamtowbee/sloughGPT.git
 cd sloughGPT
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 ./verify.sh
 python3 -m pytest tests/ -q
 ```

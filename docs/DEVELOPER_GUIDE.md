@@ -73,7 +73,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 
 # Install development dependencies
-pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 
 # Setup pre-commit hooks
 pre-commit install
@@ -764,7 +764,7 @@ git clone https://github.com/iamtowbee/sloughGPT.git
 cd sloughGPT
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 
 # Set up environment
 cp .env.example .env

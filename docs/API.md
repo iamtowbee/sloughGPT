@@ -477,7 +477,7 @@ The complete OpenAPI 3.0 specification is available at:
 ### Running Tests
 ```bash
 # From repository root (dev extras: pytest, pytest-cov, …)
-pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 
 # API-related tests live under tests/
 python3 -m pytest tests/test_api.py tests/server/ -q

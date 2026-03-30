@@ -49,7 +49,7 @@ SloughGPT is an enterprise-grade AI framework with production-ready ML infrastru
 
 ```bash
 # Editable install (domains + apps.cli; dev extras: ruff, pytest, sloughgpt CLI)
-pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 
 # Start API server
 cd apps/api/server && python3 main.py
@@ -104,7 +104,7 @@ python3 -m pytest tests/ -q
 ```
 
 - **Python CI subset:** `.github/workflows/reusable-ci-core.yml` (`workflow_call`).
-- **Also in `ci_cd.yml`:** `test-web`, `test-sdk-ts`, `sdk-test-py`, `standards-schemas` (run `python3 scripts/validate_standards_schemas.py`; `jsonschema` is in `pip install -e ".[dev]"`).
+- **Also in `ci_cd.yml`:** `test-web`, `test-sdk-ts`, `sdk-test-py`, `standards-schemas` (run `python3 scripts/validate_standards_schemas.py`; `jsonschema` is in `python3 -m pip install -e ".[dev]"`).
 
 ## Environment
 

@@ -75,13 +75,13 @@ python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000
 From the repo root, `verify.sh` checks core paths and (if **`ruff`** is available) runs the same lint smoke as CI. It also prints commands that mirror CI (**`test-web`**, **`test-sdk-ts`**, **`sdk-test-py`**, **`standards-schemas`** in **`.github/workflows/ci_cd.yml`**). See **QUICKSTART.md** for the full install flow.
 
 ```bash
-pip install -e ".[dev]"   # optional; includes ruff + pytest among dev tools
+python3 -m pip install -e ".[dev]"   # optional; includes ruff + pytest among dev tools
 ./verify.sh
 # ./run.sh puts .venv/bin on PATH when present — e.g. ./run.sh python3 -m pytest tests/ -q
 ```
 
 ### Google Colab
-Use `sloughgpt_colab.ipynb` in the repo root. After the runtime can see the repo (clone or upload), run the dependency cell: it installs base packages plus **`pip install -e .`** so **`cli.py`** and **`domains`** imports resolve. Then a typical one-shot chat + model load is:
+Use `sloughgpt_colab.ipynb` in the repo root. After the runtime can see the repo (clone or upload), run the dependency cell: it installs base packages plus **`pip install -e .`** (or **`python3 -m pip install -e .`**) so **`cli.py`** and **`domains`** imports resolve. Then a typical one-shot chat + model load is:
 
 ```bash
 python3 cli.py chat --auto-model gpt2
@@ -309,7 +309,7 @@ SloughGPT/
 ## Installation
 
 ```bash
-pip install torch transformers fastapi uvicorn
+python3 -m pip install torch transformers fastapi uvicorn
 ```
 
 ## Development
