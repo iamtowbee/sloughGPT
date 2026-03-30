@@ -21,8 +21,10 @@ from .local_loader import (
     download_model,
     load_model,
     generate_local,
-    LocalModelLoader,
 )
+
+# Back-compat name used in older docs / archives
+LocalModelLoader = HuggingFaceLocalLoader
 
 from .model_map import (
     ModelSize,
@@ -33,8 +35,9 @@ from .model_map import (
     get_recommended_quantization,
     get_model_requirements,
     map_to_sloughgpt_config,
-    MODEL_REGISTRY,
 )
+
+MODEL_REGISTRY = HF_MODELS  # legacy alias (not every call site needs the training registry)
 
 from .client import (
     HFClient,
