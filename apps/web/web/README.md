@@ -23,7 +23,7 @@ Modern TypeScript-based web interface for SloughGPT using Base UI components.
 
 ### Prerequisites
 
-- Node.js 18+
+- **Node.js 20** (match repo root **`.nvmrc`**; CI uses the same major)
 - npm or yarn
 
 ### Installation
@@ -53,34 +53,25 @@ Before pushing changes, run the same checks as CI: **`npm ci && npm run lint && 
 ### Build for Production
 
 ```bash
-# Build the application
 npm run build
-
-# Preview the production build
-npm run preview
-
-# The built files will be in the dist/ directory
+npm run start   # serves the production build (default port 3000)
 ```
 
 ## API Configuration
 
 The web UI connects to the FastAPI backend. By default, it expects the API at `http://localhost:8000`.
 
-To change the API URL, create a `.env` file:
-
-```bash
-VITE_API_BASE_URL=http://your-api-server:8000
-```
+To change the API URL, copy **`.env.example`** to **`.env.local`** (or edit **`.env`**) and set **`NEXT_PUBLIC_API_URL`** — see **`lib/config.ts`** (`http://localhost:8000` by default).
 
 ## Available Scripts
 
 | Script | Description |
 |--------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
-| `npm run preview` | Preview production build |
-| `npm run lint` | Run ESLint |
-| `npm run typecheck` | Run TypeScript type checking |
+| `npm run dev` | Start development server (Next.js) |
+| `npm run build` | Production build |
+| `npm run start` | Run production server after `build` |
+| `npm run lint` | Run ESLint (`next lint`) |
+| `npm run typecheck` | TypeScript `tsc --noEmit` |
 
 ## Project Structure
 

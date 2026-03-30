@@ -6,25 +6,18 @@ This repository has been moved to a layered monorepo layout:
 - `packages/` shared libraries (`core-py`, `sdk-py`, `sdk-ts`, `standards`)
 - `infra/` docker and kubernetes assets
 
-### Compatibility links currently retained
+### Root compatibility shims (removed)
 
-To preserve backward compatibility during rollout, these root-level paths are currently symlinked to canonical locations:
+Some earlier layouts used root symlinks (for example `server` → `apps/api/server`, `web` → `apps/web/web`). **Those links are not present in the current repository.** Use the canonical paths below and update any old scripts or docs that still assume root aliases.
 
-- `server` -> `apps/api/server`
-- `web` -> `apps/web/web`
-- `sloughgpt` -> `apps/cli/sloughgpt`
-- `domains` -> `packages/core-py/domains`
-- `sloughgpt_sdk` -> `packages/sdk-py/sloughgpt_sdk`
-- `typescript-sdk` -> `packages/sdk-ts/typescript-sdk`
-- `standards` -> `packages/standards/standards`
-- docker/k8s/helm/grafana/prometheus and root Dockerfiles -> `infra/*`
+Deployment assets live under **`infra/`** (Docker, Kubernetes, Helm, etc.).
 
-### Canonical paths moving forward
+### Canonical paths
 
 - API server: `apps/api/server/main.py`
 - Web app: `apps/web/web`
-- CLI: `apps/cli/cli.py`
+- CLI (also reachable as repo-root `cli.py`): `apps/cli/cli.py`
+- Python “domains” package: `packages/core-py/domains` (import name **`domains`** after **`python3 -m pip install -e .`** from repo root)
 - Python SDK: `packages/sdk-py/sloughgpt_sdk`
-- TS SDK: `packages/sdk-ts/typescript-sdk`
-
-These compatibility links can be removed once downstream tooling and docs stop referencing legacy root paths.
+- TypeScript SDK: `packages/sdk-ts/typescript-sdk`
+- Standards / schemas: `packages/standards/`

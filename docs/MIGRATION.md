@@ -1,20 +1,6 @@
 # Migration notes
 
-## Legacy paths
+- **Layout and folders** — **[STRUCTURE.md](STRUCTURE.md)** (`apps/`, `packages/`, `infra/`, `tests/`).
+- **Move map and canonical paths** — **[REPO_STRUCTURE_MIGRATION.md](REPO_STRUCTURE_MIGRATION.md)** (API, web, CLI, SDKs).
 
-Legacy paths still work via symlinks and thin wrapper scripts:
-
-- `data/` → `datasets/`
-- `out*` → `runs/*`
-- root scripts (e.g. `train.py`) → `bin/*` wrappers
-
-## Monorepo layout
-
-- `packages/core/src/` — models, controllers, services, configs, notebooks
-- `packages/apps/apps/` — UI entrypoints
-
-If you have custom scripts, update imports to:
-
-```py
-from packages.core.src.models.model import Slo
-```
+For day-to-day setup, prefer **QUICKSTART.md** at the repo root. Roadmap-style items may also appear in **TODO.md**.
