@@ -20,6 +20,12 @@ helm repo update
 helm install sloughgpt sloughgpt/sloughgpt --namespace sloughgpt --create-namespace
 ```
 
+If you have the **monorepo cloned** and prefer not to add a Helm repo, install from the chart directory (from repo root):
+
+```bash
+helm install sloughgpt ./infra/k8s/helm/sloughgpt/ -n sloughgpt --create-namespace
+```
+
 ## Configuration
 
 | Parameter | Description | Default |

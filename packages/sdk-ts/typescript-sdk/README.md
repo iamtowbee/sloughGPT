@@ -308,7 +308,7 @@ This library is written in TypeScript and ships with full type definitions. No `
 
 ## Compatibility
 
-- Node.js 18+
+- Node.js **20+** (matches monorepo root **`.nvmrc`**; older LTS may work but is not what CI exercises)
 - Modern browsers (with `fetch` support)
 - React Native (with `fetch` support)
 - Deno (via ESM import)
