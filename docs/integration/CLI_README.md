@@ -1,6 +1,8 @@
 # SLO Interactive CLI System
 
-I've created a comprehensive interactive CLI system that transforms our codebase into an intuitive command-line interface.
+**Status:** This describes a **planned** `slo` / `slo_cli.py` shell. The monorepo’s supported CLI is **`python3 cli.py`** (repo root → **`apps/cli/cli.py`**) or the **`sloughgpt`** console script after **`python3 -m pip install -e ".[dev]"`** — see **QUICKSTART.md**.
+
+The text below is retained as a design sketch for a future interactive wrapper.
 
 ## Features
 

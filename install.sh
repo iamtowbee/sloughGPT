@@ -87,7 +87,7 @@ install_python_deps() {
     # Install core dependencies without torch first
     echo -e "${BLUE}   Installing core dependencies...${NC}"
     $PYTHON_CMD -m pip install fastapi uvicorn sqlalchemy alembic redis
-    $PYTHON_CMD -m pip install pydantic python-jose[cryptography] passlib[bcrypt]
+    $PYTHON_CMD -m pip install pydantic "python-jose[cryptography]" "passlib[bcrypt]"
     $PYTHON_CMD -m pip install python-multipart psutil prometheus-client
     $PYTHON_CMD -m pip install pytest pytest-asyncio pytest-cov
     $PYTHON_CMD -m pip install aiosmtplib aiofiles aiohttp websockets

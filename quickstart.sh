@@ -52,18 +52,18 @@ echo "Creating venv: $VENV_DIR"
 if [ -d "$VENV_DIR" ]; then
     echo "Venv already exists, skipping"
 else
-    python -m venv "$VENV_DIR"
+    python3 -m venv "$VENV_DIR"
 fi
 
 # Upgrade pip in venv
 echo ""
 echo "Upgrading pip..."
-"$VENV_DIR/bin/pip" install --upgrade pip
+"$VENV_DIR/bin/python3" -m pip install --upgrade pip
 
 # Install deps in venv (except torch)
 echo ""
 echo "Installing dependencies..."
-"$VENV_DIR/bin/pip" install \
+"$VENV_DIR/bin/python3" -m pip install \
     numpy scipy pandas scikit-learn \
     fastapi uvicorn starlette httpx pydantic pydantic-settings \
     click rich prompt-toolkit \
@@ -75,7 +75,7 @@ echo "Installing dependencies..."
 # Install this package
 echo ""
 echo "Installing SloughGPT..."
-"$VENV_DIR/bin/pip" install -e .
+"$VENV_DIR/bin/python3" -m pip install -e .
 
 # Verify
 echo ""
@@ -85,11 +85,11 @@ echo "======================================"
 echo ""
 
 echo "PyTorch (conda):"
-conda run -n "$CONDA_ENV" python -c "import torch; print(f'  torch: {torch.__version__}')"
+conda run -n "$CONDA_ENV" python3 -c "import torch; print(f'  torch: {torch.__version__}')"
 
 echo ""
 echo "SloughGPT (venv):"
-"$VENV_DIR/bin/python" -c "from domains.models import SloughGPTModel; print('  SloughGPTModel: OK')"
+"$VENV_DIR/bin/python3" -c "from domains.models import SloughGPTModel; print('  SloughGPTModel: OK')"
 
 echo ""
 echo "======================================"
