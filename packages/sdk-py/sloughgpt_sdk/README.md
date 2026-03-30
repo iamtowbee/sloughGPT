@@ -15,17 +15,17 @@ A comprehensive Python client library for the SloughGPT API. Build AI-powered ap
 ## Installation
 
 ```bash
-pip install sloughgpt-sdk
+python3 -m pip install sloughgpt-sdk
 ```
 
 For all features:
 ```bash
-pip install sloughgpt-sdk[all]
+python3 -m pip install "sloughgpt-sdk[all]"
 ```
 
 ## Development (monorepo)
 
-When developing inside the **sloughGPT** repository, install from the **repo root** (`pip install -e ".[dev]"`) and run **`python3 -m pytest tests/test_sdk.py`** (same checks as CI job **`sdk-test-py`** in **`.github/workflows/ci_cd.yml`**).
+When developing inside the **sloughGPT** repository, install from the **repo root** (`python3 -m pip install -e ".[dev]"`) and run **`python3 -m pytest tests/test_sdk.py`** (same checks as CI job **`sdk-test-py`** in **`.github/workflows/ci_cd.yml`**).
 
 ## Quick Start
 

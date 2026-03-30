@@ -50,7 +50,7 @@ if [ "$all_found" = true ]; then
         echo "✓ Ruff smoke passed"
         echo ""
     else
-        echo "(Optional: pip install ruff to run the CI lint smoke check locally.)"
+        echo "(Optional: python3 -m pip install ruff to run the CI lint smoke check locally.)"
         echo ""
     fi
     echo "To start SloughGPT:"
@@ -76,7 +76,7 @@ if [ "$all_found" = true ]; then
     echo ""
     echo "Standards CI parity (job standards-schemas):"
     echo "  python3 scripts/validate_standards_schemas.py"
-    echo "  (jsonschema: pip install -e \".[dev]\" or pip install jsonschema)"
+    echo "  (jsonschema: python3 -m pip install -e \".[dev]\" or python3 -m pip install jsonschema)"
 else
     echo ""
     echo "❌ Some files are missing!"

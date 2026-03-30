@@ -1,6 +1,6 @@
 ## Core Python (`domains`)
 
-`packages/core-py/` is on the Python path as the **`domains`** package (and related **`utils`**) when you install from the repo root (**`pip install -e ".[dev]"`**).
+`packages/core-py/` is on the Python path as the **`domains`** package (and related **`utils`**) when you install from the repo root (**`python3 -m pip install -e ".[dev]"`**).
 
 Training, inference, models, and infrastructure code live under **`domains/`**. The API imports these modules; keep heavy logic here instead of in **`apps/api/server/`** route handlers.
 

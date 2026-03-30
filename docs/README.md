@@ -140,7 +140,7 @@ LOG_LEVEL=INFO
 
 ### Basic Usage
 
-Training and model code live under **`packages/core-py/domains/`** (import as **`domains`** after `pip install -e .` from the repo root).
+Training and model code live under **`packages/core-py/domains/`** (import as **`domains`** after `python3 -m pip install -e .` from the repo root).
 
 ```python
 from domains.training.train_pipeline import SloughGPTTrainer

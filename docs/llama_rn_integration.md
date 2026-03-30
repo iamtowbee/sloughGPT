@@ -2,7 +2,7 @@
 
 This guide explains how to export SloughGPT models for use with [llama.rn](https://github.com/nicktasios/llama.rn), a React Native library for running GGUF-format language models on mobile devices.
 
-Run **`python`** / **`python3`** examples from the **repository root** (where **`cli.py`** and **`train_sloughgpt.py`** live) after `pip install -e ".[dev]"` (or `pip install -e .`).
+Run **`python`** / **`python3`** examples from the **repository root** (where **`cli.py`** and **`train_sloughgpt.py`** live) after `python3 -m pip install -e ".[dev]"` (or `python3 -m pip install -e .`).
 
 ## Quick Start
 

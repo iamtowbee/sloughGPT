@@ -237,7 +237,7 @@ show_next_steps() {
     echo -e "   cd apps/web/web && npm install && npm run dev"
     echo
     echo -e "${GREEN}3. CLI:${NC}"
-    echo -e "   $PYTHON_CMD cli.py --help   # or: sloughgpt --help (after pip install -e .)"
+    echo -e "   $PYTHON_CMD cli.py --help   # or: sloughgpt --help (after $PYTHON_CMD -m pip install -e .)"
     echo
     echo -e "${GREEN}4. View Documentation:${NC}"
     echo -e "   📖 README.md - Complete overview"

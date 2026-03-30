@@ -4,7 +4,7 @@ Example scripts demonstrating SloughGPT features.
 
 ## Running Examples
 
-From the **repository root**, after `pip install -e ".[dev]"` (or `pip install -e .`):
+From the **repository root**, after `python3 -m pip install -e ".[dev]"` (or `python3 -m pip install -e .`):
 
 ```bash
 cd scripts/examples

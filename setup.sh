@@ -225,26 +225,26 @@ install_python_deps() {
     source "$VENV_DIR/bin/activate"
     
     print_info "Upgrading pip..."
-    pip install --upgrade pip
+    python -m pip install --upgrade pip
     
     print_info "Installing core dependencies..."
-    pip install fastapi uvicorn pydantic pydantic-settings httpx aiofiles PyJWT python-multipart
+    python -m pip install fastapi uvicorn pydantic pydantic-settings httpx aiofiles PyJWT python-multipart
     
     print_info "Installing ML dependencies..."
     if [ "$GPU_SUPPORT" = true ]; then
         print_info "Installing PyTorch with CUDA $CUDA_VERSION..."
-        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/$CUDA_VERSION
+        python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/$CUDA_VERSION
     else
-        pip install torch torchvision torchaudio
+        python -m pip install torch torchvision torchaudio
     fi
     
-    pip install transformers accelerate bitsandbytes scipy
+    python -m pip install transformers accelerate bitsandbytes scipy
     
     print_info "Installing data processing..."
-    pip install networkx numpy pandas pillow
+    python -m pip install networkx numpy pandas pillow
     
     print_info "Installing development tools..."
-    pip install pytest pytest-asyncio pytest-cov ruff black mypy
+    python -m pip install pytest pytest-asyncio pytest-cov ruff black mypy
     
     print_status "Python dependencies installed"
     echo ""
@@ -297,7 +297,7 @@ install_conda_deps() {
     fi
     
     print_info "Installing other dependencies via pip..."
-    pip install -r requirements.txt
+    python -m pip install -r requirements.txt
     
     print_status "Conda environment setup complete!"
     echo ""

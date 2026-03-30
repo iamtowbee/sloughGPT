@@ -31,7 +31,7 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install build
+          python -m pip install build
 
       - name: Build package
         working-directory: .
@@ -63,7 +63,7 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install build
+          python -m pip install build
 
       - name: Build package
         working-directory: .
@@ -88,5 +88,5 @@ jobs:
 
       - name: Install package from PyPI
         run: |
-          pip install sloughgpt
+          python -m pip install sloughgpt
           sloughgpt --help

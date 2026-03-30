@@ -206,7 +206,7 @@ CERTIFICATION sloughgpt-soul-v1
 
 ## Conversion
 
-Commands below assume the **repository root** and `pip install -e .` so `domains` is importable.
+Commands below assume the **repository root** and `python3 -m pip install -e .` so `domains` is importable.
 
 ### Export from training
 ```bash
