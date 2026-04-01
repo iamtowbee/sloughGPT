@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 """
-SloughGPT Training Pipeline
-Uses SloughGPTModel and domains training export; supports full checkpoint resume.
+Repo-root char-level trainer for SloughGPTModel (`train_sloughgpt`).
+
+**Other training surfaces (same codebase, different driver):**
+``SloughGPTTrainer`` in ``domains.training.train_pipeline`` — used by
+``python3 cli.py train`` (local), ``apps/api/server`` ``/training/start``,
+and ``examples/quick_train.py`` / ``lora_train.py``. That path uses tensor
+data + the same model class but a different loop/checkpoint layout.
+
+CI runs ``tests/test_train_sloughgpt_*.py`` to lock this script; change either
+path together when altering shared training contracts.
 """
 
 import os

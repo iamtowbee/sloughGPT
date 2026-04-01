@@ -60,7 +60,10 @@ jobs:
 
       - name: Run core tests
         run: |
-          python -m pytest tests/test_quantization.py tests/test_optimizations.py tests/test_benchmarking.py tests/test_inference.py tests/test_api.py tests/test_server_main_api.py tests/test_server_settings.py tests/test_security.py -v --tb=short --ignore=tests/test_core.py --ignore=tests/server/ --ignore=tests/cli/ --ignore=tests/web/ --ignore=tests/ml/
+          python -m pytest tests/test_quantization.py tests/test_optimizations.py tests/test_benchmarking.py tests/test_inference.py tests/test_api.py tests/test_server_main_api.py tests/test_server_settings.py tests/test_security.py tests/test_train_sloughgpt_generate_text.py tests/test_train_sloughgpt_resume.py -v --tb=short --ignore=tests/test_core.py --ignore=tests/server/ --ignore=tests/cli/ --ignore=tests/web/ --ignore=tests/ml/
+
+      - name: train_sloughgpt.py CLI smoke
+        run: python3 train_sloughgpt.py --help
 
       - name: Upload test results
         if: ${{ inputs.upload_test_artifact && always() }}
