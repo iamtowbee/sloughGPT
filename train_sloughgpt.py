@@ -482,9 +482,10 @@ def generate_text(model, stoi, itos, prompt="First", max_new_tokens=200, tempera
     """Generate text from trained model."""
 
     model.eval()
+    device = next(model.parameters()).device
 
     # Encode prompt
-    idx = torch.tensor([[stoi.get(c, 0) for c in prompt]], dtype=torch.long)
+    idx = torch.tensor([[stoi.get(c, 0) for c in prompt]], dtype=torch.long, device=device)
 
     # Generate
     with torch.no_grad():
