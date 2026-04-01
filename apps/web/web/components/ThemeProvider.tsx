@@ -33,7 +33,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (mounted) {
-      document.body.className = `${mode} theme-${theme}`
+      document.body.className = ['font-sans', 'antialiased', mode, `theme-${theme}`].filter(Boolean).join(' ')
       localStorage.setItem('sloughgpt_theme', theme)
       localStorage.setItem('sloughgpt_mode', mode)
     }

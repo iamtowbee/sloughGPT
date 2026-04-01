@@ -1,18 +1,22 @@
 'use client'
 
+import { IconMoon, IconSun } from '@/components/icons/NavIcons'
+
 import { useTheme, THEMES } from './ThemeProvider'
 
 export function ThemeSwitcher() {
   const { theme, mode, setTheme, setMode } = useTheme()
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between gap-2">
       <button
+        type="button"
         onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')}
-        className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground transition-colors"
+        className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
         title={mode === 'dark' ? 'Switch to light' : 'Switch to dark'}
+        aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       >
-        {mode === 'dark' ? '🌙' : '☀️'}
+        {mode === 'dark' ? <IconMoon /> : <IconSun />}
       </button>
       
       <div className="flex items-center gap-1">

@@ -48,8 +48,17 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle primary wash behind main content (theme accent follows --primary) */
+.app-shell-main {
+  background-color: var(--background);
+  background-image: radial-gradient(
+    ellipse 100% 60% at 50% -28%,
+    color-mix(in srgb, var(--primary) 12%, transparent),
+    transparent 58%
+  );
 }
 
 ::-webkit-scrollbar {
