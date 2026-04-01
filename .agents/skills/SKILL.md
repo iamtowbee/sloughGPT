@@ -30,7 +30,9 @@ Two drivers share **`SloughGPTModel`** (checkpoints differ):
 - **`train_sloughgpt.py`** (repo root): **`train_sloughgpt()`** — char-level file dataset, exports, **`--resume`**; Colab-aligned.
 - **`SloughGPTTrainer`** (`domains.training.train_pipeline`): **`cli.py train`** (local), **`POST /training/start`**, **`examples/quick_train.py`**.
 
-CI: **`tests/test_train_sloughgpt_*.py`**, **`tests/test_sloughgpt_trainer_smoke.py`**, **`train_sloughgpt.py --help`**.
+CI: **`tests/test_checkpoint_utils.py`**, **`tests/test_train_sloughgpt_*.py`**, **`tests/test_sloughgpt_trainer_smoke.py`**, **`train_sloughgpt.py --help`**.
+
+Shared checkpoint I/O: **`packages/core-py/domains/training/checkpoint_utils.py`** (`normalize_raw_checkpoint`, `load_sloughgpt_from_checkpoint`, …) used by **`train_sloughgpt.py`**, **`SloughGPTTrainer`** loads, and **`cli.py generate`** for `.pt` weights.
 
 - **LR Schedulers**: Cosine, warmup, OneCycle, cyclic, polynomial
 - **Mixed Precision**: FP32, FP16, BF16 with GradScaler
