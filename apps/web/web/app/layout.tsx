@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { JetBrains_Mono, Outfit } from 'next/font/google'
 
 import { Providers } from './Providers'
+import { MODE_STORAGE_KEY, THEME_IDS, THEME_STORAGE_KEY } from '@/lib/theme-storage'
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -21,14 +22,18 @@ export const metadata: Metadata = {
   description: 'Enterprise-grade AI framework with production-ready ML infrastructure',
 }
 
+/** Runs before React hydrates; ``useLayoutEffect`` in ThemeProvider re-syncs after any className reconciliation. */
+const themeBootstrapInline = `!function(){try{var k=${JSON.stringify([...THEME_IDS])};var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});var m=localStorage.getItem(${JSON.stringify(MODE_STORAGE_KEY)});var r=document.documentElement;var th=k.indexOf(t)>=0?t:"blue";var mo="light"===m||"dark"===m?m:"dark";r.classList.remove("light","dark");k.forEach(function(id){r.classList.remove("theme-"+id)});r.classList.add(mo,"theme-"+th);}catch(e){}}();`
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en" className={`${outfit.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <body className="font-sans antialiased">
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapInline }} />
         <Providers>{children}</Providers>
       </body>
     </html>

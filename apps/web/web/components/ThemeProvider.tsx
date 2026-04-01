@@ -1,42 +1,46 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useLayoutEffect, ReactNode } from 'react'
 
-type Theme = 'blue' | 'purple' | 'pink' | 'red' | 'orange' | 'green' | 'teal'
-type Mode = 'dark' | 'light'
+import { syncHtmlTheme } from '@/lib/sync-html-theme'
+import {
+  isStoredThemeId,
+  MODE_STORAGE_KEY,
+  THEME_STORAGE_KEY,
+  type StoredThemeId,
+  type ThemeMode,
+} from '@/lib/theme-storage'
 
 interface ThemeContextType {
-  theme: Theme
-  mode: Mode
-  setTheme: (theme: Theme) => void
-  setMode: (mode: Mode) => void
+  theme: StoredThemeId
+  mode: ThemeMode
+  setTheme: (theme: StoredThemeId) => void
+  setMode: (mode: ThemeMode) => void
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('blue')
-  const [mode, setMode] = useState<Mode>('dark')
+  const [theme, setTheme] = useState<StoredThemeId>('blue')
+  const [mode, setMode] = useState<ThemeMode>('dark')
   const [mounted, setMounted] = useState(false)
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('sloughgpt_theme') as Theme
-    const savedMode = localStorage.getItem('sloughgpt_mode') as Mode
-    if (savedTheme && ['blue', 'purple', 'pink', 'red', 'orange', 'green', 'teal'].includes(savedTheme)) {
-      setTheme(savedTheme)
-    }
-    if (savedMode === 'light' || savedMode === 'dark') {
-      setMode(savedMode)
-    }
+  useLayoutEffect(() => {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY)
+    const savedMode = localStorage.getItem(MODE_STORAGE_KEY) as ThemeMode
+    const t = isStoredThemeId(savedTheme) ? savedTheme : 'blue'
+    const m = savedMode === 'light' || savedMode === 'dark' ? savedMode : 'dark'
+    setTheme(t)
+    setMode(m)
+    syncHtmlTheme(m, t)
     setMounted(true)
   }, [])
 
   useEffect(() => {
-    if (mounted) {
-      document.body.className = ['font-sans', 'antialiased', mode, `theme-${theme}`].filter(Boolean).join(' ')
-      localStorage.setItem('sloughgpt_theme', theme)
-      localStorage.setItem('sloughgpt_mode', mode)
-    }
+    if (!mounted) return
+    syncHtmlTheme(mode, theme)
+    localStorage.setItem(THEME_STORAGE_KEY, theme)
+    localStorage.setItem(MODE_STORAGE_KEY, mode)
   }, [theme, mode, mounted])
 
   return (
@@ -49,13 +53,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 export function useTheme() {
   const context = useContext(ThemeContext)
   if (!context) {
-    throw new Error('useTheme must be used within ThemeProvider')
+    throw new Error('useTheme must be used within a ThemeProvider')
   }
   return context
 }
 
 /** Accent presets — ids kept for localStorage; hues match ``globals.css`` theme-* */
-export const THEMES: { id: Theme; name: string; color: string }[] = [
+export const THEMES: { id: StoredThemeId; name: string; color: string }[] = [
   { id: 'blue', name: 'Ochre', color: '#d4a24a' },
   { id: 'purple', name: 'Lilac', color: '#b8a3d4' },
   { id: 'pink', name: 'Rose', color: '#d898b4' },

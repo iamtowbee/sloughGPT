@@ -5,15 +5,12 @@
 /*
  * SloughGPT — “Ochre & ink” design system
  * Warm dark console: near-black fields, parchment-warm text, ochre/gold accent.
- * `body.light` flips to warm paper UI. Theme chips (theme-*) only shift accent hue.
+ * `html.light` flips to warm paper UI. Mode + accent live on ``<html>`` (see ThemeProvider).
+ * Theme chips (theme-*) only shift accent hue.
  */
 
 :root {
   color-scheme: dark;
-}
-
-:root,
-body.dark {
   --background: #080706;
   --foreground: #f2ebe0;
   --card: #100e0b;
@@ -43,7 +40,7 @@ body.dark {
   --chart-5: #c45c5c;
 }
 
-body.light {
+html.light {
   color-scheme: light;
   --background: #f4f0e8;
   --foreground: #1a1714;
