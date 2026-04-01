@@ -724,13 +724,12 @@ def cmd_train(args):
         print(f"  Checkpoint Dir: {args.checkpoint_dir}")
         print("=" * 60)
 
-        # Resume if requested
+        # Train (optional resume from explicit .pt or latest under checkpoint_dir)
         if args.resume:
-            print(f"Resuming from: {args.resume}")
-            trainer.checkpoint_manager.load_latest()
-
-        # Train
-        trainer.train()
+            print(f"Resuming from checkpoint: {args.resume}")
+            trainer.train(resume=True, resume_path=args.resume)
+        else:
+            trainer.train()
 
         # Save
         print(f"\nSaving model in format(s): {', '.join(save_formats)}...")

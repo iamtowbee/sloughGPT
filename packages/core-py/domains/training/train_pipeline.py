@@ -157,6 +157,7 @@ class CheckpointManager:
         step: int,
         metrics: Dict[str, float],
         config: TrainerConfig,
+        epoch: int = 0,
         is_final: bool = False,
     ) -> Optional[str]:
         """Save a checkpoint."""
@@ -175,6 +176,7 @@ class CheckpointManager:
             "optimizer_state_dict": optimizer.state_dict(),
             "scheduler_state_dict": scheduler.state_dict() if scheduler else None,
             "step": step,
+            "epoch": epoch,
             "metrics": metrics,
             "timestamp": datetime.now().isoformat(),
             "config": {
@@ -193,6 +195,15 @@ class CheckpointManager:
 
         self._cleanup_old_checkpoints()
         return str(model_path)
+
+    @staticmethod
+    def load_from_path(path: str, map_location: str = "cpu") -> Optional[Dict[str, Any]]:
+        """Load a training checkpoint from an explicit path (.pt file)."""
+        p = Path(path).expanduser()
+        if not p.is_file():
+            logger.warning("Checkpoint file not found: %s", p)
+            return None
+        return torch.load(p, map_location=map_location, weights_only=False)
 
     def _cleanup_old_checkpoints(self):
         """Remove old checkpoints keeping only the most recent ones."""
@@ -215,7 +226,7 @@ class CheckpointManager:
         )
         if not checkpoints:
             return None
-        return torch.load(checkpoints[-1], map_location="cpu")
+        return torch.load(checkpoints[-1], map_location="cpu", weights_only=False)
 
     def load_best(self) -> Optional[Dict[str, Any]]:
         """Load the checkpoint with the best metric."""
@@ -224,7 +235,7 @@ class CheckpointManager:
         best = min(self.checkpoints, key=lambda c: c["metrics"].get("eval_loss", float("inf")))
         path = Path(best["path"])
         if path.exists():
-            return torch.load(path, map_location="cpu")
+            return torch.load(path, map_location="cpu", weights_only=False)
         return None
 
 
@@ -580,17 +591,31 @@ class SloughGPTTrainer:
         avg_loss = total_loss / max(steps, 1)
         return {"eval_loss": avg_loss, "eval_ppl": torch.exp(torch.tensor(avg_loss)).item()}
 
-    def train(self, resume: bool = False) -> Dict[str, Any]:
-        """Full training loop."""
+    def train(self, resume: bool = False, resume_path: Optional[str] = None) -> Dict[str, Any]:
+        """Full training loop.
+
+        Args:
+            resume: If True, load checkpoint from ``resume_path`` or latest in ``checkpoint_dir``.
+            resume_path: Optional explicit ``.pt`` file (``train_sloughgpt`` / periodic / manual saves).
+        """
         if resume:
-            checkpoint = self.checkpoint_manager.load_latest()
+            checkpoint = None
+            if resume_path:
+                checkpoint = CheckpointManager.load_from_path(resume_path, map_location="cpu")
+            if checkpoint is None:
+                checkpoint = self.checkpoint_manager.load_latest()
             if checkpoint:
                 self.model.load_state_dict(checkpoint["model_state_dict"])
                 self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
                 if self.scheduler and checkpoint.get("scheduler_state_dict"):
                     self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
                 self.global_step = checkpoint.get("step", 0)
-                logger.info(f"Resumed from step {self.global_step}")
+                self.current_epoch = int(checkpoint.get("epoch", 0))
+                logger.info(
+                    "Resumed from step %s epoch %s",
+                    self.global_step,
+                    self.current_epoch,
+                )
 
         is_main = not self.config.use_distributed or self.config.rank == 0
 
@@ -659,6 +684,7 @@ class SloughGPTTrainer:
             self.global_step,
             metrics,
             self.config,
+            epoch=self.current_epoch,
             is_final=is_final,
         )
 

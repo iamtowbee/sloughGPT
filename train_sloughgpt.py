@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 SloughGPT Training Pipeline
-Uses existing infrastructure: NanoGPT model, training features
+Uses SloughGPTModel and domains training export; supports full checkpoint resume.
 """
 
 import os
@@ -17,7 +17,6 @@ if torch.cuda.is_available():
 elif torch.backends.mps.is_available():
     import torch.mps
 
-# Use existing NanoGPT from our infrastructure
 from domains.models import SloughGPTModel
 from domains.training.export import export_to_safetensors, export_to_gguf
 from domains.inference.sou_format import create_soul_profile, export_to_sou
@@ -182,48 +181,74 @@ def train_sloughgpt(
     soul_name=None,
     checkpoint_interval=0,  # Save checkpoint every N batches (0 = disabled)
 ):
-    """Train SloughGPT model."""
+    """Train SloughGPT model.
 
-    use_amp = mixed_precision and is_gpu_available()
+    ``resume_from`` may point to:
+
+    - A **weights-only** checkpoint (e.g. Colab ``.pt`` with ``model_state_dict`` + ``training_info``):
+      restores weights and tokenizer mappings when present; optimizer restarts from scratch.
+    - A **full** training checkpoint (see periodic ``models/checkpoint_step_*.pt`` from this module
+      or ``domains.training`` ``step_*.pt``): restores model, optimizer, scheduler (optional scaler),
+      and continues from saved ``epoch`` / ``next_batch_idx`` when ``compile_model`` is False.
+    """
 
     if device is None:
         device = get_device()
 
+    use_amp = mixed_precision and device == "cuda"
+
     print(f"Using device: {device}")
     print("=" * 50)
 
-    # Prepare data FIRST to get vocab_size
+    resume_ckpt = None
+    if resume_from:
+        rp = Path(resume_from).expanduser()
+        if not rp.is_file():
+            raise FileNotFoundError(f"Resume checkpoint not found: {rp}")
+        raw_ckpt = torch.load(str(rp), map_location=device, weights_only=False)
+        # Normalize: bundled training checkpoint vs raw state_dict
+        if isinstance(raw_ckpt, dict) and "model_state_dict" not in raw_ckpt and "model" not in raw_ckpt:
+            if any(isinstance(k, str) and (".weight" in k or "tok_emb" in k) for k in raw_ckpt.keys()):
+                resume_ckpt = {"model_state_dict": raw_ckpt, "training_info": {}}
+            else:
+                resume_ckpt = raw_ckpt
+        else:
+            resume_ckpt = raw_ckpt
+        print(f"\nLoaded resume file: {rp}")
+
+    # Prepare data FIRST to get vocab_size (used when not in checkpoint)
     data, vocab_size, stoi, itos = prepare_data(data_path, block_size)
 
-    if resume_from and os.path.exists(resume_from):
-        print(f"\nResuming from {resume_from}...")
-        checkpoint = torch.load(resume_from, map_location=device)
-
+    if resume_ckpt:
         # Handle different checkpoint formats
-        if "model" in checkpoint and isinstance(checkpoint["model"], dict):
-            state_dict = checkpoint["model"]
-        elif "model_state_dict" in checkpoint:
-            state_dict = checkpoint["model_state_dict"]
+        if "model" in resume_ckpt and isinstance(resume_ckpt["model"], dict):
+            state_dict = resume_ckpt["model"]
+        elif "model_state_dict" in resume_ckpt:
+            state_dict = resume_ckpt["model_state_dict"]
         else:
-            state_dict = checkpoint
+            state_dict = resume_ckpt
 
-        # Get config from training_info or top-level keys
-        training_info = checkpoint.get("training_info", {})
+        if not isinstance(state_dict, dict):
+            raise ValueError("resume_from checkpoint model weights must be a state_dict mapping.")
 
-        if "chars" in checkpoint:
-            checkpoint_vocab_size = len(checkpoint["chars"])
+        training_info = resume_ckpt.get("training_info", {})
+
+        if "chars" in resume_ckpt:
+            checkpoint_vocab_size = len(resume_ckpt["chars"])
         else:
             checkpoint_vocab_size = training_info.get(
-                "vocab_size", checkpoint.get("vocab_size", vocab_size)
+                "vocab_size", resume_ckpt.get("vocab_size", vocab_size)
             )
 
-        n_embed = training_info.get("n_embed", checkpoint.get("n_embed", n_embed))
-        n_layer = training_info.get("n_layer", checkpoint.get("n_layer", n_layer))
-        n_head = training_info.get("n_head", checkpoint.get("n_head", n_head))
-        block_size = training_info.get("block_size", checkpoint.get("block_size", block_size))
+        n_embed = training_info.get("n_embed", resume_ckpt.get("n_embed", n_embed))
+        n_layer = training_info.get("n_layer", resume_ckpt.get("n_layer", n_layer))
+        n_head = training_info.get("n_head", resume_ckpt.get("n_head", n_head))
+        block_size = training_info.get(
+            "block_size", resume_ckpt.get("block_size", block_size)
+        )
 
         print(
-            f"Resuming with: vocab={checkpoint_vocab_size}, embed={n_embed}, "
+            f"Restoring weights: vocab={checkpoint_vocab_size}, embed={n_embed}, "
             f"layers={n_layer}, heads={n_head}, block={block_size}"
         )
 
@@ -234,12 +259,13 @@ def train_sloughgpt(
             n_head=n_head,
             block_size=block_size,
         )
-        model.load_state_dict(state_dict)
-        stoi = checkpoint.get("stoi")
-        itos = checkpoint.get("itos")
-        print(f"Loaded model with {model.num_parameters:,} parameters")
+        model.load_state_dict(state_dict, strict=True)
+        ckpt_stoi = resume_ckpt.get("stoi")
+        ckpt_itos = resume_ckpt.get("itos")
+        if ckpt_stoi is not None and ckpt_itos is not None:
+            stoi, itos = ckpt_stoi, ckpt_itos
+        print(f"Loaded model with {model.num_parameters():,} parameters")
     else:
-        # Create model using SloughGPTModel
         model = SloughGPTModel(
             vocab_size=vocab_size,
             n_embed=n_embed,
@@ -289,8 +315,6 @@ def train_sloughgpt(
 
     optimizer = torch.optim.AdamW(train_params, lr=lr, weight_decay=0.01)
 
-    # Mixed precision scaler (only for CUDA, MPS doesn't support it well)
-    use_amp = mixed_precision and device == "cuda"
     scaler = torch.amp.GradScaler("cuda") if use_amp else None
 
     # Compile model if requested (only on CUDA, MPS support is experimental)
@@ -319,25 +343,53 @@ def train_sloughgpt(
 
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
+    start_epoch = 0
+    next_batch_idx = 0
+    full_resume = bool(
+        resume_ckpt
+        and resume_ckpt.get("optimizer_state_dict")
+        and not compile_model
+    )
+    if full_resume:
+        try:
+            optimizer.load_state_dict(resume_ckpt["optimizer_state_dict"])
+            if resume_ckpt.get("scheduler_state_dict"):
+                scheduler.load_state_dict(resume_ckpt["scheduler_state_dict"])
+            if scaler is not None and resume_ckpt.get("scaler_state_dict"):
+                scaler.load_state_dict(resume_ckpt["scaler_state_dict"])
+            start_epoch = int(resume_ckpt.get("epoch", 0))
+            next_batch_idx = int(resume_ckpt.get("next_batch_idx", 0))
+            print(
+                f"Full resume: continuing from epoch {start_epoch + 1}, "
+                f"dataloader batch index {next_batch_idx}"
+            )
+        except Exception as exc:
+            print(f"Warning: full resume failed ({exc}); using restored weights with fresh optimizer.")
+            start_epoch, next_batch_idx = 0, 0
+
+    if full_resume and next_batch_idx > 0:
+        print(
+            "Note: train DataLoader uses shuffle=False so resumed batch index matches checkpoint order."
+        )
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+
     best_val_loss = float("inf")
 
-    # Training loop
-    print(f"\nTraining on {device}...")
-    print(f"Total steps: {total_steps}, Warmup: {warmup_steps}")
+    print(f"\nTraining on {device} | epochs {start_epoch + 1}..{epochs}")
+    print(f"Total steps (schedule): {total_steps}, warmup: {warmup_steps}")
     print("-" * 50)
 
-    # Training loop
-    print(f"\nTraining on {device}...")
-    print("-" * 50)
-
-    for epoch in range(epochs):
+    for epoch in range(start_epoch, epochs):
         model.train()
-        train_loss = 0
+        train_loss = 0.0
+        batches_run = 0
         optimizer.zero_grad()
 
         pbar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs}")
         for batch_idx, (x, y) in enumerate(pbar):
-            if max_steps and batch_idx >= max_steps:
+            if epoch == start_epoch and batch_idx < next_batch_idx:
+                continue
+            if max_steps and batches_run >= max_steps:
                 break
             x, y = x.to(device), y.to(device)
 
@@ -373,36 +425,47 @@ def train_sloughgpt(
             scheduler.step()
 
             train_loss += loss.item() * gradient_accumulation
+            batches_run += 1
             pbar.set_postfix(
                 {
                     "loss": f"{loss.item() * gradient_accumulation:.4f}",
                     "lr": f"{scheduler.get_last_lr()[0]:.2e}",
                 }
             )
-            
-            # Periodic checkpoint saving
+
+            # Periodic full checkpoint (resume with train_sloughgpt.py --resume)
             if checkpoint_interval and (batch_idx + 1) % checkpoint_interval == 0:
                 step = epoch * len(train_loader) + batch_idx + 1
                 checkpoint_path = f"models/checkpoint_step_{step}.pt"
-                checkpoint = {
+                ck_bundle = {
                     "step": step,
                     "epoch": epoch,
+                    "next_batch_idx": batch_idx + 1,
                     "model_state_dict": model.state_dict(),
                     "optimizer_state_dict": optimizer.state_dict(),
                     "scheduler_state_dict": scheduler.state_dict(),
                     "train_loss": loss.item() * gradient_accumulation,
-                    "metadata": metadata,
+                    "training_info": {
+                        "vocab_size": model.vocab_size,
+                        "n_embed": n_embed,
+                        "n_layer": n_layer,
+                        "n_head": n_head,
+                        "block_size": model.block_size,
+                    },
                     "stoi": stoi,
                     "itos": itos,
                 }
+                if scaler is not None:
+                    ck_bundle["scaler_state_dict"] = scaler.state_dict()
                 os.makedirs("models", exist_ok=True)
-                torch.save(checkpoint, checkpoint_path)
+                torch.save(ck_bundle, checkpoint_path)
                 print(f"  ✓ Checkpoint saved: checkpoint_step_{step}.pt")
 
         if max_steps:
             break
 
-        avg_train_loss = train_loss / len(train_loader)
+        avg_den = max(1, batches_run)
+        avg_train_loss = train_loss / avg_den
 
         # Validation
         model.eval()
@@ -510,7 +573,12 @@ if __name__ == "__main__":
     parser.add_argument("--n_head", type=int, default=8)
     parser.add_argument("--block_size", type=int, default=128)
     parser.add_argument("--device", type=str, default=None, help="auto-detect: cuda/mps/cpu")
-    parser.add_argument("--resume", type=str, default=None, help="Resume from checkpoint")
+    parser.add_argument(
+        "--resume",
+        type=str,
+        default=None,
+        help="Path to .pt: weights-only (fresh optimizer) or full periodic checkpoint (see checkpoint_interval)",
+    )
     parser.add_argument("--max_steps", type=int, default=None, help="Max training steps per epoch")
 
     # Optimization options
