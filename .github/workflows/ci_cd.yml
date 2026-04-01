@@ -48,7 +48,10 @@ jobs:
       - name: Run tests
         run: |
           export DYLD_INSERT_LIBRARIES=""
-          python -m pytest tests/test_quantization.py tests/test_optimizations.py tests/test_benchmarking.py -v --tb=short
+          python -m pytest tests/test_quantization.py tests/test_optimizations.py tests/test_benchmarking.py tests/test_train_sloughgpt_generate_text.py tests/test_train_sloughgpt_resume.py tests/test_sloughgpt_trainer_smoke.py -v --tb=short
+
+      - name: train_sloughgpt.py CLI smoke (macOS)
+        run: python3 train_sloughgpt.py --help
 
   test-sdk-ts:
     runs-on: ubuntu-latest
