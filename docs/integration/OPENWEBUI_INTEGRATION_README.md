@@ -2,7 +2,9 @@
 
 ## Overview
 
-This is the production-ready OpenWebUI codebase with SLO model integration. It provides a complete web interface for training, inference, and RAG capabilities.
+**Status:** Historical integration notes / design sketch. This repository does **not** currently ship the `openwebui/` tree described below. The maintained web app in this monorepo is **`apps/web/web/`** and the maintained API entrypoint is **`apps/api/server/main.py`**.
+
+This document captures a potential OpenWebUI-based approach for future integration work.
 
 ## Integration Approach
 
@@ -48,10 +50,10 @@ openwebui/                              # Complete OpenWebUI codebase
 - **Settings Panel** - SLO-specific parameters available in settings
 - **Auto-Installation** - Patches install automatically when OpenWebUI starts
 
-## Usage
+## Usage (planned)
 
 ```bash
-# Start OpenWebUI with SLO integration
+# Start OpenWebUI with SLO integration (if that external tree exists)
 ./openwebui/start.sh
 
 # SLO model automatically available in:
