@@ -185,9 +185,9 @@ export default function PluginsPage() {
                   </p>
                 </div>
               </div>
-              <label className="relative inline-flex cursor-pointer items-center">
+              <label className="inline-flex cursor-pointer items-center">
                 <input type="checkbox" className="peer sr-only" checked={plugin.enabled} onChange={() => togglePlugin(plugin.id)} />
-                <div className="peer h-6 w-11 rounded-full bg-muted after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-card after:transition-all peer-checked:bg-primary peer-checked:after:translate-x-5" />
+                <div className="relative h-6 w-11 shrink-0 rounded-full bg-muted transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-card after:shadow-sm after:transition-transform peer-checked:bg-primary peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-ring" />
               </label>
             </div>
 
