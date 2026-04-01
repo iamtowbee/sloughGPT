@@ -14,20 +14,21 @@ The text below is retained as a design sketch for a future interactive wrapper.
 
 ## Usage
 
-### Interactive Mode
+### Interactive Mode (planned)
 ```bash
-./slo                    # Start interactive CLI
-python3 slo_cli.py        # Or run directly
+# Planned future entrypoints (not currently shipped in this repo):
+./slo
+python3 slo_cli.py
 ```
 
-### Command Mode
+### Command Mode (planned)
 ```bash
-./slo help                   # Show help
-./slo config list            # List configurations
-./slo data prepare shakespeare  # Prepare dataset
-./slo train start small      # Start training with small config
-./slo system info            # Show system information
-./slo status                 # Show overall status
+./slo help
+./slo config list
+./slo data prepare shakespeare
+./slo train start small
+./slo system info
+./slo status
 ```
 
 ## Command Categories
