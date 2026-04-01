@@ -53,6 +53,20 @@ if [ "$all_found" = true ]; then
         echo "(Optional: python3 -m pip install ruff to run the CI lint smoke check locally.)"
         echo ""
     fi
+
+    if command -v node &>/dev/null && [ -d "apps/web/web/node_modules" ]; then
+        echo "Web lint + typecheck (apps/web/web)..."
+        (cd apps/web/web && npm run lint && npm run typecheck) || {
+            echo "❌ Web lint / typecheck failed"
+            exit 1
+        }
+        echo "✓ Web lint + typecheck passed"
+        echo ""
+    elif command -v node &>/dev/null; then
+        echo "(Web: run cd apps/web/web && npm ci to enable lint/typecheck in this script.)"
+        echo ""
+    fi
+
     echo "To start SloughGPT:"
     echo "  1. API:  python3 apps/api/server/main.py"
     echo "     or:  cd apps/api/server && python3 -m uvicorn main:app --reload --port 8000"
