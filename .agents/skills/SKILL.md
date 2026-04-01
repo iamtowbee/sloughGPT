@@ -32,7 +32,7 @@ Two drivers share **`SloughGPTModel`** (checkpoints differ):
 
 CI: **`tests/test_checkpoint_utils.py`**, **`tests/test_train_sloughgpt_*.py`**, **`tests/test_sloughgpt_trainer_smoke.py`**, **`train_sloughgpt.py --help`**.
 
-Shared checkpoint I/O: **`packages/core-py/domains/training/checkpoint_utils.py`** (`normalize_raw_checkpoint`, `load_sloughgpt_from_checkpoint`, …) used by **`train_sloughgpt.py`**, **`SloughGPTTrainer`** loads, and **`cli.py generate`** for `.pt` weights.
+Shared checkpoint I/O: **`packages/core-py/domains/training/checkpoint_utils.py`** (`normalize_raw_checkpoint`, `load_sloughgpt_from_checkpoint`, …) used by **`train_sloughgpt.py`**, **`SloughGPTTrainer`** loads, **`cli.py generate`**, **`ModelLoader._load_pt`**, and **`scripts/export_to_gguf.py`** for consistent `.pt` parsing.
 
 - **LR Schedulers**: Cosine, warmup, OneCycle, cyclic, polynomial
 - **Mixed Precision**: FP32, FP16, BF16 with GradScaler

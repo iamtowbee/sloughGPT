@@ -25,11 +25,22 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
-# Add sloughgpt to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_CORE_PY = _REPO_ROOT / "packages" / "core-py"
+# Prepend repo root, then core-py so ``import domains`` resolves under packages/core-py.
+for _path in (_REPO_ROOT, _CORE_PY):
+    _s = str(_path)
+    if _s not in sys.path:
+        sys.path.insert(0, _s)
 
 import torch
 import numpy as np
+
+from domains.training.checkpoint_utils import (
+    extract_state_dict,
+    normalize_raw_checkpoint,
+    resolve_sloughgpt_hyperparams,
+)
 
 # GGUF Constants
 GGUF_MAGIC = 0x46554746  # "GGUF"
@@ -62,42 +73,40 @@ QUANT_TYPES = {
 
 
 def load_checkpoint(path: str) -> Dict[str, Any]:
-    """Load a PyTorch checkpoint."""
+    """Load a PyTorch checkpoint (bundled or flat; same conventions as training)."""
     print(f"Loading checkpoint: {path}")
-    
-    checkpoint = torch.load(path, map_location='cpu', weights_only=False)
-    
-    if isinstance(checkpoint, dict):
-        if 'model' in checkpoint:
-            state_dict = checkpoint['model']
-        elif 'model_state_dict' in checkpoint:
-            state_dict = checkpoint['model_state_dict']
-        else:
-            state_dict = checkpoint
-        
+
+    raw = torch.load(path, map_location="cpu", weights_only=False)
+
+    if not isinstance(raw, dict):
+        state_dict = raw
         config = {
-            'vocab_size': checkpoint.get('vocab_size', 256),
-            'n_embed': checkpoint.get('n_embed', checkpoint.get('n_embd', 256)),
-            'n_layer': checkpoint.get('n_layer', 6),
-            'n_head': checkpoint.get('n_head', 8),
-            'block_size': checkpoint.get('block_size', 128),
+            "vocab_size": 256,
+            "n_embed": 256,
+            "n_layer": 6,
+            "n_head": 8,
+            "block_size": 128,
         }
     else:
-        state_dict = checkpoint
-        config = {
-            'vocab_size': 256,
-            'n_embed': 256,
-            'n_layer': 6,
-            'n_head': 8,
-            'block_size': 128,
-        }
-    
+        bundle = normalize_raw_checkpoint(raw)
+        state_dict = extract_state_dict(bundle)
+        config = dict(
+            resolve_sloughgpt_hyperparams(
+                bundle,
+                fallback_vocab_size=256,
+                fallback_n_embed=256,
+                fallback_n_layer=6,
+                fallback_n_head=8,
+                fallback_block_size=128,
+            )
+        )
+
     print(f"Loaded {len(state_dict)} tensors")
     print(f"Config: {config}")
-    
+
     return {
-        'state_dict': state_dict,
-        'config': config,
+        "state_dict": state_dict,
+        "config": config,
     }
 
 

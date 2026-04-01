@@ -9,6 +9,13 @@ import torch
 from pathlib import Path
 from typing import Tuple, Dict, Any, Optional
 
+from domains.training.checkpoint_utils import (
+    extract_state_dict,
+    normalize_raw_checkpoint,
+    resolve_sloughgpt_hyperparams,
+    torch_load_checkpoint,
+)
+
 
 class ModelLoader:
     """Unified model loader for SloughGPT."""
@@ -57,17 +64,22 @@ class ModelLoader:
         return state_dict, metadata
 
     def _load_pt(self, path: Path) -> Tuple[Dict, Dict]:
-        """Load model from PyTorch checkpoint."""
-        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
-
-        if "model_state_dict" in checkpoint:
-            state_dict = checkpoint["model_state_dict"]
-        elif "model" in checkpoint and isinstance(checkpoint["model"], dict):
-            state_dict = checkpoint["model"]
-        else:
-            state_dict = checkpoint
-
-        metadata = checkpoint.get("metadata") or checkpoint.get("config") or {}
+        """Load model from PyTorch checkpoint (``training_info`` / flat state_dict aware)."""
+        raw = torch_load_checkpoint(str(path), map_location="cpu")
+        bundle = normalize_raw_checkpoint(raw)
+        state_dict = extract_state_dict(bundle)
+        hp = resolve_sloughgpt_hyperparams(
+            bundle,
+            fallback_vocab_size=256,
+            fallback_n_embed=128,
+            fallback_n_layer=4,
+            fallback_n_head=4,
+            fallback_block_size=64,
+        )
+        legacy_meta = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
+        top_cfg = raw.get("config") if isinstance(raw.get("config"), dict) else {}
+        training = bundle.get("training_info") if isinstance(bundle.get("training_info"), dict) else {}
+        metadata: Dict[str, Any] = {**hp, **training, **top_cfg, **legacy_meta}
         return state_dict, metadata
 
     def load_local(self, name: str = "sloughgpt") -> Tuple[Any, Dict]:
