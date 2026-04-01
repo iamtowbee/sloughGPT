@@ -24,6 +24,7 @@ from torch.utils.data import Dataset, DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from domains.models import SloughGPTModel
+from domains.training.checkpoint_utils import torch_load_checkpoint
 from domains.training.lora import apply_lora_to_model, LoRAConfig
 
 logger = logging.getLogger("sloughgpt.trainer")
@@ -203,7 +204,7 @@ class CheckpointManager:
         if not p.is_file():
             logger.warning("Checkpoint file not found: %s", p)
             return None
-        return torch.load(p, map_location=map_location, weights_only=False)
+        return torch_load_checkpoint(str(p), map_location=map_location)
 
     def _cleanup_old_checkpoints(self):
         """Remove old checkpoints keeping only the most recent ones."""
@@ -226,7 +227,7 @@ class CheckpointManager:
         )
         if not checkpoints:
             return None
-        return torch.load(checkpoints[-1], map_location="cpu", weights_only=False)
+        return torch_load_checkpoint(str(checkpoints[-1]), map_location="cpu")
 
     def load_best(self) -> Optional[Dict[str, Any]]:
         """Load the checkpoint with the best metric."""
@@ -235,7 +236,7 @@ class CheckpointManager:
         best = min(self.checkpoints, key=lambda c: c["metrics"].get("eval_loss", float("inf")))
         path = Path(best["path"])
         if path.exists():
-            return torch.load(path, map_location="cpu", weights_only=False)
+            return torch_load_checkpoint(str(path), map_location="cpu")
         return None
 
 

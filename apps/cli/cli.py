@@ -930,10 +930,9 @@ def cmd_serve(args):
 
 def cmd_generate(args):
     """Generate text from prompt - tries local first, then API."""
-    import torch
     from pathlib import Path
+
     from domains.core import SoulEngine
-    from domains.models import SloughGPTModel
 
     # Try local first - prefer .sou files
     sou_path = Path("models/sloughgpt.sou")
@@ -950,30 +949,30 @@ def cmd_generate(args):
             sou_path = None
     elif pt_path.exists():
         try:
-            checkpoint = torch.load(pt_path, weights_only=False, map_location="cpu")
-            training_info = checkpoint.get("training_info", {})
-            vocab_size = training_info.get("vocab_size", len(checkpoint.get("stoi", {})))
-            n_embed = training_info.get("n_embed", 128)
-            n_layer = training_info.get("n_layer", 4)
-            n_head = training_info.get("n_head", 4)
-            block_size = training_info.get("block_size", 64)
-            if vocab_size == 0:
-                vocab_size = 65
-
-            model = SloughGPTModel(
-                vocab_size=vocab_size,
-                n_embed=n_embed,
-                n_layer=n_layer,
-                n_head=n_head,
-                block_size=block_size,
+            from domains.training.checkpoint_utils import (
+                load_sloughgpt_from_checkpoint,
+                normalize_raw_checkpoint,
+                torch_load_checkpoint,
+                tokenizer_maps_from_bundle,
             )
-            if "model" in checkpoint:
-                model.load_state_dict(checkpoint["model"])
-            elif isinstance(checkpoint, dict):
-                model.load_state_dict(checkpoint)
 
+            raw = torch_load_checkpoint(str(pt_path), map_location="cpu")
+            bundle = normalize_raw_checkpoint(raw)
+            stoi_len = len(bundle.get("stoi", {})) or 65
+            model, _ = load_sloughgpt_from_checkpoint(
+                bundle,
+                device="cpu",
+                strict=True,
+                fallback_vocab_size=stoi_len,
+                fallback_n_embed=128,
+                fallback_n_layer=4,
+                fallback_n_head=4,
+                fallback_block_size=64,
+            )
             engine._model = model
-            engine.set_vocab(checkpoint.get("stoi", {}), checkpoint.get("itos", {}))
+            stoi, itos = tokenizer_maps_from_bundle(bundle)
+            if stoi is not None and itos is not None:
+                engine.set_vocab(stoi, itos)
         except Exception as e:
             print(f"Failed to load .pt: {e}")
     else:

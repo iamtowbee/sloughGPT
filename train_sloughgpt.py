@@ -26,6 +26,13 @@ elif torch.backends.mps.is_available():
     import torch.mps
 
 from domains.models import SloughGPTModel
+from domains.training.checkpoint_utils import (
+    extract_state_dict,
+    normalize_raw_checkpoint,
+    resolve_sloughgpt_hyperparams,
+    tokenizer_maps_from_bundle,
+    torch_load_checkpoint,
+)
 from domains.training.export import export_to_safetensors, export_to_gguf
 from domains.inference.sou_format import create_soul_profile, export_to_sou
 
@@ -213,65 +220,40 @@ def train_sloughgpt(
         rp = Path(resume_from).expanduser()
         if not rp.is_file():
             raise FileNotFoundError(f"Resume checkpoint not found: {rp}")
-        raw_ckpt = torch.load(str(rp), map_location=device, weights_only=False)
-        # Normalize: bundled training checkpoint vs raw state_dict
-        if isinstance(raw_ckpt, dict) and "model_state_dict" not in raw_ckpt and "model" not in raw_ckpt:
-            if any(isinstance(k, str) and (".weight" in k or "tok_emb" in k) for k in raw_ckpt.keys()):
-                resume_ckpt = {"model_state_dict": raw_ckpt, "training_info": {}}
-            else:
-                resume_ckpt = raw_ckpt
-        else:
-            resume_ckpt = raw_ckpt
+        resume_ckpt = normalize_raw_checkpoint(
+            torch_load_checkpoint(str(rp), map_location=device)
+        )
         print(f"\nLoaded resume file: {rp}")
 
     # Prepare data FIRST to get vocab_size (used when not in checkpoint)
     data, vocab_size, stoi, itos = prepare_data(data_path, block_size)
 
     if resume_ckpt:
-        # Handle different checkpoint formats
-        if "model" in resume_ckpt and isinstance(resume_ckpt["model"], dict):
-            state_dict = resume_ckpt["model"]
-        elif "model_state_dict" in resume_ckpt:
-            state_dict = resume_ckpt["model_state_dict"]
-        else:
-            state_dict = resume_ckpt
-
-        if not isinstance(state_dict, dict):
-            raise ValueError("resume_from checkpoint model weights must be a state_dict mapping.")
-
-        training_info = resume_ckpt.get("training_info", {})
-
-        if "chars" in resume_ckpt:
-            checkpoint_vocab_size = len(resume_ckpt["chars"])
-        else:
-            checkpoint_vocab_size = training_info.get(
-                "vocab_size", resume_ckpt.get("vocab_size", vocab_size)
-            )
-
-        n_embed = training_info.get("n_embed", resume_ckpt.get("n_embed", n_embed))
-        n_layer = training_info.get("n_layer", resume_ckpt.get("n_layer", n_layer))
-        n_head = training_info.get("n_head", resume_ckpt.get("n_head", n_head))
-        block_size = training_info.get(
-            "block_size", resume_ckpt.get("block_size", block_size)
+        state_dict = extract_state_dict(resume_ckpt)
+        hp = resolve_sloughgpt_hyperparams(
+            resume_ckpt,
+            fallback_vocab_size=vocab_size,
+            fallback_n_embed=n_embed,
+            fallback_n_layer=n_layer,
+            fallback_n_head=n_head,
+            fallback_block_size=block_size,
         )
-
         print(
-            f"Restoring weights: vocab={checkpoint_vocab_size}, embed={n_embed}, "
-            f"layers={n_layer}, heads={n_head}, block={block_size}"
+            f"Restoring weights: vocab={hp['vocab_size']}, embed={hp['n_embed']}, "
+            f"layers={hp['n_layer']}, heads={hp['n_head']}, block={hp['block_size']}"
         )
-
         model = SloughGPTModel(
-            vocab_size=checkpoint_vocab_size,
-            n_embed=n_embed,
-            n_layer=n_layer,
-            n_head=n_head,
-            block_size=block_size,
+            vocab_size=hp["vocab_size"],
+            n_embed=hp["n_embed"],
+            n_layer=hp["n_layer"],
+            n_head=hp["n_head"],
+            block_size=hp["block_size"],
+            dropout=hp["dropout"],
         )
         model.load_state_dict(state_dict, strict=True)
-        ckpt_stoi = resume_ckpt.get("stoi")
-        ckpt_itos = resume_ckpt.get("itos")
-        if ckpt_stoi is not None and ckpt_itos is not None:
-            stoi, itos = ckpt_stoi, ckpt_itos
+        stoi_ck, itos_ck = tokenizer_maps_from_bundle(resume_ckpt)
+        if stoi_ck is not None and itos_ck is not None:
+            stoi, itos = stoi_ck, itos_ck
         print(f"Loaded model with {model.num_parameters():,} parameters")
     else:
         model = SloughGPTModel(

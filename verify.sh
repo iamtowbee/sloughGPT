@@ -43,7 +43,7 @@ if [ "$all_found" = true ]; then
     echo ""
     if python3 -m ruff --version &>/dev/null; then
         echo "Ruff smoke (same rules as CI)..."
-        python3 -m ruff check tests/ apps/cli/ apps/api/server/ train_sloughgpt.py --select E9,F63,F7,F82 || {
+        python3 -m ruff check tests/ apps/cli/ apps/api/server/ train_sloughgpt.py packages/core-py/domains/training/checkpoint_utils.py --select E9,F63,F7,F82 || {
             echo "❌ Ruff smoke failed"
             exit 1
         }
@@ -75,7 +75,7 @@ if [ "$all_found" = true ]; then
     echo "  python3 -m pytest tests/test_sdk.py -q"
     echo ""
     echo "Python core CI parity (job test in reusable-ci-core.yml), training smoke subset:"
-    echo "  python3 -m pytest tests/test_train_sloughgpt_generate_text.py tests/test_train_sloughgpt_resume.py tests/test_sloughgpt_trainer_smoke.py -q"
+    echo "  python3 -m pytest tests/test_checkpoint_utils.py tests/test_train_sloughgpt_generate_text.py tests/test_train_sloughgpt_resume.py tests/test_sloughgpt_trainer_smoke.py -q"
     echo "  python3 train_sloughgpt.py --help"
     echo ""
     echo "Standards CI parity (job standards-schemas):"
