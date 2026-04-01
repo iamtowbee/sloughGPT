@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useTheme } from '@/components/ThemeProvider'
 
 interface Agent {
   id: string
@@ -19,7 +18,7 @@ const DEFAULT_AGENTS: Agent[] = [
     description: 'Expert programmer',
     instructions: 'You are a helpful coding assistant.',
     tools: ['code_execution', 'file_search'],
-    avatar: '💻',
+    avatar: 'C',
   },
   {
     id: 'writer',
@@ -27,7 +26,7 @@ const DEFAULT_AGENTS: Agent[] = [
     description: 'Creative writing',
     instructions: 'You are a creative writing assistant.',
     tools: ['web_search'],
-    avatar: '✍️',
+    avatar: 'W',
   },
   {
     id: 'researcher',
@@ -35,31 +34,29 @@ const DEFAULT_AGENTS: Agent[] = [
     description: 'Research assistant',
     instructions: 'You are a research assistant.',
     tools: ['web_search', 'citation'],
-    avatar: '🔬',
+    avatar: 'R',
   },
 ]
 
+function AgentAvatar({ label }: { label: string }) {
+  const ch = (label && label[0]) || 'A'
+  return (
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/20 text-primary text-sm font-semibold font-mono ring-1 ring-primary/30">
+      {ch.toUpperCase()}
+    </span>
+  )
+}
+
 export default function AgentsPage() {
-  const { theme } = useTheme()
   const [agents, setAgents] = useState<Agent[]>([])
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
   const [isEditing, setIsEditing] = useState(false)
-  
+
   const [editForm, setEditForm] = useState({
     name: '',
     description: '',
     instructions: '',
   })
-
-  const themeColors: Record<string, string> = {
-    blue: 'from-blue-500 to-cyan-400',
-    purple: 'from-purple-500 to-pink-400',
-    pink: 'from-pink-500 to-rose-400',
-    red: 'from-red-500 to-orange-400',
-    orange: 'from-orange-500 to-yellow-400',
-    green: 'from-green-500 to-emerald-400',
-    teal: 'from-teal-500 to-cyan-400',
-  }
 
   useEffect(() => {
     const saved = localStorage.getItem('sloughgpt_agents')
@@ -80,13 +77,14 @@ export default function AgentsPage() {
   }
 
   const createAgent = () => {
+    const label = editForm.name || 'New Agent'
     const newAgent: Agent = {
       id: `agent-${Date.now()}`,
-      name: editForm.name || 'New Agent',
+      name: label,
       description: editForm.description || 'Custom agent',
       instructions: editForm.instructions || 'You are a helpful assistant.',
       tools: [],
-      avatar: '🤖',
+      avatar: label[0] || 'A',
     }
     saveAgents([...agents, newAgent])
     setEditForm({ name: '', description: '', instructions: '' })
@@ -94,97 +92,100 @@ export default function AgentsPage() {
   }
 
   const deleteAgent = (id: string) => {
-    saveAgents(agents.filter(a => a.id !== id))
+    saveAgents(agents.filter((a) => a.id !== id))
     if (selectedAgent?.id === id) {
       setSelectedAgent(null)
     }
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between py-3 border-b border-white/5">
+    <div className="flex h-[calc(100vh-0px)] flex-col px-2">
+      <div className="flex items-center justify-between border-b border-border py-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold text-white">Agents</h1>
-          <span className="text-xs text-zinc-500">{agents.length} agents</span>
+          <h1 className="text-lg font-semibold text-foreground">Agents</h1>
+          <span className="text-xs text-muted-foreground font-mono">{agents.length} agents</span>
         </div>
         <button
-          onClick={() => { setIsEditing(true); setSelectedAgent(null) }}
-          className={`px-3 py-1.5 bg-gradient-to-r ${themeColors[theme]} text-white text-sm rounded-lg`}
+          type="button"
+          onClick={() => {
+            setIsEditing(true)
+            setSelectedAgent(null)
+          }}
+          className="sl-btn-primary rounded-lg px-3 py-1.5 text-sm"
         >
           + New Agent
         </button>
       </div>
 
-      <div className="flex-1 flex gap-4 py-4 overflow-hidden">
-        {/* Agents List */}
-        <div className="w-64 space-y-2 overflow-y-auto">
-          {agents.map(agent => (
+      <div className="flex flex-1 gap-4 overflow-hidden py-4">
+        <div className="w-64 shrink-0 space-y-2 overflow-y-auto">
+          {agents.map((agent) => (
             <button
               key={agent.id}
-              onClick={() => { setSelectedAgent(agent); setIsEditing(false) }}
-              className={`w-full text-left p-3 rounded-xl transition-all ${
-                selectedAgent?.id === agent.id 
-                  ? `bg-gradient-to-r ${themeColors[theme]} bg-opacity-20 border border-white/10` 
-                  : 'bg-white/5 hover:bg-white/10 border border-transparent'
+              type="button"
+              onClick={() => {
+                setSelectedAgent(agent)
+                setIsEditing(false)
+              }}
+              className={`w-full rounded-xl border p-3 text-left transition-colors ${
+                selectedAgent?.id === agent.id
+                  ? 'border-primary/40 bg-primary/10'
+                  : 'border-transparent bg-muted/30 hover:bg-muted/50'
               }`}
             >
               <div className="flex items-center gap-2">
-                <span className="text-xl">{agent.avatar}</span>
+                <AgentAvatar label={agent.avatar || agent.name} />
                 <div>
-                  <div className="font-medium text-white text-sm">{agent.name}</div>
-                  <div className="text-xs text-zinc-500">{agent.description}</div>
+                  <div className="text-sm font-medium text-foreground">{agent.name}</div>
+                  <div className="text-xs text-muted-foreground line-clamp-1">{agent.description}</div>
                 </div>
               </div>
             </button>
           ))}
         </div>
 
-        {/* Agent Details / Create */}
-        <div className="flex-1 bg-white/5 rounded-xl border border-white/5 p-4 overflow-y-auto">
+        <div className="sl-card-solid min-w-0 flex-1 overflow-y-auto border border-border p-4">
           {isEditing && !selectedAgent ? (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-white">Create New Agent</h2>
+              <h2 className="text-lg font-semibold text-foreground">Create New Agent</h2>
               <div>
-                <label className="block text-xs text-zinc-500 mb-1">Name</label>
+                <label className="sl-label normal-case tracking-normal">Name</label>
                 <input
                   type="text"
                   value={editForm.name}
-                  onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                   placeholder="My Agent"
-                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm"
+                  className="sl-input"
                 />
               </div>
               <div>
-                <label className="block text-xs text-zinc-500 mb-1">Description</label>
+                <label className="sl-label normal-case tracking-normal">Description</label>
                 <input
                   type="text"
                   value={editForm.description}
-                  onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                   placeholder="What does this agent do?"
-                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm"
+                  className="sl-input"
                 />
               </div>
               <div>
-                <label className="block text-xs text-zinc-500 mb-1">Instructions</label>
+                <label className="sl-label normal-case tracking-normal">Instructions</label>
                 <textarea
                   value={editForm.instructions}
-                  onChange={e => setEditForm({ ...editForm, instructions: e.target.value })}
+                  onChange={(e) => setEditForm({ ...editForm, instructions: e.target.value })}
                   placeholder="Agent behavior instructions..."
                   rows={4}
-                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm resize-none"
+                  className="sl-input resize-none"
                 />
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={createAgent}
-                  className={`px-4 py-2 bg-gradient-to-r ${themeColors[theme]} text-white text-sm rounded-lg`}
-                >
+                <button type="button" onClick={createAgent} className="sl-btn-primary rounded-lg px-4 py-2 text-sm">
                   Create
                 </button>
                 <button
+                  type="button"
                   onClick={() => setIsEditing(false)}
-                  className="px-4 py-2 bg-white/10 text-white text-sm rounded-lg"
+                  className="sl-btn-secondary rounded-lg px-4 py-2 text-sm"
                 >
                   Cancel
                 </button>
@@ -192,44 +193,50 @@ export default function AgentsPage() {
             </div>
           ) : selectedAgent ? (
             <div>
-              <div className="flex items-start justify-between mb-4">
+              <div className="mb-4 flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-3xl">{selectedAgent.avatar}</span>
+                  <AgentAvatar label={selectedAgent.avatar || selectedAgent.name} />
                   <div>
-                    <h2 className="text-lg font-semibold text-white">{selectedAgent.name}</h2>
-                    <p className="text-sm text-zinc-500">{selectedAgent.description}</p>
+                    <h2 className="text-lg font-semibold text-foreground">{selectedAgent.name}</h2>
+                    <p className="text-sm text-muted-foreground">{selectedAgent.description}</p>
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => deleteAgent(selectedAgent.id)}
-                  className="p-2 text-zinc-500 hover:text-red-400"
+                  className="sl-btn-ghost p-2 text-destructive hover:text-destructive"
+                  aria-label="Delete agent"
                 >
-                  🗑️
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
                 </button>
               </div>
               <div className="mb-4">
-                <h3 className="text-xs text-zinc-500 mb-2">Instructions</h3>
-                <p className="text-sm text-zinc-300 bg-white/5 p-3 rounded-lg">{selectedAgent.instructions}</p>
+                <h3 className="mb-2 text-xs font-mono uppercase tracking-wider text-muted-foreground">Instructions</h3>
+                <p className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-foreground">{selectedAgent.instructions}</p>
               </div>
               <div>
-                <h3 className="text-xs text-zinc-500 mb-2">Tools</h3>
+                <h3 className="mb-2 text-xs font-mono uppercase tracking-wider text-muted-foreground">Tools</h3>
                 <div className="flex flex-wrap gap-2">
-                  {selectedAgent.tools.map(tool => (
-                    <span key={tool} className={`px-2 py-1 bg-gradient-to-r ${themeColors[theme]} bg-opacity-20 text-xs rounded`}>
+                  {selectedAgent.tools.map((tool) => (
+                    <span key={tool} className="rounded-md border border-primary/25 bg-primary/10 px-2 py-1 text-xs text-primary">
                       {tool}
                     </span>
                   ))}
                   {selectedAgent.tools.length === 0 && (
-                    <span className="text-xs text-zinc-500">No tools enabled</span>
+                    <span className="text-xs text-muted-foreground">No tools enabled</span>
                   )}
                 </div>
               </div>
             </div>
           ) : (
-            <div className="h-full flex items-center justify-center text-zinc-500">
+            <div className="flex h-full items-center justify-center text-muted-foreground">
               <div className="text-center">
-                <div className="text-4xl mb-2">🤖</div>
-                <p>Select an agent or create new</p>
+                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted font-mono text-xl text-primary">
+                  A
+                </div>
+                <p className="text-sm">Select an agent or create new</p>
               </div>
             </div>
           )}

@@ -303,40 +303,37 @@ export default function ApiDocsPage() {
   const [expanded, setExpanded] = useState<string | null>(null)
 
   const methodColors: Record<string, string> = {
-    GET: 'bg-green-500/20 text-green-400',
-    POST: 'bg-blue-500/20 text-blue-400',
-    PUT: 'bg-yellow-500/20 text-yellow-400',
-    DELETE: 'bg-red-500/20 text-red-400',
-    WS: 'bg-purple-500/20 text-purple-400',
+    GET: 'bg-success/15 text-success border border-success/25',
+    POST: 'bg-primary/15 text-primary border border-primary/25',
+    PUT: 'bg-warning/15 text-warning border border-warning/25',
+    DELETE: 'bg-destructive/15 text-destructive border border-destructive/25',
+    WS: 'bg-chart-4/15 text-chart-4 border border-chart-4/25',
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold text-white mb-2">API Documentation</h1>
-      <p className="text-zinc-400 mb-6">
-        Base URL:{' '}
-        <code className="bg-white/5 px-2 py-1 rounded">{PUBLIC_API_URL}</code>
+    <div className="sl-page max-w-4xl mx-auto">
+      <h1 className="sl-h1 mb-2">API Documentation</h1>
+      <p className="text-muted-foreground mb-6">
+        Base URL: <code className="sl-code">{PUBLIC_API_URL}</code>
       </p>
 
       <div className="space-y-3">
         {endpoints.map((ep) => (
-          <div
-            key={ep.path}
-            className="bg-white/5 border border-white/10 rounded-xl overflow-hidden"
-          >
+          <div key={ep.path} className="sl-card overflow-hidden p-0 ring-1 ring-primary/5">
             <button
+              type="button"
               onClick={() => setExpanded(expanded === ep.path ? null : ep.path)}
-              className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/5 transition-colors"
+              className="w-full flex items-center gap-3 p-4 text-left hover:bg-muted/40 transition-colors"
             >
               <span
                 className={`px-2 py-0.5 rounded text-xs font-mono font-bold ${methodColors[ep.method]}`}
               >
                 {ep.method}
               </span>
-              <code className="text-white font-mono">{ep.path}</code>
-              <span className="text-zinc-500 text-sm flex-1">{ep.description}</span>
+              <code className="text-foreground font-mono text-sm">{ep.path}</code>
+              <span className="text-muted-foreground text-sm flex-1">{ep.description}</span>
               <svg
-                className={`w-4 h-4 text-zinc-400 transition-transform ${
+                className={`w-4 h-4 text-muted-foreground transition-transform ${
                   expanded === ep.path ? 'rotate-180' : ''
                 }`}
                 fill="none"
@@ -353,27 +350,27 @@ export default function ApiDocsPage() {
             </button>
 
             {expanded === ep.path && ep.body && (
-              <div className="px-4 pb-4 border-t border-white/10">
-                <p className="text-sm text-zinc-400 mt-3 mb-2">Request Body:</p>
-                <div className="bg-black/20 rounded-lg overflow-hidden">
+              <div className="px-4 pb-4 border-t border-border">
+                <p className="text-sm text-muted-foreground mt-3 mb-2">Request Body:</p>
+                <div className="bg-muted/40 border border-border rounded-lg overflow-hidden">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-white/10">
-                        <th className="px-3 py-2 text-left text-zinc-400 font-medium">Field</th>
-                        <th className="px-3 py-2 text-left text-zinc-400 font-medium">Type</th>
-                        <th className="px-3 py-2 text-left text-zinc-400 font-medium">Required</th>
+                      <tr className="border-b border-border">
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Field</th>
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Type</th>
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium">Required</th>
                       </tr>
                     </thead>
                     <tbody>
                       {ep.body.map((field) => (
-                        <tr key={field.field} className="border-b border-white/5">
-                          <td className="px-3 py-2 text-cyan-400 font-mono">{field.field}</td>
-                          <td className="px-3 py-2 text-zinc-300">{field.type}</td>
+                        <tr key={field.field} className="border-b border-border/60">
+                          <td className="px-3 py-2 text-primary font-mono">{field.field}</td>
+                          <td className="px-3 py-2 text-foreground">{field.type}</td>
                           <td className="px-3 py-2">
                             {field.required ? (
-                              <span className="text-red-400">Yes</span>
+                              <span className="text-destructive font-medium">Yes</span>
                             ) : (
-                              <span className="text-zinc-500">No</span>
+                              <span className="text-muted-foreground">No</span>
                             )}
                           </td>
                         </tr>
@@ -387,9 +384,9 @@ export default function ApiDocsPage() {
         ))}
       </div>
 
-      <div className="mt-8 p-4 bg-white/5 border border-white/10 rounded-xl">
-        <h2 className="text-lg font-semibold text-white mb-2">Quick Examples</h2>
-        <pre className="bg-black/30 rounded-lg p-3 text-sm text-zinc-300 overflow-x-auto">{`# Health check
+      <div className="mt-8 sl-card p-4">
+        <h2 className="sl-h2 mb-2">Quick Examples</h2>
+        <pre className="bg-muted/50 border border-border rounded-lg p-3 text-sm text-foreground overflow-x-auto font-mono">{`# Health check
 curl ${PUBLIC_API_URL}/health
 
 # Generate text

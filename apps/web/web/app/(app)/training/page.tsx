@@ -140,58 +140,55 @@ export default function TrainingPage() {
   }
 
   return (
-    <div>
+    <div className="sl-page mx-auto max-w-5xl">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-slate-800 dark:text-white">Training</h1>
-        <button
-          onClick={openModal}
-          className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2"
-        >
+        <h1 className="sl-h1">Training</h1>
+        <button type="button" onClick={openModal} className="sl-btn-primary rounded-lg px-4 py-2">
           New Training Job
         </button>
       </div>
 
       {loading ? (
-        <div className="text-center py-8 text-slate-500">Loading...</div>
+        <div className="text-center py-8 text-muted-foreground">Loading...</div>
       ) : jobs.length === 0 ? (
-        <div className="text-center py-8 text-slate-500">No training jobs. Create one to get started.</div>
+        <div className="text-center py-8 text-muted-foreground">No training jobs. Create one to get started.</div>
       ) : (
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-          <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-            <h2 className="font-semibold text-slate-800 dark:text-white">Training Jobs</h2>
+        <div className="sl-card-solid overflow-hidden">
+          <div className="p-4 border-b border-border">
+            <h2 className="font-semibold text-foreground">Training Jobs</h2>
           </div>
 
-          <div className="divide-y divide-slate-200 dark:divide-slate-700">
+          <div className="divide-y divide-border">
             {jobs.map((job) => (
               <div key={job.id} className="p-4">
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <h3 className="font-medium text-slate-800 dark:text-white">{job.name}</h3>
-                    <p className="text-sm text-slate-500">
+                    <h3 className="font-medium text-foreground">{job.name}</h3>
+                    <p className="text-sm text-muted-foreground">
                       {job.model} • {job.dataset}
                       {job.data_source && (
-                        <span className="ml-2 text-xs uppercase tracking-wide text-slate-400">
+                        <span className="ml-2 text-xs uppercase tracking-wide text-muted-foreground">
                           ({job.data_source})
                         </span>
                       )}
                     </p>
                     {job.data_path && (
-                      <p className="text-xs text-slate-400 mt-1 font-mono break-all">
+                      <p className="text-xs text-muted-foreground mt-1 font-mono break-all">
                         {job.data_path}
                       </p>
                     )}
                   </div>
                   <span
-                    className={`px-2 py-1 rounded text-xs ${
+                    className={`px-2 py-1 rounded text-xs font-medium ${
                       job.status === 'running'
-                        ? 'bg-blue-100 text-blue-700'
+                        ? 'bg-primary/20 text-primary'
                         : job.status === 'completed'
-                          ? 'bg-green-100 text-green-700'
+                          ? 'bg-success/20 text-success'
                           : job.status === 'pending'
-                            ? 'bg-yellow-100 text-yellow-700'
+                            ? 'bg-warning/20 text-warning'
                             : job.status === 'failed'
-                              ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200'
-                              : 'bg-red-100 text-red-700'
+                              ? 'bg-destructive/20 text-destructive'
+                              : 'bg-muted text-muted-foreground'
                     }`}
                   >
                     {job.status}
@@ -199,28 +196,28 @@ export default function TrainingPage() {
                 </div>
 
                 <div className="mt-3">
-                  <div className="flex justify-between text-sm text-slate-500 mb-1">
+                  <div className="flex justify-between text-sm text-muted-foreground mb-1">
                     <span>Progress {job.current_epoch ? `(Epoch ${job.current_epoch}/${job.epochs})` : ''}</span>
                     <span>{job.progress}%</span>
                   </div>
-                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                  <div className="w-full bg-muted rounded-full h-2">
                     <div
-                      className="bg-blue-600 h-2 rounded-full transition-all"
+                      className="bg-primary h-2 rounded-full transition-all"
                       style={{ width: `${job.progress}%` }}
                     />
                   </div>
                 </div>
 
                 {job.loss != null && Number.isFinite(job.loss) && (
-                  <div className="flex gap-4 mt-3 text-sm text-slate-500">
+                  <div className="flex gap-4 mt-3 text-sm text-muted-foreground">
                     <span>Loss: {job.loss.toFixed(4)}</span>
                   </div>
                 )}
                 {job.checkpoint && (
-                  <p className="text-xs text-slate-500 mt-2 font-mono break-all">Checkpoint: {job.checkpoint}</p>
+                  <p className="text-xs text-muted-foreground mt-2 font-mono break-all">Checkpoint: {job.checkpoint}</p>
                 )}
                 {job.error && (
-                  <p className="text-xs text-orange-700 dark:text-orange-300 mt-2">{job.error}</p>
+                  <p className="text-xs text-warning mt-2">{job.error}</p>
                 )}
               </div>
             ))}
@@ -229,13 +226,13 @@ export default function TrainingPage() {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">New Training Job</h2>
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="sl-card-solid p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto border border-border shadow-lg">
+            <h2 className="text-xl font-bold text-foreground mb-4">New Training Job</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                <label className="block text-sm font-medium text-muted-foreground mb-1">
                   Job Name
                 </label>
                 <input
@@ -243,18 +240,18 @@ export default function TrainingPage() {
                   value={newJob.name}
                   onChange={(e) => setNewJob({ ...newJob, name: e.target.value })}
                   placeholder="My Fine-tune"
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-800 dark:text-white"
+                  className="sl-input"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                <label className="block text-sm font-medium text-muted-foreground mb-1">
                   Base Model
                 </label>
                 <select
                   value={newJob.model}
                   onChange={(e) => setNewJob({ ...newJob, model: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-800 dark:text-white"
+                  className="sl-input"
                 >
                   <option value="gpt2">GPT-2</option>
                   <option value="llama-2-7b">Llama-2-7B</option>
@@ -263,7 +260,7 @@ export default function TrainingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                <label className="block text-sm font-medium text-muted-foreground mb-1">
                   Training corpus
                 </label>
                 <select
@@ -278,7 +275,7 @@ export default function TrainingPage() {
                       ref_manifest_uri: '',
                     })
                   }
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-800 dark:text-white"
+                  className="sl-input"
                 >
                   <option value="folder">Folder: datasets/&lt;name&gt;/input.txt</option>
                   <option value="manifest">v1 manifest (manifest_uri)</option>
@@ -288,25 +285,25 @@ export default function TrainingPage() {
 
               {newJob.corpusMode === 'folder' && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">
                     Dataset folder name
                   </label>
                   <select
                     value={newJob.dataset}
                     onChange={(e) => setNewJob({ ...newJob, dataset: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-800 dark:text-white"
+                    className="sl-input"
                   >
                     <option value="openwebtext">OpenWebText</option>
                     <option value="wikitext-103">WikiText-103</option>
                     <option value="code-search-net">CodeSearchNet</option>
                   </select>
-                  <p className="text-xs text-slate-500 mt-1">API cwd must contain datasets/&lt;name&gt;/input.txt</p>
+                  <p className="text-xs text-muted-foreground mt-1">API cwd must contain datasets/&lt;name&gt;/input.txt</p>
                 </div>
               )}
 
               {newJob.corpusMode === 'manifest' && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">
                     Path to dataset_manifest.json
                   </label>
                   <input
@@ -314,7 +311,7 @@ export default function TrainingPage() {
                     value={newJob.manifest_uri}
                     onChange={(e) => setNewJob({ ...newJob, manifest_uri: e.target.value })}
                     placeholder="datasets/my_run/dataset_manifest.json"
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-800 dark:text-white font-mono text-sm"
+                    className="sl-input font-mono text-sm"
                   />
                 </div>
               )}
@@ -322,36 +319,36 @@ export default function TrainingPage() {
               {newJob.corpusMode === 'ref' && (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    <label className="block text-sm font-medium text-muted-foreground mb-1">
                       dataset_id (must match manifest)
                     </label>
                     <input
                       type="text"
                       value={newJob.ref_dataset_id}
                       onChange={(e) => setNewJob({ ...newJob, ref_dataset_id: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-800 dark:text-white font-mono text-sm"
+                      className="sl-input font-mono text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    <label className="block text-sm font-medium text-muted-foreground mb-1">
                       version (must match manifest)
                     </label>
                     <input
                       type="text"
                       value={newJob.ref_version}
                       onChange={(e) => setNewJob({ ...newJob, ref_version: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-800 dark:text-white font-mono text-sm"
+                      className="sl-input font-mono text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    <label className="block text-sm font-medium text-muted-foreground mb-1">
                       manifest_uri
                     </label>
                     <input
                       type="text"
                       value={newJob.ref_manifest_uri}
                       onChange={(e) => setNewJob({ ...newJob, ref_manifest_uri: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-800 dark:text-white font-mono text-sm"
+                      className="sl-input font-mono text-sm"
                     />
                   </div>
                 </div>
@@ -362,19 +359,19 @@ export default function TrainingPage() {
                   type="button"
                   onClick={previewResolution}
                   disabled={resolving}
-                  className="text-sm bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white rounded-lg px-3 py-2"
+                  className="text-sm sl-btn-secondary rounded-lg px-3 py-2"
                 >
                   {resolving ? 'Checking…' : 'Preview resolution'}
                 </button>
                 {resolveResult && (
-                  <span className="text-xs text-green-600 dark:text-green-400">OK → {resolveResult.data_path}</span>
+                  <span className="text-xs text-success">OK → {resolveResult.data_path}</span>
                 )}
               </div>
               {resolveError && (
-                <p className="text-sm text-red-600 dark:text-red-400">{resolveError}</p>
+                <p className="text-sm text-destructive">{resolveError}</p>
               )}
               {resolveResult && (
-                <pre className="text-xs bg-slate-100 dark:bg-slate-900 p-3 rounded-lg overflow-x-auto text-slate-700 dark:text-slate-300">
+                <pre className="text-xs bg-muted border border-border p-3 rounded-lg overflow-x-auto text-foreground">
                   {JSON.stringify(resolveResult, null, 2)}
                 </pre>
               )}
@@ -382,55 +379,55 @@ export default function TrainingPage() {
               <button
                 type="button"
                 onClick={() => setShowAdvanced((v) => !v)}
-                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                className="text-sm text-primary hover:underline"
               >
                 {showAdvanced ? 'Hide' : 'Show'} advanced model size
               </button>
 
               {showAdvanced && (
-                <div className="grid grid-cols-2 gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-600">
+                <div className="grid grid-cols-2 gap-3 p-3 rounded-lg border border-border">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">n_embed</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">n_embed</label>
                     <input
                       type="number"
                       min={32}
                       value={newJob.n_embed}
                       onChange={(e) => setNewJob({ ...newJob, n_embed: parseInt(e.target.value, 10) || 128 })}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm text-slate-800 dark:text-white"
+                      className="sl-input py-1 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">n_layer</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">n_layer</label>
                     <input
                       type="number"
                       min={1}
                       value={newJob.n_layer}
                       onChange={(e) => setNewJob({ ...newJob, n_layer: parseInt(e.target.value, 10) || 4 })}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm text-slate-800 dark:text-white"
+                      className="sl-input py-1 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">n_head</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">n_head</label>
                     <input
                       type="number"
                       min={1}
                       value={newJob.n_head}
                       onChange={(e) => setNewJob({ ...newJob, n_head: parseInt(e.target.value, 10) || 4 })}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm text-slate-800 dark:text-white"
+                      className="sl-input py-1 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">block_size</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">block_size</label>
                     <input
                       type="number"
                       min={8}
                       value={newJob.block_size}
                       onChange={(e) => setNewJob({ ...newJob, block_size: parseInt(e.target.value, 10) || 128 })}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm text-slate-800 dark:text-white"
+                      className="sl-input py-1 text-sm"
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">
                       max_steps (optional, caps training steps)
                     </label>
                     <input
@@ -439,59 +436,61 @@ export default function TrainingPage() {
                       placeholder="e.g. 100"
                       value={newJob.maxStepsInput}
                       onChange={(e) => setNewJob({ ...newJob, maxStepsInput: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm text-slate-800 dark:text-white font-mono"
+                      className="sl-input py-1 text-sm font-mono"
                     />
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Epochs</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-1">Epochs</label>
                 <input
                   type="number"
                   value={newJob.epochs}
                   onChange={(e) => setNewJob({ ...newJob, epochs: parseInt(e.target.value, 10) })}
                   min={1}
                   max={100}
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-800 dark:text-white"
+                  className="sl-input"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Batch Size</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-1">Batch Size</label>
                 <input
                   type="number"
                   value={newJob.batch_size}
                   onChange={(e) => setNewJob({ ...newJob, batch_size: parseInt(e.target.value, 10) })}
                   min={1}
                   max={128}
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-800 dark:text-white"
+                  className="sl-input"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Learning Rate</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-1">Learning Rate</label>
                 <input
                   type="number"
                   step="0.000001"
                   value={newJob.learning_rate}
                   onChange={(e) => setNewJob({ ...newJob, learning_rate: parseFloat(e.target.value) })}
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-800 dark:text-white"
+                  className="sl-input"
                 />
               </div>
             </div>
 
             <div className="flex gap-3 mt-6">
               <button
+                type="button"
                 onClick={() => setShowModal(false)}
-                className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white rounded-lg px-4 py-2"
+                className="flex-1 sl-btn-secondary rounded-lg px-4 py-2"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={startTraining}
                 disabled={starting || !newJob.name.trim()}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg px-4 py-2"
+                className="flex-1 sl-btn-primary rounded-lg px-4 py-2"
               >
                 {starting ? 'Starting...' : 'Start Training'}
               </button>

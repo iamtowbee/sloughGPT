@@ -48,48 +48,47 @@ export default function DatasetsPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="sl-page max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-white">Datasets</h1>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2">
+        <h1 className="sl-h1">Datasets</h1>
+        <button type="button" className="sl-btn-primary rounded-lg px-4 py-2">
           Add Dataset
         </button>
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-zinc-500">Loading datasets...</div>
+        <div className="text-center py-12 text-muted-foreground">Loading datasets...</div>
       ) : datasets.length === 0 ? (
-        <div className="text-center py-12 text-zinc-500">
+        <div className="text-center py-12 text-muted-foreground">
           No datasets found. Add datasets to train your models.
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {datasets.map((dataset, i) => (
-            <div
-              key={dataset.name || i}
-              className="bg-white/5 border border-white/10 rounded-xl p-4 hover:border-white/20 transition-colors"
-            >
+            <div key={dataset.name || i} className="sl-card p-4 hover:border-primary/20 transition-colors">
               <div className="flex items-start justify-between mb-2">
-                <h3 className="font-semibold text-white">{dataset.name}</h3>
-                <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                <h3 className="font-semibold text-foreground">{dataset.name}</h3>
+                <span className="text-xs px-2 py-1 rounded-md bg-muted text-muted-foreground border border-border font-mono">
                   text
                 </span>
               </div>
               {dataset.path && (
-                <p className="text-sm text-zinc-500 mb-3 truncate">{dataset.path}</p>
+                <p className="text-sm text-muted-foreground mb-3 truncate font-mono text-xs">{dataset.path}</p>
               )}
-              <div className="flex justify-between items-center text-sm text-zinc-400">
-                <span>{formatSize(dataset)}</span>
-                <button className="text-blue-400 hover:text-blue-300">View</button>
+              <div className="flex justify-between items-center text-sm text-muted-foreground">
+                <span className="text-chart-3 font-medium">{formatSize(dataset)}</span>
+                <button type="button" className="text-primary hover:underline text-sm font-medium">
+                  View
+                </button>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <div className="mt-8 p-4 bg-white/5 rounded-xl border border-white/10">
-        <h2 className="text-lg font-semibold text-white mb-2">Quick Commands</h2>
-        <div className="text-sm text-zinc-400 space-y-1 font-mono">
+      <div className="mt-8 sl-card p-4">
+        <h2 className="sl-h2 mb-2">Quick Commands</h2>
+        <div className="text-sm text-muted-foreground space-y-1 font-mono">
           <p>python cli.py data validate datasets/my_data/</p>
           <p>python cli.py data stats datasets/my_data/</p>
           <p>python cli.py data split datasets/my_data/ --train 0.9</p>

@@ -48,7 +48,7 @@ Shared checkpoint I/O: **`packages/core-py/domains/training/checkpoint_utils.py`
 - **Optimizations**: KV cache, CPU optimizations, dynamic batching
 
 ### Deployment
-- **Web UI**: Next.js 14 with chat, training, models, experiments
+- **Web UI**: Next.js 14 with chat, training, models, experiments; shared **“Ochre & ink”** tokens in `app/globals.css` + Tailwind `theme.extend.colors` (CSS variables), light mode via `body.light`, accent presets `theme-*`.
 - **API**: FastAPI with auth, streaming, WebSocket
 - **CLI**: Full command-line interface with shell completions
 - **Models**: 14 custom architectures + HuggingFace integration

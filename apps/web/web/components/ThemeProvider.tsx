@@ -54,12 +54,13 @@ export function useTheme() {
   return context
 }
 
+/** Accent presets — ids kept for localStorage; hues match ``globals.css`` theme-* */
 export const THEMES: { id: Theme; name: string; color: string }[] = [
-  { id: 'blue', name: 'Blue', color: '#3b82f6' },
-  { id: 'purple', name: 'Purple', color: '#a855f7' },
-  { id: 'pink', name: 'Pink', color: '#ec4899' },
-  { id: 'red', name: 'Red', color: '#ef4444' },
-  { id: 'orange', name: 'Orange', color: '#f97316' },
-  { id: 'green', name: 'Green', color: '#22c55e' },
-  { id: 'teal', name: 'Teal', color: '#14b8a6' },
+  { id: 'blue', name: 'Ochre', color: '#d4a24a' },
+  { id: 'purple', name: 'Lilac', color: '#b8a3d4' },
+  { id: 'pink', name: 'Rose', color: '#d898b4' },
+  { id: 'red', name: 'Terracotta', color: '#d87868' },
+  { id: 'orange', name: 'Honey', color: '#e8a54b' },
+  { id: 'green', name: 'Sage', color: '#8fbc8f' },
+  { id: 'teal', name: 'Patina', color: '#7eb8b0' },
 ]

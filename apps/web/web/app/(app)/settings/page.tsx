@@ -46,49 +46,47 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="sl-page max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-white">Settings</h1>
-        {saved && (
-          <span className="text-green-400 text-sm">Saved!</span>
-        )}
+        <h1 className="sl-h1">Settings</h1>
+        {saved && <span className="text-success text-sm font-medium">Saved!</span>}
       </div>
 
       <div className="space-y-6">
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">API Configuration</h2>
+        <div className="sl-card p-6">
+          <h2 className="sl-h2 mb-4">API Configuration</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-zinc-400 mb-1">API URL</label>
+              <label className="sl-label normal-case tracking-normal">API URL</label>
               <input
                 type="text"
                 value={settings.apiUrl}
                 onChange={(e) => setSettings({ ...settings, apiUrl: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white"
+                className="sl-input"
               />
             </div>
             <div>
-              <label className="block text-sm text-zinc-400 mb-1">HuggingFace Token</label>
+              <label className="sl-label normal-case tracking-normal">HuggingFace Token</label>
               <input
                 type="password"
                 value={settings.hfToken}
                 onChange={(e) => setSettings({ ...settings, hfToken: e.target.value })}
                 placeholder="hf_..."
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white"
+                className="sl-input"
               />
             </div>
           </div>
         </div>
 
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Model Defaults</h2>
+        <div className="sl-card p-6">
+          <h2 className="sl-h2 mb-4">Model Defaults</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-zinc-400 mb-1">Default Model</label>
+              <label className="sl-label normal-case tracking-normal">Default Model</label>
               <select
                 value={settings.defaultModel}
                 onChange={(e) => setSettings({ ...settings, defaultModel: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white"
+                className="sl-input"
               >
                 <option value="gpt2">GPT-2</option>
                 <option value="sloughgpt">SloughGPT</option>
@@ -97,7 +95,7 @@ export default function SettingsPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-zinc-400 mb-1">Temperature: {settings.defaultTemp}</label>
+                <label className="sl-label normal-case tracking-normal">Temperature: {settings.defaultTemp}</label>
                 <input
                   type="range"
                   min="0"
@@ -105,11 +103,11 @@ export default function SettingsPage() {
                   step="0.1"
                   value={settings.defaultTemp}
                   onChange={(e) => setSettings({ ...settings, defaultTemp: parseFloat(e.target.value) })}
-                  className="w-full"
+                  className="w-full accent-primary"
                 />
               </div>
               <div>
-                <label className="block text-sm text-zinc-400 mb-1">Max Tokens: {settings.defaultMaxTokens}</label>
+                <label className="sl-label normal-case tracking-normal">Max Tokens: {settings.defaultMaxTokens}</label>
                 <input
                   type="range"
                   min="50"
@@ -117,54 +115,55 @@ export default function SettingsPage() {
                   step="50"
                   value={settings.defaultMaxTokens}
                   onChange={(e) => setSettings({ ...settings, defaultMaxTokens: parseInt(e.target.value) })}
-                  className="w-full"
+                  className="w-full accent-primary"
                 />
               </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">UI Settings</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white">Streaming Responses</p>
-                <p className="text-sm text-zinc-500">Stream tokens as they generate</p>
-              </div>
-              <button
-                onClick={() => setSettings({ ...settings, streaming: !settings.streaming })}
-                className={`w-12 h-6 rounded-full transition-colors ${
-                  settings.streaming ? 'bg-blue-600' : 'bg-white/10'
-                }`}
-              >
-                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                  settings.streaming ? 'translate-x-6' : 'translate-x-0.5'
-                }`} />
-              </button>
+        <div className="sl-card p-6">
+          <h2 className="sl-h2 mb-4">UI Settings</h2>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-foreground font-medium">Streaming Responses</p>
+              <p className="text-sm text-muted-foreground">Stream tokens as they generate</p>
             </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={settings.streaming}
+              onClick={() => setSettings({ ...settings, streaming: !settings.streaming })}
+              className={`w-12 h-6 rounded-full transition-colors relative ${
+                settings.streaming ? 'bg-primary' : 'bg-muted'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 w-5 h-5 rounded-full bg-primary-foreground shadow transition-transform ${
+                  settings.streaming ? 'translate-x-6' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
           </div>
         </div>
 
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Data</h2>
+        <div className="sl-card p-6">
+          <h2 className="sl-h2 mb-4">Data</h2>
           <div className="space-y-3">
             <button
+              type="button"
               onClick={clearChat}
-              className="w-full bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg px-4 py-2 text-left"
+              className="w-full rounded-lg border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 px-4 py-2 text-left text-sm font-medium"
             >
               Clear Chat History
             </button>
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-muted-foreground">
               Stored in localStorage. Clearing will remove all saved conversations.
             </p>
           </div>
         </div>
 
-        <button
-          onClick={saveSettings}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-3 font-medium"
-        >
+        <button type="button" onClick={saveSettings} className="w-full sl-btn-primary py-3 rounded-lg">
           Save Settings
         </button>
       </div>

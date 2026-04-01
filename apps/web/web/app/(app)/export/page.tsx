@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+
 import { api, ExportResult } from '@/lib/api'
 
 export default function ExportPage() {
@@ -26,7 +27,7 @@ export default function ExportPage() {
       } else {
         setResult(res)
       }
-    } catch (e) {
+    } catch {
       setError('Failed to export model')
     } finally {
       setLoading(false)
@@ -34,82 +35,70 @@ export default function ExportPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Export Model</h1>
-      
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Export Options</h2>
-        
-        <div className="grid gap-4 mb-4">
+    <div className="sl-page max-w-4xl mx-auto">
+      <h1 className="sl-h1 mb-6">Export Model</h1>
+
+      <div className="sl-card mb-6 p-6">
+        <h2 className="sl-h2 mb-4">Export Options</h2>
+
+        <div className="mb-4 grid gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Output Path</label>
-            <input
-              type="text"
-              value={outputPath}
-              onChange={(e) => setOutputPath(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-            />
+            <label className="sl-label normal-case tracking-normal">Output Path</label>
+            <input type="text" value={outputPath} onChange={(e) => setOutputPath(e.target.value)} className="sl-input" />
           </div>
-          
+
           <div>
-            <label className="block text-sm font-medium mb-2">Format</label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            <span className="sl-label normal-case tracking-normal">Format</span>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
               {Object.entries(formats).map(([key, desc]) => (
                 <button
                   key={key}
+                  type="button"
                   onClick={() => setFormat(key)}
-                  className={`p-3 rounded-lg border text-left ${
-                    format === key ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                  className={`rounded-lg border p-3 text-left transition-colors ${
+                    format === key ? 'border-primary bg-primary/10' : 'border-border bg-muted/30 hover:bg-muted/50'
                   }`}
                 >
-                  <span className="font-medium">{key.toUpperCase()}</span>
-                  <span className="block text-xs text-gray-500 mt-1">{desc}</span>
+                  <span className="font-medium text-foreground">{key.toUpperCase()}</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">{desc}</span>
                 </button>
               ))}
             </div>
           </div>
-          
-          <div>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={includeTokenizer}
-                onChange={(e) => setIncludeTokenizer(e.target.checked)}
-                className="w-4 h-4"
-              />
-              <span className="text-sm font-medium">Include tokenizer</span>
-            </label>
-          </div>
+
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={includeTokenizer}
+              onChange={(e) => setIncludeTokenizer(e.target.checked)}
+              className="h-4 w-4 rounded border-border accent-primary"
+            />
+            <span className="text-sm font-medium text-foreground">Include tokenizer</span>
+          </label>
         </div>
-        
-        <button
-          onClick={exportModel}
-          disabled={loading}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-        >
+
+        <button type="button" onClick={exportModel} disabled={loading} className="sl-btn-primary rounded-lg px-4 py-2">
           {loading ? 'Exporting...' : 'Export Model'}
         </button>
-        
-        {error && (
-          <p className="mt-4 text-red-600">{error}</p>
-        )}
+
+        {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
       </div>
 
       {result && !result.error && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">Export Complete</h2>
-          
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p className="text-green-800 font-medium">Status: {result.status}</p>
-            <p className="text-green-600 mt-1">Format: {result.format}</p>
+        <div className="sl-card p-6">
+          <h2 className="sl-h2 mb-4">Export Complete</h2>
+
+          <div className="rounded-lg border border-success/30 bg-success/10 p-4 text-sm">
+            <p className="font-medium text-success">Status: {result.status}</p>
+            <p className="mt-1 text-muted-foreground">Format: {result.format}</p>
           </div>
-          
+
           <div className="mt-4">
-            <p className="text-sm font-medium mb-2">Exported Files:</p>
+            <p className="mb-2 text-sm font-medium text-foreground">Exported Files:</p>
             <ul className="space-y-1">
               {Object.entries(result.files || {}).map(([key, filePath]) => (
-                <li key={key} className="text-sm text-gray-600">
-                  {key}: <code className="bg-gray-100 px-2 py-1 rounded">{String(filePath)}</code>
+                <li key={key} className="text-sm text-muted-foreground">
+                  {key}: <code className="sl-code">{String(filePath)}</code>
                 </li>
               ))}
             </ul>

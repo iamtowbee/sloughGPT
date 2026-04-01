@@ -73,29 +73,33 @@ export default function ModelsPage() {
     return true
   })
 
-  const sourceColors: Record<string, string> = {
-    local: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-    huggingface: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  }
+  const sourceBadge = (src: string) =>
+    src === 'local'
+      ? 'bg-success/15 text-success border border-success/25'
+      : 'bg-primary/15 text-primary border border-primary/25'
 
   return (
-    <div className="p-6">
+    <div className="sl-page max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-white">Models</h1>
-          <p className="text-zinc-400 mt-1">
-            API: <span className={apiHealth === 'connected' ? 'text-green-400' : 'text-red-400'}>{apiHealth}</span>
+          <h1 className="sl-h1">Models</h1>
+          <p className="text-muted-foreground mt-1">
+            API:{' '}
+            <span className={apiHealth === 'disconnected' ? 'text-destructive' : 'text-success'}>
+              {apiHealth}
+            </span>
           </p>
         </div>
         <div className="flex gap-2">
           {(['all', 'local', 'huggingface'] as const).map((f) => (
             <button
+              type="button"
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-sm ${
+              className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
                 filter === f
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                  ? 'bg-primary/20 text-primary border-primary/30'
+                  : 'bg-muted/40 text-muted-foreground border-border hover:text-foreground'
               }`}
             >
               {f === 'all' ? 'All' : f === 'local' ? 'Local' : 'HuggingFace'}
@@ -105,9 +109,9 @@ export default function ModelsPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-zinc-500">Loading models...</div>
+        <div className="text-center py-12 text-muted-foreground">Loading models...</div>
       ) : filteredModels.length === 0 ? (
-        <div className="text-center py-12 text-zinc-500">
+        <div className="text-center py-12 text-muted-foreground">
           No {filter === 'all' ? '' : filter} models found.
         </div>
       ) : (
@@ -115,21 +119,17 @@ export default function ModelsPage() {
           {filteredModels.map((model) => (
             <div
               key={model.id}
-              className="bg-white/5 border border-white/10 rounded-xl p-4 hover:border-white/20 transition-colors"
+              className="sl-card p-4 hover:border-primary/25 transition-colors ring-1 ring-primary/5"
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <h3 className="font-semibold text-white">{model.name}</h3>
+                  <h3 className="font-semibold text-foreground">{model.name}</h3>
                   {model.description && (
-                    <p className="text-sm text-zinc-500 mt-1 line-clamp-2">{model.description}</p>
+                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{model.description}</p>
                   )}
                 </div>
                 {model.source && (
-                  <span
-                    className={`text-xs px-2 py-1 rounded ${
-                      sourceColors[model.source] || 'bg-zinc-100 text-zinc-800'
-                    }`}
-                  >
+                  <span className={`text-xs px-2 py-1 rounded-md font-medium ${sourceBadge(model.source)}`}>
                     {model.source}
                   </span>
                 )}
@@ -140,7 +140,7 @@ export default function ModelsPage() {
                   {model.tags.slice(0, 4).map((tag) => (
                     <span
                       key={tag}
-                      className="text-xs bg-white/5 text-zinc-400 px-2 py-0.5 rounded"
+                      className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded border border-border"
                     >
                       {tag}
                     </span>
@@ -148,14 +148,15 @@ export default function ModelsPage() {
                 </div>
               )}
 
-              <div className="flex justify-between items-center pt-3 border-t border-white/5">
-                <span className="text-sm text-zinc-500">
+              <div className="flex justify-between items-center pt-3 border-t border-border">
+                <span className="text-sm text-muted-foreground">
                   {model.size_mb ? `${model.size_mb.toFixed(1)} MB` : model.id}
                 </span>
                 <button
+                  type="button"
                   onClick={() => loadModel(model.id)}
                   disabled={loadingModel !== null}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
+                  className="sl-btn-primary text-sm px-3 py-1.5 rounded-lg"
                 >
                   {loadingModel === model.id ? 'Loading...' : 'Load'}
                 </button>
@@ -165,13 +166,13 @@ export default function ModelsPage() {
         </div>
       )}
 
-      <div className="mt-8 p-4 bg-white/5 rounded-xl border border-white/10">
-        <h2 className="text-lg font-semibold text-white mb-2">API Endpoints</h2>
+      <div className="mt-8 sl-card p-4">
+        <h2 className="text-lg font-semibold text-foreground mb-2">API Endpoints</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-          <code className="bg-black/20 p-2 rounded text-zinc-300">GET /models</code>
-          <code className="bg-black/20 p-2 rounded text-zinc-300">POST /models/load</code>
-          <code className="bg-black/20 p-2 rounded text-zinc-300">GET /models/hf</code>
-          <code className="bg-black/20 p-2 rounded text-zinc-300">GET /health</code>
+          <code className="sl-code block p-2">GET /models</code>
+          <code className="sl-code block p-2">POST /models/load</code>
+          <code className="sl-code block p-2">GET /models/hf</code>
+          <code className="sl-code block p-2">GET /health</code>
         </div>
       </div>
     </div>

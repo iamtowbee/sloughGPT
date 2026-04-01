@@ -25,8 +25,8 @@ export function ThemeSwitcher() {
             key={t.id}
             onClick={() => setTheme(t.id)}
             className={`w-4 h-4 rounded-full transition-all ${
-              theme === t.id 
-                ? 'ring-2 ring-primary ring-offset-1 ring-offset-background scale-110' 
+              theme === t.id
+                ? 'ring-2 ring-primary ring-offset-2 ring-offset-[var(--background)] scale-110'
                 : 'hover:scale-110 opacity-70 hover:opacity-100'
             }`}
             style={{ backgroundColor: t.color }}

@@ -29,7 +29,7 @@ export default function MonitoringPage() {
       try {
         const res = await fetch(`${PUBLIC_API_URL}/info`)
         const data = await res.json()
-        
+
         const sys: SystemInfo = {
           platform: data.pytorch_version ? 'PyTorch System' : 'Unknown',
           python: data.pytorch_version || 'N/A',
@@ -44,7 +44,7 @@ export default function MonitoringPage() {
           gpu_used: data.cuda?.memory_total ? data.cuda.memory_total * 0.3 : 0,
           gpu_percent: 30,
         }
-        
+
         setSysInfo(sys)
         setLoading(false)
       } catch {
@@ -71,7 +71,7 @@ export default function MonitoringPage() {
     if (sysInfo) {
       const now = new Date()
       const time = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      setHistory(prev => {
+      setHistory((prev) => {
         const newData = [
           ...prev,
           {
@@ -93,57 +93,57 @@ export default function MonitoringPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <h1 className="text-3xl font-bold text-white mb-6">Monitoring</h1>
-        <div className="text-zinc-500">Loading system info...</div>
+      <div className="sl-page">
+        <h1 className="sl-h1 mb-6">Monitoring</h1>
+        <div className="text-muted-foreground">Loading system info...</div>
       </div>
     )
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold text-white mb-6">Monitoring</h1>
+    <div className="sl-page max-w-6xl mx-auto">
+      <h1 className="sl-h1 mb-6">Monitoring</h1>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-          <p className="text-sm text-zinc-400">CPU Usage</p>
-          <p className="text-2xl font-bold text-blue-400">{sysInfo?.cpu_percent.toFixed(0)}%</p>
+        <div className="sl-card p-4">
+          <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">CPU Usage</p>
+          <p className="text-2xl font-semibold text-chart-1 mt-1 tabular-nums">{sysInfo?.cpu_percent.toFixed(0)}%</p>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-          <p className="text-sm text-zinc-400">Memory</p>
-          <p className="text-2xl font-bold text-green-400">
+        <div className="sl-card p-4">
+          <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Memory</p>
+          <p className="text-lg font-semibold text-chart-2 mt-1 leading-tight">
             {sysInfo ? `${formatBytes(sysInfo.memory_used)} / ${formatBytes(sysInfo.memory_total)}` : '--'}
           </p>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-          <p className="text-sm text-zinc-400">GPU</p>
-          <p className="text-2xl font-bold text-purple-400">
+        <div className="sl-card p-4">
+          <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">GPU</p>
+          <p className="text-2xl font-semibold text-chart-4 mt-1 tabular-nums">
             {sysInfo?.gpu_available ? `${sysInfo.gpu_percent}%` : 'N/A'}
           </p>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-          <p className="text-sm text-zinc-400">Model</p>
-          <p className="text-2xl font-bold text-cyan-400">GPT-2</p>
+        <div className="sl-card p-4">
+          <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Model</p>
+          <p className="text-2xl font-semibold text-chart-3 mt-1">GPT-2</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-          <h2 className="font-semibold text-white mb-4">CPU & Memory History</h2>
+        <div className="sl-card p-4">
+          <h2 className="font-semibold text-foreground mb-4">CPU & Memory History</h2>
           <div className="space-y-2">
             {history.slice(-10).map((h, i) => (
               <div key={i} className="flex items-center gap-2 text-sm">
-                <span className="text-zinc-500 w-20">{h.time}</span>
+                <span className="text-muted-foreground w-20 font-mono text-xs">{h.time}</span>
                 <div className="flex-1 flex gap-2">
-                  <div className="flex-1 bg-blue-500/20 rounded overflow-hidden">
+                  <div className="flex-1 bg-chart-1/20 rounded overflow-hidden">
                     <div
-                      className="bg-blue-500 h-4 transition-all"
+                      className="bg-chart-1 h-4 transition-all"
                       style={{ width: `${Math.min(h.cpu, 100)}%` }}
                     />
                   </div>
-                  <div className="flex-1 bg-green-500/20 rounded overflow-hidden">
+                  <div className="flex-1 bg-chart-2/20 rounded overflow-hidden">
                     <div
-                      className="bg-green-500 h-4 transition-all"
+                      className="bg-chart-2 h-4 transition-all"
                       style={{ width: `${Math.min(h.memory, 100)}%` }}
                     />
                   </div>
@@ -151,35 +151,39 @@ export default function MonitoringPage() {
               </div>
             ))}
           </div>
-          <div className="flex gap-4 mt-2 text-xs text-zinc-500">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 bg-blue-500 rounded" /> CPU</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 bg-green-500 rounded" /> Memory</span>
+          <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 bg-chart-1 rounded" /> CPU
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 bg-chart-2 rounded" /> Memory
+            </span>
           </div>
         </div>
 
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-          <h2 className="font-semibold text-white mb-4">System Info</h2>
+        <div className="sl-card p-4">
+          <h2 className="font-semibold text-foreground mb-4">System Info</h2>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-zinc-400">Platform</span>
-              <span className="text-white">{sysInfo?.platform}</span>
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Platform</span>
+              <span className="text-foreground text-right">{sysInfo?.platform}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-zinc-400">Python</span>
-              <span className="text-white">{sysInfo?.python}</span>
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Python</span>
+              <span className="text-foreground text-right font-mono text-xs">{sysInfo?.python}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-zinc-400">CPU Cores</span>
-              <span className="text-white">{sysInfo?.cpu_cores}</span>
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">CPU Cores</span>
+              <span className="text-foreground">{sysInfo?.cpu_cores}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-zinc-400">GPU</span>
-              <span className="text-white">{sysInfo?.gpu_name || 'Not detected'}</span>
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">GPU</span>
+              <span className="text-foreground text-right">{sysInfo?.gpu_name || 'Not detected'}</span>
             </div>
             {sysInfo?.gpu_memory && (
-              <div className="flex justify-between">
-                <span className="text-zinc-400">GPU Memory</span>
-                <span className="text-white">{formatBytes(sysInfo.gpu_memory)}</span>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">GPU Memory</span>
+                <span className="text-foreground">{formatBytes(sysInfo.gpu_memory)}</span>
               </div>
             )}
           </div>

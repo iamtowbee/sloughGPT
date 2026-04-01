@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+
 import { api } from '@/lib/api'
 
 interface ComparisonResult {
@@ -10,6 +11,8 @@ interface ComparisonResult {
   throughput_tokens_per_sec: number
   latency_p50_ms: number
 }
+
+const BAR = ['bg-chart-1', 'bg-chart-2', 'bg-chart-3', 'bg-chart-4', 'bg-chart-5'] as const
 
 export default function ComparePage() {
   const [results, setResults] = useState<Record<string, ComparisonResult>>({})
@@ -34,7 +37,7 @@ export default function ComparePage() {
         }
         setResults(ok)
       }
-    } catch (e) {
+    } catch {
       setError('Failed to compare benchmarks')
     } finally {
       setLoading(false)
@@ -51,49 +54,55 @@ export default function ComparePage() {
   const comparisonData = Object.entries(results).filter(([k]) => !k.startsWith('error'))
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="sl-page max-w-6xl mx-auto">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Model Comparison</h1>
-          <p className="text-gray-600">Compare performance across quantization levels</p>
+          <h1 className="sl-h1">Model Comparison</h1>
+          <p className="text-muted-foreground text-sm">Compare performance across quantization levels</p>
         </div>
         <button
+          type="button"
           onClick={runComparison}
           disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          className="sl-btn-primary rounded-lg px-4 py-2 disabled:opacity-50"
         >
           {loading ? 'Running...' : 'Run Comparison'}
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+        <div className="mb-6 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-destructive text-sm">
           {error}
         </div>
       )}
 
       {comparisonData.length > 0 && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50">
+        <div className="sl-card-solid overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="border-b border-border bg-muted/30">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Metric</th>
+                <th className="px-4 py-3 text-left text-xs font-mono font-medium uppercase tracking-wider text-muted-foreground">
+                  Metric
+                </th>
                 {comparisonData.map(([name]) => (
-                  <th key={name} className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                  <th
+                    key={name}
+                    className="px-4 py-3 text-center text-xs font-mono font-medium uppercase tracking-wider text-muted-foreground"
+                  >
                     {name.toUpperCase()}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-border">
               {metrics.map((metric) => (
-                <tr key={metric.key} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium text-gray-900">
+                <tr key={metric.key} className="hover:bg-muted/20">
+                  <td className="px-4 py-3 font-medium text-foreground">
                     {metric.label}
-                    <span className="text-gray-500 text-sm ml-1">({metric.unit})</span>
+                    <span className="ml-1 text-muted-foreground">({metric.unit})</span>
                   </td>
                   {comparisonData.map(([name, data]) => (
-                    <td key={name} className="px-6 py-4 text-center text-gray-600">
+                    <td key={name} className="px-4 py-3 text-center text-muted-foreground tabular-nums">
                       {metric.format(data[metric.key as keyof ComparisonResult] as number)}
                     </td>
                   ))}
@@ -106,53 +115,47 @@ export default function ComparePage() {
 
       {comparisonData.length > 1 && (
         <div className="mt-8">
-          <h2 className="text-lg font-semibold mb-4">Visual Comparison</h2>
-          
+          <h2 className="sl-h2 mb-4">Visual comparison</h2>
           <div className="space-y-6">
-            {metrics.filter(m => m.key !== 'num_parameters').map((metric) => (
-              <div key={metric.key} className="bg-white rounded-lg shadow p-4">
-                <h3 className="text-sm font-medium text-gray-600 mb-3">{metric.label}</h3>
-                <div className="h-8 bg-gray-100 rounded-lg overflow-hidden flex">
-                  {comparisonData.map(([name, data]) => {
-                    const values = comparisonData.map(d => d[1][metric.key as keyof ComparisonResult] as number)
-                    const maxVal = Math.max(...values)
-                    const width = ((data[metric.key as keyof ComparisonResult] as number) / maxVal) * 100
-                    const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-red-500']
-                    const colorIndex = comparisonData.findIndex(d => d[0] === name) % colors.length
-                    
-                    return (
-                      <div
-                        key={name}
-                        className={`${colors[colorIndex]} flex items-center justify-center text-white text-sm font-medium`}
-                        style={{ width: `${width}%` }}
-                      >
-                        {width > 15 && metric.format(data[metric.key as keyof ComparisonResult] as number)}
-                      </div>
-                    )
-                  })}
-                </div>
-                <div className="flex gap-4 mt-2">
-                  {comparisonData.map(([name], i) => {
-                    const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-red-500']
-                    return (
-                      <div key={name} className="flex items-center gap-1 text-xs text-gray-600">
-                        <div className={`w-3 h-3 rounded ${colors[i % colors.length]}`}></div>
+            {metrics
+              .filter((m) => m.key !== 'num_parameters')
+              .map((metric) => (
+                <div key={metric.key} className="sl-card p-4">
+                  <h3 className="mb-3 text-sm font-medium text-muted-foreground">{metric.label}</h3>
+                  <div className="flex h-8 overflow-hidden rounded-lg">
+                    {comparisonData.map(([name, data]) => {
+                      const values = comparisonData.map((d) => d[1][metric.key as keyof ComparisonResult] as number)
+                      const maxVal = Math.max(...values)
+                      const width = ((data[metric.key as keyof ComparisonResult] as number) / maxVal) * 100
+                      const colorIndex = comparisonData.findIndex((d) => d[0] === name) % BAR.length
+                      return (
+                        <div
+                          key={name}
+                          className={`${BAR[colorIndex]} flex items-center justify-center text-primary-foreground text-xs font-medium`}
+                          style={{ width: `${width}%` }}
+                        >
+                          {width > 15 && metric.format(data[metric.key as keyof ComparisonResult] as number)}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-4">
+                    {comparisonData.map(([name], i) => (
+                      <div key={name} className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <span className={`h-3 w-3 rounded ${BAR[i % BAR.length]}`} />
                         {name.toUpperCase()}
                       </div>
-                    )
-                  })}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
       )}
 
       {comparisonData.length === 0 && !loading && (
-        <div className="bg-gray-50 rounded-lg p-8 text-center">
-          <p className="text-gray-500">
-            Click &quot;Run Comparison&quot; to compare benchmark results
-          </p>
+        <div className="rounded-xl border border-border bg-muted/30 p-8 text-center text-muted-foreground text-sm">
+          Click &quot;Run Comparison&quot; to compare benchmark results
         </div>
       )}
     </div>

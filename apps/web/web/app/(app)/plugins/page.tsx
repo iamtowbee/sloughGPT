@@ -20,9 +20,9 @@ const DEFAULT_PLUGINS: Plugin[] = [
     description: 'Search the web for current information',
     version: '1.0.0',
     author: 'SloughGPT',
-    icon: '🔍',
+    icon: 'S',
     enabled: true,
-    category: 'search'
+    category: 'search',
   },
   {
     id: 'code-executor',
@@ -30,9 +30,9 @@ const DEFAULT_PLUGINS: Plugin[] = [
     description: 'Execute Python and JavaScript code',
     version: '1.0.0',
     author: 'SloughGPT',
-    icon: '💻',
+    icon: 'C',
     enabled: true,
-    category: 'code'
+    category: 'code',
   },
   {
     id: 'file-reader',
@@ -40,9 +40,9 @@ const DEFAULT_PLUGINS: Plugin[] = [
     description: 'Read and analyze uploaded files',
     version: '1.0.0',
     author: 'SloughGPT',
-    icon: '📄',
+    icon: 'F',
     enabled: true,
-    category: 'data'
+    category: 'data',
   },
   {
     id: 'image-gen',
@@ -50,9 +50,9 @@ const DEFAULT_PLUGINS: Plugin[] = [
     description: 'Generate images from text descriptions',
     version: '1.0.0',
     author: 'SloughGPT',
-    icon: '🎨',
+    icon: 'I',
     enabled: false,
-    category: 'integration'
+    category: 'integration',
   },
   {
     id: 'github',
@@ -60,9 +60,9 @@ const DEFAULT_PLUGINS: Plugin[] = [
     description: 'Connect to GitHub for repository operations',
     version: '1.0.0',
     author: 'SloughGPT',
-    icon: '🐙',
+    icon: 'G',
     enabled: false,
-    category: 'integration'
+    category: 'integration',
   },
   {
     id: 'translate',
@@ -70,19 +70,19 @@ const DEFAULT_PLUGINS: Plugin[] = [
     description: 'Translate text between languages',
     version: '1.0.0',
     author: 'SloughGPT',
-    icon: '🌐',
+    icon: 'T',
     enabled: false,
-    category: 'utility'
-  }
+    category: 'utility',
+  },
 ]
 
 const CATEGORIES = [
-  { id: 'all', name: 'All', icon: '📦' },
-  { id: 'search', name: 'Search', icon: '🔍' },
-  { id: 'code', name: 'Code', icon: '💻' },
-  { id: 'data', name: 'Data', icon: '📊' },
-  { id: 'integration', name: 'Integrations', icon: '🔗' },
-  { id: 'utility', name: 'Utilities', icon: '🛠️' },
+  { id: 'all', name: 'All' },
+  { id: 'search', name: 'Search' },
+  { id: 'code', name: 'Code' },
+  { id: 'data', name: 'Data' },
+  { id: 'integration', name: 'Integrations' },
+  { id: 'utility', name: 'Utilities' },
 ]
 
 export default function PluginsPage() {
@@ -90,7 +90,7 @@ export default function PluginsPage() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [showInstall, setShowInstall] = useState(false)
   const [installUrl, setInstallUrl] = useState('')
-  
+
   useEffect(() => {
     const saved = localStorage.getItem('sloughgpt_plugins')
     if (saved) {
@@ -103,120 +103,104 @@ export default function PluginsPage() {
       setPlugins(DEFAULT_PLUGINS)
     }
   }, [])
-  
+
   const savePlugins = (newPlugins: Plugin[]) => {
     setPlugins(newPlugins)
     localStorage.setItem('sloughgpt_plugins', JSON.stringify(newPlugins))
   }
-  
+
   const togglePlugin = (id: string) => {
-    savePlugins(plugins.map(p => 
-      p.id === id ? { ...p, enabled: !p.enabled } : p
-    ))
+    savePlugins(plugins.map((p) => (p.id === id ? { ...p, enabled: !p.enabled } : p)))
   }
-  
+
   const installPlugin = () => {
     if (!installUrl.trim()) return
-    
     const newPlugin: Plugin = {
       id: `plugin-${Date.now()}`,
       name: 'Custom Plugin',
       description: 'Installed from URL',
       version: '1.0.0',
       author: 'Unknown',
-      icon: '🔌',
+      icon: 'P',
       enabled: true,
-      category: 'integration'
+      category: 'integration',
     }
-    
     savePlugins([...plugins, newPlugin])
     setInstallUrl('')
     setShowInstall(false)
   }
-  
+
   const uninstallPlugin = (id: string) => {
-    savePlugins(plugins.filter(p => p.id !== id))
+    savePlugins(plugins.filter((p) => p.id !== id))
   }
-  
-  const filteredPlugins = selectedCategory === 'all' 
-    ? plugins 
-    : plugins.filter(p => p.category === selectedCategory)
-  
+
+  const filteredPlugins = selectedCategory === 'all' ? plugins : plugins.filter((p) => p.category === selectedCategory)
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="sl-page max-w-6xl mx-auto">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Plugins</h1>
-          <p className="text-slate-500">Extend SloughGPT with plugins</p>
+          <h1 className="sl-h1">Plugins</h1>
+          <p className="text-muted-foreground text-sm">Extend SloughGPT with plugins</p>
         </div>
-        <button
-          onClick={() => setShowInstall(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+        <button type="button" onClick={() => setShowInstall(true)} className="sl-btn-primary rounded-lg px-4 py-2">
           Install Plugin
         </button>
       </div>
-      
-      {/* Categories */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        {CATEGORIES.map(cat => (
+
+      <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+        {CATEGORIES.map((cat) => (
           <button
             key={cat.id}
+            type="button"
             onClick={() => setSelectedCategory(cat.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
+            className={`whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
               selectedCategory === cat.id
-                ? 'bg-blue-600 text-white'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                ? 'border-primary/40 bg-primary/15 text-primary'
+                : 'border-border bg-muted/40 text-muted-foreground hover:text-foreground'
             }`}
           >
-            <span>{cat.icon}</span>
-            <span>{cat.name}</span>
+            {cat.name}
           </button>
         ))}
       </div>
-      
-      {/* Plugins Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredPlugins.map(plugin => (
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {filteredPlugins.map((plugin) => (
           <div
             key={plugin.id}
-            className={`bg-white dark:bg-slate-800 rounded-xl border p-4 transition-all ${
-              plugin.enabled 
-                ? 'border-blue-200 dark:border-blue-800 shadow-sm' 
-                : 'border-slate-200 dark:border-slate-700 opacity-60'
+            className={`sl-card p-4 transition-all ${
+              plugin.enabled ? 'ring-1 ring-primary/15' : 'opacity-70'
             }`}
           >
-            <div className="flex items-start justify-between mb-3">
+            <div className="mb-3 flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="text-2xl">{plugin.icon}</div>
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15 font-mono text-sm font-semibold text-primary ring-1 ring-primary/20">
+                  {plugin.icon}
+                </span>
                 <div>
-                  <h3 className="font-semibold text-slate-800 dark:text-white">{plugin.name}</h3>
-                  <p className="text-xs text-slate-500">v{plugin.version} by {plugin.author}</p>
+                  <h3 className="font-semibold text-foreground">{plugin.name}</h3>
+                  <p className="text-xs text-muted-foreground">
+                    v{plugin.version} · {plugin.author}
+                  </p>
                 </div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={plugin.enabled}
-                  onChange={() => togglePlugin(plugin.id)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+              <label className="relative inline-flex cursor-pointer items-center">
+                <input type="checkbox" className="peer sr-only" checked={plugin.enabled} onChange={() => togglePlugin(plugin.id)} />
+                <div className="peer h-6 w-11 rounded-full bg-muted after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-card after:transition-all peer-checked:bg-primary peer-checked:after:translate-x-5" />
               </label>
             </div>
-            
-            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">{plugin.description}</p>
-            
+
+            <p className="mb-4 text-sm text-muted-foreground">{plugin.description}</p>
+
             <div className="flex items-center justify-between">
-              <span className="text-xs px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded">
+              <span className="rounded-md border border-border bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
                 {plugin.category}
               </span>
               <button
+                type="button"
                 onClick={() => uninstallPlugin(plugin.id)}
-                className="text-xs text-red-500 hover:text-red-600"
+                className="text-xs font-medium text-destructive hover:underline"
               >
                 Uninstall
               </button>
@@ -224,58 +208,48 @@ export default function PluginsPage() {
           </div>
         ))}
       </div>
-      
-      {/* Install Modal */}
+
       {showInstall && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowInstall(false)}>
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Install Plugin</h2>
-            <p className="text-sm text-slate-500 mb-4">Enter a plugin URL or npm package name to install.</p>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
+          onClick={() => setShowInstall(false)}
+          role="presentation"
+        >
+          <div className="sl-card-solid w-full max-w-md border border-border p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="mb-4 text-xl font-semibold text-foreground">Install Plugin</h2>
+            <p className="mb-4 text-sm text-muted-foreground">Enter a plugin URL or npm package name to install.</p>
             <input
               type="text"
               value={installUrl}
-              onChange={e => setInstallUrl(e.target.value)}
+              onChange={(e) => setInstallUrl(e.target.value)}
               placeholder="https://example.com/plugin.js or @scope/plugin"
-              className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-white mb-4"
+              className="sl-input mb-4"
             />
             <div className="flex gap-2">
-              <button
-                onClick={installPlugin}
-                className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
-              >
+              <button type="button" onClick={installPlugin} className="flex-1 sl-btn-primary rounded-lg py-2">
                 Install
               </button>
-              <button
-                onClick={() => setShowInstall(false)}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium"
-              >
+              <button type="button" onClick={() => setShowInstall(false)} className="sl-btn-secondary rounded-lg px-4 py-2">
                 Cancel
               </button>
             </div>
           </div>
         </div>
       )}
-      
-      {/* MCP Protocol Info */}
-      <div className="mt-8 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-        <div className="flex items-start gap-4">
-          <div className="text-3xl">🔌</div>
-          <div>
-            <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-2">Model Context Protocol (MCP)</h3>
-            <p className="text-sm text-blue-700 dark:text-blue-400 mb-3">
-              SloughGPT supports the Model Context Protocol for seamless plugin integration. 
-              Build your own plugins using the MCP SDK to extend AI capabilities.
-            </p>
-            <a 
-              href="https://modelcontextprotocol.io" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-sm text-blue-600 dark:text-blue-300 hover:underline"
-            >
-              Learn more about MCP →
-            </a>
-          </div>
-        </div>
+
+      <div className="sl-card mt-8 border-primary/15 bg-primary/5 p-6">
+        <h3 className="mb-2 font-semibold text-foreground">Model Context Protocol (MCP)</h3>
+        <p className="mb-3 text-sm text-muted-foreground">
+          SloughGPT supports MCP for plugin integration. Build extensions with the MCP SDK.
+        </p>
+        <a
+          href="https://modelcontextprotocol.io"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm font-medium text-primary hover:underline"
+        >
+          Learn more about MCP →
+        </a>
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+
 import { api, BenchmarkResult } from '@/lib/api'
 
 export default function BenchmarkPage() {
@@ -21,7 +22,7 @@ export default function BenchmarkPage() {
       } else {
         setResult(res)
       }
-    } catch (e) {
+    } catch {
       setError('Failed to run benchmark')
     } finally {
       setLoading(false)
@@ -29,96 +30,84 @@ export default function BenchmarkPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Benchmark</h1>
-      
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Run Inference Benchmark</h2>
-        
-        <div className="grid gap-4 mb-4">
+    <div className="sl-page max-w-4xl mx-auto">
+      <h1 className="sl-h1 mb-6">Benchmark</h1>
+
+      <div className="sl-card mb-6 p-6">
+        <h2 className="sl-h2 mb-4">Run Inference Benchmark</h2>
+
+        <div className="mb-4 grid gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Prompt</label>
-            <input
-              type="text"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-            />
+            <label className="sl-label normal-case tracking-normal">Prompt</label>
+            <input type="text" value={prompt} onChange={(e) => setPrompt(e.target.value)} className="sl-input" />
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Max Tokens</label>
+              <label className="sl-label normal-case tracking-normal">Max Tokens</label>
               <input
                 type="number"
                 value={maxTokens}
-                onChange={(e) => setMaxTokens(parseInt(e.target.value) || 50)}
-                className="w-full px-3 py-2 border rounded-lg"
+                onChange={(e) => setMaxTokens(parseInt(e.target.value, 10) || 50)}
+                className="sl-input"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Number of Runs</label>
+              <label className="sl-label normal-case tracking-normal">Number of Runs</label>
               <input
                 type="number"
                 value={numRuns}
-                onChange={(e) => setNumRuns(parseInt(e.target.value) || 3)}
-                className="w-full px-3 py-2 border rounded-lg"
+                onChange={(e) => setNumRuns(parseInt(e.target.value, 10) || 3)}
+                className="sl-input"
               />
             </div>
           </div>
         </div>
-        
-        <button
-          onClick={runBenchmark}
-          disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
+
+        <button type="button" onClick={runBenchmark} disabled={loading} className="sl-btn-primary rounded-lg px-4 py-2">
           {loading ? 'Running...' : 'Run Benchmark'}
         </button>
-        
-        {error && (
-          <p className="mt-4 text-red-600">{error}</p>
-        )}
+
+        {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
       </div>
 
       {result && !result.error && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">Results</h2>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">Parameters</p>
-              <p className="text-xl font-bold">{result.num_parameters.toLocaleString()}</p>
+        <div className="sl-card p-6">
+          <h2 className="sl-h2 mb-4">Results</h2>
+
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Parameters</p>
+              <p className="text-xl font-semibold tabular-nums text-foreground">{result.num_parameters.toLocaleString()}</p>
             </div>
-            
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">Memory</p>
-              <p className="text-xl font-bold">{result.memory_mb.toFixed(1)} MB</p>
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Memory</p>
+              <p className="text-xl font-semibold tabular-nums text-foreground">{result.memory_mb.toFixed(1)} MB</p>
             </div>
-            
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">Throughput</p>
-              <p className="text-xl font-bold">{result.throughput_tokens_per_sec.toFixed(2)} tok/s</p>
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Throughput</p>
+              <p className="text-xl font-semibold tabular-nums text-foreground">
+                {result.throughput_tokens_per_sec.toFixed(2)} tok/s
+              </p>
             </div>
-            
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">Avg Latency</p>
-              <p className="text-xl font-bold">{result.inference_time_ms.toFixed(0)} ms</p>
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Avg Latency</p>
+              <p className="text-xl font-semibold tabular-nums text-foreground">{result.inference_time_ms.toFixed(0)} ms</p>
             </div>
           </div>
-          
+
           <div className="mt-4 grid grid-cols-3 gap-4">
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-600">P50 Latency</p>
-              <p className="text-lg font-bold">{result.latency_p50_ms?.toFixed(0) || '-'} ms</p>
+            <div className="rounded-lg border border-primary/25 bg-primary/10 p-4">
+              <p className="text-xs text-primary">P50 Latency</p>
+              <p className="text-lg font-semibold text-foreground">{result.latency_p50_ms?.toFixed(0) || '-'} ms</p>
             </div>
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-600">P95 Latency</p>
-              <p className="text-lg font-bold">{result.latency_p95_ms?.toFixed(0) || '-'} ms</p>
+            <div className="rounded-lg border border-primary/25 bg-primary/10 p-4">
+              <p className="text-xs text-primary">P95 Latency</p>
+              <p className="text-lg font-semibold text-foreground">{result.latency_p95_ms?.toFixed(0) || '-'} ms</p>
             </div>
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-600">P99 Latency</p>
-              <p className="text-lg font-bold">{result.latency_p99_ms?.toFixed(0) || '-'} ms</p>
+            <div className="rounded-lg border border-primary/25 bg-primary/10 p-4">
+              <p className="text-xs text-primary">P99 Latency</p>
+              <p className="text-lg font-semibold text-foreground">{result.latency_p99_ms?.toFixed(0) || '-'} ms</p>
             </div>
           </div>
         </div>

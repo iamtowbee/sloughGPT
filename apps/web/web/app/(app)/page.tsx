@@ -56,7 +56,7 @@ export default function HomePage() {
       </header>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-4 ring-1 ring-white/[0.04]">
+        <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-4 ring-1 ring-primary/5">
           <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">API status</p>
           <div className="mt-2 min-h-8 flex items-center">
             {apiStatus === 'loading' ? (
@@ -68,7 +68,7 @@ export default function HomePage() {
             ) : (
               <p
                 className={`text-xl font-semibold tracking-tight ${
-                  apiStatus === 'online' ? 'text-emerald-400' : 'text-rose-400'
+                  apiStatus === 'online' ? 'text-success' : 'text-destructive'
                 }`}
               >
                 {apiStatus === 'online' ? 'Online' : 'Offline'}
@@ -76,15 +76,15 @@ export default function HomePage() {
             )}
           </div>
         </div>
-        <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-4 ring-1 ring-white/[0.04]">
+        <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-4 ring-1 ring-primary/5">
           <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Models</p>
           <p className="mt-2 text-xl font-semibold tracking-tight text-foreground tabular-nums">{modelCount}</p>
         </div>
-        <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-4 ring-1 ring-white/[0.04]">
+        <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-4 ring-1 ring-primary/5">
           <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Datasets</p>
           <p className="mt-2 text-xl font-semibold tracking-tight text-foreground tabular-nums">13</p>
         </div>
-        <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-4 ring-1 ring-white/[0.04]">
+        <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-4 ring-1 ring-primary/5">
           <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Version</p>
           <p className="mt-2 text-xl font-semibold tracking-tight text-primary tabular-nums">1.0</p>
         </div>
@@ -97,7 +97,7 @@ export default function HomePage() {
             <Link
               key={f.href}
               href={f.href}
-              className="group rounded-xl border border-border bg-card/40 hover:bg-card/70 backdrop-blur-sm p-4 transition-colors ring-1 ring-white/[0.04] hover:ring-primary/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="group rounded-xl border border-border bg-card/40 hover:bg-card/70 backdrop-blur-sm p-4 transition-colors ring-1 ring-primary/5 hover:ring-primary/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <f.Icon className="w-7 h-7 text-primary mb-3 opacity-90 group-hover:opacity-100 transition-opacity" />
               <span className="text-foreground font-medium text-sm block">{f.title}</span>
@@ -107,7 +107,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border bg-card/40 backdrop-blur-sm p-5 ring-1 ring-white/[0.04]">
+      <section className="rounded-xl border border-border bg-card/40 backdrop-blur-sm p-5 ring-1 ring-primary/5">
         <h2 className="text-sm font-semibold text-foreground mb-4 tracking-tight">Quick start</h2>
         <div className="space-y-3 text-sm font-mono">
           <div>
