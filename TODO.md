@@ -1201,12 +1201,12 @@ SloughGPT Core
 **NanoGPT Refactoring (24→0 files):**
 - ✅ `cli.py` - uses `SoulEngine` + `NanoGPTModel` from `domains.models`
 - ✅ `train_sloughgpt.py` - uses `SloughGPTModel` from `domains.models`
-- ✅ `domains/training/train_pipeline.py` - uses `NanoGPTModel`
-- ✅ `domains/training/model_loader.py` - uses `NanoGPTModel`
-- ✅ `domains/training/inference_engine.py` - uses `NanoGPTModel`
-- ✅ `domains/training/unified_training.py` - uses `NanoGPTModel`
-- ✅ `domains/training/optimized_trainer.py` - uses `NanoGPTModel`
-- ✅ `domains/ui/api_server.py` - 8 instances, all refactored
+- ✅ `packages/core-py/domains/training/train_pipeline.py` - uses `NanoGPTModel`
+- ✅ `packages/core-py/domains/training/model_loader.py` - uses `NanoGPTModel`
+- ✅ `packages/core-py/domains/training/inference_engine.py` - uses `NanoGPTModel`
+- ✅ `packages/core-py/domains/training/unified_training.py` - uses `NanoGPTModel`
+- ✅ `packages/core-py/domains/training/optimized_trainer.py` - uses `NanoGPTModel`
+- ✅ `packages/core-py/domains/ui/api_server.py` - 8 instances, all refactored
 - ✅ `tests/test_core.py` - all instances refactored
 - ✅ `examples/inference.py` - refactored
 - ✅ `scripts/examples/train_example.py` - refactored
