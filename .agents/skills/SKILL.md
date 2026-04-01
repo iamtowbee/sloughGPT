@@ -26,6 +26,12 @@ SloughGPT is an enterprise-grade AI framework with production-ready ML infrastru
 ## Key Features
 
 ### Training
+Two drivers share **`SloughGPTModel`** (checkpoints differ):
+- **`train_sloughgpt.py`** (repo root): **`train_sloughgpt()`** — char-level file dataset, exports, **`--resume`**; Colab-aligned.
+- **`SloughGPTTrainer`** (`domains.training.train_pipeline`): **`cli.py train`** (local), **`POST /training/start`**, **`examples/quick_train.py`**.
+
+CI: **`tests/test_train_sloughgpt_*.py`**, **`tests/test_sloughgpt_trainer_smoke.py`**, **`train_sloughgpt.py --help`**.
+
 - **LR Schedulers**: Cosine, warmup, OneCycle, cyclic, polynomial
 - **Mixed Precision**: FP32, FP16, BF16 with GradScaler
 - **Distributed**: DDP + FSDP
@@ -62,7 +68,11 @@ python3 -m pytest tests/ -q
 # or (uses .venv when present): ./run.sh python3 -m pytest tests/ -q
 
 # CLI (repo root)
+python3 cli.py --help
 python3 apps/cli/cli.py --help
+
+# Char-level trainer script (repo root)
+python3 train_sloughgpt.py --help
 ```
 
 ## API Endpoints
@@ -103,7 +113,7 @@ python3 -m pytest tests/ -q
 ./verify.sh
 ```
 
-- **Python CI subset:** `.github/workflows/reusable-ci-core.yml` (`workflow_call`).
+- **Python CI subset:** `.github/workflows/reusable-ci-core.yml` (`workflow_call`): ruff smoke includes **`train_sloughgpt.py`**; pytest includes training smoke tests (see **CONTRIBUTING.md**).
 - **Also in `ci_cd.yml`:** `test-web`, `test-sdk-ts`, `sdk-test-py`, `standards-schemas` (run `python3 scripts/validate_standards_schemas.py`; `jsonschema` is in `python3 -m pip install -e ".[dev]"`).
 
 ## Environment
