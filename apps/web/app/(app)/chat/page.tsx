@@ -76,10 +76,16 @@ function ChevronDownIcon({ className }: { className?: string }) {
   )
 }
 
+/** Paper-plane outline — avoid trailing `v-8` stem; it reads like a warning (⚠) glyph. */
 function SendIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 19l9 2-9-18-9 18 9-2z"
+      />
     </svg>
   )
 }
@@ -621,7 +627,7 @@ export default function ChatPage() {
             <Button
               type="button"
               size="icon"
-              className="h-auto shrink-0 self-end"
+              className="h-[52px] w-10 shrink-0 self-end"
               onClick={sendMessage}
               disabled={isLoading || !input.trim()}
               aria-label="Send message"
