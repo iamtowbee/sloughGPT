@@ -27,7 +27,7 @@ python3 apps/api/server/main.py
 # Docs: http://localhost:8000/docs
 
 # Web UI (separate terminal; needs Node per repo root .nvmrc)
-cd apps/web/web && npm install && npm run dev
+cd apps/web && npm install && npm run dev
 
 # CLI
 python3 cli.py --help
@@ -182,7 +182,7 @@ print(response.json())
 
 ### Web UI & API
 
-- **Web (dev):** `http://localhost:3000` — `cd apps/web/web && npm run dev` (Node per repo root **`.nvmrc`**).
+- **Web (dev):** `http://localhost:3000` — `cd apps/web && npm run dev` (Node per repo root **`.nvmrc`**).
 - **API docs:** `http://localhost:8000/docs` — `python3 apps/api/server/main.py` from the repo root.
 
 ## 🔧 Development

@@ -560,7 +560,7 @@ python3 apps/api/server/main.py
 # cd apps/api/server && python3 -m uvicorn main:app --reload --port 8000
 
 # Web UI (separate terminal; port 3000)
-cd apps/web/web && npm install && npm run dev
+cd apps/web && npm install && npm run dev
 ```
 
 ### Production Deployment
@@ -791,7 +791,7 @@ python3 -m pytest tests/ --cov=domains --cov-report=html
 python3 apps/api/server/main.py
 
 # Web UI (http://localhost:3000)
-cd apps/web/web && npm run dev
+cd apps/web && npm run dev
 ```
 
 ---

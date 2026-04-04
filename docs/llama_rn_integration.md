@@ -8,7 +8,7 @@ Run **`python`** / **`python3`** examples from the **repository root** (where **
 
 ```bash
 # Export a model in GGUF format optimized for mobile
-python3 cli.py export models/sloughgpt.safetensors --format gguf_q4_k_m
+python3 cli.py export models/sloughgpt.safetensors -f gguf_q4_k_m --quantize Q4_K_M
 
 # Or with the training script (writes GGUF per --save_path / defaults)
 python3 train_sloughgpt.py --save_format gguf --save_quantized Q4_K_M
@@ -94,16 +94,16 @@ for await (const chunk of session.prompt('Tell me a story', {
 
 ```bash
 # Q4_K_M (recommended for most devices)
-python3 cli.py export models/sloughgpt.safetensors --format gguf_q4_k_m
+python3 cli.py export models/sloughgpt.safetensors -f gguf_q4_k_m --quantize Q4_K_M
 
 # Q5_K_M (higher quality)
-python3 cli.py export models/sloughgpt.safetensors --format gguf_q5_k_m
+python3 cli.py export models/sloughgpt.safetensors -f gguf_q5_k_m --quantize Q5_K_M
 
 # Q8_0 (near-perfect quality)
-python3 cli.py export models/sloughgpt.safetensors --format gguf_q8_0
+python3 cli.py export models/sloughgpt.safetensors -f gguf_q8_0 --quantize Q8_0
 
 # FP16 (development only - very large)
-python3 cli.py export models/sloughgpt.safetensors --format gguf_fp16
+python3 cli.py export models/sloughgpt.safetensors -f gguf_fp16 --quantize F16
 ```
 
 ### From Training Script

@@ -1,5 +1,7 @@
 # SloughGPT Deployment Guide
 
+**See also:** [Deployment checklist](DEPLOYMENT_CHECKLIST.md) (security, infra, and release gates before production).
+
 Compose examples use **Docker Compose V2** and the stack file at **`infra/docker/docker-compose.yml`** (run all commands from the **repository root**).
 
 ## Quick Start

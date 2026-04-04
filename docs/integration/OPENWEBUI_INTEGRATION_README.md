@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Status:** Historical integration notes / design sketch. This repository does **not** currently ship the `openwebui/` tree described below. The maintained web app in this monorepo is **`apps/web/web/`** and the maintained API entrypoint is **`apps/api/server/main.py`**.
+**Status:** Historical integration notes / design sketch. This repository does **not** currently ship the `openwebui/` tree described below. The maintained web app in this monorepo is **`apps/web/`** and the maintained API entrypoint is **`apps/api/server/main.py`**.
 
 This document captures a potential OpenWebUI-based approach for future integration work.
 

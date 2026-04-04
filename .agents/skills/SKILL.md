@@ -10,7 +10,7 @@ SloughGPT is an enterprise-grade AI framework with production-ready ML infrastru
 /Users/mac/sloughGPT/
 ├── apps/
 │   ├── api/server/          # FastAPI app (main.py), API requirements.txt
-│   ├── web/web/             # Next.js 14 UI (port 3000)
+│   ├── web/                 # Next.js 14 UI — app/(app)/ (port 3000)
 │   └── cli/                 # cli.py (repo-root launcher may wrap this)
 ├── packages/
 │   ├── core-py/domains/     # Python domains (training, inference, models, …)
@@ -20,19 +20,19 @@ SloughGPT is an enterprise-grade AI framework with production-ready ML infrastru
 ├── infra/docker/            # docker-compose and deployment assets
 ├── tests/                   # pytest suites
 ├── requirements.txt         # Root Python deps (install first)
-└── TODO.md                  # Roadmap notes
+└── docs/TODO.md             # Roadmap notes
 ```
 
 ## Key Features
 
 ### Training
-Two drivers share **`SloughGPTModel`** (checkpoints differ):
+Two training drivers share the same default **`ModelInterface`** implementation (**`SloughGPTModel`**); checkpoints differ:
 - **`train_sloughgpt.py`** (repo root): **`train_sloughgpt()`** — char-level file dataset, exports, **`--resume`**; Colab-aligned.
-- **`SloughGPTTrainer`** (`domains.training.train_pipeline`): **`cli.py train`** (local), **`POST /training/start`**, **`examples/quick_train.py`**.
+- **`SloughGPTTrainer`** (`domains.training.train_pipeline`): **`cli.py train`** and **`python3 -m domains.training.train_pipeline`** (**`--resume`**, **`--resume-latest`**, **`--max-checkpoints`**; module **`main`** also **`--dropout`**, **`--lora-alpha`**), **`cli.py eval`** / **`python3 -m domains.training.lm_eval_char`** (char-LM eval via **`evaluate_sloughgpt_char_lm`**), **`POST /training/start`** on **`apps/api/server`** (**`training.router`**; JSON **`TrainingRequest`** in **`training/schemas.py`**, optional **`log_interval`** / **`eval_interval`**, live fields on **`GET /training/jobs`**), **`examples/quick_train.py`**. A **legacy** query-param training demo lives in **`packages/core-py/domains/ui/api_server.py`** (different contract — see file header). Vocabulary size defaults from the corpus unless **`vocab_size`** is set. **`train(resume=True)`** uses **`checkpoint_utils.normalize_raw_checkpoint` / `extract_state_dict`** for weights-only bundles; full optimizer/scheduler load is best-effort. **`cli.py train`** (local) merges **`config.yaml`** with CLI via **`config_loader.merge_args_with_config`** then feeds **`SloughGPTTrainer`**: hyperparameters from **`training`**, LoRA from **`lora`**, step checkpoints from **`checkpoint.trainer_*`**, **`model.dropout`**, **`model.soul_name`** / **`checkpoint.export_format`**, **`get_device(config.device)`** ( **`--train-device`** overrides **`device.type`**), **`--optimized`** (fp16 mixed precision after merge), **`--api`** posts merged dimensions + intervals + **`max_steps`**. Default export stem is **`{model}-{dataset}-{YYYY-MM-DD-HHMMSS}`** under **`checkpoint.save_dir`** (override **`--save-stem`**).
 
-CI: **`tests/test_checkpoint_utils.py`**, **`tests/test_train_sloughgpt_*.py`**, **`tests/test_sloughgpt_trainer_smoke.py`**, **`train_sloughgpt.py --help`**.
+CI: **`tests/test_checkpoint_utils.py`**, **`tests/test_train_sloughgpt_*.py`**, **`tests/test_sloughgpt_trainer_smoke.py`**, **`tests/test_sloughgpt_trainer_resume.py`**, **`tests/test_sloughgpt_trainer_progress_callback.py`**, **`tests/test_cli_train_export_stem.py`**, **`tests/test_cli_train_api_payload.py`**, **`tests/test_training_router_kwds.py`**, **`tests/test_training_schemas.py`**, **`tests/test_lm_eval_char.py`**, **`tests/test_cli_local_soul_candidates.py`**, **`tests/test_soul_engine_conversation.py`**, **`tests/test_sloughgpt_colab_notebook.py`** (notebook **`sloughgpt_colab.ipynb`**: JSON + smoke hooks), **`tests/test_config.py`** ( **`merge_args_with_config`** / **`get_device`**), **`train_sloughgpt.py --help`**.
 
-Shared checkpoint I/O: **`packages/core-py/domains/training/checkpoint_utils.py`** (`normalize_raw_checkpoint`, `load_sloughgpt_from_checkpoint`, …) used by **`train_sloughgpt.py`**, **`SloughGPTTrainer`** loads, **`cli.py generate`**, **`ModelLoader._load_pt`**, and **`scripts/export_to_gguf.py`** for consistent `.pt` parsing.
+Shared checkpoint I/O: **`packages/core-py/domains/training/checkpoint_utils.py`** (`normalize_raw_checkpoint`, `load_sloughgpt_from_checkpoint`, …) used by **`train_sloughgpt.py`**, **`SloughGPTTrainer`** resume + loads, **`cli.py generate`** (local `.sou` order: **`models/sloughgpt.sou`**, then newest **`models/*.sou`** — see **`_local_soul_candidate_paths`** in **`apps/cli/cli.py`**), **`ModelLoader._load_pt`**, and **`scripts/export_to_gguf.py`** for consistent `.pt` parsing. **Char vocab on disk:** **`stoi` / `itos` / `chars`** on full **`step_*.pt`** and typical notebook §13 saves; **`docs/policies/CONTRIBUTING.md`** (*Checkpoint vocabulary*).
 
 - **LR Schedulers**: Cosine, warmup, OneCycle, cyclic, polynomial
 - **Mixed Precision**: FP32, FP16, BF16 with GradScaler
@@ -49,8 +49,9 @@ Shared checkpoint I/O: **`packages/core-py/domains/training/checkpoint_utils.py`
 
 ### Deployment
 - **Web UI**: Next.js 14 with chat, training, models, experiments; shared **“Ochre & ink”** tokens in `app/globals.css` + Tailwind `theme.extend.colors` (CSS variables), light mode via `html.light`, mode/accent classes on `<html>` (`lib/theme-storage.ts`, `lib/sync-html-theme.ts`, inline bootstrap in `app/layout.tsx`), accent presets `theme-*`.
+- **Colab**: Root **`sloughgpt_colab.ipynb`** — **§2** dataset, **§3–§6** setup, then exactly one training path: manual **§7**, **`RUN_TRAIN_PIPELINE`** / **`train_sloughgpt()`** (**§7b**), or optional **`SloughGPTTrainer`**. **§11** cognitive (SM-2 + SCAMPER) must stay **one** code cell (single **`_asyncio_run`** — see **`tests/test_sloughgpt_colab_notebook.py`**). Optional smoke execute: **`scripts/run_colab_notebook_smoke.sh`** / **`make colab-smoke`** (`--help`, **`make help`**) → **`sloughgpt_colab.executed.ipynb`** (gitignored); **`make colab-test`** for the regression module only. **README.md** (*Google Colab*) summarizes order and env vars.
 - **API**: FastAPI with auth, streaming, WebSocket
-- **CLI**: Full command-line interface with shell completions
+- **CLI**: Full command-line interface (`apps/cli/cli.py`); optional future TUI mapped in **`docs/plans/tui-cli-port.md`** (`apps/tui/` placeholder).
 - **Models**: 14 custom architectures + HuggingFace integration
 
 ## Commands
@@ -58,12 +59,14 @@ Shared checkpoint I/O: **`packages/core-py/domains/training/checkpoint_utils.py`
 ```bash
 # Editable install (domains + apps.cli; dev extras: ruff, pytest, sloughgpt CLI)
 python3 -m pip install -e ".[dev]"
+# Optional: notebook execute deps (nbconvert smoke script) — jupyter, nbclient, nbformat
+# python3 -m pip install -e ".[notebook]"
 
 # Start API server
 cd apps/api/server && python3 main.py
 
 # Start web UI
-cd apps/web/web && npm run dev
+cd apps/web && npm run dev
 
 # Run tests
 python3 -m pytest tests/ -q
@@ -72,9 +75,15 @@ python3 -m pytest tests/ -q
 # CLI (repo root)
 python3 cli.py --help
 python3 apps/cli/cli.py --help
+# `cli.py train` / `cli.py generate` saves & local .sou resolution: apps/cli/README.md
 
 # Char-level trainer script (repo root)
 python3 train_sloughgpt.py --help
+
+# Colab notebook full execute (smoke defaults; needs jupyter / nbconvert)
+./scripts/run_colab_notebook_smoke.sh   # add --help for SLOUGH_* env defaults
+# make help   # lists colab-smoke / colab-test (README → Google Colab)
+# make colab-smoke / make colab-test
 ```
 
 ## API Endpoints
@@ -111,12 +120,12 @@ python3 train_sloughgpt.py --help
 # Full suite (from repo root)
 python3 -m pytest tests/ -q
 
-# Optional: path checks + same ruff smoke as CI (prints parity commands for ci_cd.yml jobs)
+# Optional: path checks + ruff smoke + web `npm run ci` when node_modules exists (prints ci_cd.yml parity)
 ./verify.sh
 ```
 
 - **Python CI subset:** `.github/workflows/reusable-ci-core.yml` (`workflow_call`): ruff smoke includes **`train_sloughgpt.py`**; pytest includes training smoke tests (see **CONTRIBUTING.md**).
-- **Also in `ci_cd.yml`:** `test-web`, `test-sdk-ts`, `sdk-test-py`, `standards-schemas` (run `python3 scripts/validate_standards_schemas.py`; `jsonschema` is in `python3 -m pip install -e ".[dev]"`).
+- **Also in `ci_cd.yml`:** `test-web` (**`npm run ci`** in **`apps/web`**), `test-sdk-ts` (**`npm run ci`** in **`packages/sdk-ts/typescript-sdk`**), `sdk-test-py`, `standards-schemas` (run `python3 scripts/validate_standards_schemas.py`; `jsonschema` is in `python3 -m pip install -e ".[dev]"`).
 
 ## Environment
 
