@@ -61,7 +61,9 @@ export function Sidebar({ variant = 'desktop', onNavigate, onClose }: SidebarPro
     <aside
       className={cn(
         'flex shrink-0 flex-col border-r border-border/90 bg-card/85 backdrop-blur-md',
-        isDrawer ? 'h-full w-full min-w-0' : 'h-dvh w-[var(--sidebar-width)]',
+        isDrawer
+          ? 'h-full w-full min-w-0 pb-[max(0px,env(safe-area-inset-bottom))]'
+          : 'h-dvh w-[var(--sidebar-width)]',
       )}
       aria-label="Main navigation"
     >
@@ -103,7 +105,13 @@ export function Sidebar({ variant = 'desktop', onNavigate, onClose }: SidebarPro
         aria-label="Primary"
       >
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <ul className="space-y-0.5">
+          <p
+            className="mb-2 px-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
+            id="sidebar-workspace-heading"
+          >
+            Workspace
+          </p>
+          <ul className="space-y-0.5" aria-labelledby="sidebar-workspace-heading">
             {navItems.map((item) => {
               const active = pathname === item.path
               return (

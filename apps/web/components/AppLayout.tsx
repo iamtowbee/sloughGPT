@@ -44,7 +44,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         Skip to main content
       </a>
 
-      <header className="sticky top-0 z-40 flex h-[3.25rem] shrink-0 items-center gap-2 border-b border-border bg-card/90 px-3 backdrop-blur-md supports-[backdrop-filter]:bg-card/75 lg:hidden">
+      <header className="sticky top-0 z-40 flex min-h-[3.25rem] shrink-0 items-center gap-2 border-b border-border bg-card/90 px-3 pt-[max(0px,env(safe-area-inset-top))] backdrop-blur-md supports-[backdrop-filter]:bg-card/75 lg:hidden">
         <button
           type="button"
           className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-none text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -79,13 +79,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <>
           <button
             type="button"
-            className="fixed inset-0 z-[100] bg-black/45 backdrop-blur-[2px] lg:hidden"
+            className="fixed inset-0 z-[100] animate-in fade-in duration-200 bg-black/45 backdrop-blur-[2px] lg:hidden"
             aria-label="Close menu"
             onClick={closeMobileNav}
           />
           <div
             id="mobile-navigation-drawer"
-            className="fixed inset-y-0 left-0 z-[110] flex w-[min(var(--sidebar-width),min(18rem,92vw))] max-w-full shadow-[4px_0_24px_-4px_rgba(0,0,0,0.25)] lg:hidden"
+            className="fixed inset-y-0 left-0 z-[110] flex w-[min(var(--sidebar-width),min(18rem,92vw))] max-w-full animate-in slide-in-from-left duration-200 ease-smooth shadow-[4px_0_24px_-4px_rgba(0,0,0,0.25)] lg:hidden"
             role="dialog"
             aria-modal="true"
             aria-label="Main navigation"

@@ -1,5 +1,5 @@
 import './globals.css'
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { JetBrains_Mono, Outfit } from 'next/font/google'
 
 import { Providers } from './Providers'
@@ -20,6 +20,13 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'SloughGPT - Enterprise AI',
   description: 'Enterprise-grade AI framework with production-ready ML infrastructure',
+}
+
+/** Enables `env(safe-area-inset-*)` under notches / home indicators on mobile. */
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 }
 
 /** Runs before React hydrates; ``useLayoutEffect`` in ThemeProvider re-syncs after any className reconciliation. */
