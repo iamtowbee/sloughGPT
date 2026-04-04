@@ -156,6 +156,11 @@ models/vocab.json
 models/merges.txt
 models/special_tokens_map.json
 models/tokenizer_config.json
+# Local exports / smoke runs (tracked templates stay: e.g. models/sloughgpt.sou.meta.json)
+models/exported/
+models/*-shakespeare-*.sou.meta.json
+models/notebook-smoke-demo.sou.meta.json
+models/pytest_*.sou.meta.json
 
 # Config (use templates)
 .api_keys.json
