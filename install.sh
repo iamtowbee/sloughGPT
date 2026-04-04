@@ -177,7 +177,7 @@ BCRYPT_ROUNDS=12
 # API Settings
 API_HOST=127.0.0.1
 API_PORT=8000
-# Web UI (local): cd apps/web/web && npm run dev — http://localhost:3000
+# Web UI (local): cd apps/web && npm run dev — http://localhost:3000
 
 # Logging
 LOG_LEVEL=INFO
@@ -234,16 +234,17 @@ show_next_steps() {
     echo -e "   $PYTHON_CMD apps/api/server/main.py"
     echo
     echo -e "${GREEN}2. Web UI (separate terminal; Node per .nvmrc):${NC}"
-    echo -e "   cd apps/web/web && npm install && npm run dev"
+    echo -e "   cd apps/web && npm install && npm run dev"
     echo
     echo -e "${GREEN}3. CLI:${NC}"
     echo -e "   $PYTHON_CMD cli.py --help   # or: sloughgpt --help (after $PYTHON_CMD -m pip install -e .)"
     echo
     echo -e "${GREEN}4. View Documentation:${NC}"
     echo -e "   📖 README.md - Complete overview"
-    echo -e "   🌐 API.md - API documentation"
+    echo -e "   🌐 docs/API.md - API documentation"
     echo -e "   🚀 QUICKSTART.md - Quick start guide"
-    echo -e "   🔧 INSTALL.md - Installation details"
+    echo -e "   🔧 docs/INSTALL.md - Installation details"
+    echo -e "   📋 docs/TODO.md - Roadmap / backlog"
     echo
     echo -e "${YELLOW}🌟 SloughGPT Enterprise AI Framework - Ready to Use!${NC}"
 }

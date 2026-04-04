@@ -46,6 +46,10 @@ coverage.xml
 
 # Jupyter Notebook
 .ipynb_checkpoints
+sloughgpt_colab.executed.ipynb
+
+# Nested copy of this repo (e.g. clone inside clone); not part of the source tree
+sloughGPT/
 
 # IPython
 profile_default/
@@ -90,6 +94,9 @@ logs/
 *.db
 *.sqlite
 *.sqlite3
+
+# Local vector / Chroma persistence (regenerable; can be large)
+data/vector_store/
 
 # Temporary files
 tmp/
@@ -138,7 +145,7 @@ packages/sdk-ts/typescript-sdk/dist/
 
 # Next.js build
 web/.next/
-apps/web/web/.next/
+apps/web/.next/
 
 # Model artifacts
 models/*.gguf
