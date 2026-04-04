@@ -103,6 +103,10 @@ jobs:
         working-directory: apps/web
         run: npm run build
 
+      - name: E2E (Cypress, mocked API)
+        working-directory: apps/web
+        run: npm run e2e:ci
+
   sdk-test-py:
     runs-on: ubuntu-latest
     steps:

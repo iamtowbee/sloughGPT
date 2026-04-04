@@ -37,6 +37,9 @@ logs/
 .coverage
 htmlcov/
 .pytest_cache/
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
 
 # Temp
 tmp/

@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { api } from '@/lib/api'
 import { PUBLIC_API_URL } from '@/lib/config'
 
 interface Model {
@@ -67,16 +68,11 @@ export default function ModelsPage() {
   const loadModel = async (modelId: string) => {
     setLoadingModel(modelId)
     try {
-      const res = await fetch(`${PUBLIC_API_URL}/models/load`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model_id: modelId }),
-      })
-      const data = await res.json()
+      const data = await api.loadModel(modelId)
       setLoadDialog({
         open: true,
         title: 'Load model',
-        body: `${data.status ?? 'ok'}: ${data.model ?? modelId}`,
+        body: `${data.status ?? 'ok'}: ${data.model ?? modelId}${data.effective_device != null ? ` (${data.effective_device})` : ''}`,
       })
     } catch (err) {
       setLoadDialog({

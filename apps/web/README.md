@@ -48,7 +48,11 @@ npm run dev
 # The app will open at http://localhost:3000
 ```
 
-Before pushing changes, run the same checks as CI: **`npm ci && npm run ci`** (from this directory — runs lint, typecheck, and production `next build`).
+Before pushing changes, run the same checks as CI: **`npm ci && npm run ci`** (from this directory — runs lint, typecheck, Vitest, and production `next build`).
+
+**Talking to models:** set **`NEXT_PUBLIC_API_URL`** to your FastAPI base (default `http://localhost:8000`). Use **Models** to **`POST /models/load`** (`model_id` in JSON), then **Chat** calls **`/inference/generate/stream`** and **`/inference/generate`**. The client **`api.loadModel`** matches that contract (not `/models/{id}/load`).
+
+**Cypress E2E** (mocked API, no Python process): after `npm run build`, run **`npm run e2e:ci`** (starts `next dev` on port **3010** so it does not clash with `output: 'standalone'` + `next start`). Or `npm run dev` on 3000 and **`npm run e2e`** / **`npm run e2e:open`**.
 
 ### Build for Production
 
@@ -72,7 +76,11 @@ To change the API URL, copy **`.env.example`** to **`.env.local`** (or edit **`.
 | `npm run start` | Run production server after `build` |
 | `npm run lint` | Run ESLint (`next lint`) |
 | `npm run typecheck` | TypeScript `tsc --noEmit` |
-| `npm run ci` | Lint + typecheck + production build (parity with CI **`test-web`**) |
+| `npm run test` | Vitest unit tests (`lib/*.test.ts`) |
+| `npm run ci` | Lint + typecheck + Vitest + production build (parity with CI **`test-web`**) |
+| `npm run e2e` / `e2e:open` | Cypress against running app (default baseUrl `http://localhost:3000`) |
+| `npm run e2e:ci` | `next dev -p 3010` + headless Cypress (use after `build` for warm compile) |
+| `npm run ci:e2e` | `build` then `e2e:ci` (full UI smoke with mocked backend) |
 
 ## Project Structure
 

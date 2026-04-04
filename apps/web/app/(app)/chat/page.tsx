@@ -235,6 +235,25 @@ export default function ChatPage() {
       }))
     }
 
+    /** Chunked typing animation; step-by-`chunk` slices can miss the tail — always finalize to full text. */
+    const revealAssistantText = async (fullContent: string, delayMs: number) => {
+      for (let i = 0; i <= fullContent.length; i += 3) {
+        updateActiveSession((session) => ({
+          ...session,
+          messages: session.messages.map((m) =>
+            m.id === assistantId ? { ...m, content: fullContent.slice(0, i) } : m,
+          ),
+        }))
+        await new Promise((r) => setTimeout(r, delayMs))
+      }
+      updateActiveSession((session) => ({
+        ...session,
+        messages: session.messages.map((m) =>
+          m.id === assistantId ? { ...m, content: fullContent } : m,
+        ),
+      }))
+    }
+
     const streamViaInference = (): Promise<boolean> =>
       new Promise((resolve) => {
         let gotToken = false
@@ -274,13 +293,7 @@ export default function ChatPage() {
         top_k: settings.topK,
       })
       const fullContent = data.text || ''
-      for (let i = 0; i <= fullContent.length; i += 3) {
-        updateActiveSession((session) => ({
-          ...session,
-          messages: session.messages.map((m) => (m.id === assistantId ? { ...m, content: fullContent.slice(0, i) } : m)),
-        }))
-        await new Promise((r) => setTimeout(r, 10))
-      }
+      await revealAssistantText(fullContent, 10)
     } catch (err) {
       console.log('Generation failed, using demo response:', err)
       const demoResponses = [
@@ -289,13 +302,7 @@ export default function ChatPage() {
         `Got it! I can help with:\n\n- Writing code\n- Answering questions\n- Creative writing\n- And more!`,
       ]
       const fullContent = demoResponses[Math.floor(Math.random() * demoResponses.length)]
-      for (let i = 0; i <= fullContent.length; i += 3) {
-        updateActiveSession((session) => ({
-          ...session,
-          messages: session.messages.map((m) => (m.id === assistantId ? { ...m, content: fullContent.slice(0, i) } : m)),
-        }))
-        await new Promise((r) => setTimeout(r, 15))
-      }
+      await revealAssistantText(fullContent, 15)
     }
 
     setIsLoading(false)
@@ -611,6 +618,7 @@ export default function ChatPage() {
         <div className="pt-3">
           <div className="flex gap-2">
             <Textarea
+              data-testid="chat-message-input"
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -626,6 +634,7 @@ export default function ChatPage() {
             />
             <Button
               type="button"
+              data-testid="chat-send-button"
               size="icon"
               className="h-[52px] w-10 shrink-0 self-end"
               onClick={sendMessage}

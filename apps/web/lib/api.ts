@@ -310,17 +310,53 @@ export const api = {
     }))
   },
 
-  async loadModel(modelId: string) {
-    const res = await fetchWithAuth(`${API_URL}/models/${modelId}/load`, {
+  /**
+   * `POST /models/load` (apps/api/server `LoadModelRequest`) — loads HF weights into the API process.
+   * Not to be confused with a RESTful `/models/{id}/load` path (not used by this server).
+   */
+  async loadModel(
+    modelId: string,
+    opts?: { mode?: string; device?: string },
+  ): Promise<{
+    status?: string
+    model?: string
+    mode?: string
+    device?: string
+    effective_device?: string | null
+    model_type?: string
+    error?: string
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/models/load`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model_id: modelId,
+        mode: opts?.mode ?? 'local',
+        device: opts?.device ?? 'auto',
+      }),
     })
-    return res.json()
+    const body = (await res.json().catch(() => ({}))) as {
+      status?: string
+      error?: string
+      model?: string
+    }
+    if (!res.ok) {
+      throw new Error(typeof body.error === 'string' ? body.error : `HTTP ${res.status}`)
+    }
+    if (body.status === 'error') {
+      throw new Error(typeof body.error === 'string' ? body.error : 'Load failed')
+    }
+    return body
   },
 
+  /** No `unload` route on `apps/api/server/main.py` yet; callers should handle failure. */
   async unloadModel(modelId: string) {
-    const res = await fetchWithAuth(`${API_URL}/models/${modelId}/unload`, {
+    const res = await fetchWithAuth(`${API_URL}/models/${encodeURIComponent(modelId)}/unload`, {
       method: 'POST',
     })
+    if (res.status === 404) {
+      throw new Error('Model unload is not implemented on this API build')
+    }
     return res.json()
   },
 
