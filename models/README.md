@@ -13,7 +13,7 @@ This directory holds **weights**, **Soul (`.sou`)** bundles, exports, and occasi
 
 | Area | Purpose |
 |------|---------|
-| `exported/` | Staged release builds (GGUF, safetensors, `.sou`, …) |
+| `exported/` | Staged release builds (GGUF, safetensors, `.sou`, …) — see **`exported/README.md`** |
 | `registry/models.json` | App/registry metadata (not a filesystem index) |
 | `*/` per run | Colab smoke, local demos—keep or prune by age |
 
