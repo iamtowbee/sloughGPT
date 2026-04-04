@@ -1,11 +1,13 @@
 'use client'
 
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 import { IconMenu } from '@/components/icons/NavIcons'
 import { Sidebar } from '@/components/Sidebar'
+import { cn } from '@/lib/cn'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -16,22 +18,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [pathname])
 
   useEffect(() => {
-    if (!mobileNavOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMobileNavOpen(false)
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const closeIfDesktop = () => {
+      if (mq.matches) setMobileNavOpen(false)
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [mobileNavOpen])
-
-  useEffect(() => {
-    if (!mobileNavOpen) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prev
-    }
-  }, [mobileNavOpen])
+    closeIfDesktop()
+    mq.addEventListener('change', closeIfDesktop)
+    return () => mq.removeEventListener('change', closeIfDesktop)
+  }, [])
 
   const closeMobileNav = () => setMobileNavOpen(false)
 
@@ -75,25 +69,31 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
       </main>
 
-      {mobileNavOpen ? (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-[100] animate-in fade-in duration-200 bg-black/45 backdrop-blur-[2px] lg:hidden"
-            aria-label="Close menu"
-            onClick={closeMobileNav}
+      <DialogPrimitive.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay
+            className={cn(
+              'fixed inset-0 z-[100] bg-black/45 backdrop-blur-[2px] lg:hidden',
+              'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200'
+            )}
           />
-          <div
+          <DialogPrimitive.Content
             id="mobile-navigation-drawer"
-            className="fixed inset-y-0 left-0 z-[110] flex w-[min(var(--sidebar-width),min(18rem,92vw))] max-w-full animate-in slide-in-from-left duration-200 ease-smooth shadow-[4px_0_24px_-4px_rgba(0,0,0,0.25)] lg:hidden"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Main navigation"
+            className={cn(
+              'fixed inset-y-0 left-0 z-[110] flex w-[min(var(--sidebar-width),min(18rem,92vw))] max-w-full outline-none lg:hidden',
+              'shadow-[4px_0_24px_-4px_rgba(0,0,0,0.25)]',
+              'data-[state=open]:animate-in data-[state=closed]:animate-out duration-200 ease-smooth',
+              'data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left'
+            )}
           >
+            <DialogPrimitive.Title className="sr-only">Main navigation</DialogPrimitive.Title>
+            <DialogPrimitive.Description className="sr-only">
+              Primary navigation for the SloughGPT console. Choose a section or close this panel.
+            </DialogPrimitive.Description>
             <Sidebar variant="drawer" onClose={closeMobileNav} onNavigate={closeMobileNav} />
-          </div>
-        </>
-      ) : null}
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     </div>
   )
 }
