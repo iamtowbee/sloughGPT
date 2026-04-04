@@ -101,6 +101,20 @@ body {
     @apply p-4 sm:p-6 md:p-8 text-foreground;
   }
 
+  /** Monitoring SYS.LOG — subtle scanlines + primary wash (matches shell “lattice” look) */
+  .sl-log-feed {
+    background-color: color-mix(in srgb, var(--card) 88%, var(--muted));
+    background-image:
+      linear-gradient(180deg, color-mix(in srgb, var(--primary) 7%, transparent) 0%, transparent 42%),
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 22px,
+        color-mix(in srgb, var(--border) 28%, transparent) 22px,
+        color-mix(in srgb, var(--border) 28%, transparent) 23px
+      );
+  }
+
   .sl-card {
     @apply rounded-none border border-border text-card-foreground shadow-sm transition-colors duration-200 ease-smooth;
     background-color: color-mix(in srgb, var(--card) 92%, transparent);
