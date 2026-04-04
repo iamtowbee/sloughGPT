@@ -12,10 +12,11 @@ python3 -m pip install -e ".[dev]"
 ./verify.sh
 # With a .venv, prefix commands so they use that interpreter: ./run.sh python3 -m pytest tests/ -q
 # Minimal editable install only: python3 -m pip install -e .  (add dev extras or python3 -m pip install ruff to use ./verify.sh lint)
-# Next.js (apps/web/web): npm ci && npm run lint && npm run typecheck — same as CI job test-web
-# TypeScript SDK (packages/sdk-ts/typescript-sdk): npm ci && npm run lint && npm run build && npm test — job test-sdk-ts
+# Next.js (apps/web): npm ci && npm run ci — same as CI job test-web (lint + typecheck + build)
+# TypeScript SDK (packages/sdk-ts/typescript-sdk): npm ci && npm run ci — job test-sdk-ts (lint + build + test)
 # Python SDK: python3 -m pytest tests/test_sdk.py — job sdk-test-py
 # Standards: python3 scripts/validate_standards_schemas.py (jsonschema in .[dev]) — job standards-schemas
+# Colab notebook full execute locally: python3 -m pip install -e ".[notebook]" — ./scripts/run_colab_notebook_smoke.sh or make colab-smoke; make help lists colab targets (README → Google Colab). make colab-test runs tests/test_sloughgpt_colab_notebook.py only. Colab pytest module shells out to bash for --help; without bash that subtest skips (Windows: Git Bash / WSL).
 ```
 
 ### 2. Quick Training (CLI)
@@ -52,12 +53,25 @@ python3 cli.py quick --epochs 3 --batch 64 --embed 256 --layers 6
 
 # CPU only (no optimizations)
 python3 cli.py quick --no-optimize
+
+# Full char-level trainer: merges config.yaml with CLI flags (intervals, device, dropout, LoRA, checkpoints, …)
+python3 cli.py train --dataset shakespeare --epochs 3 --checkpoint-dir ckpts
+# Module entrypoint (no config.yaml merge; --dropout / --lora-alpha on main): python3 -m domains.training.train_pipeline --data datasets/shakespeare/input.txt --epochs 3
+# FP16 mixed-precision preset (after merge): add --optimized
+# API job: python3 cli.py train --api --dataset shakespeare --epochs 2
+# Char-LM perplexity on held-out text (fair when checkpoint embeds stoi/itos/chars — e.g. cli.py train step_*.pt):
+#   python3 cli.py eval --checkpoint models/sloughgpt.pt --data datasets/shakespeare/input.txt
+#   python3 -m domains.training.lm_eval_char --checkpoint PATH --data PATH [--json]
+# Weights-only bundles without stoi: eval rebuilds vocab from --data (see eval warning). See docs/policies/CONTRIBUTING.md (Checkpoint vocabulary).
+# Details: apps/cli/README.md
 ```
 
 ### Inference
 ```bash
-# Generate text
+# Generate text (local: uses models/sloughgpt.sou if present, else newest models/*.sou, else models/sloughgpt_finetuned.pt)
 python3 cli.py generate "Hello world" --max-tokens 100
+# Short alias:
+python3 cli.py gen "Hello world" --max-tokens 100
 
 # Interactive chat (auto-start API if needed)
 python3 cli.py chat
@@ -85,13 +99,16 @@ python3 cli.py optimize
 ```
 
 ### Model Export
-```bash
-# Export to different formats
-python3 cli.py export gpt2 --format onnx
-python3 cli.py export gpt2 --format safetensors
 
-# With quantization
-python3 cli.py export gpt2 --quantize int8
+Export targets (ONNX, GGUF, `.sou`, …) do not preserve native char `stoi` / `itos` the same way as trainer `step_*.pt`; for perplexity parity with training, score the native bundle — **docs/policies/CONTRIBUTING.md** (*Checkpoint vocabulary*).
+
+```bash
+# Export a checkpoint on disk (-f / --format; see cli.py export --help)
+python3 cli.py export models/sloughgpt.pt -f onnx --seq-len 128
+python3 cli.py export models/sloughgpt.pt -f safetensors
+
+# GGUF-style exports support --quantize (Q4_K_M, Q5_K_M, Q8_0, F16, F32)
+python3 cli.py export models/sloughgpt.pt -f gguf_q4_k_m --quantize Q4_K_M
 ```
 
 ### System
@@ -115,14 +132,24 @@ python3 cli.py config validate
 # Generate secrets
 python3 cli.py config generate --type all
 
-# Statistics
+# Disk summary (models/, datasets/, checkpoints/, data/experiments/, …)
 python3 cli.py stats
 
-# List models
-python3 cli.py models
+# One path: line/char stats or validate
+python3 cli.py data stats datasets/shakespeare/input.txt
+python3 cli.py data validate datasets/shakespeare
 
 # List datasets
 python3 cli.py datasets
+
+# List model artifacts under models/ (.pt, .safetensors, .sou) + HF hints
+python3 cli.py models
+
+# Built-in personality presets
+python3 cli.py personalities
+
+# Inspect a checkpoint file (tensor layout)
+python3 cli.py info models/sloughgpt.pt
 ```
 
 ### API Management
@@ -228,9 +255,18 @@ curl -X POST http://localhost:8000/inference/generate/stream \
 ```
 
 ### Training
+
+Native trainer `step_*.pt` on the API host includes `stoi` / `itos` / `chars` for fair `cli.py eval`; see **docs/policies/CONTRIBUTING.md** (*Checkpoint vocabulary*).
+
 ```bash
 curl -X POST http://localhost:8000/train \
   -d "dataset=shakespeare&epochs=5&batch_size=32"
+
+# Tracked jobs (JSON TrainingRequest); optional log_interval / eval_interval control
+# how often train_loss / eval_loss update on GET /training/jobs
+curl -s -X POST http://localhost:8000/training/start \
+  -H "Content-Type: application/json" \
+  -d '{"name":"demo","model":"slough-base","dataset":"shakespeare","epochs":1,"batch_size":8,"learning_rate":0.001,"log_interval":10,"eval_interval":100}'
 ```
 
 ### Benchmarking
@@ -328,9 +364,11 @@ Presets.cpu_only()       # CPU training
 
 ### macOS PyTorch hangs?
 ```bash
-# Add to ~/.zshrc or ~/.bashrc
+# Add to ~/.zshrc or ~/.bashrc (Intel Mac + some GPU stacks)
 export DYLD_INSERT_LIBRARIES=""
 ```
+- **API server** (`apps/api/server/main.py`): disables MPS by default on macOS via `domains.torch_runtime.apply_api_process_torch_env`. To experiment with MPS inference: `SLOUGHGPT_API_ENABLE_MPS=1` (before `import torch`). Linux/CUDA is no longer forced to CPU.
+- **Training DataLoaders**: `domains.torch_runtime.effective_dataloader_num_workers` clamps workers to `0` on macOS (fork + MPS deadlocks). See `packages/core-py/domains/torch_runtime.py` for env vars (`SLOUGHGPT_SKIP_TORCH_ENV`, etc.).
 
 ### Docker not running?
 ```bash
@@ -342,8 +380,8 @@ open -a Docker
 # Smaller batch size
 python3 cli.py quick --batch 8
 
-# Or use quantization
-python3 cli.py export model --quantize int8
+# Or export a smaller artifact (example: GGUF with 4-bit)
+python3 cli.py export models/sloughgpt.pt -f gguf_q4_k_m --quantize Q4_K_M
 ```
 
 ---
@@ -363,7 +401,7 @@ SloughGPT/
 │   │   ├── optimized_trainer.py  # Optimized training
 │   │   ├── models/nanogpt.py
 │   │   ├── huggingface/     # HuggingFace integration
-│   │   └── lora.py         # LoRA fine-tuning
+│   │   └── scripts/tools/lora.py  # LoRA fine-tuning (utility)
 │   └── ml_infrastructure/  # Infrastructure
 │       ├── benchmarking.py
 │       └── experiment_tracker.py
@@ -372,6 +410,7 @@ SloughGPT/
 ├── infra/k8s/               # Kubernetes, Helm, Grafana assets
 ├── tests/                   # Unit tests (100+ tests)
 ├── datasets/                # Training data
+├── data/                    # Runtime state (experiments, feature store, tuning, vector DB)
 ├── infra/docker/docker-compose.yml  # Docker deployment
 └── sloughgpt_colab.ipynb   # Colab notebook
 ```
@@ -380,11 +419,11 @@ SloughGPT/
 
 ## Next Steps
 
-1. **Run the notebook**: `jupyter notebook sloughgpt_colab.ipynb` (in Colab: run the install cell—includes **`python3 -m pip install -e .`**—then try `python3 cli.py chat --auto-model gpt2`)
-2. **Try different datasets**: Shakespeare, TinyStories, custom
+1. **Run the notebook**: `jupyter notebook sloughgpt_colab.ipynb` (in Colab: install → **§2** dataset → **§3–§6** → pick one of **§7** manual loop, **§7b** `train_sloughgpt()`, or optional **`SloughGPTTrainer`**; then e.g. `python3 cli.py chat --auto-model gpt2`). For a **fast local full execute**, use `./scripts/run_colab_notebook_smoke.sh` or **`make colab-smoke`** (**`make help`**, **README.md** → *Google Colab*; install **`jupyter`** / **`python3 -m nbconvert`** as documented there).
+2. **Try different datasets**: Shakespeare, **`tiny`** (small on-disk slice), or a path to your own `.txt`
 3. **Explore model architecture**: Section 5 in the notebook
 4. **Deploy with Docker**: See Docker section above
-5. **Read the docs**: `README.md`, `API.md`, `TODO.md`
+5. **Read the docs**: `README.md`, `docs/API.md`, `docs/TODO.md`
 
 ---
 

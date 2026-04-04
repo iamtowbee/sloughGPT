@@ -28,6 +28,14 @@ Self-hosted LLM infrastructure with local model training, inference, and experim
 # Quick train + generate (auto-optimized)
 python3 cli.py quick --steps 100 --prompt "Hello world"
 
+# Char-level training: merges config.yaml with flags (see apps/cli/README.md)
+python3 cli.py train --dataset shakespeare --epochs 3 --checkpoint-dir ckpts
+
+# Char-LM perplexity (fair when stoi/itos/chars are on the checkpoint, e.g. cli.py train step_*.pt)
+python3 cli.py eval --checkpoint models/sloughgpt.pt --data datasets/shakespeare/input.txt
+# python3 -m domains.training.lm_eval_char --checkpoint PATH --data PATH [--json]
+# docs/policies/CONTRIBUTING.md — Checkpoint vocabulary (char LM)
+
 # Benchmark inference
 python3 cli.py benchmark -m gpt2 -d mps
 
@@ -37,8 +45,9 @@ python3 cli.py optimize
 # System info
 python3 cli.py system
 
-# Generate text
+# Generate text (local: models/sloughgpt.sou, else newest models/*.sou, else sloughgpt_finetuned.pt)
 python3 cli.py generate "Hello world"
+python3 cli.py gen "Hello world"   # alias
 
 # Interactive chat (starts the API with uvicorn if it is not already running)
 python3 cli.py chat
@@ -61,18 +70,18 @@ python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000
 
 ### Docker
 ```bash
-# Start with Docker
-./docker-manage.sh start
+# Start with Docker (run from repo root)
+./scripts/deploy/docker-manage.sh start
 
 # Development mode
-./docker-manage.sh dev
+./scripts/deploy/docker-manage.sh dev
 
 # GPU mode
-./docker-manage.sh gpu
+./scripts/deploy/docker-manage.sh gpu
 ```
 
 ### Verify install (optional)
-From the repo root, `verify.sh` checks core paths and (if **`ruff`** is available) runs the same lint smoke as CI. It also prints commands that mirror CI (**`test-web`**, **`test-sdk-ts`**, **`sdk-test-py`**, **`standards-schemas`** in **`.github/workflows/ci_cd.yml`**). See **QUICKSTART.md** for the full install flow.
+From the repo root, `verify.sh` checks core paths and (if **`ruff`** is available) runs the same lint smoke as CI; if **`node`** is available and **`apps/web/node_modules`** exists, it runs **`npm run ci`** there (lint + typecheck + **`next build`**). It also prints commands that mirror CI (**`test-web`**, **`test-sdk-ts`**, **`sdk-test-py`**, **`standards-schemas`** in **`.github/workflows/ci_cd.yml`**). See **QUICKSTART.md** for the full install flow.
 
 ```bash
 python3 -m pip install -e ".[dev]"   # optional; includes ruff + pytest among dev tools
@@ -81,13 +90,31 @@ python3 -m pip install -e ".[dev]"   # optional; includes ruff + pytest among de
 ```
 
 ### Google Colab
-Use `sloughgpt_colab.ipynb` in the repo root. After the runtime can see the repo (clone or upload), run the dependency cell: it installs base packages plus **`python3 -m pip install -e .`** so **`cli.py`** and **`domains`** imports resolve. Then a typical one-shot chat + model load is:
+Use `sloughgpt_colab.ipynb` in the repo root. After the runtime can see the repo (clone or upload), run the dependency cell: it installs base packages plus **`python3 -m pip install -e .`** so **`cli.py`** and **`domains`** imports resolve.
+
+Recommended order: **§2** (dataset; default Shakespeare → `datasets/shakespeare.txt` via Karpathy URL), **§3** (device + imports), **§4–§6** (CONFIG, model, exploration). Train with exactly one path: manual **§7** loop, **`RUN_TRAIN_PIPELINE`** in **§7b** (`train_sloughgpt()`), or the optional **`SloughGPTTrainer`** cell (skip the others). Then **§8+** (generation / Soul).
+
+Then a typical one-shot chat + model load is:
 
 ```bash
 python3 cli.py chat --auto-model gpt2
 ```
 
 If your editor reformats the notebook JSON on save, prefer small cell edits or restore with `git checkout -- sloughgpt_colab.ipynb` to avoid large diffs.
+
+For a **fast local execute** (CPU, capped §7 batches), run [`scripts/run_colab_notebook_smoke.sh`](scripts/run_colab_notebook_smoke.sh) or **`make colab-smoke`** (`./scripts/run_colab_notebook_smoke.sh --help` lists env defaults; **`make help`** lists Makefile shortcuts); it writes `sloughgpt_colab.executed.ipynb` (ignored by git). **`make colab-test`** runs only the Colab regression pytest module. Override `SLOUGH_NOTEBOOK_TRAIN_CAP` or `SLOUGH_NOTEBOOK_FORCE_CPU` as needed. The script calls **`jupyter nbconvert`** when available, otherwise **`python3 -m nbconvert`**. Install tools with **`python3 -m pip install jupyter nbclient nbformat`** or **`python3 -m pip install -e ".[notebook]"`** (see **`pyproject.toml`** optional-deps **`notebook`**).
+
+### Documentation map
+
+- **Structure & conventions:** [docs/STRUCTURE.md](docs/STRUCTURE.md)
+- **Roadmap:** [docs/TODO.md](docs/TODO.md)
+- **Installation details:** [docs/INSTALL.md](docs/INSTALL.md)
+- **Extra reference notes** (stack comparisons, API drafts, reports): [docs/misc/](docs/misc/)
+- **Standalone Python tools** (benchmarks, GGUF helpers, …): [scripts/tools/README.md](scripts/tools/README.md)
+- **Deploy / Docker shell scripts**: [scripts/deploy/README.md](scripts/deploy/README.md)
+- **Extra config samples** (`datasets.yaml` sketch, conda env, prod env example): [config/README.md](config/README.md)
+- **Runtime data** (experiments, feature store, tuning, vector DB): [data/README.md](data/README.md)
+- **Full local setup** (conda/venv/Docker): [scripts/setup.sh](scripts/setup.sh)
 
 ## GPU Support
 
@@ -211,6 +238,9 @@ curl http://localhost:8000/inference/stats
 ```
 
 ### Training
+
+Native trainer `step_*.pt` on the API host includes `stoi` / `itos` / `chars` for fair `cli.py eval`; see **docs/policies/CONTRIBUTING.md** (*Checkpoint vocabulary*).
+
 ```bash
 # Start training
 curl -X POST http://localhost:8000/train \
@@ -242,6 +272,9 @@ curl http://localhost:8000/benchmark/compare
 ```
 
 ### Model Export
+
+Export artifacts (API or `cli.py export`) are for deployment; char-LM perplexity parity uses native trainer `step_*.pt` — **docs/policies/CONTRIBUTING.md** (*Checkpoint vocabulary*).
+
 ```bash
 # Export model (SafeTensors, Torch, ONNX, GGUF, .sou)
 curl -X POST http://localhost:8000/model/export \
@@ -251,10 +284,10 @@ curl -X POST http://localhost:8000/model/export \
 # List formats
 curl http://localhost:8000/model/export/formats
 
-# CLI export examples
-python3 cli.py export models/slough.pt --format safetensors
-python3 cli.py export models/slough.pt --format gguf_q4_k_m  # Mobile
-python3 cli.py export models/slough.pt --format onnx         # Cross-platform
+# CLI export examples (see cli.py export --help; -f is an alias for --format)
+python3 cli.py export models/sloughgpt.pt -f safetensors
+python3 cli.py export models/sloughgpt.pt -f gguf_q4_k_m --quantize Q4_K_M  # mobile
+python3 cli.py export models/sloughgpt.pt -f onnx --seq-len 128            # cross-platform
 ```
 
 ### Soul Engine
@@ -280,7 +313,7 @@ SloughGPT/
 ├── apps/
 │   ├── api/server/main.py   # FastAPI app (primary API)
 │   ├── cli/                 # CLI implementation
-│   └── web/web/             # Next.js UI
+│   └── web/                 # Next.js UI — app/(app)/
 ├── packages/
 │   ├── core-py/domains/     # Soul engine, training, inference, etc.
 │   ├── sdk-py/sloughgpt_sdk/
@@ -318,8 +351,9 @@ python3 -m pip install torch transformers fastapi uvicorn
 # Run server
 python3 apps/api/server/main.py
 
-# Train a model
-python3 packages/core-py/domains/training/train_pipeline.py --data datasets/shakespeare/input.txt --epochs 5
+# Train a model (after `pip install -e .`; same as packages/core-py `domains.training.train_pipeline`)
+python3 -m domains.training.train_pipeline --data datasets/shakespeare/input.txt --epochs 5
+# Periodic step_*.pt embeds stoi/itos/chars for cli.py eval — docs/policies/CONTRIBUTING.md (Checkpoint vocabulary)
 ```
 
 ## Contributing & security
