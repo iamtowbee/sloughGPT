@@ -330,7 +330,38 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(buildInferenceGeneratePayload(req)),
     })
-    return res.json()
+    const body = (await res.json().catch(() => ({}))) as Partial<GenerateResponse> & {
+      error?: string
+      detail?: unknown
+    }
+
+    if (!res.ok) {
+      const msg =
+        typeof body.error === 'string'
+          ? body.error
+          : typeof body.detail === 'string'
+            ? body.detail
+            : `HTTP ${res.status}`
+      throw new Error(msg)
+    }
+
+    // FastAPI often returns 200 with `{ error: "Model not loaded", text: "" }` when no weights are loaded.
+    if (typeof body.error === 'string' && body.error.trim() !== '') {
+      throw new Error(body.error)
+    }
+
+    const text = typeof body.text === 'string' ? body.text : ''
+    if (!text.trim()) {
+      throw new Error(
+        'Model returned no text. Start the API, load a model (e.g. via /models), then try again.',
+      )
+    }
+
+    return {
+      text,
+      model: typeof body.model === 'string' ? body.model : 'unknown',
+      tokens_generated: typeof body.tokens_generated === 'number' ? body.tokens_generated : 0,
+    }
   },
 
   /**
