@@ -32,7 +32,7 @@ def main():
         print("\nStart the API server first:")
         print("  python3 apps/api/server/main.py")
         print("\nOr use the CLI:")
-        print("  python3 cli.py generate 'The quick brown fox'")
+        print("  python3 cli.py generate 'The quick brown fox'   # or: cli.py gen '...'")
 
 if __name__ == "__main__":
     main()

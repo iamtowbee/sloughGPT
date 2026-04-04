@@ -1,10 +1,17 @@
 """
-domains/models/ - Pluggable Model Interface
+domains/models/ - Pluggable model backends
 
-SloughGPTModel is OUR OWN architecture. External models (NanoGPT, Qwen, etc.)
-can be plugged in via the ModelLoader registry or ModelInterface.
+**ModelInterface** is the generic contract (forward, generate, load, …) for any
+neural backend in this repo.
 
-Supported external model types:
+**SloughGPTModel** is the default first-party **implementation** of that
+interface (project reference architecture: RoPE, SDPA, SwiGLU, …). The class
+name reflects the product/repo; it is **not** the interface itself—other classes
+(e.g. **HuggingFaceWrapper**) are also **ModelInterface** implementations.
+
+External or custom architectures plug in via **ModelLoader.register** or loaders.
+
+Supported external model types (examples):
 - NanoGPT: https://github.com/karpathy/nanoGPT
 - HuggingFace transformers: https://huggingface.co/models
 - GGUF: llama.cpp format
@@ -23,7 +30,12 @@ if TYPE_CHECKING:
 
 
 class ModelInterface(ABC):
-    """Abstract interface all model backends must implement."""
+    """Generic interface every pluggable model backend must implement.
+
+    **SloughGPTModel** and **HuggingFaceWrapper** (among others) satisfy this
+    contract; call sites such as **SoulEngine** depend on **ModelInterface**,
+    not on a single concrete architecture.
+    """
 
     @abstractmethod
     def load(self, path: str, device: str = "cpu", **kwargs) -> "ModelInterface":
@@ -96,6 +108,10 @@ class ModelLoader:
     - .gguf llama.cpp format
     - HuggingFace model IDs (when transformers is installed)
     - External model types registered via ModelLoader.register()
+
+    Char-LM checkpoints may embed ``stoi`` / ``itos`` / ``chars`` in dict ``.pt`` bundles;
+    this loader builds inference models from weights + config. Fair char perplexity on a
+    held-out **file** uses ``cli.py eval`` — ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
     """
 
     _registry: Dict[str, type] = {}
@@ -202,7 +218,12 @@ class ModelLoader:
 
     @classmethod
     def _load_torch(cls, path: str, device: str, **kwargs) -> ModelInterface:
-        """Load a PyTorch .pt file."""
+        """Load a PyTorch .pt file.
+
+        Dict bundles may carry ``stoi`` / ``itos`` / ``chars`` alongside weights; this
+        loader uses ``state_dict`` + ``config`` only. Char-LM eval vocabulary semantics:
+        ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
+        """
         checkpoint = torch.load(path, map_location=device, weights_only=False)
 
         if isinstance(checkpoint, dict):
@@ -345,7 +366,7 @@ class HuggingFaceWrapper(ModelInterface):
 
 
 # =============================================================================
-# SloughGPTModel - OUR OWN ARCHITECTURE
+# SloughGPTModel — default ModelInterface (decoder-only causal LM)
 # Features: RoPE, Flash Attention/SDPA, SwiGLU, RMSNorm, KV Cache, Gradient Checkpointing
 # =============================================================================
 
@@ -477,14 +498,13 @@ class SloughGPTAttention(torch.nn.Module):
             v = v.repeat_interleave(self.n_rep, dim=1)
 
         if self.use_sdpa and not self.use_flash:
-            attn_mask = torch.triu(
-                torch.ones(T, T, device=q.device, dtype=torch.bool), diagonal=1
-            )
+            # ``is_causal=True`` is the supported path (avoids NaNs from bool mask + scale on some torch 2.x builds).
             out = torch.nn.functional.scaled_dot_product_attention(
-                q, k, v,
-                attn_mask=attn_mask,
+                q,
+                k,
+                v,
                 dropout_p=self.dropout if self.training else 0.0,
-                scale=1.0 / math.sqrt(self.head_dim),
+                is_causal=True,
             )
         else:
             attn = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(self.head_dim))
@@ -560,18 +580,19 @@ class SloughGPTBlock(torch.nn.Module):
 
 class SloughGPTModel(torch.nn.Module, ModelInterface):
     """
-    SloughGPT - OUR OWN model architecture.
+    First-party **ModelInterface** implementation: decoder-only causal LM used as
+    the default training/inference stack in this repository.
 
-    Key innovations:
-    - RoPE (Rotary Position Embeddings) - better generalization
-    - Flash Attention / SDPA - memory-efficient attention
-    - SwiGLU activation - outperforms GELU
-    - RMSNorm - more stable training
-    - KV Cache support - faster autoregressive generation
-    - Grouped Query Attention - fewer KV heads for efficiency
-    - Gradient Checkpointing - memory optimization for training
+    The name is historical/product branding; the abstraction you code against
+    for swapping backends is **ModelInterface**, not this class alone.
 
-    This is SloughGPT - NOT NanoGPT, NOT GPT-2.
+    Features (architecture summary):
+    - RoPE, Flash Attention / SDPA, SwiGLU, RMSNorm
+    - KV-cache-friendly blocks; optional grouped-query attention
+    - Gradient checkpointing hooks for training
+
+    Distinct from arbitrary **NanoGPT** / **GPT-2** checkpoints—those load via
+    other **ModelInterface** paths (**ModelLoader**, **HuggingFaceWrapper**, …).
     """
 
     def __init__(

@@ -646,6 +646,42 @@ class TestNewSDKMethods(unittest.TestCase):
         )
         self.assertEqual(_coerce_training_jobs_list({}), [])
         self.assertEqual(_coerce_training_jobs_list("bad"), [])
+
+    def test_build_training_start_payload_forwards_loop_options(self) -> None:
+        """POST /training/start accepts log_interval / eval_interval (server TrainingRequest)."""
+        from sloughgpt_sdk.client import _build_training_start_payload
+
+        payload = _build_training_start_payload(
+            "sloughgpt",
+            "openwebtext",
+            epochs=2,
+            log_interval=5,
+            eval_interval=90,
+        )
+        self.assertEqual(payload["model"], "sloughgpt")
+        self.assertEqual(payload["dataset"], "openwebtext")
+        self.assertEqual(payload["epochs"], 2)
+        self.assertEqual(payload["log_interval"], 5)
+        self.assertEqual(payload["eval_interval"], 90)
+
+    def test_build_training_start_payload_forwards_trainer_hyperparams(self) -> None:
+        """Extended TrainingRequest fields pass through kwargs."""
+        from sloughgpt_sdk.client import _build_training_start_payload
+
+        payload = _build_training_start_payload(
+            "m",
+            "d",
+            weight_decay=0.02,
+            use_mixed_precision=True,
+            mixed_precision_dtype="fp16",
+            scheduler="linear",
+            device="cpu",
+        )
+        self.assertEqual(payload["weight_decay"], 0.02)
+        self.assertTrue(payload["use_mixed_precision"])
+        self.assertEqual(payload["mixed_precision_dtype"], "fp16")
+        self.assertEqual(payload["scheduler"], "linear")
+        self.assertEqual(payload["device"], "cpu")
     
     def test_experiment_methods_exist(self):
         """Test experiment methods exist on client."""

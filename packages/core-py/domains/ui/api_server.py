@@ -1365,9 +1365,15 @@ async def infer_stream(request: GenerateRequest):
 
 
 # -------------------------------------------------------------------------
-# Training Endpoints
+# Training Endpoints (legacy demo server)
 # -------------------------------------------------------------------------
-
+# This module defines a *separate* FastAPI app used for UI demos / experiments.
+# It is **not** the same contract as ``apps/api/server`` (``main.py``), which
+# mounts ``training.router``: JSON ``TrainingRequest``, corpus resolution,
+# ``SloughGPTTrainer``, live ``on_progress`` job fields, ``log_interval`` /
+# ``eval_interval``, etc. Prefer ``apps/api/server`` for product parity with
+# the web Console and SDKs.
+# -------------------------------------------------------------------------
 
 _training_jobs = {}
 
@@ -1398,7 +1404,7 @@ async def start_training(
     n_layer: int = 4,
     n_head: int = 4,
 ):
-    """Start a training job."""
+    """Legacy demo training (query params, toy loop). Not ``TrainingRequest`` JSON; use ``apps/api/server`` for parity."""
     job_id = f"train_{uuid.uuid4().hex[:8]}"
 
     job = TrainingJob(
@@ -1501,7 +1507,7 @@ async def start_training(
 
 @app.get("/training/status/{job_id}")
 async def get_training_status(job_id: str):
-    """Get training job status."""
+    """Legacy demo job status (``job_id`` key). Production API uses ``GET /training/jobs/{id}`` with ``id``."""
     job = _training_jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -1519,7 +1525,7 @@ async def get_training_status(job_id: str):
 
 @app.get("/training/jobs")
 async def list_training_jobs():
-    """List all training jobs."""
+    """Legacy demo list (wrapped ``{ \"jobs\": [...] }``). Production API returns a bare JSON array."""
     return {
         "jobs": [
             {"job_id": job.id, "status": job.status, "progress": job.progress, "config": job.config}

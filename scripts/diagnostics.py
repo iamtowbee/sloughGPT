@@ -194,7 +194,7 @@ def check_experiments():
     """Check experiments log."""
     print("\n[Experiments]")
     
-    exp_file = Path("experiments/experiments.json")
+    exp_file = Path("data/experiments/experiments.json")
     if exp_file.exists():
         with open(exp_file) as f:
             data = json.load(f)

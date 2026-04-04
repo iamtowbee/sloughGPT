@@ -56,7 +56,18 @@ def _build_training_start_payload(
     learning_rate: float = 5e-5,
     **kwargs: Any,
 ) -> Dict[str, Any]:
-    """JSON body for POST /training/start (server ``TrainingRequest``)."""
+    """JSON body for POST /training/start (server ``TrainingRequest``).
+
+    Extra keyword arguments are merged into the payload as-is (e.g. ``max_steps``,
+    ``n_embed`` … ``block_size``, ``log_interval``, ``eval_interval``, ``dropout``,
+    ``weight_decay``, ``gradient_accumulation_steps``, ``max_grad_norm``,
+    ``use_mixed_precision``, ``mixed_precision_dtype``, ``warmup_steps``, ``min_lr``,
+    ``scheduler``, ``use_lora``, ``lora_rank``, ``lora_alpha``, ``checkpoint_dir``,
+    ``checkpoint_interval``, ``save_best_only``, ``max_checkpoints``, ``device``).
+
+    Trainer ``step_*.pt`` files on the server include ``stoi`` / ``itos`` / ``chars``;
+    see ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
+    """
     opts = dict(kwargs)
     name = opts.pop("name", f"{model_name}-training")
     manifest_uri = opts.pop("manifest_uri", None)
@@ -484,11 +495,18 @@ class SloughGPTClient:
             epochs: Training epochs.
             batch_size: Batch size.
             learning_rate: Learning rate.
-            **kwargs: Optional ``name``, ``manifest_uri``, ``dataset_ref``, ``n_embed``, etc.
-                Provide exactly one corpus selector: default ``dataset``, or ``manifest_uri`` / ``dataset_ref``.
+            **kwargs: Optional ``name``, ``manifest_uri``, ``dataset_ref``, model dims
+                (``n_embed`` … ``block_size``), ``max_steps``, ``log_interval``,
+                ``eval_interval``, and trainer options (``dropout``, ``weight_decay``,
+                ``use_mixed_precision``, ``mixed_precision_dtype``, ``scheduler``, LoRA,
+                checkpoint fields, ``device``, etc.). Provide exactly one corpus selector:
+                default ``dataset``, or ``manifest_uri`` / ``dataset_ref``.
 
         Returns:
             Training job information.
+
+        Server-side ``step_*.pt`` checkpoints include ``stoi`` / ``itos`` / ``chars`` for
+        char LM eval; see CONTRIBUTING (*Checkpoint vocabulary*).
         """
         payload = _build_training_start_payload(
             model_name,
@@ -502,7 +520,12 @@ class SloughGPTClient:
         return response.json()
 
     def resolve_training(self, body: Dict[str, Any]) -> Dict[str, Any]:
-        """Dry-run corpus resolver (POST /train/resolve)."""
+        """Dry-run corpus resolver (POST /train/resolve).
+
+        Does not write checkpoints. After ``POST /train`` or ``POST /training/start``,
+        trainer ``step_*.pt`` embeds ``stoi`` / ``itos`` / ``chars``; see CONTRIBUTING
+        (*Checkpoint vocabulary*).
+        """
         response = self._request("POST", "/train/resolve", json=body)
         return response.json()
 
@@ -513,12 +536,19 @@ class SloughGPTClient:
         return response.json()
     
     def get_training_status(self, job_id: str) -> Dict[str, Any]:
-        """Get training job status."""
+        """Get training job status (GET /training/jobs/{job_id}).
+
+        Completed jobs may include ``checkpoint``; native ``step_*.pt`` embeds
+        ``stoi`` / ``itos`` / ``chars`` — CONTRIBUTING (*Checkpoint vocabulary*).
+        """
         response = self._request("GET", f"/training/jobs/{job_id}")
         return response.json()
     
     def list_training_jobs(self) -> List[Dict[str, Any]]:
-        """List all training jobs."""
+        """List all training jobs (GET /training/jobs).
+
+        Same ``checkpoint`` / ``step_*.pt`` semantics as :meth:`get_training_status`.
+        """
         response = self._request("GET", "/training/jobs")
         return _coerce_training_jobs_list(response.json())
     
@@ -886,7 +916,13 @@ class AsyncSloughGPTClient:
         learning_rate: float = 5e-5,
         **kwargs: Any,
     ) -> Dict[str, Any]:
-        """Start a training job."""
+        """Start a training job (POST /training/start).
+
+        See synchronous :meth:`start_training` for ``**kwargs`` (corpus selectors,
+        loop/model fields, and trainer hyperparameters forwarded by
+        :func:`_build_training_start_payload`). On-disk ``step_*.pt`` bundles include
+        charset maps; see CONTRIBUTING (*Checkpoint vocabulary*).
+        """
         payload = _build_training_start_payload(
             model_name,
             dataset_id,
@@ -898,7 +934,12 @@ class AsyncSloughGPTClient:
         return await self._request("POST", "/training/start", json=payload)
 
     async def resolve_training(self, body: Dict[str, Any]) -> Dict[str, Any]:
-        """Dry-run corpus resolver (POST /train/resolve)."""
+        """Dry-run corpus resolver (POST /train/resolve).
+
+        Does not write checkpoints. After ``POST /train`` or ``POST /training/start``,
+        trainer ``step_*.pt`` embeds ``stoi`` / ``itos`` / ``chars``; see CONTRIBUTING
+        (*Checkpoint vocabulary*).
+        """
         return await self._request("POST", "/train/resolve", json=body)
 
     async def infer_v1(self, body: Dict[str, Any]) -> Dict[str, Any]:
@@ -911,11 +952,18 @@ class AsyncSloughGPTClient:
         )
     
     async def get_training_status(self, job_id: str) -> Dict[str, Any]:
-        """Get training job status."""
+        """Get training job status (GET /training/jobs/{job_id}).
+
+        Completed jobs may include ``checkpoint``; native ``step_*.pt`` embeds
+        ``stoi`` / ``itos`` / ``chars`` — CONTRIBUTING (*Checkpoint vocabulary*).
+        """
         return await self._request("GET", f"/training/jobs/{job_id}")
     
     async def list_training_jobs(self) -> List[Dict[str, Any]]:
-        """List all training jobs."""
+        """List all training jobs (GET /training/jobs).
+
+        Same ``checkpoint`` / ``step_*.pt`` semantics as :meth:`get_training_status`.
+        """
         data = await self._request("GET", "/training/jobs")
         return _coerce_training_jobs_list(data)
     

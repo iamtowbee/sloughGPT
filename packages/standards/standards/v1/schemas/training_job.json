@@ -50,7 +50,19 @@
         "block_size": { "type": "integer", "minimum": 1 },
         "n_embed": { "type": "integer", "minimum": 1 },
         "n_layer": { "type": "integer", "minimum": 1 },
-        "n_head": { "type": "integer", "minimum": 1 }
+        "n_head": { "type": "integer", "minimum": 1 },
+        "log_interval": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50000,
+          "description": "Steps between train-loss / progress callbacks (tracked HTTP jobs; aligns with TrainingRequest.log_interval)"
+        },
+        "eval_interval": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000,
+          "description": "Steps between eval loss runs (tracked HTTP jobs; aligns with TrainingRequest.eval_interval)"
+        }
       }
     },
     "outputs": {

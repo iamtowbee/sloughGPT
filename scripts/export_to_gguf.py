@@ -14,6 +14,9 @@ This script:
 1. Loads the trained PyTorch model
 2. Exports to GGUF format using llama.cpp tools
 3. Uploads to model server for app download
+
+GGUF vocabulary layout is not the same as char ``stoi`` / ``itos`` in native ``step_*.pt``;
+see ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*) before using exports for eval parity.
 """
 
 import argparse

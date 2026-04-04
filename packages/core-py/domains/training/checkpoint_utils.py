@@ -1,8 +1,12 @@
 """
 Shared checkpoint helpers for SloughGPT training and inference.
 
-Used by ``train_sloughgpt.py``, ``SloughGPTTrainer`` save/load conventions, and CLI
-load paths so hyperparameters and ``state_dict`` extraction stay consistent.
+Used by ``train_sloughgpt.py``, ``SloughGPTTrainer`` (inference + ``train(resume=True)``),
+and CLI load paths so hyperparameters and ``state_dict`` extraction stay consistent.
+
+Char-LM bundles may include ``stoi`` / ``itos`` / ``chars`` (see
+``tokenizer_maps_from_bundle``). For semantics and eval caveats, see
+``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
 """
 
 from __future__ import annotations

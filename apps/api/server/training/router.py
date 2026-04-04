@@ -1,4 +1,7 @@
-"""FastAPI routes for char-level training and job orchestration."""
+"""FastAPI routes for char-level training and job orchestration.
+
+Trainer ``step_*.pt`` charset maps: ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
+"""
 
 from __future__ import annotations
 
@@ -17,9 +20,48 @@ logger = logging.getLogger("sloughgpt")
 router = APIRouter(tags=["training"])
 
 
+def _sloughgpt_trainer_kwds(req_snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Build ``SloughGPTTrainer`` keyword arguments from a request ``model_dump()`` (except ``data_path``)."""
+    device = req_snapshot.get("device")
+    return {
+        "n_embed": int(req_snapshot.get("n_embed") or 128),
+        "n_layer": int(req_snapshot.get("n_layer") or 4),
+        "n_head": int(req_snapshot.get("n_head") or 4),
+        "block_size": int(req_snapshot.get("block_size") or 128),
+        "dropout": float(req_snapshot.get("dropout") if req_snapshot.get("dropout") is not None else 0.1),
+        "batch_size": int(req_snapshot.get("batch_size") or 32),
+        "epochs": int(req_snapshot.get("epochs") or 3),
+        "lr": float(req_snapshot.get("learning_rate") or 1e-3),
+        "max_steps": req_snapshot.get("max_steps"),
+        "gradient_accumulation_steps": int(req_snapshot.get("gradient_accumulation_steps") or 1),
+        "max_grad_norm": float(req_snapshot.get("max_grad_norm") if req_snapshot.get("max_grad_norm") is not None else 1.0),
+        "use_mixed_precision": bool(req_snapshot.get("use_mixed_precision", True)),
+        "mixed_precision_dtype": str(req_snapshot.get("mixed_precision_dtype") or "bf16"),
+        "checkpoint_dir": str(req_snapshot.get("checkpoint_dir") or "checkpoints"),
+        "checkpoint_interval": int(req_snapshot.get("checkpoint_interval") or 500),
+        "save_best_only": bool(req_snapshot.get("save_best_only", False)),
+        "max_checkpoints": int(req_snapshot.get("max_checkpoints") or 5),
+        "scheduler_type": str(req_snapshot.get("scheduler") or "cosine"),
+        "warmup_steps": int(req_snapshot.get("warmup_steps") if req_snapshot.get("warmup_steps") is not None else 100),
+        "min_lr": float(req_snapshot.get("min_lr") if req_snapshot.get("min_lr") is not None else 1e-5),
+        "weight_decay": float(req_snapshot.get("weight_decay") if req_snapshot.get("weight_decay") is not None else 0.01),
+        "use_lora": bool(req_snapshot.get("use_lora", False)),
+        "lora_rank": int(req_snapshot.get("lora_rank") or 8),
+        "lora_alpha": int(req_snapshot.get("lora_alpha") or 16),
+        "log_interval": int(req_snapshot.get("log_interval") or 10),
+        "eval_interval": int(req_snapshot.get("eval_interval") or 100),
+        "device": device if device is not None and str(device).strip() != "" else None,
+    }
+
+
 @router.post("/train")
 async def train(request: TrainRequest):
-    """Start a training job (background thread)."""
+    """Start a training job (background thread).
+
+    ``SloughGPTTrainer`` writes periodic ``step_*.pt`` under ``checkpoint_dir`` with
+    ``stoi`` / ``itos`` / ``chars`` for char-LM eval; see
+    ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
+    """
     from domains.training.dataset_manifest import ManifestError
     from domains.training.train_pipeline import SloughGPTTrainer
 
@@ -38,14 +80,7 @@ async def train(request: TrainRequest):
         try:
             trainer = SloughGPTTrainer(
                 data_path=data_path_str,
-                n_embed=req_snapshot["n_embed"],
-                n_layer=req_snapshot["n_layer"],
-                n_head=req_snapshot["n_head"],
-                block_size=req_snapshot["block_size"],
-                batch_size=req_snapshot["batch_size"],
-                epochs=req_snapshot["epochs"],
-                lr=req_snapshot["learning_rate"],
-                max_steps=req_snapshot["max_steps"],
+                **_sloughgpt_trainer_kwds(req_snapshot),
             )
             trainer.train()
             safe_stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in out_stem)[:120]
@@ -73,7 +108,12 @@ async def train(request: TrainRequest):
 
 @router.post("/train/resolve")
 async def train_resolve(body: TrainResolveRequest) -> dict[str, Any]:
-    """Resolve ``data_path`` and checkpoint stem (dry run; no training)."""
+    """Resolve ``data_path`` and checkpoint stem (dry run; no training).
+
+    Does not write ``.pt`` artifacts. After ``POST /train`` or ``POST /training/start``,
+    native ``step_*.pt`` includes char vocab; see ``docs/policies/CONTRIBUTING.md``
+    (*Checkpoint vocabulary*).
+    """
     from domains.training.dataset_manifest import ManifestError
 
     try:
@@ -106,13 +146,20 @@ async def train_status():
 
 @router.get("/training/jobs")
 async def list_training_jobs():
-    """List all tracked training jobs."""
+    """List all tracked training jobs.
+
+    Completed jobs may expose ``checkpoint``; native ``step_*.pt`` uses charset maps for
+    ``cli.py eval`` — ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
+    """
     return list(training_jobs.values())
 
 
 @router.get("/training/jobs/{job_id}")
 async def get_training_job(job_id: str):
-    """Get one training job by id."""
+    """Get one training job by id.
+
+    See list endpoint docstring for ``checkpoint`` / ``step_*.pt`` vocabulary semantics.
+    """
     if job_id not in training_jobs:
         raise HTTPException(status_code=404, detail="Job not found")
     return training_jobs[job_id]
@@ -120,7 +167,11 @@ async def get_training_job(job_id: str):
 
 @router.post("/training/start")
 async def start_training(request: TrainingRequest):
-    """Start a tracked training job (web UI)."""
+    """Start a tracked training job (web UI).
+
+    ``step_*.pt`` files saved on the server include ``stoi`` / ``itos`` / ``chars``
+    for char-LM eval; see ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
+    """
     from domains.training.dataset_manifest import ManifestError
 
     try:
@@ -145,7 +196,10 @@ async def start_training(request: TrainingRequest):
         "progress": 0,
         "epochs": request.epochs,
         "current_epoch": 0,
+        "global_step": 0,
         "loss": None,
+        "train_loss": None,
+        "eval_loss": None,
     }
     if manifest_meta is not None:
         job["manifest"] = manifest_meta
@@ -160,20 +214,27 @@ async def start_training(request: TrainingRequest):
         from domains.training.train_pipeline import SloughGPTTrainer
 
         try:
-            training_jobs[jid]["progress"] = 5
+            def on_progress(info: dict[str, Any]) -> None:
+                rec = training_jobs.get(jid)
+                if not rec:
+                    return
+                rec["progress"] = int(info.get("progress_percent", rec.get("progress", 0)))
+                rec["current_epoch"] = int(info.get("epoch", rec.get("current_epoch", 0)))
+                rec["global_step"] = int(info.get("global_step", 0))
+                tl = info.get("train_loss")
+                if tl is not None:
+                    rec["train_loss"] = float(tl)
+                el = info.get("eval_loss")
+                if el is not None:
+                    fe = float(el)
+                    rec["eval_loss"] = fe
+                    rec["loss"] = fe
+
             trainer = SloughGPTTrainer(
                 data_path=data_path_for_thread,
-                n_embed=int(req_snapshot.get("n_embed") or 128),
-                n_layer=int(req_snapshot.get("n_layer") or 4),
-                n_head=int(req_snapshot.get("n_head") or 4),
-                block_size=int(req_snapshot.get("block_size") or 128),
-                batch_size=int(req_snapshot.get("batch_size") or 32),
-                epochs=int(req_snapshot.get("epochs") or 3),
-                lr=float(req_snapshot.get("learning_rate") or 1e-3),
-                max_steps=req_snapshot.get("max_steps"),
+                **_sloughgpt_trainer_kwds(req_snapshot),
             )
-            training_jobs[jid]["progress"] = 15
-            result = trainer.train()
+            result = trainer.train(on_progress=on_progress)
             safe_stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in out_stem_for_thread)[:120]
             trainer.save(f"models/{safe_stem}_trained.pt")
             training_jobs[jid]["status"] = "completed"

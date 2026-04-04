@@ -139,14 +139,14 @@ class ExperimentTracker:
     _instance = None
     _lock = threading.Lock()
 
-    def __new__(cls, storage_path: str = "./experiments"):
+    def __new__(cls, storage_path: str = "data/experiments"):
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
                 cls._instance._initialized = False
             return cls._instance
 
-    def __init__(self, storage_path: str = "./experiments"):
+    def __init__(self, storage_path: str = "data/experiments"):
         if self._initialized:
             return
 

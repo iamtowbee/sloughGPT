@@ -7,14 +7,22 @@ from __future__ import annotations
 
 import os
 import sys
-
-# Force CPU mode to avoid MPS hanging issues
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
-os.environ["PYTORCH_NO_CUDA"] = "1"
-os.environ["PYTORCH_DISABLE_MPS"] = "1"
-os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "0"
-
 from pathlib import Path
+
+# Import path must exist before domains (see ``domains.torch_runtime``).
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_SERVER_ROOT = Path(__file__).resolve().parent
+_CORE_PY_ROOT = _REPO_ROOT / "packages" / "core-py"
+
+for _p in (_SERVER_ROOT, _CORE_PY_ROOT, _REPO_ROOT):
+    _s = str(_p)
+    if _s not in sys.path:
+        sys.path.insert(0, _s)
+
+from domains.torch_runtime import apply_api_process_torch_env
+
+apply_api_process_torch_env()
+
 from contextlib import asynccontextmanager
 from collections import defaultdict
 import threading
@@ -27,15 +35,6 @@ import hashlib
 import secrets
 import re
 import uuid
-
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-_SERVER_ROOT = Path(__file__).resolve().parent
-_CORE_PY_ROOT = _REPO_ROOT / "packages" / "core-py"
-
-for _p in (_SERVER_ROOT, _CORE_PY_ROOT, _REPO_ROOT):
-    _s = str(_p)
-    if _s not in sys.path:
-        sys.path.insert(0, _s)
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Header, Request, Response
 from fastapi.staticfiles import StaticFiles
@@ -2082,7 +2081,7 @@ def get_experiment_tracker():
     global _experiment_tracker
     if _experiment_tracker is None:
         from domains.ml_infrastructure.experiment_tracker import ExperimentTracker
-        _experiment_tracker = ExperimentTracker(storage_path="./experiments")
+        _experiment_tracker = ExperimentTracker(storage_path="data/experiments")
     return _experiment_tracker
 
 
@@ -2472,7 +2471,12 @@ async def run_benchmark(
 
 @app.post("/benchmark/perplexity", tags=["benchmark"])
 async def calculate_perplexity(text: str = ""):
-    """Calculate model perplexity on text."""
+    """Calculate perplexity on inline text using the **loaded** API model and tokenizer.
+
+    This is not the same path as char-LM ``cli.py eval`` / ``lm_eval_char`` on a native
+    ``step_*.pt`` file (``stoi`` / ``itos`` / ``chars``). For that parity story, see
+    ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
+    """
     global model, tokenizer
     
     if model is None or tokenizer is None:
@@ -2531,7 +2535,12 @@ class ExportRequest(BaseModel):
 
 @app.post("/model/export", tags=["model"])
 async def export_model(request: ExportRequest):
-    """Export current model to file."""
+    """Export current model to file.
+
+    Output formats are for deployment; char-LM ``cli.py eval`` parity uses native
+    ``step_*.pt`` (``stoi`` / ``itos`` / ``chars``) — ``docs/policies/CONTRIBUTING.md``
+    (*Checkpoint vocabulary*).
+    """
     global model, tokenizer, model_type
     
     if model is None:
@@ -2790,7 +2799,7 @@ async def init_vector_store(config: VectorStoreConfig):
             kwargs["url"] = config.url or "http://localhost:8080"
             kwargs["api_key"] = config.api_key
         elif config.provider == "chromadb":
-            kwargs["persist_directory"] = "./vector_store"
+            kwargs["persist_directory"] = "data/vector_store"
         
         _vector_store = await create_vector_store(provider=_vector_store_type, **kwargs)
         

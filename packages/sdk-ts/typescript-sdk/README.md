@@ -14,9 +14,7 @@ When working inside **sloughGPT**, use the **Node** version from the repo root *
 
 ```bash
 npm ci
-npm run lint    # tsc --noEmit
-npm run build
-npm test
+npm run ci      # lint + build + test (same as CI job test-sdk-ts)
 ```
 
 ## Quick Start
@@ -166,17 +164,29 @@ const experiment = await client.getExperiment('exp-1');
 
 ### Training
 
+Trainer **`step_*.pt`** files on the server include **`stoi` / `itos` / `chars`** for char-LM eval; formats are summarized in [`docs/policies/CONTRIBUTING.md`](../../../docs/policies/CONTRIBUTING.md) (*Checkpoint vocabulary*).
+
 ```typescript
+// Canonical body matches POST /training/start (``name``, ``model``, one corpus selector).
 const job = await client.startTraining({
-  model_name: 'gpt2',
-  dataset_id: 'openwebtext',
+  name: 'my-run',
+  model: 'sloughgpt',
+  dataset: 'openwebtext',
   epochs: 3,
-  batch_size: 8,
-  learning_rate: 5e-5,
+  log_interval: 10,
+  eval_interval: 100,
 });
 
-const status = await client.getTrainingStatus(job.job_id);
+// Legacy aliases ``model_name`` / ``dataset_id`` are still accepted.
+const jobLegacy = await client.startTraining({
+  model_name: 'sloughgpt',
+  dataset_id: 'openwebtext',
+  epochs: 3,
+});
+
+const status = await client.getTrainingStatus(job.id);
 const jobs = await client.listTrainingJobs();
+// `status.checkpoint` / job entries may point at native `step_*.pt` (stoi/itos/chars — CONTRIBUTING).
 ```
 
 ### Inference

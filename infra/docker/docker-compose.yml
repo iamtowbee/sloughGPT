@@ -162,7 +162,7 @@ services:
   # Web UI
   web:
     build:
-      context: ../../apps/web/web
+      context: ../../apps/web
       dockerfile: Dockerfile
     container_name: sloughgpt-web
     image: sloughgpt/web:latest

@@ -110,10 +110,65 @@ export interface MetricsData {
   cache_hit_rate: number;
 }
 
+/**
+ * Tracked HTTP training job from `GET /training/jobs` / `GET /training/jobs/{id}`.
+ * When `checkpoint` is present (often after completion), it usually references native
+ * `step_*.pt` with char vocab (`stoi` / `itos` / `chars`); see `docs/policies/CONTRIBUTING.md`
+ * (*Checkpoint vocabulary*).
+ */
 export interface TrainingJob {
-  job_id: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  progress?: number;
+  id: string
+  name?: string
+  model?: string
+  dataset?: string
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  progress: number
+  epochs?: number
+  current_epoch?: number
+  global_step?: number
+  loss?: number
+  train_loss?: number
+  eval_loss?: number
+  data_path?: string
+  output_checkpoint_stem?: string
+  data_source?: string
+  checkpoint?: string
+  error?: string
+}
+
+/**
+ * Body for POST /training/start (matches server `TrainingRequest`).
+ *
+ * Trainer `step_*.pt` on the server includes `stoi` / `itos` / `chars`; see
+ * `docs/policies/CONTRIBUTING.md` (*Checkpoint vocabulary*).
+ */
+export interface TrainingStartPayload {
+  name: string
+  model: string
+  /** Exactly one of ``dataset``, ``manifest_uri``, or ``dataset_ref`` is required. */
+  dataset?: string
+  manifest_uri?: string
+  dataset_ref?: { dataset_id: string; version: string; manifest_uri: string }
+  epochs?: number
+  batch_size?: number
+  learning_rate?: number
+  n_embed?: number
+  n_layer?: number
+  n_head?: number
+  block_size?: number
+  max_steps?: number
+  log_interval?: number
+  eval_interval?: number
+}
+
+/** Legacy aliases ``model_name`` / ``dataset_id`` (mapped to ``model`` / ``dataset``). */
+export type LegacyTrainingStartInput = Omit<
+  Partial<TrainingStartPayload>,
+  'model' | 'dataset' | 'name'
+> & {
+  model_name: string
+  dataset_id: string
+  name?: string
 }
 
 export interface Experiment {
@@ -165,6 +220,53 @@ export class SloughGPTClient {
     if (this.onLog) {
       this.onLog(level, message);
     }
+  }
+
+  private _bodyForTrainingStart(
+    input: TrainingStartPayload | LegacyTrainingStartInput
+  ): Record<string, unknown> {
+    const i = input as LegacyTrainingStartInput & Partial<TrainingStartPayload>
+    const {
+      model_name,
+      dataset_id,
+      model,
+      dataset,
+      name,
+      manifest_uri,
+      dataset_ref,
+      epochs,
+      batch_size,
+      learning_rate,
+      n_embed,
+      n_layer,
+      n_head,
+      block_size,
+      max_steps,
+      log_interval,
+      eval_interval,
+    } = i
+    const m = model ?? model_name
+    const body: Record<string, unknown> = {}
+    if (epochs !== undefined) body.epochs = epochs
+    if (batch_size !== undefined) body.batch_size = batch_size
+    if (learning_rate !== undefined) body.learning_rate = learning_rate
+    if (n_embed !== undefined) body.n_embed = n_embed
+    if (n_layer !== undefined) body.n_layer = n_layer
+    if (n_head !== undefined) body.n_head = n_head
+    if (block_size !== undefined) body.block_size = block_size
+    if (max_steps !== undefined) body.max_steps = max_steps
+    if (log_interval !== undefined) body.log_interval = log_interval
+    if (eval_interval !== undefined) body.eval_interval = eval_interval
+    if (m !== undefined) body.model = m
+    if (name !== undefined) body.name = name
+    else if (typeof m === 'string') body.name = `${m}-training`
+    if (dataset_ref !== undefined) body.dataset_ref = dataset_ref
+    else if (manifest_uri !== undefined) body.manifest_uri = manifest_uri
+    else {
+      const d = dataset ?? dataset_id
+      if (d !== undefined) body.dataset = d
+    }
+    return body
   }
 
   private async request<T>(
@@ -359,20 +461,27 @@ export class SloughGPTClient {
     return this.request<MetricsData>('GET', '/metrics');
   }
 
-  async startTraining(config: {
-    model_name: string;
-    dataset_id: string;
-    epochs?: number;
-    batch_size?: number;
-    learning_rate?: number;
-  }): Promise<TrainingJob> {
-    return this.request<TrainingJob>('POST', '/training/start', config);
+  /**
+   * Start a tracked training job (`POST /training/start`).
+   * Trainer `step_*.pt` on the server embeds char vocab for eval; see
+   * `docs/policies/CONTRIBUTING.md` (*Checkpoint vocabulary*).
+   */
+  async startTraining(input: TrainingStartPayload | LegacyTrainingStartInput): Promise<TrainingJob> {
+    return this.request<TrainingJob>('POST', '/training/start', this._bodyForTrainingStart(input));
   }
 
+  /**
+   * Poll one job (`GET /training/jobs/{id}`). Completed jobs may set `checkpoint`;
+   * native `step_*.pt` embeds char vocab — `docs/policies/CONTRIBUTING.md` (*Checkpoint vocabulary*).
+   */
   async getTrainingStatus(jobId: string): Promise<TrainingJob> {
     return this.request<TrainingJob>('GET', `/training/jobs/${jobId}`);
   }
 
+  /**
+   * List tracked jobs (`GET /training/jobs`). Same `checkpoint` / `step_*.pt` semantics as
+   * {@link getTrainingStatus}.
+   */
   async listTrainingJobs(): Promise<TrainingJob[]> {
     return this.request<TrainingJob[]>('GET', '/training/jobs');
   }

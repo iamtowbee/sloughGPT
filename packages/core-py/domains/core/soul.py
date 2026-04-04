@@ -77,7 +77,7 @@ class SoulEngine:
     [Structured Prompt]  -- soul context + reasoning chain + user query
               |
               v
-    [ModelInterface]  -- NanoGPT (or GGUF, ONNX, etc.) ← just the brain
+    [ModelInterface]  -- any registered backend (e.g. SloughGPTModel, HF, …) ← neural core
               |
               v
     [Response Formatter]  -- applies soul personality to output
@@ -103,12 +103,14 @@ class SoulEngine:
         device: str = "cpu",
         stoi: Optional[Dict[int, str]] = None,
         itos: Optional[Dict[int, str]] = None,
+        max_history_messages: int = 24,
     ):
         self._model: Optional[ModelInterface] = model
         self._soul: SoulProfile = soul or SoulProfile(name="default")
         self._device = device
         self._stoi = stoi or {}
         self._itos = itos or {}
+        self._max_history_messages = max(4, int(max_history_messages))
 
         self._session_history: List[Dict[str, str]] = []
         self._cognitive_state: Dict[str, Any] = {
@@ -316,11 +318,15 @@ class SoulEngine:
 
         session_context = ""
         if self._session_history:
-            recent = self._session_history[-6:]
+            role_labels = {"user": "User", "assistant": "Assistant", "system": "System"}
+            recent = self._session_history[-self._max_history_messages :]
             for msg in recent:
-                role = msg.get("role", "?")
-                content = msg.get("content", "")[:300]
-                session_context += f"{role}: {content}\n"
+                role = msg.get("role", "user")
+                label = role_labels.get(role, role.replace("_", " ").title())
+                content = (msg.get("content", "") or "")[:2000]
+                if not content.strip():
+                    continue
+                session_context += f"{label}: {content}\n"
 
         if session_context:
             parts.append("[CONVERSATION_HISTORY]")
@@ -409,8 +415,8 @@ class SoulEngine:
             )
 
         self._cognitive_state["session_turns"] += 1
-        self._session_history.append({"role": "user", "content": prompt})
-
+        # Prior turns live in _session_history only; current user text is added below
+        # so we do not duplicate it inside [CONVERSATION_HISTORY].
         full_prompt = self._build_full_prompt(prompt, include_reasoning=include_reasoning)
 
         context = GenerationContext(
@@ -458,6 +464,7 @@ class SoulEngine:
                 logger.error(f"Generation failed: {e}")
                 generated_text = f"[Error: {e}]"
 
+        self._session_history.append({"role": "user", "content": prompt})
         self._session_history.append({"role": "assistant", "content": generated_text})
 
         if len(self._session_history) > 100:
@@ -482,7 +489,8 @@ class SoulEngine:
             extra = {
                 "reasoning_chain": reasoning_chain,
                 "soul_context": self._build_reasoning_chain_text(prompt),
-                "full_prompt": full_prompt if include_reasoning else prompt,
+                "full_prompt": full_prompt,
+                "user_message": prompt,
                 "latency_ms": latency_ms,
                 "tokens_generated": tokens_generated,
                 "generation_params": gen_params,
@@ -497,6 +505,11 @@ class SoulEngine:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, lambda: self.generate(prompt, **kwargs))
 
+    def clear_conversation(self) -> None:
+        """Drop in-memory chat history (multi-turn state). Session turn counter resets."""
+        self._session_history.clear()
+        self._cognitive_state["session_turns"] = 0
+
     def chat(
         self,
         messages: List[Dict[str, str]],
@@ -504,23 +517,55 @@ class SoulEngine:
         temperature: Optional[float] = None,
         **kwargs,
     ) -> str:
-        """Chat interface - converts messages to prompt and generates."""
-        prompt_parts = []
+        """
+        Multi-turn chat with soul-aware prompting.
 
-        for msg in messages:
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
-            if role == "system":
-                prompt_parts.append(f"System: {content}")
-            elif role == "user":
-                prompt_parts.append(f"User: {content}")
-            elif role == "assistant":
-                prompt_parts.append(f"Assistant: {content}")
+        Pass the **full** transcript each time (OpenAI-style): all prior ``user`` / ``assistant`` /
+        ``system`` turns, then a final ``user`` message. Earlier turns are copied into
+        :attr:`_session_history`; only the last user message is completed by the model.
 
-        prompt_parts.append("Assistant:")
-        prompt = "\n".join(prompt_parts)
+        For a local REPL, prefer :meth:`generate` once per user line so history accumulates
+        automatically without resending the full list.
+        """
+        if not messages:
+            return ""
+        msgs = [dict(m) for m in messages]
+        last = msgs[-1]
+        if last.get("role") != "user":
+            raise ValueError("chat(): last message must have role 'user'")
 
-        return self.generate(prompt, max_new_tokens=max_new_tokens, temperature=temperature, **kwargs)
+        prior: List[Dict[str, str]] = []
+        for m in msgs[:-1]:
+            role = m.get("role", "user")
+            if role not in ("user", "assistant", "system"):
+                continue
+            prior.append({"role": role, "content": str(m.get("content", ""))})
+
+        self._session_history = prior
+        return self.generate(
+            str(last.get("content", "")),
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            **kwargs,
+        )
+
+    def chat_with_soul(
+        self,
+        messages: List[Dict[str, str]],
+        max_new_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        **kwargs,
+    ) -> str:
+        """
+        Same as :meth:`chat` — explicit name when the soul profile and reasoning context
+        should read as the primary contract (model-as-soul, conversational turns).
+        """
+        return self.chat(
+            messages,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            **kwargs,
+        )
 
     def _tokenize(self, text: str) -> torch.Tensor:
         """Tokenize using model's vocabulary."""

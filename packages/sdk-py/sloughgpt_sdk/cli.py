@@ -6,7 +6,7 @@ Command-line interface for the SloughGPT SDK.
 Usage:
     sloughgpt-cli --help
     sloughgpt-cli health
-    sloughgpt-cli generate "Hello, how are you?"
+    sloughgpt-cli generate "Hello, how are you?"   # or: sloughgpt-cli gen "..."
     sloughgpt-cli chat "What is Python?"
     sloughgpt-cli models
 """
@@ -80,7 +80,11 @@ def main():
     health = subparsers.add_parser("health", help="Check API health")
     info = subparsers.add_parser("info", help="Get system info")
     
-    gen = subparsers.add_parser("generate", help="Generate text")
+    gen = subparsers.add_parser(
+        "generate",
+        aliases=["gen"],
+        help='Generate text via the API (alias: "gen")',
+    )
     gen.add_argument("prompt", help="Prompt for generation")
     gen.add_argument("--stream", "-s", action="store_true", help="Stream output")
     

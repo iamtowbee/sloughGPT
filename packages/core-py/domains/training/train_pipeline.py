@@ -9,6 +9,10 @@ Unified training with:
 - Distributed training (DDP)
 - LoRA support
 - Learning rate scheduling
+
+Full ``step_*.pt`` checkpoints embed ``stoi`` / ``itos`` / ``chars`` for fair
+``cli.py eval`` / ``lm_eval_char`` (see ``docs/policies/CONTRIBUTING.md``,
+*Checkpoint vocabulary*).
 """
 
 import os
@@ -16,7 +20,7 @@ import json
 import logging
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List
+from typing import Any, Callable, Dict, List, Optional
 from datetime import datetime
 
 import torch
@@ -24,7 +28,11 @@ from torch.utils.data import Dataset, DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from domains.models import SloughGPTModel
-from domains.training.checkpoint_utils import torch_load_checkpoint
+from domains.training.checkpoint_utils import (
+    extract_state_dict,
+    normalize_raw_checkpoint,
+    torch_load_checkpoint,
+)
 from domains.training.lora import apply_lora_to_model, LoRAConfig
 
 logger = logging.getLogger("sloughgpt.trainer")
@@ -127,7 +135,12 @@ class TrainerConfig:
 
     def __post_init__(self):
         if self.device == "auto":
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+            if torch.cuda.is_available():
+                self.device = "cuda"
+            elif torch.backends.mps.is_available():
+                self.device = "mps"
+            else:
+                self.device = "cpu"
 
 
 # =============================================================================
@@ -160,8 +173,20 @@ class CheckpointManager:
         config: TrainerConfig,
         epoch: int = 0,
         is_final: bool = False,
+        *,
+        stoi: Optional[Dict[str, int]] = None,
+        itos: Optional[Dict[int, str]] = None,
+        chars: Optional[List[str]] = None,
     ) -> Optional[str]:
-        """Save a checkpoint."""
+        """Save a checkpoint.
+
+        When ``stoi`` / ``itos`` are provided, they are stored so
+        :func:`domains.training.lm_eval_char.evaluate_sloughgpt_char_lm` and
+        ``cli.py eval`` can score text with the **training** charset (not a
+        vocab rebuilt from the eval file). Optional ``chars`` is stored when
+        passed; else it is derived from ``itos``. See
+        ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
+        """
         metric_value = metrics.get("eval_loss", metrics.get("loss", float("inf")))
 
         if self.save_best_only and metric_value >= self.best_metric and not is_final:
@@ -188,6 +213,15 @@ class CheckpointManager:
                 "block_size": config.block_size,
             },
         }
+
+        if stoi is not None:
+            save_dict["stoi"] = stoi
+        if itos is not None:
+            save_dict["itos"] = itos
+        if chars is not None:
+            save_dict["chars"] = chars
+        elif stoi is not None and itos is not None:
+            save_dict["chars"] = [itos[i] for i in range(len(stoi))]
 
         torch.save(save_dict, model_path)
         self.checkpoints.append({"step": step, "path": str(model_path), "metrics": metrics})
@@ -251,10 +285,12 @@ class SloughGPTTrainer:
     Features:
     - Mixed precision (FP16/BF16)
     - Gradient accumulation
-    - Automatic checkpointing
+    - Automatic checkpointing (``step_*.pt`` includes ``stoi``/``itos``/``chars`` for eval)
     - Distributed training (DDP)
     - LoRA fine-tuning
     - Learning rate scheduling
+
+    Eval semantics: ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
     """
 
     def __init__(
@@ -267,6 +303,7 @@ class SloughGPTTrainer:
         n_layer: int = 6,
         n_head: int = 8,
         block_size: int = 128,
+        dropout: float = 0.1,
         batch_size: int = 32,
         epochs: int = 10,
         lr: float = 1e-3,
@@ -278,6 +315,7 @@ class SloughGPTTrainer:
         checkpoint_dir: str = "checkpoints",
         checkpoint_interval: int = 500,
         save_best_only: bool = False,
+        max_checkpoints: int = 5,
         scheduler_type: str = "cosine",
         warmup_steps: int = 100,
         min_lr: float = 1e-5,
@@ -287,6 +325,8 @@ class SloughGPTTrainer:
         lora_alpha: int = 16,
         device: Optional[str] = None,
         soul_name: Optional[str] = None,
+        log_interval: int = 10,
+        eval_interval: int = 100,
     ):
         # Handle both TrainerConfig and legacy parameters
         if config is not None:
@@ -298,9 +338,11 @@ class SloughGPTTrainer:
                 n_layer=n_layer,
                 n_head=n_head,
                 block_size=block_size,
+                dropout=dropout,
                 batch_size=batch_size,
                 epochs=epochs,
                 max_steps=max_steps,
+                learning_rate=lr,
                 gradient_accumulation_steps=gradient_accumulation_steps,
                 max_grad_norm=max_grad_norm,
                 use_mixed_precision=use_mixed_precision,
@@ -308,6 +350,7 @@ class SloughGPTTrainer:
                 checkpoint_dir=checkpoint_dir,
                 checkpoint_interval=checkpoint_interval,
                 save_best_only=save_best_only,
+                max_checkpoints=max_checkpoints,
                 scheduler_type=scheduler_type,
                 warmup_steps=warmup_steps,
                 min_lr=min_lr,
@@ -316,6 +359,8 @@ class SloughGPTTrainer:
                 lora_rank=lora_rank,
                 lora_alpha=lora_alpha,
                 device=device or "auto",
+                log_interval=log_interval,
+                eval_interval=eval_interval,
             )
 
         self.data_path = data_path
@@ -334,10 +379,19 @@ class SloughGPTTrainer:
 
         print(f"Using device: {self.device}")
 
-        # Prepare data
-        self.data, self.vocab_size, self.stoi, self.itos = prepare_data(data_path, self.config.block_size)
-        if self.config.vocab_size:
+        # Prepare data — prefer corpus-derived vocab unless caller sets ``vocab_size`` (legacy path)
+        # or supplies a full ``TrainerConfig`` (advanced; caller must match data).
+        self.data, data_vocab_size, self.stoi, self.itos = prepare_data(
+            data_path, self.config.block_size
+        )
+        if config is not None:
             self.vocab_size = self.config.vocab_size
+        elif vocab_size is not None:
+            self.vocab_size = vocab_size
+            self.config.vocab_size = vocab_size
+        else:
+            self.vocab_size = data_vocab_size
+            self.config.vocab_size = data_vocab_size
 
         # Split data
         n = int(0.9 * len(self.data))
@@ -370,11 +424,16 @@ class SloughGPTTrainer:
     def _setup_device(self) -> str:
         """Setup training device."""
         if self.config.device != "auto":
-            return self.config.device
+            dev = self.config.device
+            if dev == "cuda" and self.config.use_distributed:
+                torch.cuda.set_device(self.config.local_rank)
+            return dev
         if torch.cuda.is_available():
             if self.config.use_distributed:
                 torch.cuda.set_device(self.config.local_rank)
             return "cuda"
+        if torch.backends.mps.is_available():
+            return "mps"
         return "cpu"
 
     def _create_model(self):
@@ -592,12 +651,85 @@ class SloughGPTTrainer:
         avg_loss = total_loss / max(steps, 1)
         return {"eval_loss": avg_loss, "eval_ppl": torch.exp(torch.tensor(avg_loss)).item()}
 
-    def train(self, resume: bool = False, resume_path: Optional[str] = None) -> Dict[str, Any]:
+    def _restore_from_checkpoint_bundle(self, checkpoint: Dict[str, Any]) -> None:
+        """Load weights (required) and best-effort training state from a loaded ``.pt`` dict."""
+        normalized = normalize_raw_checkpoint(checkpoint)
+        state = extract_state_dict(normalized)
+        try:
+            self.model.load_state_dict(state, strict=True)
+        except RuntimeError as exc:
+            logger.warning("Strict state_dict load failed (%s); retrying with strict=False", exc)
+            incomp = self.model.load_state_dict(state, strict=False)
+            if incomp.missing_keys or incomp.unexpected_keys:
+                logger.warning(
+                    "Partial load: missing=%s unexpected=%s",
+                    incomp.missing_keys,
+                    incomp.unexpected_keys,
+                )
+
+        opt = normalized.get("optimizer_state_dict")
+        if isinstance(opt, dict) and opt:
+            try:
+                self.optimizer.load_state_dict(opt)
+            except Exception as exc:
+                logger.warning("Could not load optimizer_state_dict (fresh optimizer): %s", exc)
+
+        sched = normalized.get("scheduler_state_dict")
+        if self.scheduler is not None and isinstance(sched, dict) and sched:
+            try:
+                self.scheduler.load_state_dict(sched)
+            except Exception as exc:
+                logger.warning("Could not load scheduler_state_dict (fresh LR schedule): %s", exc)
+
+        if self.scaler is not None:
+            sc = normalized.get("scaler_state_dict")
+            if isinstance(sc, dict) and sc:
+                try:
+                    self.scaler.load_state_dict(sc)
+                except Exception as exc:
+                    logger.warning("Could not load scaler_state_dict: %s", exc)
+
+        self.global_step = int(normalized.get("step", 0))
+        self.current_epoch = int(normalized.get("epoch", 0))
+
+        st = normalized.get("stoi")
+        it = normalized.get("itos")
+        if isinstance(st, dict) and isinstance(it, dict) and st and it:
+            self.stoi = st
+            self.itos = it
+            self.vocab_size = len(st)
+
+        logger.info("Resumed from step %s epoch %s", self.global_step, self.current_epoch)
+
+    def _progress_denominator(self, steps_per_epoch: int) -> int:
+        """Estimated total optimizer steps for UI progress (caps ``max_steps`` vs epoch budget)."""
+        pe = max(1, steps_per_epoch)
+        epoch_budget = max(1, pe * max(1, self.config.epochs))
+        if self.config.max_steps is not None:
+            return max(1, min(int(self.config.max_steps), epoch_budget))
+        return epoch_budget
+
+    def train(
+        self,
+        resume: bool = False,
+        resume_path: Optional[str] = None,
+        on_progress: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ) -> Dict[str, Any]:
         """Full training loop.
 
         Args:
             resume: If True, load checkpoint from ``resume_path`` or latest in ``checkpoint_dir``.
-            resume_path: Optional explicit ``.pt`` file (``train_sloughgpt`` / periodic / manual saves).
+            resume_path: Optional ``.pt`` path. Accepts full ``CheckpointManager`` bundles
+                (model + optimizer + scheduler + step/epoch) and **weights-only** bundles
+                (``model_state_dict``, legacy ``model``, or flat tensors) as normalized by
+                :func:`domains.training.checkpoint_utils.normalize_raw_checkpoint`. Optimizer,
+                scheduler, and AMP scaler load are best-effort so checkpoints from
+                ``train_sloughgpt.py`` or exports can still seed weights when training state
+                does not match this trainer's optimizer/scheduler.
+            on_progress: Optional callback (main process only) invoked on a throttled schedule
+                with a dict containing at least: ``global_step``, ``epoch`` (1-based),
+                ``epochs``, ``steps_per_epoch``, ``progress_percent`` (0--99 while running),
+                ``train_loss`` (last batch), optional ``eval_loss``, ``learning_rate``.
         """
         if resume:
             checkpoint = None
@@ -606,23 +738,40 @@ class SloughGPTTrainer:
             if checkpoint is None:
                 checkpoint = self.checkpoint_manager.load_latest()
             if checkpoint:
-                self.model.load_state_dict(checkpoint["model_state_dict"])
-                self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-                if self.scheduler and checkpoint.get("scheduler_state_dict"):
-                    self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
-                self.global_step = checkpoint.get("step", 0)
-                self.current_epoch = int(checkpoint.get("epoch", 0))
-                logger.info(
-                    "Resumed from step %s epoch %s",
-                    self.global_step,
-                    self.current_epoch,
-                )
+                self._restore_from_checkpoint_bundle(checkpoint)
 
         is_main = not self.config.use_distributed or self.config.rank == 0
 
         if is_main:
             logger.info(f"Training config: {self.config}")
             logger.info(f"Total parameters: {sum(p.numel() for p in self.model.parameters()):,}")
+
+        def _emit_progress(
+            *,
+            steps_per_epoch: int,
+            train_loss: Optional[float] = None,
+            eval_loss: Optional[float] = None,
+        ) -> None:
+            if not is_main or on_progress is None:
+                return
+            denom = self._progress_denominator(steps_per_epoch)
+            pct = min(99, int(100 * self.global_step / denom))
+            lr = self.scheduler.get_last_lr()[0] if self.scheduler else self.config.learning_rate
+            try:
+                on_progress(
+                    {
+                        "global_step": int(self.global_step),
+                        "epoch": int(self.current_epoch + 1),
+                        "epochs": int(self.config.epochs),
+                        "steps_per_epoch": int(steps_per_epoch),
+                        "progress_percent": int(pct),
+                        "train_loss": train_loss,
+                        "eval_loss": eval_loss,
+                        "learning_rate": float(lr),
+                    }
+                )
+            except Exception:
+                logger.exception("on_progress callback failed")
 
         for epoch in range(self.current_epoch, self.config.epochs):
             self.current_epoch = epoch
@@ -635,6 +784,9 @@ class SloughGPTTrainer:
 
             train_loss = 0.0
             steps_per_epoch = len(self.train_data) // self.config.block_size // self.config.batch_size
+
+            if is_main and on_progress and steps_per_epoch > 0:
+                _emit_progress(steps_per_epoch=steps_per_epoch, train_loss=None)
 
             for step in range(steps_per_epoch):
                 if self.config.max_steps and self.global_step >= self.config.max_steps:
@@ -650,6 +802,13 @@ class SloughGPTTrainer:
                         f"Step {self.global_step} | Loss: {metrics['loss']:.4f} | LR: {lr:.2e}"
                     )
 
+                if is_main and on_progress:
+                    if (
+                        self.global_step == 1
+                        or self.global_step % self.config.log_interval == 0
+                    ):
+                        _emit_progress(steps_per_epoch=steps_per_epoch, train_loss=float(metrics["loss"]))
+
                 # Evaluation
                 if self.global_step % self.config.eval_interval == 0:
                     eval_metrics = self.evaluate()
@@ -662,6 +821,13 @@ class SloughGPTTrainer:
                         if eval_metrics["eval_loss"] < self._best_val_loss:
                             self._best_val_loss = eval_metrics["eval_loss"]
                             self.save_checkpoint(eval_metrics)
+
+                    if is_main and on_progress:
+                        _emit_progress(
+                            steps_per_epoch=steps_per_epoch,
+                            train_loss=float(metrics["loss"]),
+                            eval_loss=float(eval_metrics["eval_loss"]),
+                        )
 
                 # Checkpoint
                 if self.global_step % self.config.checkpoint_interval == 0:
@@ -678,6 +844,13 @@ class SloughGPTTrainer:
     def save_checkpoint(self, metrics: Optional[Dict[str, float]] = None, is_final: bool = False):
         """Save a checkpoint."""
         metrics = metrics or {"loss": 0.0}
+        chars_list: Optional[List[str]] = None
+        if self.itos is not None:
+            try:
+                chars_list = [self.itos[i] for i in range(self.vocab_size)]
+            except (KeyError, TypeError):
+                chars_list = None
+
         self.checkpoint_manager.save(
             self.model,
             self.optimizer,
@@ -687,6 +860,9 @@ class SloughGPTTrainer:
             self.config,
             epoch=self.current_epoch,
             is_final=is_final,
+            stoi=self.stoi,
+            itos=self.itos,
+            chars=chars_list,
         )
 
     def save(self, path: str, format: str = "sou"):
@@ -757,7 +933,15 @@ def main():
     """Main entry point for standalone training."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="SloughGPT Training")
+    _epilog = (
+        "step_*.pt in --checkpoint-dir includes stoi/itos/chars for char-LM eval. "
+        "See docs/policies/CONTRIBUTING.md (Checkpoint vocabulary)."
+    )
+    parser = argparse.ArgumentParser(
+        description="SloughGPT Training",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=_epilog,
+    )
     parser.add_argument("--data", default="datasets/shakespeare/input.txt")
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=32)
@@ -775,9 +959,26 @@ def main():
     parser.add_argument("--checkpoint-dir", type=str, default="checkpoints")
     parser.add_argument("--checkpoint-interval", type=int, default=500)
     parser.add_argument("--save-best-only", action="store_true")
+    parser.add_argument("--max-checkpoints", type=int, default=5)
+    parser.add_argument(
+        "--resume",
+        type=str,
+        default=None,
+        help="Resume from this .pt (weights-only or full trainer checkpoint)",
+    )
+    parser.add_argument(
+        "--resume-latest",
+        action="store_true",
+        help="Resume from newest step_*.pt in --checkpoint-dir",
+    )
     parser.add_argument("--lora", action="store_true")
     parser.add_argument("--lora-rank", type=int, default=8)
+    parser.add_argument("--lora-alpha", type=float, default=16.0)
+    parser.add_argument("--dropout", type=float, default=0.1)
     args = parser.parse_args()
+
+    if args.resume and args.resume_latest:
+        parser.error("use either --resume PATH or --resume-latest, not both")
 
     trainer = SloughGPTTrainer(
         data_path=args.data,
@@ -785,6 +986,7 @@ def main():
         n_layer=args.n_layer,
         n_head=args.n_head,
         block_size=args.block_size,
+        dropout=args.dropout,
         batch_size=args.batch_size,
         epochs=args.epochs,
         lr=args.lr,
@@ -796,11 +998,18 @@ def main():
         checkpoint_dir=args.checkpoint_dir,
         checkpoint_interval=args.checkpoint_interval,
         save_best_only=args.save_best_only,
+        max_checkpoints=args.max_checkpoints,
         use_lora=args.lora,
         lora_rank=args.lora_rank,
+        lora_alpha=int(args.lora_alpha),
     )
 
-    trainer.train()
+    if args.resume_latest:
+        trainer.train(resume=True, resume_path=None)
+    elif args.resume:
+        trainer.train(resume=True, resume_path=args.resume)
+    else:
+        trainer.train()
     print("\n=== Generated Text ===")
     print(trainer.generate("First"))
 

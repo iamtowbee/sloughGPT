@@ -22,6 +22,32 @@ if str(_SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(_SERVER_DIR))
 
 
+def _write_v1_manifest_bundle(
+    tmp_path: Path,
+    bundle_dir: str,
+    *,
+    dataset_id: str,
+    version: str = "0.0.1",
+    corpus_repeats: int = 100,
+) -> Path:
+    """Create ``bundle_dir/input.txt`` + ``dataset_manifest.json``; return resolved manifest path."""
+    bundle = tmp_path / bundle_dir
+    bundle.mkdir()
+    (bundle / "input.txt").write_text("hello world " * corpus_repeats, encoding="utf-8")
+    manifest = {
+        "schema_version": "1.0",
+        "dataset_id": dataset_id,
+        "version": version,
+        "domain": "general",
+        "pii_policy": "none_expected",
+        "sources": [{"type": "local_path", "uri": "./input.txt"}],
+        "splits": {"train": "input.txt"},
+    }
+    mp = bundle / "dataset_manifest.json"
+    mp.write_text(json.dumps(manifest), encoding="utf-8")
+    return mp.resolve()
+
+
 @pytest.fixture(scope="module")
 def client() -> TestClient:
     from main import app
@@ -46,27 +72,19 @@ def test_train_resolve_rejects_missing_legacy_dataset(client: TestClient) -> Non
 
 
 def test_train_resolve_dataset_ref_happy_path(client: TestClient, tmp_path: Path) -> None:
-    bundle = tmp_path / "bundle_ref"
-    bundle.mkdir()
-    (bundle / "input.txt").write_text("hello world " * 100, encoding="utf-8")
-    manifest = {
-        "schema_version": "1.0",
-        "dataset_id": "pytest_ref_corpus",
-        "version": "1.2.3",
-        "domain": "general",
-        "pii_policy": "none_expected",
-        "sources": [{"type": "local_path", "uri": "./input.txt"}],
-        "splits": {"train": "input.txt"},
-    }
-    mp = bundle / "dataset_manifest.json"
-    mp.write_text(json.dumps(manifest), encoding="utf-8")
+    mp = _write_v1_manifest_bundle(
+        tmp_path,
+        "bundle_ref",
+        dataset_id="pytest_ref_corpus",
+        version="1.2.3",
+    )
     r = client.post(
         "/train/resolve",
         json={
             "dataset_ref": {
                 "dataset_id": "pytest_ref_corpus",
                 "version": "1.2.3",
-                "manifest_uri": str(mp.resolve()),
+                "manifest_uri": str(mp),
             }
         },
     )
@@ -78,22 +96,8 @@ def test_train_resolve_dataset_ref_happy_path(client: TestClient, tmp_path: Path
 
 
 def test_train_resolve_manifest_happy_path(client: TestClient, tmp_path: Path) -> None:
-    bundle = tmp_path / "bundle"
-    bundle.mkdir()
-    (bundle / "input.txt").write_text("hello world " * 100, encoding="utf-8")
-    manifest = {
-        "schema_version": "1.0",
-        "dataset_id": "pytest_corpus",
-        "version": "0.0.1",
-        "domain": "general",
-        "pii_policy": "none_expected",
-        "sources": [{"type": "local_path", "uri": "./input.txt"}],
-        "splits": {"train": "input.txt"},
-    }
-    mp = bundle / "dataset_manifest.json"
-    mp.write_text(json.dumps(manifest), encoding="utf-8")
-
-    r = client.post("/train/resolve", json={"manifest_uri": str(mp.resolve())})
+    mp = _write_v1_manifest_bundle(tmp_path, "bundle", dataset_id="pytest_corpus")
+    r = client.post("/train/resolve", json={"manifest_uri": str(mp)})
     assert r.status_code == 200, r.text
     data = r.json()
     assert data["ok"] is True
@@ -107,6 +111,101 @@ def test_list_training_jobs_returns_json_array(client: TestClient) -> None:
     assert r.status_code == 200, r.text
     data = r.json()
     assert isinstance(data, list)
+
+
+def test_training_start_accepts_extended_trainer_fields(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """POST /training/start validates extended SloughGPTTrainer-style JSON (Pydantic + job spawn)."""
+    mp = _write_v1_manifest_bundle(
+        tmp_path,
+        "bundle_train_start",
+        dataset_id="pytest_train_start_corpus",
+        corpus_repeats=50,
+    )
+
+    body = {
+        "name": "pytest-extended-req",
+        "model": "sloughgpt",
+        "manifest_uri": str(mp),
+        "epochs": 1,
+        "batch_size": 2,
+        "learning_rate": 1e-3,
+        "n_embed": 32,
+        "n_layer": 1,
+        "n_head": 1,
+        "block_size": 16,
+        "max_steps": 2,
+        "log_interval": 1,
+        "eval_interval": 2,
+        "dropout": 0.05,
+        "weight_decay": 0.0,
+        "gradient_accumulation_steps": 1,
+        "max_grad_norm": 1.0,
+        "use_mixed_precision": False,
+        "mixed_precision_dtype": "fp16",
+        "warmup_steps": 0,
+        "min_lr": 1e-6,
+        "scheduler": "cosine",
+        "use_lora": True,
+        "lora_rank": 4,
+        "lora_alpha": 8,
+        "checkpoint_dir": str(tmp_path / "ckpts_http"),
+        "checkpoint_interval": 500,
+        "save_best_only": False,
+        "max_checkpoints": 2,
+        "device": "cpu",
+    }
+    r = client.post("/training/start", json=body)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data.get("status") == "running"
+    assert "id" in data and str(data["id"]).startswith("job_")
+    jobs = client.get("/training/jobs").json()
+    assert isinstance(jobs, list)
+    assert any(j.get("id") == data["id"] for j in jobs)
+
+
+def test_training_start_rejects_invalid_mixed_precision_dtype(
+    client: TestClient, tmp_path: Path
+) -> None:
+    mp = _write_v1_manifest_bundle(
+        tmp_path,
+        "bundle_bad_amp",
+        dataset_id="pytest_bad_amp",
+        corpus_repeats=20,
+    )
+
+    r = client.post(
+        "/training/start",
+        json={
+            "name": "bad-amp",
+            "model": "sloughgpt",
+            "manifest_uri": str(mp),
+            "mixed_precision_dtype": "float32",
+        },
+    )
+    assert r.status_code == 422, r.text
+
+
+def test_train_post_rejects_invalid_mixed_precision_dtype(
+    client: TestClient, tmp_path: Path
+) -> None:
+    mp = _write_v1_manifest_bundle(
+        tmp_path,
+        "bundle_bad_amp_train",
+        dataset_id="pytest_bad_amp_tr",
+        corpus_repeats=20,
+    )
+
+    r = client.post(
+        "/train",
+        json={
+            "manifest_uri": str(mp),
+            "mixed_precision_dtype": "float32",
+        },
+    )
+    assert r.status_code == 422, r.text
 
 
 def test_root_returns_api_metadata(client: TestClient) -> None:

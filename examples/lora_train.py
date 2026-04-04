@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
-LoRA Fine-tuning Example - Parameter-efficient training
+LoRA Fine-tuning Example - Parameter-efficient training.
+
+YAML + CLI parity: enable LoRA in ``config.yaml`` (``lora.enabled``) or pass
+``python3 cli.py train --use-lora --lora-rank 8 …`` — see ``apps/cli/README.md``.
+Native ``step_*.pt`` checkpoints include char vocab maps; see ``docs/policies/CONTRIBUTING.md``
+(*Checkpoint vocabulary*).
 """
 
 from domains.training.train_pipeline import SloughGPTTrainer
@@ -32,7 +37,7 @@ def main():
     print("LoRA is more memory-efficient than full training")
     print("Only a small fraction of parameters are trained")
     
-    model = trainer.train()
+    trainer.train()
     
     # Generate
     text = trainer.generate("Once upon a time", max_tokens=100)

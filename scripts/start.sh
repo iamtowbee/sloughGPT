@@ -20,7 +20,7 @@ else
     
     # Start Web server
     echo "Starting Web server on port 3000..."
-    ( cd "$ROOT/apps/web/web" && npm run dev ) &
+    ( cd "$ROOT/apps/web" && npm run dev ) &
     WEB_PID=$!
     
     echo "✅ SloughGPT is running!"

@@ -27,6 +27,7 @@ def test_sloughgpt_trainer_runs_short_cpu_session(tmp_path: Path, monkeypatch: p
         checkpoint_dir=str(tmp_path / "ckpt"),
         checkpoint_interval=100_000,
     )
+    assert trainer.vocab_size == 8
     result = trainer.train()
     assert "global_step" in result
     assert result["global_step"] > 0

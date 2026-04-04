@@ -11,7 +11,167 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import argparse
 import json
+import re
+from datetime import datetime
 from pathlib import Path
+
+
+class _TrainHelpFormatter(
+    argparse.RawDescriptionHelpFormatter,
+    argparse.ArgumentDefaultsHelpFormatter,
+):
+    """Show multiline train examples and default values in ``train --help``."""
+
+
+_TRAIN_HELP_EPILOG = """
+Examples:
+  First run (80 steps, checkpoints under ./ckpts):
+    python3 cli.py train --dataset shakespeare --max-steps 80 --checkpoint-dir ckpts
+
+  Continue from the newest step_*.pt in that folder:
+    python3 cli.py train --dataset shakespeare --max-steps 300 --checkpoint-dir ckpts --resume-latest
+
+  Continue from one file:
+    python3 cli.py train --dataset shakespeare --checkpoint-dir ckpts \\
+      --resume ckpts/step_00000100.pt --max-steps 200
+
+Notes:
+  - Training text path: datasets/<dataset>/input.txt (run from repo root).
+  - Default export basename is "{model}-{dataset}-<local timestamp>" so runs do not overwrite;
+    use --save-stem NAME for a fixed name.
+  - Log/eval cadence comes from config.yaml training.log_interval and training.eval_interval;
+    --log-interval and --eval-interval override (local trainer and train --api JSON).
+  - Optional training.max_steps in config.yaml is used when --max-steps is omitted (local + --api).
+  - Trainer step_*.pt folder and cadence: checkpoint.trainer_dir, trainer_interval, save_best_only,
+    max_checkpoints in config.yaml; --checkpoint-dir et al. override after merge.
+  - train --api JSON uses merged training/model/lora/checkpoint fields (same rules as local train)
+    plus explicit device when device.type is not auto.
+  - Local device: config.yaml device.type via get_device(); --train-device overrides type first.
+  - --optimized forces mixed precision + fp16 after merge (local train and train --api body).
+  - For resume, full trainer checkpoints load best; weights-only checkpoints still seed the model.
+  - step_*.pt embeds stoi/itos/chars for cli.py eval / lm_eval_char; see docs/policies/CONTRIBUTING.md (Checkpoint vocabulary).
+""".strip()
+
+
+class _RootHelpFormatter(
+    argparse.RawDescriptionHelpFormatter,
+    argparse.ArgumentDefaultsHelpFormatter,
+):
+    """Multiline top-level help and visible defaults for global options."""
+
+
+_MAIN_EPILOG = """
+Typical first steps (repo root):
+  python3 cli.py start                     # copy-paste getting started (install, API, web, train)
+  python3 cli.py config check              # environment sanity check
+  python3 cli.py train --help              # char-level training flags
+  python3 cli.py eval --help               # char-LM perplexity on a text file
+  python3 cli.py generate --help           # one-shot generation (alias: gen)
+  python3 cli.py chat --help               # API-backed interactive chat
+
+Commands by area:
+  Essentials     chat, generate (gen), train, export, soul, quick
+  Demos          demo, rlhf, cloud
+  HTTP / API     serve, health, api-status, api-test, api-auth
+  Config / host  config (check|validate|generate), system, setup, optimize
+  Inventory      info, status, datasets, models, personalities
+  Summaries      stats (models/ + datasets/ disk usage)
+  Per-file data  data stats PATH, data validate PATH
+  Training ops   eval, monitor
+  HuggingFace    hf-download, hf-serve
+  Performance    benchmark, compare
+  Containers     docker start|stop|status|logs|build|shell
+
+Most API-related subcommands accept their own --host/--port; the global
+defaults above apply when a command shares the main API client defaults.
+""".strip()
+
+_CLI_NO_SUBCOMMAND_HINT = """
+New here?
+  python3 cli.py start          Getting started (install, train smoke, API, web UI)
+  python3 cli.py config check   Python, torch, repo folders
+Full command list:
+""".strip()
+
+
+def cmd_start(_args):
+    """Print concise onboarding; run from the repository root."""
+    root = _chat_repository_root()
+    print(
+        f"""
+SloughGPT — getting started
+===========================
+Run all commands from the repository root unless noted.
+
+  1. Install Python package (editable, includes CLI + domains):
+
+       python3 -m pip install -e ".[dev]"
+
+  2. Optional: verify environment
+
+       python3 cli.py config check
+
+  3. First training run (short smoke on CPU — safe default):
+
+       make train-demo
+
+     Or a slightly longer char-LM run:
+
+       python3 cli.py train --dataset shakespeare --max-steps 80 --checkpoint-dir ckpts
+
+  4. HTTP API (needed for the web console + `cli.py chat` against localhost):
+
+       python3 apps/api/server/main.py
+
+     Docs: http://localhost:8000/docs
+
+  5. Web UI (separate terminal):
+
+       cd apps/web && npm install && npm run dev
+
+     Open http://localhost:3000  (set NEXT_PUBLIC_API_URL if the API is not on :8000)
+
+  6. Colab walkthrough: sloughgpt_colab.ipynb (README → Google Colab)
+
+Repository root detected: {root}
+
+More: python3 cli.py --help  ·  docs/STRUCTURE.md  ·  QUICKSTART.md
+""".strip()
+    )
+
+
+def _train_export_stem_slug(part: str, fallback: str) -> str:
+    """Single path segment for export filenames (no slashes)."""
+    s = re.sub(r"[^a-zA-Z0-9._-]+", "-", (part or "").strip()).strip("-")
+    return (s[:64] or fallback)
+
+
+def _train_export_default_stem(model_name: str, dataset_label: str) -> str:
+    """Default export base name: {model}-{dataset}-{local-date-time} (no extension)."""
+    stamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    return (
+        f"{_train_export_stem_slug(model_name, 'model')}-"
+        f"{_train_export_stem_slug(dataset_label, 'data')}-{stamp}"
+    )
+
+
+def _local_soul_candidate_paths(
+    models_dir: Path, *, default_name: str = "sloughgpt.sou"
+) -> list[Path]:
+    """Load order for local ``.sou`` files: stable default first, then other *.sou by mtime (newest first)."""
+    default = models_dir / default_name
+    out: list[Path] = []
+    if default.exists():
+        out.append(default)
+    if not models_dir.is_dir():
+        return out
+    others = sorted(
+        (p for p in models_dir.glob("*.sou") if p != default),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    out.extend(others)
+    return out
 
 
 def _chat_repository_root() -> Path:
@@ -292,7 +452,11 @@ def cmd_models(args):
         for model_file in models_dir.glob("*.safetensors"):
             size_mb = model_file.stat().st_size / (1024 * 1024)
             print(f"  {model_file.name}: {size_mb:.1f} MB")
-        for model_file in models_dir.glob("*.sou"):
+        for model_file in sorted(
+            models_dir.glob("*.sou"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        ):
             size_mb = model_file.stat().st_size / (1024 * 1024)
             print(f"  {model_file.name}: {size_mb:.1f} MB")
     else:
@@ -628,6 +792,15 @@ def cmd_cloud_setup(args):
     asyncio.run(setup())
 
 
+def _apply_optimized_train_preset(config, args) -> bool:
+    """If ``args.optimized``, force fp16 mixed precision on ``config.training`` (local and ``--api``)."""
+    if not getattr(args, "optimized", False):
+        return False
+    config.training.use_mixed_precision = True
+    config.training.mixed_precision_dtype = "fp16"
+    return True
+
+
 def cmd_train(args):
     """Start a training job."""
     if not args.api:
@@ -636,10 +809,16 @@ def cmd_train(args):
         sys.path.insert(0, ".")
 
         # Load config
-        from config_loader import load_config, merge_args_with_config
+        from config_loader import get_device, load_config, merge_args_with_config
 
         config = load_config(args.config)
         config = merge_args_with_config(config, args)
+        if _apply_optimized_train_preset(config, args):
+            print(
+                "Optimized preset (--optimized): mixed precision on, dtype fp16 "
+                "(overrides training precision for this run)."
+            )
+        train_device = get_device(config.device)
 
         # Setup tracking
         tracker = None
@@ -658,7 +837,9 @@ def cmd_train(args):
                 entity=config.tracking.entity,
             )
             tracker = ExperimentTracker(config=tracking_config)
-            tracker.start_run(run_name=f"run_{args.dataset}_{args.epochs}ep")
+            tracker.start_run(
+                run_name=f"run_{config.data.dataset}_{config.training.epochs}ep"
+            )
             tracker.log_params(
                 {
                     "model": str(config.model.__dict__),
@@ -678,11 +859,27 @@ def cmd_train(args):
         print(f"Epochs: {config.training.epochs}")
         print(f"Batch: {config.training.batch_size}")
         print(f"LR: {config.training.learning_rate}")
-        print(f"LoRA: {config.lora.enabled}")
+        print(
+            f"Scheduler: {config.training.scheduler} "
+            f"(warmup_steps={config.training.warmup_steps}, weight_decay={config.training.weight_decay})"
+        )
+        print(
+            f"LoRA: {config.lora.enabled} "
+            f"(rank={config.lora.rank}, alpha={config.lora.alpha})"
+        )
+        print(f"Model dropout: {config.model.dropout}")
         print(f"Tracking: {config.tracking.enabled}")
+        print(f"Device: {train_device} (config device.type={config.device.type!r})")
 
-        save_formats = [args.save_format]
-        save_path = f"{config.checkpoint.save_dir}/{config.model.name}"
+        save_formats = [config.checkpoint.export_format]
+        if getattr(args, "save_stem", None):
+            save_stem = _train_export_stem_slug(args.save_stem, "export")
+        else:
+            save_stem = _train_export_default_stem(
+                str(config.model.name), str(config.data.dataset)
+            )
+        save_path = f"{config.checkpoint.save_dir}/{save_stem}"
+        print(f"Export file stem: {save_stem} (under {config.checkpoint.save_dir}/)")
 
         # Create trainer with unified configuration
         trainer = SloughGPTTrainer(
@@ -692,40 +889,62 @@ def cmd_train(args):
             n_layer=config.model.n_layer,
             n_head=config.model.n_head,
             block_size=config.model.block_size,
-            batch_size=args.batch_size,
-            epochs=args.epochs,
-            lr=args.lr,
-            max_steps=args.max_steps,
-            gradient_accumulation_steps=args.gradient_accumulation_steps,
-            max_grad_norm=args.max_grad_norm,
-            use_mixed_precision=args.use_mixed_precision,
-            mixed_precision_dtype=args.precision,
-            checkpoint_dir=args.checkpoint_dir,
-            checkpoint_interval=args.checkpoint_interval,
-            save_best_only=args.save_best_only,
-            scheduler_type=args.scheduler,
-            warmup_steps=args.warmup_steps,
-            min_lr=args.min_lr,
-            weight_decay=args.weight_decay,
-            use_lora=args.use_lora,
-            lora_rank=args.lora_rank,
-            lora_alpha=args.lora_alpha,
-            soul_name=args.soul_name or config.model.name,
+            dropout=config.model.dropout,
+            batch_size=config.training.batch_size,
+            epochs=config.training.epochs,
+            lr=config.training.learning_rate,
+            max_steps=config.training.max_steps,
+            gradient_accumulation_steps=config.training.gradient_accumulation_steps,
+            max_grad_norm=config.training.gradient_clip,
+            use_mixed_precision=config.training.use_mixed_precision,
+            mixed_precision_dtype=config.training.mixed_precision_dtype,
+            checkpoint_dir=config.checkpoint.trainer_dir,
+            checkpoint_interval=config.checkpoint.trainer_interval,
+            save_best_only=config.checkpoint.save_best_only,
+            max_checkpoints=config.checkpoint.max_checkpoints,
+            scheduler_type=config.training.scheduler,
+            warmup_steps=config.training.warmup_steps,
+            min_lr=config.training.min_lr,
+            weight_decay=config.training.weight_decay,
+            use_lora=config.lora.enabled,
+            lora_rank=config.lora.rank,
+            lora_alpha=config.lora.alpha,
+            soul_name=(config.model.soul_name or "").strip() or config.model.name,
+            log_interval=config.training.log_interval,
+            eval_interval=config.training.eval_interval,
+            device=train_device,
         )
 
         # Print training config
         print(f"\nTraining Options:")
-        print(f"  Mixed Precision: {args.use_mixed_precision} ({args.precision})")
-        print(f"  Gradient Accumulation: {args.gradient_accumulation_steps}")
-        print(f"  Max Grad Norm: {args.max_grad_norm}")
+        print(
+            f"  Mixed Precision: {config.training.use_mixed_precision} "
+            f"({config.training.mixed_precision_dtype})"
+        )
+        print(
+            f"  Gradient Accumulation: {config.training.gradient_accumulation_steps}"
+        )
+        print(f"  Max Grad Norm: {config.training.gradient_clip}")
+        print(f"  Min LR (schedule floor): {config.training.min_lr}")
         print(f"  Distributed: {args.distributed}")
         if args.use_fsdp:
             print(f"  FSDP: Enabled (strategy={args.sharding_strategy})")
-        print(f"  Checkpoint Dir: {args.checkpoint_dir}")
+        print(f"  Checkpoint Dir: {config.checkpoint.trainer_dir}")
         print("=" * 60)
 
         # Train (optional resume from explicit .pt or latest under checkpoint_dir)
-        if args.resume:
+        if args.resume and getattr(args, "resume_latest", False):
+            print(
+                "Error: use either --resume PATH or --resume-latest, not both.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        if getattr(args, "resume_latest", False):
+            print(
+                f"Resuming from latest step_*.pt under {config.checkpoint.trainer_dir!r}"
+            )
+            trainer.train(resume=True, resume_path=None)
+        elif args.resume:
             print(f"Resuming from checkpoint: {args.resume}")
             trainer.train(resume=True, resume_path=args.resume)
         else:
@@ -743,30 +962,78 @@ def cmd_train(args):
         print("Training complete!")
         return
 
+    import sys
+
     import requests
 
-    base_url = f"http://{args.host}:{args.port}"
+    sys.path.insert(0, ".")
+    from config_loader import load_config, merge_args_with_config
+
+    config = merge_args_with_config(load_config(args.config), args)
+    if _apply_optimized_train_preset(config, args):
+        print(
+            "Optimized preset (--optimized): mixed precision on, dtype fp16 "
+            "(applied to TrainingRequest JSON for this API run)."
+        )
+    base_url = f"http://{args.host}:{args.port}".rstrip("/")
+
+    display_name = (
+        (config.model.soul_name or "").strip() or str(config.model.name)
+    )
+    payload = {
+        "name": display_name[:200],
+        "model": str(config.model.name),
+        "dataset": str(config.data.dataset),
+        "epochs": int(config.training.epochs),
+        "batch_size": int(config.training.batch_size),
+        "learning_rate": float(config.training.learning_rate),
+        "n_embed": int(config.model.n_embed),
+        "n_layer": int(config.model.n_layer),
+        "n_head": int(config.model.n_head),
+        "block_size": int(config.model.block_size),
+        "log_interval": int(config.training.log_interval),
+        "eval_interval": int(config.training.eval_interval),
+        "dropout": float(config.model.dropout),
+        "weight_decay": float(config.training.weight_decay),
+        "gradient_accumulation_steps": int(config.training.gradient_accumulation_steps),
+        "max_grad_norm": float(config.training.gradient_clip),
+        "use_mixed_precision": bool(config.training.use_mixed_precision),
+        "mixed_precision_dtype": str(config.training.mixed_precision_dtype),
+        "warmup_steps": int(config.training.warmup_steps),
+        "min_lr": float(config.training.min_lr),
+        "scheduler": str(config.training.scheduler),
+        "use_lora": bool(config.lora.enabled),
+        "lora_rank": int(config.lora.rank),
+        "lora_alpha": int(config.lora.alpha),
+        "checkpoint_dir": str(config.checkpoint.trainer_dir),
+        "checkpoint_interval": int(config.checkpoint.trainer_interval),
+        "save_best_only": bool(config.checkpoint.save_best_only),
+        "max_checkpoints": int(config.checkpoint.max_checkpoints),
+    }
+    if config.training.max_steps is not None:
+        payload["max_steps"] = int(config.training.max_steps)
+    _dtype = str(config.device.type or "").strip().lower()
+    if _dtype and _dtype != "auto":
+        payload["device"] = str(config.device.type)
 
     try:
         response = requests.post(
             f"{base_url}/training/start",
-            params={
-                "dataset": args.dataset,
-                "epochs": args.epochs,
-                "batch_size": args.batch_size,
-                "lr": args.lr,
-                "use_lora": args.use_lora,
-            },
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=60,
         )
 
         if response.status_code == 200:
             data = response.json()
-            print(f"Training started: {data['job_id']}")
-            print(f"Status: {data['status']}")
+            job_id = data.get("id")
+            print(f"Training started: job id={job_id!r}")
+            print(f"Status: {data.get('status')}")
+            print(f"Poll: GET {base_url}/training/jobs/{job_id}")
         else:
-            print(f"Error: {response.text}")
+            print(f"Error ({response.status_code}): {response.text}", file=sys.stderr)
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error: {e}", file=sys.stderr)
 
 
 def cmd_status(args):
@@ -934,20 +1201,28 @@ def cmd_generate(args):
 
     from domains.core import SoulEngine
 
-    # Try local first - prefer .sou files
-    sou_path = Path("models/sloughgpt.sou")
-    pt_path = Path("models/sloughgpt_finetuned.pt")
+    # Local weights: stable name first, then newest timestamped *.sou, then finetuned .pt
+    models_dir = Path("models")
+    pt_path = models_dir / "sloughgpt_finetuned.pt"
 
     engine = SoulEngine(device="cpu")
+    loaded = False
 
-    if sou_path.exists():
+    def _try_load_sou(path: Path) -> bool:
+        nonlocal loaded
         try:
-            soul = engine.load_soul(str(sou_path))
-            print(f"Loaded soul: {soul.name}")
+            soul = engine.load_soul(str(path))
+            print(f"Loaded soul: {soul.name} from {path}")
+            loaded = True
+            return True
         except Exception as e:
-            print(f"Failed to load .sou: {e}")
-            sou_path = None
-    elif pt_path.exists():
+            print(f"Failed to load {path}: {e}")
+            return False
+
+    for sou_path in _local_soul_candidate_paths(models_dir):
+        if _try_load_sou(sou_path):
+            break
+    if not loaded and pt_path.exists():
         try:
             from domains.training.checkpoint_utils import (
                 load_sloughgpt_from_checkpoint,
@@ -973,19 +1248,11 @@ def cmd_generate(args):
             stoi, itos = tokenizer_maps_from_bundle(bundle)
             if stoi is not None and itos is not None:
                 engine.set_vocab(stoi, itos)
+            loaded = True
         except Exception as e:
             print(f"Failed to load .pt: {e}")
-    else:
-        # Try .sou without path
-        for p in Path("models").glob("*.sou"):
-            try:
-                soul = engine.load_soul(str(p))
-                print(f"Loaded soul: {soul.name} from {p}")
-                break
-            except Exception:
-                continue
-        else:
-            print("No model found. Using demo mode.")
+    if not loaded:
+        print("No model found. Using demo mode.")
 
     result = engine.generate(
         args.prompt,
@@ -1198,14 +1465,18 @@ def cmd_stats(args):
     
     # Experiments
     print("\n🔬 EXPERIMENTS:")
-    exp_file = Path("experiments/experiments.json")
+    exp_file = Path("data/experiments/experiments.json")
     if exp_file.exists():
         with open(exp_file) as f:
             experiments = json.load(f)
         print(f"  Total experiments: {len(experiments)}")
     else:
         print(f"  No experiments recorded")
-    
+
+    print("\n💡 USAGE:")
+    print("  python3 cli.py data stats PATH     # lines/chars for one file or folder")
+    print("  python3 cli.py data validate PATH   # lightweight structure check")
+
     # Training presets
     print("\n⚙️ AVAILABLE PRESETS:")
     print("  auto: Auto-detect best settings")
@@ -1362,9 +1633,11 @@ def cmd_optimize(args):
 
 
 def cmd_eval(args):
-    """Evaluate/benchmark a model."""
-    import torch
+    """Evaluate/benchmark a SloughGPT (char-level) checkpoint."""
     import time
+    from pathlib import Path
+
+    import torch
 
     print("=" * 50)
     print(f"Evaluating: {args.checkpoint}")
@@ -1372,7 +1645,6 @@ def cmd_eval(args):
 
     try:
         checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
-
         print(f"\nCheckpoint keys: {list(checkpoint.keys())}")
 
         if "training_info" in checkpoint:
@@ -1381,51 +1653,60 @@ def cmd_eval(args):
             for k, v in info.items():
                 print(f"  {k}: {v}")
 
-        if "model" in checkpoint:
-            state_dict = checkpoint["model"]
+        def _param_stats(state_dict: dict) -> None:
             total_params = sum(v.numel() for v in state_dict.values())
             print(f"\nModel Statistics:")
             print(f"  Total parameters: {total_params:,}")
             print(f"  Parameter groups: {len(state_dict)}")
-
             total_size = sum(v.numel() * v.element_size() for v in state_dict.values())
             print(f"  Model size (FP32): {total_size / (1024**2):.2f} MB")
             print(f"  Model size (FP16): {total_size / 2 / (1024**2):.2f} MB")
             print(f"  Model size (INT8): {total_size / 4 / (1024**2):.2f} MB")
 
-        # Quick benchmark if model loaded
-        if args.benchmark:
-            print("\nRunning benchmark...")
-            dummy_input = torch.randint(0, 1000, (1, 128))
+        if "model" in checkpoint and isinstance(checkpoint["model"], dict):
+            _param_stats(checkpoint["model"])
+        elif "model_state_dict" in checkpoint and isinstance(
+            checkpoint["model_state_dict"], dict
+        ):
+            _param_stats(checkpoint["model_state_dict"])
 
+        data_path = getattr(args, "data", None) or "datasets/shakespeare/input.txt"
+        if Path(data_path).is_file():
+            from domains.training.lm_eval_char import evaluate_sloughgpt_char_lm
+
+            dev = getattr(args, "device", None) or "cpu"
+            strict = not getattr(args, "no_strict", False)
+            print(f"\nChar-LM eval (non-overlapping windows) on: {data_path}")
+            print(f"  device={dev!r}, strict_load={strict}")
+            metrics = evaluate_sloughgpt_char_lm(
+                args.checkpoint,
+                data_path,
+                device=dev,
+                strict_load=strict,
+            )
+            print(f"  mean_loss: {metrics['mean_loss']:.4f}")
+            ppl = metrics["perplexity"]
+            ppl_s = f"{ppl:.4f}" if ppl != float("inf") else "inf"
+            print(f"  perplexity (char tokens): {ppl_s}")
+            print(
+                f"  tokens scored: {metrics['num_token_positions']} "
+                f"(skipped {metrics['num_chars_skipped']} chars)"
+            )
+            for w in metrics.get("warnings") or []:
+                print(f"  Warning: {w}")
+        else:
+            print(f"\n(skip LM scoring: data file not found: {data_path})")
+
+        if args.benchmark:
+            print("\nRunning benchmark (placeholder)...")
+            _ = torch.randint(0, 1000, (1, 128))
             with torch.no_grad():
                 start = time.time()
                 for _ in range(10):
-                    pass  # Placeholder for actual forward pass
+                    pass
                 elapsed = time.time() - start
+            print(f"  10 idle iterations: {elapsed:.3f}s")
 
-            print(f"  10 iterations: {elapsed:.3f}s")
-            print(f"  Per iteration: {elapsed/10*1000:.1f}ms")
-
-    except Exception as e:
-        print(f"Error: {e}")
-
-
-def cmd_export(args):
-    """Export a model via API."""
-    import requests
-
-    base_url = f"http://{args.host}:{args.port}"
-
-    try:
-        response = requests.get(f"{base_url}/export/model/{args.model}")
-        if response.status_code == 200:
-            data = response.json()
-            print(f"Model: {data['model']}")
-            print(f"Format: {data['format']}")
-            print(f"Size: {data['size_bytes']} bytes")
-        else:
-            print(f"Error: {response.text}")
     except Exception as e:
         print(f"Error: {e}")
 
@@ -1455,6 +1736,9 @@ def cmd_export_cli(args):
         torchscript: TorchScript for C++ inference
         sou: Soul Unit with personality
         all: Export all formats
+
+    For char-LM ``cli.py eval`` / perplexity parity, score native trainer ``step_*.pt``
+    (``stoi``/``itos``/``chars``); see ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
 
     Examples:
         python3 cli.py export model.pt -f safetensors
@@ -1588,7 +1872,7 @@ def cmd_compare(args):
     print("=" * 60)
     
     # Compare benchmark results
-    benchmarks_dir = Path("experiments/benchmarks")
+    benchmarks_dir = Path("data/experiments/benchmarks")
     if benchmarks_dir.exists():
         benchmarks = list(benchmarks_dir.glob("*.json"))
         if benchmarks:
@@ -1967,7 +2251,7 @@ def cmd_setup(args):
     print("\nNext steps:")
     print("  1. Activate venv: source .venv/bin/activate")
     print("  2. Start server: python3 cli.py serve")
-    print("  3. Or: ./start.sh")
+    print("  3. Or: ./scripts/deploy/start.sh")
     print("=" * 50)
 
 
@@ -2479,261 +2763,343 @@ def cmd_config_check(args):
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="SloughGPT CLI", formatter_class=argparse.RawDescriptionHelpFormatter
+        description=(
+            "SloughGPT command line: train, export, and run models with Soul-aware artifacts.\n"
+            "Run from the repository root (or use the `sloughgpt` entrypoint after "
+            "`python3 -m pip install -e .`)."
+        ),
+        epilog=_MAIN_EPILOG,
+        formatter_class=_RootHelpFormatter,
     )
 
-    parser.add_argument("--host", default="localhost", help="API host")
-    parser.add_argument("--port", type=int, default=8000, help="API port")
-    parser.add_argument("-c", "--config", default="config.yaml", help="Config file")
-
-    subparsers = parser.add_subparsers(dest="command", help="Commands")
-
-    # Chat command
-    chat_parser = subparsers.add_parser("chat", help="Start interactive chat")
-    chat_parser.add_argument(
-        "--model",
-        default=None,
-        help="Legacy alias for --auto-model (model id to load before chat)",
+    parser.add_argument(
+        "--host",
+        default="localhost",
+        help="Default API hostname for subcommands that call the SloughGPT HTTP API",
     )
-    chat_parser.add_argument("--max-tokens", type=int, default=100, help="Max tokens")
-    chat_parser.add_argument("--temperature", type=float, default=0.8, help="Temperature")
-    chat_parser.add_argument(
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Default API TCP port (pair with --host)",
+    )
+    parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to config.yaml when a subcommand loads global config",
+    )
+
+    subparsers = parser.add_subparsers(
+        dest="command",
+        metavar="COMMAND",
+        title="commands",
+        description=(
+            "Choose one command; the list below follows essentials first, then server/tools, "
+            "then demos and advanced utilities."
+        ),
+    )
+
+    # Getting started — print onboarding (no side effects)
+    start_parser = subparsers.add_parser(
+        "start",
+        help="Print getting started: install, smoke train, API, web UI (repo root)",
+    )
+    start_parser.set_defaults(func=cmd_start)
+
+    # Chat — interactive session against the FastAPI stack (auto-starts dev server if needed)
+    chat_parser = subparsers.add_parser(
+        "chat",
+        help="Interactive REPL: talk to the HTTP API (uvicorn may start automatically)",
+    )
+    cg_conn = chat_parser.add_argument_group("Connection")
+    cg_conn.add_argument(
         "--no-serve",
         action="store_true",
-        help="Do not auto-start uvicorn if the API is down (fail fast with instructions)",
+        help="Fail if the API is unreachable (do not spawn uvicorn)",
     )
-    chat_parser.add_argument(
+    cg_conn.add_argument(
         "--auto-model",
         default=None,
-        help="Model id to load via /models/load before first prompt (e.g. gpt2); overrides --model",
+        metavar="MODEL_ID",
+        help="Load this model via POST /models/load before the first turn (e.g. gpt2)",
     )
-    chat_parser.add_argument(
+    cg_conn.add_argument(
+        "--model",
+        default=None,
+        metavar="MODEL_ID",
+        help="Legacy alias: if --auto-model is omitted, its value falls back to --model",
+    )
+    cg_conn.add_argument(
         "--load-mode",
         choices=["local", "api"],
         default="local",
-        help="HuggingFace client mode sent to POST /models/load (default: local)",
+        help="How POST /models/load should fetch weights",
     )
-    chat_parser.add_argument(
+    cg_conn.add_argument(
         "--device",
         default="auto",
-        help="Device hint sent to POST /models/load (auto, cuda, cpu, mps)",
+        metavar="DEVICE",
+        help="Device hint for /models/load: auto, cuda, cpu, mps",
+    )
+    cg_gen = chat_parser.add_argument_group("Generation")
+    cg_gen.add_argument(
+        "--max-tokens",
+        type=int,
+        default=100,
+        help="Maximum new tokens per assistant reply",
+    )
+    cg_gen.add_argument(
+        "--temperature",
+        type=float,
+        default=0.8,
+        help="Sampling temperature for generation",
     )
     chat_parser.set_defaults(func=cmd_chat)
 
-    # Quick command - train and generate locally (OPTIMIZED)
-    quick_parser = subparsers.add_parser("quick", help="Quick train & generate (with optimizations)")
-    quick_parser.add_argument(
-        "--dataset", "-d", default="datasets/shakespeare/input.txt", help="Dataset path"
+    # Generate — one-shot text (local checkpoint / .sou resolution; see cmd_generate)
+    gen_parser = subparsers.add_parser(
+        "generate",
+        aliases=["gen"],
+        help='Non-interactive: complete a single prompt (shortcut: "gen")',
     )
-    quick_parser.add_argument("--prompt", default="The king", help="Generation prompt")
-    quick_parser.add_argument("--epochs", type=int, default=1, help="Training epochs")
-    quick_parser.add_argument("--steps", type=int, default=100, help="Max training steps")
-    quick_parser.add_argument("--embed", type=int, default=128, help="Embedding size")
-    quick_parser.add_argument("--layers", type=int, default=4, help="Number of layers")
-    quick_parser.add_argument("--heads", type=int, default=4, help="Number of heads")
-    quick_parser.add_argument("--block", type=int, default=128, help="Block size")
-    quick_parser.add_argument("--batch", type=int, default=16, help="Batch size")
-    quick_parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
-    quick_parser.add_argument("--max-tokens", type=int, default=100, help="Max tokens to generate")
-    quick_parser.add_argument(
-        "--temperature", type=float, default=0.8, help="Generation temperature"
+    gen_parser.add_argument("prompt", help="Starter text")
+    gen_parser.add_argument(
+        "--model",
+        metavar="NAME_OR_PATH",
+        help="Optional explicit checkpoint or model name override",
     )
-    quick_parser.add_argument("--output", default="models/quick.pt", help="Output model path")
-    quick_parser.add_argument(
-        "--no-optimize", action="store_true", help="Disable optimizations (FP16, compile, etc)"
+    gen_parser.add_argument(
+        "--max-tokens",
+        type=int,
+        default=100,
+        help="Maximum tokens to generate",
     )
-    quick_parser.add_argument(
-        "--soul-name", type=str, default="SloughGPT-Quick", help="Name for the soul"
+    gen_parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.8,
+        help="Sampling temperature",
     )
-    quick_parser.add_argument(
-        "--model-type",
-        type=str,
-        default="sloughgpt",
-        choices=["sloughgpt", "nanogpt"],
-        help="Model architecture (default: sloughgpt)",
-    )
-    quick_parser.set_defaults(func=cmd_quick)
-
-    # Demo command
-    demo_parser = subparsers.add_parser("demo", help="Run system demos")
-    demo_parser.add_argument("--component", choices=["all", "rag", "kg", "reasoning", "ewc", "inference", "grounding"],
-                          default="all", help="Demo component to run")
-    demo_parser.set_defaults(func=cmd_demo)
-
-    # RLHF demo command
-    rlhf_parser = subparsers.add_parser("rlhf", help="Run RLHF demo")
-    rlhf_parser.add_argument("--steps", type=int, default=20, help="Training steps")
-    rlhf_parser.set_defaults(func=cmd_rlhf_demo)
-
-    # Cloud setup command
-    cloud_parser = subparsers.add_parser("cloud", help="Setup Pinecone vector store")
-    cloud_parser.add_argument("--api-key", help="Pinecone API key")
-    cloud_parser.add_argument("--index", default="sloughgpt", help="Index name")
-    cloud_parser.add_argument("--dimension", type=int, default=768, help="Vector dimension")
-    cloud_parser.add_argument("--environment", default="us-east-1", help="Pinecone environment")
-    cloud_parser.set_defaults(func=cmd_cloud_setup)
+    gen_parser.set_defaults(func=cmd_generate)
 
     # Train command
-    train_parser = subparsers.add_parser("train", help="Start training")
-    train_parser.add_argument("--dataset", default="shakespeare", help="Dataset")
-    train_parser.add_argument("--epochs", type=int, default=3, help="Epochs")
-    train_parser.add_argument("--batch-size", type=int, default=32, help="Batch size")
-    train_parser.add_argument("--lr", type=float, default=0.01, help="Learning rate")
-    train_parser.add_argument("--use-lora", action="store_true", help="Use LoRA")
-    train_parser.add_argument("--lora-rank", type=int, default=4, help="LoRA rank")
-    train_parser.add_argument("--lora-alpha", type=float, default=16, help="LoRA alpha")
+    train_parser = subparsers.add_parser(
+        "train",
+        help="Char-level trainer: reads datasets/<name>/input.txt (see grouped flags + examples below)",
+        formatter_class=_TrainHelpFormatter,
+        description=(
+            "Train on local text under datasets/<dataset>/input.txt. "
+            "Pick --epochs or --max-steps, set --checkpoint-dir, then use --resume-latest or --resume to continue."
+        ),
+        epilog=_TRAIN_HELP_EPILOG,
+    )
+    tr_basic = train_parser.add_argument_group("Basics")
+    tr_basic.add_argument("--dataset", default="shakespeare", help="Dataset folder name under datasets/")
+    tr_basic.add_argument("--epochs", type=int, default=3, help="Epochs (combined with --max-steps; see trainer)")
+    tr_basic.add_argument("--batch-size", type=int, default=32, help="Batch size")
+    tr_basic.add_argument("--lr", type=float, default=0.01, help="Learning rate")
+    tr_basic.add_argument(
+        "--dropout",
+        type=float,
+        default=None,
+        help="Override model.dropout in config.yaml (SloughGPTModel training)",
+    )
+    tr_basic.add_argument(
+        "--train-device",
+        type=str,
+        default=None,
+        choices=["auto", "cpu", "cuda", "mps"],
+        help="Override device.type in config.yaml before get_device() (local train only)",
+    )
 
-    # Advanced training options
-    train_parser.add_argument(
-        "--max-steps", type=int, default=None, help="Max training steps (overrides epochs)"
+    tr_lora = train_parser.add_argument_group("LoRA (optional)")
+    tr_lora.add_argument("--use-lora", action="store_true", help="Use LoRA")
+    tr_lora.add_argument("--lora-rank", type=int, default=4, help="LoRA rank")
+    tr_lora.add_argument("--lora-alpha", type=float, default=16, help="LoRA alpha")
+
+    tr_loop = train_parser.add_argument_group("Training loop")
+    tr_loop.add_argument(
+        "--max-steps", type=int, default=None, help="Max training steps (caps the epoch-based budget)"
     )
-    train_parser.add_argument(
-        "--gradient-accumulation-steps", type=int, default=1,
-        help="Number of steps to accumulate gradients (effective batch = batch_size * accumulation_steps)"
+    tr_loop.add_argument(
+        "--gradient-accumulation-steps",
+        type=int,
+        default=1,
+        help="Gradient accumulation steps (effective batch = batch_size * this)",
     )
-    train_parser.add_argument(
-        "--max-grad-norm", type=float, default=1.0,
-        help="Maximum gradient norm for clipping (0 to disable)"
+    tr_loop.add_argument(
+        "--max-grad-norm",
+        type=float,
+        default=1.0,
+        help="Gradient clipping (0 to disable)",
+    )
+    tr_loop.add_argument(
+        "--log-interval",
+        type=int,
+        default=None,
+        help="Override training.log_interval in config.yaml (SloughGPTTrainer / TrainingRequest)",
+    )
+    tr_loop.add_argument(
+        "--eval-interval",
+        type=int,
+        default=None,
+        help="Override training.eval_interval in config.yaml (SloughGPTTrainer / TrainingRequest)",
     )
 
-    # Mixed precision training
-    train_parser.add_argument(
-        "--mixed-precision", dest="use_mixed_precision", action="store_true",
-        help="Enable mixed precision training (FP16/BF16)"
+    tr_mp = train_parser.add_argument_group("Mixed precision")
+    tr_mp.add_argument(
+        "--mixed-precision",
+        dest="use_mixed_precision",
+        action="store_true",
+        help="Enable mixed precision (FP16/BF16)",
     )
-    train_parser.add_argument(
-        "--no-mixed-precision", dest="use_mixed_precision", action="store_false",
-        help="Disable mixed precision training"
+    tr_mp.add_argument(
+        "--no-mixed-precision",
+        dest="use_mixed_precision",
+        action="store_false",
+        help="Disable mixed precision",
     )
     train_parser.set_defaults(use_mixed_precision=True)
-    train_parser.add_argument(
-        "--precision", type=str, default="bf16", choices=["fp16", "bf16"],
-        help="Mixed precision dtype (default: bf16)"
+    tr_mp.add_argument(
+        "--precision",
+        type=str,
+        default="bf16",
+        choices=["fp16", "bf16"],
+        help="Mixed precision dtype",
     )
 
-    # Distributed training
-    train_parser.add_argument(
-        "--distributed", action="store_true",
-        help="Enable distributed training (DDP)"
+    tr_dist = train_parser.add_argument_group("Distributed (advanced)")
+    tr_dist.add_argument("--distributed", action="store_true", help="Enable DDP")
+    tr_dist.add_argument(
+        "--fsdp",
+        dest="use_fsdp",
+        action="store_true",
+        help="Enable FSDP for large models",
     )
-    train_parser.add_argument(
-        "--fsdp", dest="use_fsdp", action="store_true",
-        help="Enable FSDP (Fully Sharded Data Parallel) for large models"
-    )
-    train_parser.add_argument(
-        "--sharding-strategy", type=str, default="FULL_SHARD",
+    tr_dist.add_argument(
+        "--sharding-strategy",
+        type=str,
+        default="FULL_SHARD",
         choices=["FULL_SHARD", "SHARD_GRAD_OP", "NO_SHARD"],
-        help="FSDP sharding strategy (default: FULL_SHARD)"
+        help="FSDP sharding strategy",
     )
-    train_parser.add_argument(
-        "--backend", type=str, default="nccl",
+    tr_dist.add_argument(
+        "--backend",
+        type=str,
+        default="nccl",
         choices=["nccl", "gloo"],
-        help="Distributed backend (default: nccl)"
+        help="Distributed backend",
     )
-    train_parser.add_argument(
-        "--world-size", type=int, default=None,
-        help="Number of processes for distributed training"
-    )
-
-    # Checkpointing
-    train_parser.add_argument(
-        "--checkpoint-dir", type=str, default="checkpoints",
-        help="Directory to save checkpoints"
-    )
-    train_parser.add_argument(
-        "--checkpoint-interval", type=int, default=1000,
-        help="Steps between checkpoints"
-    )
-    train_parser.add_argument(
-        "--save-best-only", action="store_true",
-        help="Only save best model checkpoints"
-    )
-    train_parser.add_argument(
-        "--resume", type=str, default=None,
-        help="Resume from checkpoint path"
-    )
-    train_parser.add_argument(
-        "--max-checkpoints", type=int, default=5,
-        help="Maximum number of checkpoints to keep"
+    tr_dist.add_argument(
+        "--world-size",
+        type=int,
+        default=None,
+        help="Process count for distributed training",
     )
 
-    # Learning rate scheduler
-    train_parser.add_argument(
-        "--scheduler", type=str, default="cosine",
+    tr_ckpt = train_parser.add_argument_group("Checkpoints and resume")
+    tr_ckpt.add_argument(
+        "--checkpoint-dir",
+        type=str,
+        default="checkpoints",
+        help="Directory for step_*.pt checkpoints",
+    )
+    tr_ckpt.add_argument(
+        "--checkpoint-interval",
+        type=int,
+        default=1000,
+        help="Steps between checkpoints",
+    )
+    tr_ckpt.add_argument(
+        "--save-best-only",
+        action="store_true",
+        help="Only save best checkpoints",
+    )
+    tr_ckpt.add_argument(
+        "--resume",
+        type=str,
+        default=None,
+        help="Resume from this .pt path",
+    )
+    tr_ckpt.add_argument(
+        "--resume-latest",
+        action="store_true",
+        help="Resume newest step_*.pt in --checkpoint-dir",
+    )
+    tr_ckpt.add_argument(
+        "--max-checkpoints",
+        type=int,
+        default=5,
+        help="Max checkpoints to keep",
+    )
+
+    tr_sched = train_parser.add_argument_group("LR schedule")
+    tr_sched.add_argument(
+        "--scheduler",
+        type=str,
+        default="cosine",
         choices=["cosine", "linear", "warmup_cosine", "constant", "polynomial"],
-        help="Learning rate scheduler (default: cosine)"
+        help="LR scheduler",
     )
-    train_parser.add_argument(
-        "--warmup-steps", type=int, default=100,
-        help="Warmup steps for LR scheduler"
-    )
-    train_parser.add_argument(
-        "--min-lr", type=float, default=1e-5,
-        help="Minimum learning rate (for cosine scheduler)"
-    )
-    train_parser.add_argument(
-        "--weight-decay", type=float, default=0.01,
-        help="Weight decay"
+    tr_sched.add_argument("--warmup-steps", type=int, default=100, help="Warmup steps")
+    tr_sched.add_argument("--min-lr", type=float, default=1e-5, help="Floor LR (cosine)")
+    tr_sched.add_argument("--weight-decay", type=float, default=0.01, help="AdamW weight decay")
+
+    tr_speed = train_parser.add_argument_group("Speedups")
+    tr_speed.add_argument(
+        "--compile",
+        action="store_true",
+        help="torch.compile (PyTorch 2.0+)",
     )
 
-    # Optimizations
-    train_parser.add_argument(
-        "--compile", action="store_true",
-        help="Use torch.compile for faster training (PyTorch 2.0+)"
-    )
-
-    # Save options
-    train_parser.add_argument(
+    tr_out = train_parser.add_argument_group("Export")
+    tr_out.add_argument(
         "--save-format",
         type=str,
         default="sou",
         choices=["sou", "safetensors", "safetensors_bf16", "torch", "gguf"],
-        help="Model save format (default: sou - Soul Unit)",
+        help="Artifact format (.sou = Soul Unit)",
     )
-    train_parser.add_argument(
+    tr_out.add_argument(
         "--save-quantized",
         type=str,
         default=None,
         choices=["Q4_0", "Q4_1", "Q5_0", "Q5_1", "Q8_0", "F16", "F32"],
-        help="GGUF quantization type",
+        help="GGUF quantization",
     )
-    train_parser.add_argument(
+    tr_out.add_argument(
         "--soul-name",
         type=str,
         default=None,
-        help="Name for the model's soul (default: model name)",
+        help="Soul profile name (default: model name)",
     )
-    train_parser.add_argument("--api", action="store_true", help="Use API server instead of local")
-    train_parser.add_argument("--optimized", action="store_true", help="Use optimized training (FP16, compile)")
+    tr_out.add_argument(
+        "--save-stem",
+        type=str,
+        default=None,
+        metavar="STEM",
+        help=(
+            "Output basename under save dir (no extension). "
+            "Default: {model}-{dataset}-{YYYY-MM-DD-HHMMSS}."
+        ),
+    )
+
+    tr_other = train_parser.add_argument_group("Other")
+    tr_other.add_argument(
+        "--api",
+        action="store_true",
+        help="POST JSON to http://HOST:PORT/training/start (TrainingRequest; tracked jobs)",
+    )
+    tr_other.add_argument(
+        "--optimized",
+        action="store_true",
+        help=(
+            "Enable mixed precision with fp16 after config merge "
+            "(local SloughGPTTrainer and TrainingRequest JSON for --api)"
+        ),
+    )
     train_parser.set_defaults(func=cmd_train)
-
-    # Status command
-    status_parser = subparsers.add_parser("status", help="Get system status")
-    status_parser.set_defaults(func=cmd_status)
-
-    # Health command
-    health_parser = subparsers.add_parser("health", help="Check API health")
-    health_parser.set_defaults(func=cmd_health)
-
-    # Info command
-    info_parser = subparsers.add_parser("info", help="Show model checkpoint info")
-    info_parser.add_argument("model", nargs="?", default="models/sloughgpt.pt", help="Model path")
-    info_parser.set_defaults(func=cmd_info)
-
-    # Serve command
-    serve_parser = subparsers.add_parser("serve", help="Start HTTP inference server")
-    serve_parser.add_argument("--host", default="localhost", help="Host")
-    serve_parser.add_argument("--port", type=int, default=8080, help="Port")
-    serve_parser.add_argument("--model", help="Model path")
-    serve_parser.set_defaults(func=cmd_serve)
-
-    # Generate command
-    gen_parser = subparsers.add_parser("generate", help="Generate text")
-    gen_parser.add_argument("prompt", help="Prompt text")
-    gen_parser.add_argument("--model", help="Model name")
-    gen_parser.add_argument("--max-tokens", type=int, default=100, help="Max tokens")
-    gen_parser.add_argument("--temperature", type=float, default=0.8, help="Temperature")
-    gen_parser.set_defaults(func=cmd_generate)
 
     # Export command
     # =========================================================================
@@ -2746,7 +3112,7 @@ def main():
     # =========================================================================
     export_parser = subparsers.add_parser(
         "export",
-        help="Export model to different formats",
+        help="Convert checkpoints to SafeTensors, GGUF, ONNX, TorchScript, .sou, or all at once",
         description="""
 Model export utilities for deploying trained SloughGPT models.
 
@@ -2762,6 +3128,9 @@ Supported Formats:
   torchscript    TorchScript - PyTorch C++ inference
   sou            Soul Unit - self-contained + personality
   all            Export all formats at once
+
+Char-LM eval: native trainer step_*.pt carries stoi/itos/chars; exports do not match
+that path for cli.py eval — docs/policies/CONTRIBUTING.md (Checkpoint vocabulary).
 
 Deployment Targets:
   Server/CPU     -> ONNX + ONNX Runtime or SafeTensors
@@ -2870,8 +3239,182 @@ Examples:
     )
     export_parser.set_defaults(func=cmd_export_cli)
 
+    # Soul — .sou Soul Unit helpers (metadata + weights bundle)
+    soul_parser = subparsers.add_parser(
+        "soul",
+        help="Create, inspect, or register a .sou (Soul Unit) artifact",
+    )
+    soul_parser.add_argument(
+        "--load",
+        "-l",
+        metavar="PATH",
+        help="POST this .sou to the API /load-soul endpoint (uses global --host/--port)",
+    )
+    soul_parser.add_argument(
+        "--info",
+        "-i",
+        metavar="PATH",
+        help="Print Soul JSON metadata from disk (no HTTP)",
+    )
+    soul_parser.add_argument("--create", "-c", metavar="PATH", help="Package a checkpoint into a new .sou path")
+    soul_parser.add_argument("--model", "-m", metavar="PATH", help="Weights/checkpoint for --create")
+    soul_parser.add_argument("--name", "-n", metavar="NAME", help="Soul display name for --create")
+    soul_parser.add_argument("--dataset", "-d", metavar="PATH", help="Optional dataset citation for --create")
+    soul_parser.add_argument("--epochs", "-e", type=int, default=0, help="Epoch counter stored in --create metadata")
+    soul_parser.add_argument("--lineage", default="nanogpt", help="Architecture label recorded in --create")
+    soul_parser.add_argument("--tags", default="", help="Comma-separated tags for --create")
+    soul_parser.set_defaults(func=cmd_soul)
+
+    # Quick smoke: tiny train + sample (not a substitute for `train`)
+    quick_parser = subparsers.add_parser(
+        "quick",
+        help="Smoke test: train a toy model briefly, then generate from it",
+    )
+    quick_parser.add_argument(
+        "--dataset",
+        "-d",
+        default="datasets/shakespeare/input.txt",
+        help="Corpus file for the micro run",
+    )
+    quick_parser.add_argument("--prompt", default="The king", help="Prompt used after the micro-run")
+    quick_parser.add_argument("--epochs", type=int, default=1, help="Passes over the corpus")
+    quick_parser.add_argument("--steps", type=int, default=100, help="Hard cap on optimizer steps")
+    quick_parser.add_argument("--embed", type=int, default=128, help="Embedding width")
+    quick_parser.add_argument("--layers", type=int, default=4, help="Transformer depth")
+    quick_parser.add_argument("--heads", type=int, default=4, help="Attention heads")
+    quick_parser.add_argument("--block", type=int, default=128, help="Context length")
+    quick_parser.add_argument("--batch", type=int, default=16, help="Minibatch size")
+    quick_parser.add_argument("--lr", type=float, default=1e-3, help="Adam learning rate")
+    quick_parser.add_argument("--max-tokens", type=int, default=100, help="Tokens to sample after training")
+    quick_parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.8,
+        help="Sampling temperature for the demo completion",
+    )
+    quick_parser.add_argument("--output", default="models/quick.pt", help="Where to write the toy checkpoint")
+    quick_parser.add_argument(
+        "--no-optimize",
+        action="store_true",
+        help="Disable compile/AMP style optimizations inside the quick path",
+    )
+    quick_parser.add_argument(
+        "--soul-name",
+        type=str,
+        default="SloughGPT-Quick",
+        help="Soul metadata label attached to exports in this path",
+    )
+    quick_parser.add_argument(
+        "--model-type",
+        type=str,
+        default="sloughgpt",
+        choices=["sloughgpt", "nanogpt"],
+        help="Which char-level architecture to instantiate",
+    )
+    quick_parser.set_defaults(func=cmd_quick)
+
+    demo_parser = subparsers.add_parser(
+        "demo",
+        help="Run bundled feature demos (RAG, reasoning, etc.)",
+    )
+    demo_parser.add_argument(
+        "--component",
+        choices=["all", "rag", "kg", "reasoning", "ewc", "inference", "grounding"],
+        default="all",
+        help="Which subsystem to exercise",
+    )
+    demo_parser.set_defaults(func=cmd_demo)
+
+    rlhf_parser = subparsers.add_parser("rlhf", help="PPO-style RLHF toy loop (development sample)")
+    rlhf_parser.add_argument("--steps", type=int, default=20, help="Optimizer steps for the demo")
+    rlhf_parser.set_defaults(func=cmd_rlhf_demo)
+
+    cloud_parser = subparsers.add_parser(
+        "cloud",
+        help="Bootstrap Pinecone credentials for vector/RAG experiments",
+    )
+    cloud_parser.add_argument("--api-key", help="Pinecone API key")
+    cloud_parser.add_argument("--index", default="sloughgpt", help="Logical index name to target")
+    cloud_parser.add_argument("--dimension", type=int, default=768, help="Vector width Pinecone should expect")
+    cloud_parser.add_argument("--environment", default="us-east-1", help="Pinecone environment / region string")
+    cloud_parser.set_defaults(func=cmd_cloud_setup)
+
+    # HTTP inference server (separate from apps/api FastAPI app; see cmd_serve)
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Launch the lightweight SloughGPT HTTP inference process",
+    )
+    serve_parser.add_argument("--host", default="localhost", help="Bind address")
+    serve_parser.add_argument("--port", type=int, default=8080, help="Listen port")
+    serve_parser.add_argument("--model", metavar="PATH", help="Optional static weights to preload")
+    serve_parser.set_defaults(func=cmd_serve)
+
+    health_parser = subparsers.add_parser(
+        "health",
+        help="GET /health on the SloughGPT API (uses global --host/--port defaults)",
+    )
+    health_parser.set_defaults(func=cmd_health)
+
+    status_parser = subparsers.add_parser(
+        "status",
+        help="Print high-level runtime status strings from the toolkit",
+    )
+    status_parser.set_defaults(func=cmd_status)
+
+    info_parser = subparsers.add_parser(
+        "info",
+        help="Dump tensor names/shapes for a PyTorch checkpoint on disk",
+    )
+    info_parser.add_argument(
+        "model",
+        nargs="?",
+        default="models/sloughgpt.pt",
+        metavar="CHECKPOINT",
+        help="Checkpoint path (.pt, .pth, …)",
+    )
+    info_parser.set_defaults(func=cmd_info)
+
+    # Config — secrets, env files, one-shot readiness check
+    config_parser = subparsers.add_parser(
+        "config",
+        help="Inspect or scaffold configuration (.env, secrets, YAML validation)",
+    )
+    config_sub = config_parser.add_subparsers(
+        dest="config_cmd",
+        metavar="SUBCOMMAND",
+        title="config subcommands",
+        description="Run `config SUBCOMMAND --help` for action-specific flags.",
+    )
+    config_validate_parser = config_sub.add_parser(
+        "validate",
+        help="Verify YAML/env wiring before starting servers",
+    )
+    config_validate_parser.add_argument("--env", default=".env", help="Dotenv file to cross-check")
+    config_validate_parser.set_defaults(func=lambda a: cmd_config_validate(a))
+
+    config_secrets_parser = config_sub.add_parser(
+        "generate",
+        help="Emit rotated API/JWT secrets suitable for development sandboxes",
+    )
+    config_secrets_parser.add_argument(
+        "--type",
+        choices=["api-key", "jwt-secret", "all"],
+        default="all",
+        help="Which artifact to print",
+    )
+    config_secrets_parser.set_defaults(func=lambda a: cmd_config_generate(a))
+
+    config_check_parser = config_sub.add_parser(
+        "check",
+        help="Human-readable pass/fail matrix (Python, torch, folders, Docker, …)",
+    )
+    config_check_parser.set_defaults(func=cmd_config_check)
+
     # HuggingFace download command
-    hf_download_parser = subparsers.add_parser("hf-download", help="Download HuggingFace model")
+    hf_download_parser = subparsers.add_parser(
+        "hf-download",
+        help="Download weights from HuggingFace Hub into models/",
+    )
     hf_download_parser.add_argument(
         "model", help="Model name (e.g., gpt2, mistralai/Mistral-7B-Instruct-v0.2)"
     )
@@ -2882,7 +3425,10 @@ Examples:
     hf_download_parser.set_defaults(func=cmd_hf_download)
 
     # HuggingFace serve command
-    hf_serve_parser = subparsers.add_parser("hf-serve", help="Serve HuggingFace model via API")
+    hf_serve_parser = subparsers.add_parser(
+        "hf-serve",
+        help="Expose a HuggingFace Hub model through the lightweight inference helper",
+    )
     hf_serve_parser.add_argument("model", help="Model name")
     hf_serve_parser.add_argument(
         "--mode", choices=["api", "local"], default="local", help="Load mode"
@@ -2891,67 +3437,132 @@ Examples:
     hf_serve_parser.set_defaults(func=cmd_hf_serve)
 
     # Datasets command
-    datasets_parser = subparsers.add_parser("datasets", help="List datasets")
+    datasets_parser = subparsers.add_parser(
+        "datasets",
+        help="List known dataset folders under datasets/",
+    )
     datasets_parser.set_defaults(func=cmd_datasets)
 
+    models_parser = subparsers.add_parser(
+        "models",
+        help="List checkpoints under models/ (.pt, .safetensors, .sou) and example HF IDs",
+    )
+    models_parser.set_defaults(func=cmd_models)
+
+    personalities_parser = subparsers.add_parser(
+        "personalities",
+        help="List built-in personality presets (domains.ai_personality)",
+    )
+    personalities_parser.set_defaults(func=cmd_personalities)
+
     # Stats command
-    stats_parser = subparsers.add_parser("stats", help="Show training statistics")
-    stats_parser.set_defaults(func=cmd_stats)
+    training_stats_parser = subparsers.add_parser(
+        "stats",
+        help="Summarize models/ + datasets/ sizes (not the same as `data stats PATH`)",
+    )
+    training_stats_parser.set_defaults(func=cmd_stats)
 
     # Data tools command
-    data_parser = subparsers.add_parser("data", help="Dataset utilities")
-    data_sub = data_parser.add_subparsers(dest="data_cmd", help="Data commands")
+    data_parser = subparsers.add_parser(
+        "data",
+        help="Filesystem helpers for inspecting or validating one dataset path",
+    )
+    data_sub = data_parser.add_subparsers(
+        dest="data_cmd",
+        metavar="SUBCOMMAND",
+        title="data subcommands",
+        description="Requires a path argument — see `data stats --help`.",
+    )
 
-    stats_parser = data_sub.add_parser("stats", help="Get dataset statistics")
-    stats_parser.add_argument("path", help="Dataset or file path")
-    stats_parser.set_defaults(func=lambda a: cmd_data_tool(a, "stats"))
+    data_stats_parser = data_sub.add_parser(
+        "stats",
+        help="Byte/line counts for a concrete text file or folder",
+    )
+    data_stats_parser.add_argument("path", help="File or directory to inspect")
+    data_stats_parser.set_defaults(func=lambda a: cmd_data_tool(a, "stats"))
 
-    validate_parser = data_sub.add_parser("validate", help="Validate dataset")
+    validate_parser = data_sub.add_parser("validate", help="Lightweight structure check for a dataset path")
     validate_parser.add_argument("path", help="Dataset path")
     validate_parser.set_defaults(func=lambda a: cmd_data_tool(a, "validate"))
 
     # Eval command
-    eval_parser = subparsers.add_parser("eval", help="Model evaluation utilities")
+    eval_parser = subparsers.add_parser(
+        "eval",
+        help="Char-level SloughGPT: perplexity on a text file (optional micro-benchmark)",
+        epilog="Fair charset: use checkpoints with stoi/itos/chars (e.g. cli.py train step_*.pt). "
+        "docs/policies/CONTRIBUTING.md (Checkpoint vocabulary).",
+    )
     eval_parser.add_argument("--checkpoint", default="models/sloughgpt.pt", help="Model checkpoint")
-    eval_parser.add_argument("--data", default="datasets/shakespeare/input.txt", help="Eval data")
+    eval_parser.add_argument("--data", default="datasets/shakespeare/input.txt", help="Eval text (UTF-8)")
+    eval_parser.add_argument(
+        "--device",
+        default="cpu",
+        help="Torch device for scoring (e.g. cuda, mps, cpu)",
+    )
+    eval_parser.add_argument(
+        "--no-strict",
+        action="store_true",
+        help="Allow partial state_dict load (e.g. some LoRA / export variants)",
+    )
     eval_parser.add_argument("--benchmark", action="store_true", help="Run performance benchmark")
     eval_parser.set_defaults(func=cmd_eval)
 
     # Monitor command
-    monitor_parser = subparsers.add_parser("monitor", help="Monitor training jobs")
+    monitor_parser = subparsers.add_parser(
+        "monitor",
+        help="Poll long-running training jobs (uses local scheduler metadata)",
+    )
     monitor_parser.add_argument("--watch", action="store_true", help="Watch continuously")
     monitor_parser.add_argument("--interval", type=int, default=5, help="Update interval (seconds)")
     monitor_parser.set_defaults(func=cmd_monitor)
 
     # System command
-    sys_parser = subparsers.add_parser("system", help="Show system information")
+    sys_parser = subparsers.add_parser(
+        "system",
+        help="Print Python, torch, CUDA/MPS, and SloughGPT build hints",
+    )
     sys_parser.set_defaults(func=cmd_system)
 
     # API status command
-    api_status_parser = subparsers.add_parser("api-status", help="Show API status and security info")
+    api_status_parser = subparsers.add_parser(
+        "api-status",
+        help="Fetch SloughGPT API /status + security feature flags",
+    )
     api_status_parser.add_argument("--host", default="localhost", help="API host")
     api_status_parser.add_argument("--port", type=int, default=8000, help="API port")
     api_status_parser.set_defaults(func=cmd_api_status)
 
     # API test command
-    api_test_parser = subparsers.add_parser("api-test", help="Test API endpoints")
+    api_test_parser = subparsers.add_parser(
+        "api-test",
+        help="Smoke essential HTTP routes (health, docs, inference ping)",
+    )
     api_test_parser.add_argument("--host", default="localhost", help="API host")
     api_test_parser.add_argument("--port", type=int, default=8000, help="API port")
     api_test_parser.set_defaults(func=cmd_api_test)
 
     # API auth command
-    api_auth_parser = subparsers.add_parser("api-auth", help="Test API authentication")
+    api_auth_parser = subparsers.add_parser(
+        "api-auth",
+        help="Exercise JWT / API-key gates if the server has auth enabled",
+    )
     api_auth_parser.add_argument("--host", default="localhost", help="API host")
     api_auth_parser.add_argument("--port", type=int, default=8000, help="API port")
     api_auth_parser.set_defaults(func=cmd_api_auth)
 
     # Optimize command
-    opt_parser = subparsers.add_parser("optimize", help="Show/configure optimization settings")
+    opt_parser = subparsers.add_parser(
+        "optimize",
+        help="Display recommended torch compile / AMP toggles for this machine",
+    )
     opt_parser.add_argument("--optimize", action="store_true", help="Apply optimizations")
     opt_parser.set_defaults(func=cmd_optimize)
 
     # Benchmark command
-    bench_parser = subparsers.add_parser("benchmark", help="Run performance benchmarks")
+    bench_parser = subparsers.add_parser(
+        "benchmark",
+        help="Micro-benchmark HuggingFace-sized models (latency/throughput sweeps)",
+    )
     bench_parser.add_argument("--model", "-m", default="gpt2", help="Model to benchmark")
     bench_parser.add_argument("--device", "-d", default="auto", 
                               choices=["auto", "cpu", "cuda", "mps"], help="Device to use")
@@ -2965,13 +3576,19 @@ Examples:
     bench_parser.set_defaults(func=cmd_benchmark)
 
     # Compare command
-    compare_parser = subparsers.add_parser("compare", help="Compare multiple models")
+    compare_parser = subparsers.add_parser(
+        "compare",
+        help="Run the same prompt across several HF checkpoints for quick A/B",
+    )
     compare_parser.add_argument("--models", "-m", default="gpt2,distilgpt2",
                               help="Comma-separated model names to compare")
     compare_parser.set_defaults(func=cmd_compare)
 
     # Setup command
-    setup_parser = subparsers.add_parser("setup", help="Setup SloughGPT environment")
+    setup_parser = subparsers.add_parser(
+        "setup",
+        help="Bootstrap venv dependencies or docker-only developer tooling",
+    )
     setup_parser.add_argument("--gpu", action="store_true", help="Enable GPU support")
     setup_parser.add_argument("--docker-only", action="store_true", help="Docker only setup")
     setup_parser.add_argument("--local-only", action="store_true", help="Local only setup")
@@ -2979,10 +3596,18 @@ Examples:
     setup_parser.set_defaults(func=cmd_setup)
 
     # Docker command
-    docker_parser = subparsers.add_parser("docker", help="Docker management")
-    docker_sub = docker_parser.add_subparsers(dest="docker_cmd", help="Docker commands")
-    
-    docker_start = docker_sub.add_parser("start", help="Start Docker services")
+    docker_parser = subparsers.add_parser(
+        "docker",
+        help="Thin wrappers around infra/docker compose workflows",
+    )
+    docker_sub = docker_parser.add_subparsers(
+        dest="docker_cmd",
+        metavar="SUBCOMMAND",
+        title="docker subcommands",
+        description="Requires Docker Engine + the repo compose file.",
+    )
+
+    docker_start = docker_sub.add_parser("start", help="docker compose up (GPU/dev toggles)")
     docker_start.add_argument("--gpu", action="store_true", help="Use GPU")
     docker_start.add_argument("--dev", action="store_true", help="Development mode")
     docker_start.set_defaults(func=lambda a: cmd_docker_start(a))
@@ -3005,40 +3630,13 @@ Examples:
     docker_shell.add_argument("service", default="api", help="Service name")
     docker_shell.set_defaults(func=lambda a: cmd_docker_shell(a))
 
-    # Config validation command
-    config_parser = subparsers.add_parser("config", help="Configuration utilities")
-    config_sub = config_parser.add_subparsers(dest="config_cmd", help="Config commands")
-    
-    validate_parser = config_sub.add_parser("validate", help="Validate configuration")
-    validate_parser.add_argument("--env", default=".env", help="Environment file path")
-    validate_parser.set_defaults(func=lambda a: cmd_config_validate(a))
-    
-    gen_parser = config_sub.add_parser("generate", help="Generate new secrets")
-    gen_parser.add_argument("--type", choices=["api-key", "jwt-secret", "all"], default="all",
-                           help="Type of secret to generate")
-    gen_parser.set_defaults(func=lambda a: cmd_config_generate(a))
-    
-    check_parser = config_sub.add_parser("check", help="Check environment setup")
-    check_parser.set_defaults(func=cmd_config_check)
-
-    # Soul command
-    soul_parser = subparsers.add_parser("soul", help="Manage .sou Soul Unit files")
-    soul_parser.add_argument("--load", "-l", metavar="PATH", help="Load a .sou file into the server")
-    soul_parser.add_argument("--info", "-i", metavar="PATH", help="Inspect a .sou file")
-    soul_parser.add_argument("--create", "-c", metavar="PATH", help="Create a .sou file")
-    soul_parser.add_argument("--model", "-m", metavar="PATH", help="Model checkpoint for --create")
-    soul_parser.add_argument("--name", "-n", metavar="NAME", help="Soul name for --create")
-    soul_parser.add_argument("--dataset", "-d", metavar="PATH", help="Training dataset for --create")
-    soul_parser.add_argument("--epochs", "-e", type=int, default=0, help="Epochs trained for --create")
-    soul_parser.add_argument("--lineage", default="nanogpt", help="Model lineage for --create")
-    soul_parser.add_argument("--tags", default="", help="Comma-separated tags for --create")
-    soul_parser.set_defaults(func=cmd_soul)
-
     args = parser.parse_args()
 
     if hasattr(args, "func"):
         args.func(args)
     else:
+        print(_CLI_NO_SUBCOMMAND_HINT)
+        print()
         parser.print_help()
 
 

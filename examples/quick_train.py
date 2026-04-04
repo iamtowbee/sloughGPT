@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """
-Quick training example - Train a small model in minutes
+Quick training example - Train a small model in minutes.
+
+For production runs with ``config.yaml`` + CLI overrides (same stack, merged hyperparameters),
+use ``python3 cli.py train --help`` (see ``apps/cli/README.md``).
+
+Periodic ``step_*.pt`` under the trainer ``checkpoint_dir`` embeds ``stoi`` / ``itos`` /
+``chars`` for fair ``cli.py eval``; see ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
 """
 
 from domains.training.train_pipeline import SloughGPTTrainer
@@ -24,8 +30,8 @@ def main():
         max_steps=100,  # Quick test - remove for full training
     )
     
-    # Train
-    model = trainer.train()
+    # Train (returns stats dict; ``trainer.model`` holds weights)
+    trainer.train()
     
     # Generate text
     print("\n=== Generation ===")

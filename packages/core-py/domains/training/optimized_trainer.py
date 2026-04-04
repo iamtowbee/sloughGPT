@@ -9,6 +9,9 @@ Optimizations included:
 4. Optimized DataLoader (num_workers, prefetch)
 5. torch.compile (JIT compilation)
 6. Proper warmup and learning rate scheduling
+
+Char-LM checkpoint vocabulary on native ``SloughGPTTrainer`` ``step_*.pt`` (and eval parity with
+``cli.py eval``) lives in ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
 """
 
 import os
@@ -22,6 +25,11 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.cuda.amp import autocast, GradScaler
+
+from domains.torch_runtime import (
+    effective_dataloader_num_workers,
+    prefetch_factor_for_workers,
+)
 
 
 @dataclass
@@ -116,7 +124,7 @@ class Presets:
             use_flash_attention=False,  # Not supported
             use_compile=True,
             compile_mode="default",
-            num_workers=2,
+            num_workers=0,
         )
     
     @staticmethod
@@ -221,16 +229,20 @@ class OptimizedDataLoader:
         pin_memory: bool = True,
         collate_fn=None,
     ):
-        self.dataloader = DataLoader(
-            dataset,
-            batch_size=batch_size,
-            shuffle=True,
-            num_workers=num_workers,
-            prefetch_factor=prefetch_factor,
-            pin_memory=pin_memory,
-            persistent_workers=num_workers > 0,
-            collate_fn=collate_fn,
-        )
+        nw = effective_dataloader_num_workers(num_workers)
+        pf = prefetch_factor_for_workers(nw, prefetch_factor)
+        dl_kw: Dict[str, Any] = {
+            "dataset": dataset,
+            "batch_size": batch_size,
+            "shuffle": True,
+            "num_workers": nw,
+            "pin_memory": pin_memory,
+            "persistent_workers": nw > 0,
+            "collate_fn": collate_fn,
+        }
+        if pf is not None:
+            dl_kw["prefetch_factor"] = pf
+        self.dataloader = DataLoader(**dl_kw)
         self.iter = None
     
     def get_batch(self):

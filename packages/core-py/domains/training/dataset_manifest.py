@@ -3,6 +3,9 @@ SloughGPT Standard v1 — resolve training text path from a dataset manifest JSO
 
 The char-level trainer expects a single UTF-8 text file. The manifest may point to it via
 ``splits.train`` (relative to the manifest file's directory) or default ``input.txt`` sibling.
+
+Checkpoint vocabulary on native ``step_*.pt`` (separate from manifest JSON): see
+``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
 """
 
 from __future__ import annotations

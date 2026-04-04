@@ -16,6 +16,7 @@ Trademark (c) 2026 SloughGPT. All rights reserved.
 
 import os
 import json
+import math
 import struct
 import hashlib
 import datetime
@@ -27,6 +28,18 @@ from pathlib import Path
 SOU_MAGIC = b"SOUL"
 SOU_VERSION = 2
 SOU_TRADEMARK = "SloughGPT Soul Unit (.sou) - Trademark (c) 2026 SloughGPT"
+
+
+def _soul_json_sanitize(obj: Any) -> Any:
+    """RFC 8259–friendly structures: ``NaN`` / ``±inf`` → ``null`` (Python ``None``)."""
+
+    if isinstance(obj, dict):
+        return {k: _soul_json_sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_soul_json_sanitize(v) for v in obj]
+    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        return None
+    return obj
 
 
 @dataclass
@@ -196,7 +209,12 @@ class SoulProfile:
         return d
 
     def compute_hash(self) -> str:
-        data = json.dumps(self.to_dict(), sort_keys=True, default=str)
+        data = json.dumps(
+            _soul_json_sanitize(self.to_dict()),
+            sort_keys=True,
+            default=str,
+            allow_nan=False,
+        )
         return hashlib.sha256(data.encode()).hexdigest()[:16]
 
     def to_sou_string(self) -> str:
@@ -501,7 +519,11 @@ def export_to_sou(
         soul_profile = SoulProfile(name=Path(output_path).stem)
 
     soul_profile.integrity_hash = soul_profile.compute_hash()
-    config_json = json.dumps(soul_profile.to_dict(), default=str)
+    config_json = json.dumps(
+        _soul_json_sanitize(soul_profile.to_dict()),
+        default=str,
+        allow_nan=False,
+    )
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
@@ -517,7 +539,13 @@ def export_to_sou(
 
     meta_path = output_path + ".meta.json"
     with open(meta_path, "w", encoding="utf-8") as f:
-        json.dump(soul_profile.to_dict(), f, indent=2, default=str)
+        json.dump(
+            _soul_json_sanitize(soul_profile.to_dict()),
+            f,
+            indent=2,
+            default=str,
+            allow_nan=False,
+        )
 
     return output_path
 

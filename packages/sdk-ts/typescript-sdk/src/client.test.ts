@@ -225,6 +225,90 @@ describe('SloughGPTClient', () => {
     });
   });
 
+  describe('startTraining()', () => {
+    it('sends canonical TrainingRequest body', async () => {
+      const job = {
+        id: 'job_1',
+        name: 'run-a',
+        model: 'sloughgpt',
+        dataset: 'openwebtext',
+        status: 'running' as const,
+        progress: 0,
+      };
+      mockFetch.mockResolvedValue(createMockResponse(job));
+
+      const client = new SloughGPTClient();
+      const result = await client.startTraining({
+        name: 'run-a',
+        model: 'sloughgpt',
+        dataset: 'openwebtext',
+        epochs: 3,
+        log_interval: 5,
+        eval_interval: 50,
+      });
+
+      expect(result).toEqual(job);
+      const [, init] = mockFetch.mock.calls[0];
+      const body = JSON.parse((init as RequestInit).body as string);
+      expect(body).toEqual({
+        name: 'run-a',
+        model: 'sloughgpt',
+        dataset: 'openwebtext',
+        epochs: 3,
+        log_interval: 5,
+        eval_interval: 50,
+      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8000/training/start',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    it('maps legacy model_name and dataset_id', async () => {
+      mockFetch.mockResolvedValue(
+        createMockResponse({
+          id: 'job_2',
+          status: 'running',
+          progress: 0,
+        })
+      );
+
+      const client = new SloughGPTClient();
+      await client.startTraining({
+        model_name: 'm1',
+        dataset_id: 'corpus',
+        epochs: 1,
+      });
+
+      const [, init] = mockFetch.mock.calls[0];
+      const body = JSON.parse((init as RequestInit).body as string);
+      expect(body.model).toBe('m1');
+      expect(body.dataset).toBe('corpus');
+      expect(body.name).toBe('m1-training');
+      expect(body.epochs).toBe(1);
+      expect(body.model_name).toBeUndefined();
+      expect(body.dataset_id).toBeUndefined();
+    });
+
+    it('prefers manifest_uri over dataset when provided', async () => {
+      mockFetch.mockResolvedValue(
+        createMockResponse({ id: 'job_3', status: 'running', progress: 0 })
+      );
+
+      const client = new SloughGPTClient();
+      await client.startTraining({
+        name: 'x',
+        model: 'sloughgpt',
+        manifest_uri: 'datasets/a/dataset_manifest.json',
+      });
+
+      const [, init] = mockFetch.mock.calls[0];
+      const body = JSON.parse((init as RequestInit).body as string);
+      expect(body.manifest_uri).toBe('datasets/a/dataset_manifest.json');
+      expect(body.dataset).toBeUndefined();
+    });
+  });
+
   describe('registry', () => {
     it('registers a model', async () => {
       const mockModel = { model_id: 'model-1', name: 'GPT-2' };

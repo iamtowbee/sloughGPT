@@ -43,6 +43,25 @@ result = client.chat([ChatMessage.user("Hi!")])
 print(result.message.content)
 ```
 
+## Training jobs
+
+`POST /training/start` expects a `TrainingRequest` JSON body. Pass **`log_interval`** and **`eval_interval`** as keyword arguments so live metrics on **`GET /training/jobs`** refresh at the cadence you want (defaults match the web Console: 10 / 100). Trainer **`step_*.pt`** files on the server include **`stoi` / `itos` / `chars`** so char-LM eval decodes cleanly; formats are summarized in [`docs/policies/CONTRIBUTING.md`](../../../docs/policies/CONTRIBUTING.md) (*Checkpoint vocabulary*). **`get_training_status`** / **`list_training_jobs`** may return a **`checkpoint`** path with the same native semantics.
+
+```python
+job = client.start_training(
+    "slough-base",
+    "shakespeare",
+    epochs=2,
+    batch_size=8,
+    learning_rate=1e-3,
+    log_interval=10,
+    eval_interval=100,
+)
+job_id = job.get("id") or job.get("job_id")
+status = client.get_training_status(job_id)
+all_jobs = client.list_training_jobs()
+```
+
 ## API Key Management
 
 ```python

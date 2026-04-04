@@ -3,6 +3,10 @@
 This module provides comprehensive model export functionality following industry
 best practices for deploying trained PyTorch models to various formats.
 
+Char-LM **perplexity parity** with training uses native ``SloughGPTTrainer`` ``step_*.pt``
+(``stoi`` / ``itos`` / ``chars``); exported formats encode vocabulary differently — see
+``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
+
 Export Formats
 ==============
 

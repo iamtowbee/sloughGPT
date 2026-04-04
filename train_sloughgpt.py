@@ -10,9 +10,15 @@ data + the same model class but a different loop/checkpoint layout.
 
 CI runs ``tests/test_train_sloughgpt_*.py`` to lock this script; change either
 path together when altering shared training contracts.
+
+Periodic ``checkpoint_step_*.pt`` bundles and typical final ``.pt`` exports
+include ``stoi`` / ``itos`` (and related metadata) for ``cli.py eval`` /
+``lm_eval_char``. See ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
 """
 
 import os
+import re
+from datetime import datetime
 from pathlib import Path
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -553,7 +559,15 @@ def generate_text(model, stoi, itos, prompt="First", max_new_tokens=200, tempera
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Train SloughGPT")
+    _help_epilog = (
+        "Periodic checkpoints (checkpoint_interval>0) embed stoi/itos for char-LM eval. "
+        "See docs/policies/CONTRIBUTING.md (Checkpoint vocabulary)."
+    )
+    parser = argparse.ArgumentParser(
+        description="Train SloughGPT",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=_help_epilog,
+    )
     parser.add_argument("--data", type=str, default="datasets/shakespeare/input.txt")
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size per iteration")

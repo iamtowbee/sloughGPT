@@ -4,6 +4,9 @@ Validate a SloughGPT v1 dataset manifest and optionally print the resolved train
 
   python scripts/validate_dataset_manifest.py path/to/dataset_manifest.json
   python scripts/validate_dataset_manifest.py path/to/dataset_manifest.json --resolve
+
+Manifest JSON describes corpus layout only; native training ``step_*.pt`` vocabulary is separate
+(``docs/policies/CONTRIBUTING.md``, *Checkpoint vocabulary*).
 """
 
 from __future__ import annotations
