@@ -405,7 +405,7 @@ export default function ChatPage() {
       <button
         type="button"
         onClick={startNewConversation}
-        className="mb-3 w-full border-b border-border/70 pb-3 text-left text-sm text-primary transition-colors hover:text-primary/85"
+        className="mb-2 w-full text-left text-sm text-primary underline-offset-2 transition-colors hover:text-primary/90 hover:underline"
       >
         + New chat
       </button>
@@ -418,13 +418,20 @@ export default function ChatPage() {
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         placeholder="Search…"
-        className="mb-3 w-full border-0 border-b border-border/60 bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/80 outline-none ring-0 transition-colors focus:border-primary/45"
+        className="mb-2 w-full border-0 border-b border-border/25 bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/75 outline-none ring-0 transition-colors focus:border-primary/35"
       />
-      <ul className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain border-t border-border/50">
-        {filteredSessions.map((session) => {
+      <ul className="flex min-h-0 flex-1 flex-col divide-y divide-border/10 overflow-y-auto overscroll-contain dark:divide-border/15">
+        {filteredSessions.length === 0 ? (
+          <li className="list-none px-3 py-6 text-xs leading-relaxed text-muted-foreground">
+            {searchQuery.trim()
+              ? 'No chats match this search.'
+              : 'No conversations yet — use + New chat above.'}
+          </li>
+        ) : (
+          filteredSessions.map((session) => {
           const active = session.id === activeSessionId
           return (
-            <li key={session.id} className="group border-b border-border/35 last:border-b-0">
+            <li key={session.id} className="group">
               <div className="flex min-h-[2.25rem] items-stretch">
                 <button
                   type="button"
@@ -448,7 +455,8 @@ export default function ChatPage() {
               </div>
             </li>
           )
-        })}
+        })
+        )}
       </ul>
     </nav>
   )
@@ -457,7 +465,7 @@ export default function ChatPage() {
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row md:gap-2">
       {/* Desktop: session rail */}
       <aside
-        className="sl-chat-sessions sl-sidebar-surface hidden min-h-0 w-[var(--sidebar-width)] shrink-0 flex-col overflow-hidden p-2 md:flex"
+        className="sl-chat-rail hidden min-h-0 w-[var(--sidebar-width)] shrink-0 flex-col overflow-hidden p-2 md:flex"
         aria-label="Conversations"
       >
         {sessionsPanel}

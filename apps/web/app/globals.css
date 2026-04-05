@@ -109,6 +109,21 @@ body {
     scroll-padding-bottom: 0.75rem;
   }
 
+  /**
+   * Chat history column — flat wash + one edge line (no lattice gradient:
+   * avoids banding / “striped blocks” next to the thread).
+   */
+  .sl-chat-rail {
+    border-right: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+    background-color: color-mix(in srgb, var(--background) 88%, var(--muted) 12%);
+    box-shadow: none;
+  }
+
+  .dark .sl-chat-rail {
+    background-color: color-mix(in srgb, var(--card) 72%, transparent);
+    border-right-color: color-mix(in srgb, var(--border) 55%, transparent);
+  }
+
   /** Monitoring SYS.LOG — subtle scanlines + primary wash (matches shell “lattice” look) */
   .sl-log-feed {
     background-color: color-mix(in srgb, var(--card) 88%, var(--muted));
