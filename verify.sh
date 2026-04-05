@@ -19,6 +19,7 @@ echo ""
 echo "Checking required files..."
 
 files=(
+    "package.json"
     "apps/api/server/main.py"
     "packages/core-py/domains/ui/api_server.py"
     "apps/web/package.json"
@@ -59,7 +60,7 @@ if [ "$all_found" = true ]; then
     if command -v node &>/dev/null && [ -d "apps/web/node_modules" ]; then
         echo "Web npm run ci (apps/web)..."
         (cd apps/web && npm run ci) || {
-            echo "❌ Web npm run ci failed (lint + typecheck + build)"
+            echo "❌ Web npm run ci failed (clean .next, lint, typecheck, test, next build)"
             exit 1
         }
         echo "✓ Web npm run ci passed"
@@ -77,6 +78,8 @@ if [ "$all_found" = true ]; then
     echo "  or: python3 cli.py train --dataset shakespeare --epochs 3 --checkpoint-dir checkpoints"
     echo ""
     echo "To start SloughGPT:"
+    echo "  API + web (one terminal): ./scripts/dev-stack.sh  |  make dev-stack  |  npm install && npm run dev:stack"
+    echo "  Or separately:"
     echo "  1. API:  python3 apps/api/server/main.py"
     echo "     or:  cd apps/api/server && python3 -m uvicorn main:app --reload --port 8000"
     echo "  2. Web: cd apps/web && npm run dev"

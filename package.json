@@ -1,0 +1,14 @@
+{
+  "name": "sloughgpt-monorepo",
+  "private": true,
+  "description": "Optional repo-root scripts; primary web app is apps/web.",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev:stack": "concurrently -n api,web -c cyan,magenta \"python3 apps/api/server/main.py\" \"npm run dev --prefix apps/web\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
