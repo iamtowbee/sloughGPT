@@ -2,11 +2,15 @@
 """
 Repo-root char-level trainer for SloughGPTModel (`train_sloughgpt`).
 
-**Other training surfaces (same codebase, different driver):**
-``SloughGPTTrainer`` in ``domains.training.train_pipeline`` — used by
-``python3 cli.py train`` (local), ``apps/api/server`` ``/training/start``,
-and ``examples/quick_train.py`` / ``lora_train.py``. That path uses tensor
-data + the same model class but a different loop/checkpoint layout.
+**Not the CLI/API trainer:** ``python3 cli.py train`` and ``POST /training/start``
+use only ``SloughGPTTrainer`` (``domains.training.train_pipeline``) with
+``config.yaml``. This file is a **separate script driver** (same ``SloughGPTModel``,
+different loop/checkpoint/export ergonomics) kept for Colab §7b, quick runs, and
+``tests/test_train_sloughgpt_*.py``.
+
+**Also available (same codebase, different driver):**
+``SloughGPTTrainer`` — ``examples/quick_train.py`` / ``lora_train.py``. Tensor
+data + same model class; checkpoint layout differs from this script.
 
 CI runs ``tests/test_train_sloughgpt_*.py`` to lock this script; change either
 path together when altering shared training contracts.
@@ -638,6 +642,8 @@ if __name__ == "__main__":
     import argparse
 
     _help_epilog = (
+        "For config.yaml-driven training and the same stack as POST /training/start, use: "
+        "python3 cli.py train (SloughGPTTrainer). "
         "Periodic checkpoints (checkpoint_interval>0) embed stoi/itos for char-LM eval. "
         "See docs/policies/CONTRIBUTING.md (Checkpoint vocabulary)."
     )
