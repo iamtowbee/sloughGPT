@@ -262,17 +262,29 @@ class TestAuthentication:
 
 class TestWebSocket:
     """Integration tests for WebSocket endpoints."""
-    
-    def test_websocket_endpoint_exists(self):
-        """Test WebSocket endpoint is available."""
+
+    def test_websocket_generate_auth_handshake(self):
+        """``/ws/generate`` accepts connections and responds to auth (invalid key → error)."""
         try:
             from websocket import create_connection
-            ws = create_connection(f"ws://localhost:8000/ws")
-            ws.close()
         except ImportError:
             pytest.skip("websocket-client not installed")
-        except Exception:
+
+        ws_base = BASE_URL.replace("http://", "ws://").replace("https://", "wss://")
+        url = f"{ws_base.rstrip('/')}/ws/generate"
+        try:
+            ws = create_connection(url, timeout=HEALTH_CHECK_TIMEOUT)
+        except OSError:
             pytest.skip("WebSocket connection not available")
+
+        try:
+            ws.send(json.dumps({"api_key": "invalid-integration-test-key"}))
+            raw = ws.recv()
+            data = json.loads(raw)
+            assert data.get("status") == "error"
+            assert "auth" in (data.get("error") or "").lower()
+        finally:
+            ws.close()
 
 
 class TestPerformance:
