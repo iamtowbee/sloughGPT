@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { api, BenchmarkResult } from '@/lib/api'
+import { useApiHealth } from '@/hooks/useApiHealth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -16,6 +17,13 @@ export default function BenchmarkPage() {
   const [maxTokens, setMaxTokens] = useState(50)
   const [numRuns, setNumRuns] = useState(3)
   const [error, setError] = useState<string | null>(null)
+  const { state: apiHealth } = useApiHealth()
+
+  const canRunBenchmark = useMemo(() => {
+    if (apiHealth === null) return false
+    if (apiHealth === 'offline') return false
+    return apiHealth.model_loaded
+  }, [apiHealth])
 
   const runBenchmark = async () => {
     setLoading(true)
@@ -46,7 +54,19 @@ export default function BenchmarkPage() {
 
   return (
     <div className="sl-page mx-auto max-w-4xl">
-      <h1 className="sl-h1 mb-6">Benchmark</h1>
+      <div className="mb-6">
+        <h1 className="sl-h1">Benchmark</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Needs a loaded model in the API (same as Chat). Current:{' '}
+          {apiHealth === null
+            ? 'checking…'
+            : apiHealth === 'offline'
+              ? 'API unreachable'
+              : apiHealth.model_loaded
+                ? apiHealth.model_type
+                : 'no weights loaded'}
+        </p>
+      </div>
 
       <Card className="mb-6">
         <CardHeader>
@@ -78,7 +98,16 @@ export default function BenchmarkPage() {
               />
             </div>
           </div>
-          <Button type="button" onClick={runBenchmark} disabled={loading}>
+          <Button
+            type="button"
+            onClick={runBenchmark}
+            disabled={loading || !canRunBenchmark}
+            title={
+              !canRunBenchmark
+                ? 'Connect to the API and load weights (Models page or autoload)'
+                : undefined
+            }
+          >
             {loading ? 'Running…' : 'Run benchmark'}
           </Button>
           {error && <p className="text-sm text-destructive">{error}</p>}

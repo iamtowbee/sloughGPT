@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { LogConsole } from '@/components/LogConsole'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import { PUBLIC_API_URL } from '@/lib/config'
 
 interface SystemInfo {
@@ -28,6 +29,16 @@ export default function MonitoringPage() {
   const [loading, setLoading] = useState(true)
   const [history, setHistory] = useState<{ time: string; cpu: number; memory: number }[]>([])
   const [logTick, setLogTick] = useState(0)
+  const { state: health, refresh: refreshHealth } = useApiHealth()
+
+  const inferenceSummary = useMemo(() => {
+    if (health === null) return '…'
+    if (health === 'offline') return 'API offline'
+    if (!health.model_loaded) return 'No weights'
+    return health.model_type
+  }, [health])
+
+  const inferenceTitle = useMemo(() => inferenceHealthLabel(health), [health])
 
   const fetchInfo = useCallback(async () => {
     try {
@@ -114,9 +125,25 @@ export default function MonitoringPage() {
 
   return (
     <div className="sl-page mx-auto max-w-6xl">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="sl-h1">Monitoring</h1>
-        <Button type="button" variant="secondary" size="sm" onClick={() => void fetchInfo()}>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="sl-h1">Monitoring</h1>
+          <p className="mt-1 text-muted-foreground">
+            Inference:{' '}
+            <span className="text-foreground/90" title={inferenceTitle} data-testid="monitoring-inference-line">
+              {inferenceSummary}
+            </span>
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            void fetchInfo()
+            void refreshHealth()
+          }}
+        >
           Refresh now
         </Button>
       </div>
@@ -144,10 +171,12 @@ export default function MonitoringPage() {
             </p>
           </CardHeader>
         </Card>
-        <Card>
+        <Card title={inferenceTitle}>
           <CardHeader className="pb-2">
-            <CardDescription className="text-xs font-mono uppercase tracking-wider">Model</CardDescription>
-            <p className="text-2xl font-semibold text-chart-3">GPT-2</p>
+            <CardDescription className="text-xs font-mono uppercase tracking-wider">Inference</CardDescription>
+            <p className="break-words text-lg font-semibold leading-tight text-chart-3 md:text-2xl">
+              {inferenceSummary}
+            </p>
           </CardHeader>
         </Card>
       </div>

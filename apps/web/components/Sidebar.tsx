@@ -2,7 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useMemo } from 'react'
 
+import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import {
   IconAgents,
   IconApiDocs,
@@ -47,6 +49,21 @@ export type SidebarProps = {
 export function Sidebar({ variant = 'desktop', onNavigate, onClose }: SidebarProps) {
   const pathname = usePathname()
   const isDrawer = variant === 'drawer'
+  const { state: apiHealth } = useApiHealth()
+
+  const apiStatusDot = useMemo(() => {
+    if (apiHealth === null) return 'bg-muted-foreground'
+    if (apiHealth === 'offline') return 'bg-destructive'
+    return apiHealth.model_loaded ? 'bg-success' : 'bg-warning'
+  }, [apiHealth])
+
+  const apiStatusShort = useMemo(() => {
+    if (apiHealth === null) return 'API…'
+    if (apiHealth === 'offline') return 'Offline'
+    return apiHealth.model_loaded ? apiHealth.model_type : 'No weights'
+  }, [apiHealth])
+
+  const apiStatusTitle = useMemo(() => inferenceHealthLabel(apiHealth), [apiHealth])
 
   const navLinkClass = (active: boolean) =>
     `group relative flex min-h-[2.25rem] items-center gap-2.5 rounded-none px-3 py-1.5 text-sm transition-colors duration-200 ease-smooth ${
@@ -157,7 +174,17 @@ export function Sidebar({ variant = 'desktop', onNavigate, onClose }: SidebarPro
         </div>
       </nav>
 
-      <div className="shrink-0 border-t border-border px-3 py-2.5">
+      <div className="shrink-0 space-y-2 border-t border-border px-3 py-2.5">
+        <div
+          className="flex min-w-0 items-center gap-2"
+          title={apiStatusTitle}
+          data-testid="sidebar-api-status"
+        >
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${apiStatusDot}`} aria-hidden />
+          <span className="min-w-0 truncate font-mono text-[10px] leading-tight text-muted-foreground">
+            {apiStatusShort}
+          </span>
+        </div>
         <ThemeSwitcher />
       </div>
     </aside>

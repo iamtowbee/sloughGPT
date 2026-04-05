@@ -660,7 +660,7 @@ export default function ChatPage() {
               placeholder="Message…"
               rows={2}
               title={!canInfer ? sendBlockedReason : undefined}
-              className="min-h-[52px] flex-1 resize-none bg-muted/30"
+              className="min-h-[52px] flex-1 resize-none"
             />
             <Button
               type="button"

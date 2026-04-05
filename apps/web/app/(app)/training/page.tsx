@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import { api, TrainingJob, TrainResolveResponse } from '@/lib/api'
 import { devDebug } from '@/lib/dev-log'
 import {
@@ -46,6 +47,16 @@ export default function TrainingPage() {
   const [resolveResult, setResolveResult] = useState<TrainResolveResponse | null>(null)
   const [resolveError, setResolveError] = useState<string | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const { state: health, refresh: refreshHealth } = useApiHealth()
+
+  const apiHealthLabel = useMemo(() => inferenceHealthLabel(health), [health])
+
+  const healthToneClass = useMemo(() => {
+    if (health === null) return 'text-muted-foreground'
+    if (health === 'offline') return 'text-destructive'
+    if (health.model_loaded) return 'text-success'
+    return 'text-warning'
+  }, [health])
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -177,11 +188,32 @@ export default function TrainingPage() {
 
   return (
     <div className="sl-page mx-auto max-w-5xl">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="sl-h1">Training</h1>
-        <Button type="button" onClick={openModal}>
-          New Training Job
-        </Button>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="sl-h1">Training</h1>
+          <p className="mt-1 text-muted-foreground">
+            API:{' '}
+            <span className={healthToneClass} data-testid="training-api-status">
+              {apiHealthLabel}
+            </span>
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void fetchJobs()
+              void refreshHealth()
+            }}
+          >
+            Refresh
+          </Button>
+          <Button type="button" onClick={openModal}>
+            New Training Job
+          </Button>
+        </div>
       </div>
 
       {loading ? (
