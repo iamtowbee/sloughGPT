@@ -7,6 +7,7 @@ const meta = {
   tags: ['autodocs'],
   argTypes: {
     role: { control: 'select', options: ['user', 'assistant', 'system'] },
+    variant: { control: 'inline-radio', options: ['transcript', 'surface'] },
   },
   decorators: [
     (Story) => (
@@ -38,5 +39,14 @@ export const System: Story = {
   args: {
     role: 'system',
     children: 'Tools were reset for this turn.',
+  },
+}
+
+/** Bordered “card” bubbles — useful in dense dashboards or the component gallery. */
+export const SurfaceCards: Story = {
+  args: {
+    role: 'assistant',
+    variant: 'surface',
+    children: 'Same content with the older bordered assistant + primary rail.',
   },
 }

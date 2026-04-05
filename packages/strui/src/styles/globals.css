@@ -107,6 +107,15 @@ body {
     box-shadow: inset 1px 0 0 color-mix(in srgb, var(--border) 65%, transparent);
   }
 
+  /**
+   * Chat message list — Claude-style “notebook” canvas: flat surface, no busy gradients.
+   * Scroll padding keeps the last line clear of the composer on mobile.
+   */
+  .str-chat-thread {
+    scroll-padding-bottom: 1.25rem;
+    background-color: var(--background);
+  }
+
   .sl-page {
     @apply p-4 sm:p-6 md:p-8 text-foreground;
   }

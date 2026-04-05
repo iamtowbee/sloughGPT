@@ -20,8 +20,10 @@ export function ChatLayout({ header, thread, composer, className }: ChatLayoutPr
   return (
     <div className={cn('flex str-min-h-screen flex-col bg-background', className)}>
       {header ? <div className="shrink-0">{header}</div> : null}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{thread}</div>
-      <div className="shrink-0">{composer}</div>
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">{thread}</div>
+      <div className="relative z-[1] shrink-0 shadow-[0_-10px_32px_-16px_color-mix(in_srgb,var(--foreground)_12%,transparent)]">
+        {composer}
+      </div>
     </div>
   )
 }

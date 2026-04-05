@@ -38,21 +38,21 @@ export function PromptComposer({
   return (
     <form
       className={cn(
-        'str-safe-bottom border-t border-border bg-card/90 backdrop-blur-md',
+        'str-safe-bottom border-t border-border/80 bg-card/95 backdrop-blur-md',
         'p-3 sm:p-4',
         className,
       )}
       onSubmit={handleSubmit}
       {...formProps}
     >
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end">
         <Textarea
           value={value}
           onChange={(e) => onValueChange(e.target.value)}
           placeholder={placeholder}
           disabled={disabled || busy}
-          rows={3}
-          className="min-h-[100px] flex-1 sm:min-h-20"
+          rows={2}
+          className="min-h-[5.25rem] flex-1 resize-y sm:min-h-[4.5rem]"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault()

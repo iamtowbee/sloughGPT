@@ -72,6 +72,7 @@ cd apps/web && npm run dev
 ./scripts/dev-stack.sh
 # make dev-stack
 # npm install && npm run dev:stack   # same two processes via concurrently (optional)
+# npm run test:repo-root             # tests/test_repo_root_package_json.py (optional)
 
 # Run tests
 python3 -m pytest tests/ -q

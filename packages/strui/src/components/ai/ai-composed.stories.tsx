@@ -46,7 +46,7 @@ export const AgentChat: StoryObj = {
           </div>
         }
         thread={
-          <ChatThread className="flex-1">
+          <ChatThread className="min-h-0 flex-1">
             <MessageBubble role="user">
               <span>
                 Summarize with citations{' '}
@@ -71,7 +71,7 @@ export const AgentChat: StoryObj = {
           </ChatThread>
         }
         composer={
-          <div className="space-y-2 border-t border-border bg-background px-3 pt-2">
+          <div className="space-y-2 bg-background px-3 pt-2">
             <div className="flex flex-wrap gap-2">
               <AttachmentChip name="screenshot.png" onRemove={() => {}} />
             </div>

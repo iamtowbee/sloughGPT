@@ -14,7 +14,7 @@ export function TypingIndicator({ className, label = 'Assistant is responding', 
       aria-live="polite"
       aria-label={label}
       className={cn(
-        'mr-auto flex w-fit items-center gap-1.5 rounded-none border border-border bg-muted/50 px-3 py-2 text-muted-foreground',
+        'mr-auto flex w-fit items-center gap-2 px-0 py-3 text-muted-foreground',
         className,
       )}
       {...props}
