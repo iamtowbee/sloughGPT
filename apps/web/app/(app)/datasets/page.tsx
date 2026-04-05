@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
+import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
@@ -42,33 +43,40 @@ export default function DatasetsPage() {
 
   return (
     <div className="sl-page mx-auto max-w-6xl">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="sl-h1">Datasets</h1>
-          <p className="mt-1 text-muted-foreground">
-            API:{' '}
-            <span className={healthToneClass} data-testid="datasets-api-status">
-              {apiHealthLabel}
-            </span>
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              void fetchDatasets()
-              void refreshHealth()
-            }}
-          >
-            Refresh
-          </Button>
-          <Button type="button" size="sm" variant="outline" asChild>
-            <Link href="/training">Start training</Link>
-          </Button>
-        </div>
-      </div>
+      <AppRouteHeader
+        className="mb-6 items-start"
+        left={
+          <AppRouteHeaderLead
+            title="Datasets"
+            subtitle={
+              <>
+                API:{' '}
+                <span className={healthToneClass} data-testid="datasets-api-status">
+                  {apiHealthLabel}
+                </span>
+              </>
+            }
+          />
+        }
+        right={
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                void fetchDatasets()
+                void refreshHealth()
+              }}
+            >
+              Refresh
+            </Button>
+            <Button type="button" size="sm" variant="outline" asChild>
+              <Link href="/training">Start training</Link>
+            </Button>
+          </div>
+        }
+      />
 
       {loading ? (
         <div className="py-12 text-center text-muted-foreground">Loading datasets…</div>

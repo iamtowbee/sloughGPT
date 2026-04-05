@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import { LogConsole } from '@/components/LogConsole'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -98,7 +99,7 @@ export default function MonitoringPage() {
   if (loading) {
     return (
       <div className="sl-page">
-        <h1 className="sl-h1 mb-6">Monitoring</h1>
+        <AppRouteHeader className="mb-6 items-start" left={<AppRouteHeaderLead title="Monitoring" />} />
         <p className="text-muted-foreground">Loading system info…</p>
       </div>
     )
@@ -106,35 +107,43 @@ export default function MonitoringPage() {
 
   return (
     <div className="sl-page mx-auto max-w-6xl">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="sl-h1">Monitoring</h1>
-          <p className="mt-1 text-muted-foreground">
-            Inference:{' '}
-            <span className="text-foreground/90" title={inferenceTitle} data-testid="monitoring-inference-line">
-              {inferenceSummary}
-            </span>
-          </p>
-          {sysInfo && !sysInfo.host_metrics_available && (
-            <p className="mt-2 max-w-prose text-xs text-muted-foreground">
-              Host CPU/RAM are not included in the last <code className="font-mono">/info</code> response (API
-              offline, or install <code className="font-mono">psutil</code> on the server). Charts use real
-              samples only when the API exposes a <code className="font-mono">host</code> block.
-            </p>
-          )}
-        </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            void fetchInfo()
-            void refreshHealth()
-          }}
-        >
-          Refresh now
-        </Button>
-      </div>
+      <AppRouteHeader
+        className="mb-6 items-start"
+        left={
+          <AppRouteHeaderLead
+            title="Monitoring"
+            subtitle={
+              <>
+                Inference:{' '}
+                <span className="text-foreground/90" title={inferenceTitle} data-testid="monitoring-inference-line">
+                  {inferenceSummary}
+                </span>
+              </>
+            }
+          >
+            {sysInfo && !sysInfo.host_metrics_available ? (
+              <p className="mt-2 max-w-prose text-xs text-muted-foreground">
+                Host CPU/RAM are not included in the last <code className="font-mono">/info</code> response (API
+                offline, or install <code className="font-mono">psutil</code> on the server). Charts use real
+                samples only when the API exposes a <code className="font-mono">host</code> block.
+              </p>
+            ) : null}
+          </AppRouteHeaderLead>
+        }
+        right={
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void fetchInfo()
+              void refreshHealth()
+            }}
+          >
+            Refresh now
+          </Button>
+        }
+      />
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Card>

@@ -6,6 +6,7 @@ import { useApiHealth } from '@/hooks/useApiHealth'
 import { api } from '@/lib/api'
 import { revealTypingSequence } from '@/lib/chat-reveal'
 import { devDebug } from '@/lib/dev-log'
+import { AppRouteHeader } from '@/components/AppRouteHeader'
 import { InferenceRuntimeToolbar, InferenceStatusBar } from '@/components/InferenceStatusBar'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,7 +25,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/cn'
 
@@ -53,6 +53,7 @@ interface ChatSession {
 
 const CHAT_SESSIONS_KEY = 'sloughgpt_chat_sessions_v1'
 const ACTIVE_CHAT_KEY = 'sloughgpt_active_chat_v1'
+const CHAT_RAIL_EXPANDED_KEY = 'sloughgpt_chat_rail_expanded_v1'
 
 const defaultSettings: ChatSettings = {
   temperature: 0.8,
@@ -95,6 +96,47 @@ function SendIcon({ className }: { className?: string }) {
   )
 }
 
+/** Collapsed rail — open full conversation list (desktop). */
+function ConversationsRailIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+      />
+    </svg>
+  )
+}
+
+function ChevronLeftIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    </svg>
+  )
+}
+
+/** Leading control in composer (reference: chat apps use + for attachments / actions). */
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+/** Generation / sampling controls — icon-only in header (dialog still has full labels). */
+function SlidersIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 21v-7M4 10V3M12 21v-9M12 3v3M20 21v-5M20 8V3" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 21h6M15 10h6M3 15h6" />
+    </svg>
+  )
+}
+
 export default function ChatPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [activeSessionId, setActiveSessionId] = useState('')
@@ -103,6 +145,7 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [mobileSessionsOpen, setMobileSessionsOpen] = useState(false)
+  const [chatRailExpanded, setChatRailExpanded] = useState(false)
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string; source?: string }>>([])
   const { state: apiHealth, refresh: refreshHealth } = useApiHealth()
   const [modelsCatalogError, setModelsCatalogError] = useState(false)
@@ -150,6 +193,24 @@ export default function ChatPage() {
       return { ...session, title: prompt.slice(0, 40) || 'New chat' }
     })
   }
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(CHAT_RAIL_EXPANDED_KEY) === '1') {
+        setChatRailExpanded(true)
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CHAT_RAIL_EXPANDED_KEY, chatRailExpanded ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }, [chatRailExpanded])
 
   useEffect(() => {
     const rawSessions = localStorage.getItem(CHAT_SESSIONS_KEY)
@@ -397,11 +458,13 @@ export default function ChatPage() {
         : 'text-foreground/78 hover:bg-secondary/70 hover:text-foreground dark:text-muted-foreground',
     )
 
-  const sessionsPanel = (
+  const renderSessionsPanel = (opts?: { hideTitle?: boolean }) => (
     <nav className="flex min-h-0 flex-1 flex-col" aria-label="Chat history">
-      <p className="mb-2 px-3 font-mono text-[10px] uppercase tracking-wider text-foreground/48 dark:text-muted-foreground">
-        Conversations
-      </p>
+      {!opts?.hideTitle && (
+        <p className="mb-2 px-3 font-mono text-[10px] uppercase tracking-wider text-foreground/48 dark:text-muted-foreground">
+          Conversations
+        </p>
+      )}
       <button
         type="button"
         onClick={startNewConversation}
@@ -461,72 +524,128 @@ export default function ChatPage() {
     </nav>
   )
 
+  const sessionsPanel = renderSessionsPanel()
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row md:gap-2">
-      {/* Desktop: session rail */}
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+      {/* Desktop: minified by default; expand for full conversation list */}
       <aside
-        className="sl-chat-rail hidden min-h-0 w-[var(--sidebar-width)] shrink-0 flex-col overflow-hidden p-2 md:flex"
+        className={cn(
+          'sl-chat-rail hidden min-h-0 shrink-0 flex-col overflow-hidden border-r border-border/30 md:flex',
+          chatRailExpanded ? 'w-[var(--sidebar-width)] p-2' : 'w-11 items-stretch p-1',
+        )}
         aria-label="Conversations"
       >
-        {sessionsPanel}
-      </aside>
-
-      {/* Main column: toolbar + thread + composer */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4 md:px-6">
-          <div className="flex min-w-0 flex-wrap items-center gap-2 md:gap-3">
+        {chatRailExpanded ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="mb-1 flex shrink-0 items-center justify-between gap-2 px-1">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-foreground/48">
+                Conversations
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                aria-label="Minimize conversation list"
+                title="Minimize"
+                onClick={() => setChatRailExpanded(false)}
+              >
+                <ChevronLeftIcon className="h-4 w-4" />
+              </Button>
+            </div>
+            {renderSessionsPanel({ hideTitle: true })}
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col items-center pt-2">
             <Button
               type="button"
-              variant="outline"
-              size="sm"
-              className="shrink-0 md:hidden"
-              onClick={() => setMobileSessionsOpen(true)}
-              aria-expanded={mobileSessionsOpen}
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 text-foreground/70 hover:text-foreground"
+              aria-label="Open conversation list"
+              title="Conversations"
+              onClick={() => setChatRailExpanded(true)}
             >
-              Chats
-            </Button>
-            <h1 className="min-w-0 truncate text-lg font-semibold text-foreground">
-              {activeSession?.title ?? 'Chat'}
-            </h1>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="secondary" size="sm" className="gap-2 font-normal" title="Catalog label; inference uses the API runtime shown on the right">
-                  <span className="max-w-[min(100%,20ch)] truncate">{selectedModelLabel}</span>
-                  <ChevronDownIcon className="h-3 w-3 shrink-0 opacity-70" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
-                {modelsCatalogLoading && (
-                  <div className="px-2 py-2 text-sm text-muted-foreground">Loading catalog…</div>
-                )}
-                {!modelsCatalogLoading && modelsCatalogError && (
-                  <div className="px-2 py-2 text-sm text-destructive">Could not list models (API error).</div>
-                )}
-                {!modelsCatalogLoading && !modelsCatalogError && availableModels.length === 0 && (
-                  <div className="px-2 py-2 text-sm text-muted-foreground">No models in catalog.</div>
-                )}
-                {availableModels.map((model) => (
-                  <DropdownMenuItem
-                    key={model.id}
-                    onClick={() => updateActiveSession((s) => ({ ...s, selectedModel: model.id }))}
-                    className={selectedModel === model.id ? 'bg-primary/10' : ''}
-                  >
-                    <div>
-                      <div className="font-medium">{model.name}</div>
-                      <div className="text-xs text-muted-foreground">{model.source || 'local'}</div>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button type="button" variant="outline" size="sm" onClick={() => setShowSettings(true)}>
-              Generation settings
+              <ConversationsRailIcon className="h-5 w-5" />
             </Button>
           </div>
-          <InferenceRuntimeToolbar health={apiHealth} onRefresh={refreshHealth} />
-        </div>
+        )}
+      </aside>
 
-        <div className="shrink-0 px-3 sm:px-4 md:px-6">
+      {/* Main column: toolbar, status, thread, and composer share one max-width column */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="mx-auto flex min-h-0 w-full max-w-[var(--chat-thread-max)] flex-1 flex-col overflow-hidden px-3 sm:px-4 md:px-6">
+        <AppRouteHeader
+          className="shrink-0 pt-3 pb-1"
+          left={
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 md:hidden"
+                onClick={() => setMobileSessionsOpen(true)}
+                aria-expanded={mobileSessionsOpen}
+              >
+                Chats
+              </Button>
+              <h1 className="min-w-0 max-w-[min(100%,14rem)] truncate text-base font-semibold tracking-tight text-foreground sm:max-w-[min(100%,18rem)]">
+                {activeSession?.title ?? 'Chat'}
+              </h1>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="max-w-[min(100%,18ch)] gap-1.5 font-normal"
+                    title="Catalog model for this chat (inference uses API runtime on the right)"
+                  >
+                    <span className="truncate">{selectedModelLabel}</span>
+                    <ChevronDownIcon className="h-3 w-3 shrink-0 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+                  {modelsCatalogLoading && (
+                    <div className="px-2 py-2 text-sm text-muted-foreground">Loading catalog…</div>
+                  )}
+                  {!modelsCatalogLoading && modelsCatalogError && (
+                    <div className="px-2 py-2 text-sm text-destructive">Could not list models (API error).</div>
+                  )}
+                  {!modelsCatalogLoading && !modelsCatalogError && availableModels.length === 0 && (
+                    <div className="px-2 py-2 text-sm text-muted-foreground">No models in catalog.</div>
+                  )}
+                  {availableModels.map((model) => (
+                    <DropdownMenuItem
+                      key={model.id}
+                      onClick={() => updateActiveSession((s) => ({ ...s, selectedModel: model.id }))}
+                      className={selectedModel === model.id ? 'bg-primary/10' : ''}
+                    >
+                      <div>
+                        <div className="font-medium">{model.name}</div>
+                        <div className="text-xs text-muted-foreground">{model.source || 'local'}</div>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => setShowSettings(true)}
+                title="Generation settings"
+                aria-label="Generation settings"
+              >
+                <SlidersIcon className="h-4 w-4" />
+              </Button>
+            </>
+          }
+          right={<InferenceRuntimeToolbar health={apiHealth} onRefresh={refreshHealth} />}
+        />
+
+        <div className="shrink-0 pb-2">
           <InferenceStatusBar health={apiHealth} selectedCatalogId={selectedModel} />
         </div>
 
@@ -640,8 +759,7 @@ export default function ChatPage() {
           </DialogContent>
         </Dialog>
 
-        <div className="mx-auto flex min-h-0 w-full max-w-[var(--chat-thread-max)] flex-1 flex-col overflow-hidden px-3 sm:px-4 md:px-6">
-          <div className="sl-chat-thread flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain py-4">
+        <div className="sl-chat-thread flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pt-2 pb-4">
             {messages.length === 0 && (
               <div className="flex min-h-[min(50dvh,28rem)] flex-col items-center justify-center px-2 py-8 text-center sm:py-16">
                 <div className="mb-5 flex aspect-square w-[4.5rem] shrink-0 items-center justify-center border border-primary/35 bg-gradient-to-br from-primary/12 to-accent/20 font-mono text-2xl font-semibold text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] dark:shadow-none">
@@ -725,36 +843,53 @@ export default function ChatPage() {
           </div>
 
           <div className="shrink-0 border-t border-border/80 bg-background/90 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
-            <div className="flex gap-2">
-              <Textarea
-                data-testid="chat-message-input"
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && !e.metaKey) {
-                    e.preventDefault()
-                    sendMessage()
-                  }
-                }}
-                placeholder="Message…"
-                rows={2}
-                title={!canInfer ? sendBlockedReason : undefined}
-                className="min-h-14 flex-1 resize-none"
-              />
-              <Button
-                type="button"
-                data-testid="chat-send-button"
-                size="icon"
-                className="h-14 w-11 min-h-14 shrink-0 self-end"
-                onClick={sendMessage}
-                disabled={isLoading || !input.trim() || !canInfer}
-                title={!canInfer ? sendBlockedReason : undefined}
-                aria-label="Send message"
-              >
-                <SendIcon className="h-4 w-4" />
-              </Button>
+            {/* Composer shell — pill well + lead action + send (see docs/design/references/chat-composer-reference-*.png) */}
+            <div className="rounded-2xl border border-border/90 bg-card/95 p-2 shadow-sm ring-1 ring-border/15 dark:bg-card/90 dark:ring-border/25">
+              <div className="flex items-end gap-1.5 sm:gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-11 w-11 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
+                  aria-label="Composer actions"
+                  title="Attachments and shortcuts — coming soon"
+                  disabled
+                >
+                  <PlusIcon className="h-5 w-5" />
+                </Button>
+                <Textarea
+                  data-testid="chat-message-input"
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !e.metaKey) {
+                      e.preventDefault()
+                      sendMessage()
+                    }
+                  }}
+                  placeholder="Message…"
+                  rows={2}
+                  title={!canInfer ? sendBlockedReason : undefined}
+                  className="min-h-[2.75rem] flex-1 resize-none border-0 bg-transparent px-1 py-2.5 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                <Button
+                  type="button"
+                  data-testid="chat-send-button"
+                  size="icon"
+                  className="h-11 w-11 shrink-0 rounded-full"
+                  onClick={sendMessage}
+                  disabled={isLoading || !input.trim() || !canInfer}
+                  title={!canInfer ? sendBlockedReason : undefined}
+                  aria-label="Send message"
+                >
+                  <SendIcon className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
+            <p className="mt-2.5 text-center text-[11px] leading-relaxed text-muted-foreground/85">
+              SloughGPT calls your API; outputs may be wrong. Verify important answers.
+            </p>
           </div>
         </div>
       </div>

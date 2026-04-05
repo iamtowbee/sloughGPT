@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -119,22 +120,31 @@ export default function AgentsPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-2">
-      <div className="flex items-center justify-between border-b border-border py-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold text-foreground">Agents</h1>
-          <span className="font-mono text-xs text-muted-foreground">{agents.length} agents</span>
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          onClick={() => {
-            setIsEditing(true)
-            setSelectedAgent(null)
-          }}
-        >
-          + New agent
-        </Button>
-      </div>
+      <AppRouteHeader
+        className="border-b border-border py-3"
+        left={
+          <AppRouteHeaderLead
+            title={
+              <div className="flex min-w-0 items-center gap-3">
+                <h1 className="text-lg font-semibold text-foreground">Agents</h1>
+                <span className="font-mono text-xs text-muted-foreground">{agents.length} agents</span>
+              </div>
+            }
+          />
+        }
+        right={
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => {
+              setIsEditing(true)
+              setSelectedAgent(null)
+            }}
+          >
+            + New agent
+          </Button>
+        }
+      />
 
       <div className="flex flex-1 gap-4 overflow-hidden py-4">
         <div className="w-64 shrink-0 space-y-2 overflow-y-auto">

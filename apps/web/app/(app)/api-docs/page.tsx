@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 
+import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
@@ -91,16 +92,36 @@ export default function ApiDocsPage() {
 
   return (
     <div className="sl-page mx-auto max-w-4xl">
-      <h1 className="sl-h1 mb-2">API documentation</h1>
-      <p className="mb-2 text-muted-foreground">
-        Base URL: <code className="sl-code">{PUBLIC_API_URL}</code>
-      </p>
-      <p className="mb-6 text-sm text-muted-foreground">
-        Interactive OpenAPI:{' '}
-        <a className="font-medium text-primary hover:underline" href={`${PUBLIC_API_URL}/docs`} target="_blank" rel="noreferrer">
-          {PUBLIC_API_URL}/docs
-        </a>
-      </p>
+      <AppRouteHeader
+        className="mb-6 items-start"
+        left={
+          <AppRouteHeaderLead
+            title={<h1 className="sl-h1 mb-2">API documentation</h1>}
+          >
+            <p className="text-muted-foreground">
+              Base URL: <code className="sl-code">{PUBLIC_API_URL}</code>
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Interactive OpenAPI:{' '}
+              <a
+                className="font-medium text-primary hover:underline"
+                href={`${PUBLIC_API_URL}/docs`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {PUBLIC_API_URL}/docs
+              </a>
+            </p>
+          </AppRouteHeaderLead>
+        }
+        right={
+          <Button variant="outline" size="sm" asChild>
+            <a href={`${PUBLIC_API_URL}/docs`} target="_blank" rel="noreferrer">
+              Open Swagger UI
+            </a>
+          </Button>
+        }
+      />
 
       <div className="space-y-3">
         {API_DOC_ENDPOINTS.map((ep) => (

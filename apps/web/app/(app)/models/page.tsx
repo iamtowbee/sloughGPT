@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 
+import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -111,28 +112,35 @@ export default function ModelsPage() {
 
   return (
     <div className="sl-page mx-auto max-w-6xl">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="sl-h1">Models</h1>
-          <p className="mt-1 text-muted-foreground">
-            API:{' '}
-            <span className={healthToneClass} data-testid="models-api-status">
-              {apiHealthLabel}
-            </span>
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            void fetchModels()
-            void refreshHealth()
-          }}
-        >
-          Refresh list
-        </Button>
-      </div>
+      <AppRouteHeader
+        className="mb-6 items-start"
+        left={
+          <AppRouteHeaderLead
+            title="Models"
+            subtitle={
+              <>
+                API:{' '}
+                <span className={healthToneClass} data-testid="models-api-status">
+                  {apiHealthLabel}
+                </span>
+              </>
+            }
+          />
+        }
+        right={
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void fetchModels()
+              void refreshHealth()
+            }}
+          >
+            Refresh list
+          </Button>
+        }
+      />
 
       <div className="mb-6 inline-flex flex-wrap gap-0 border border-border bg-muted/30 p-0.5">
         {(['all', 'local', 'huggingface'] as const).map((f) => (

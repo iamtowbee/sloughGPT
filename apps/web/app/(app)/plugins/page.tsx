@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 
+import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -152,15 +153,20 @@ export default function PluginsPage() {
 
   return (
     <div className="sl-page mx-auto max-w-6xl">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="sl-h1">Plugins</h1>
-          <p className="text-sm text-muted-foreground">Extend SloughGPT with plugins (local demo state)</p>
-        </div>
-        <Button type="button" onClick={() => setShowInstall(true)}>
-          Install plugin
-        </Button>
-      </div>
+      <AppRouteHeader
+        className="mb-6 items-start"
+        left={
+          <AppRouteHeaderLead
+            title="Plugins"
+            subtitle="Extend SloughGPT with plugins (local demo state)"
+          />
+        }
+        right={
+          <Button type="button" onClick={() => setShowInstall(true)}>
+            Install plugin
+          </Button>
+        }
+      />
 
       <div className="mb-6 inline-flex flex-wrap gap-0 border border-border bg-muted/30 p-0.5">
         {CATEGORIES.map((cat) => (

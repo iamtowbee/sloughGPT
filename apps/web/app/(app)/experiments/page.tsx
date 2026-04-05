@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 
+import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { api, Experiment, Run } from '@/lib/api'
 import { devDebug } from '@/lib/dev-log'
@@ -34,7 +35,7 @@ export default function ExperimentsPage() {
 
   return (
     <div className="sl-page mx-auto max-w-6xl">
-      <h1 className="sl-h1 mb-6">Experiments</h1>
+      <AppRouteHeader className="mb-6 items-start" left={<AppRouteHeaderLead title="Experiments" />} />
 
       {loading ? (
         <p className="py-8 text-center text-muted-foreground">Loading…</p>

@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
@@ -188,33 +189,40 @@ export default function TrainingPage() {
 
   return (
     <div className="sl-page mx-auto max-w-5xl">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="sl-h1">Training</h1>
-          <p className="mt-1 text-muted-foreground">
-            API:{' '}
-            <span className={healthToneClass} data-testid="training-api-status">
-              {apiHealthLabel}
-            </span>
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              void fetchJobs()
-              void refreshHealth()
-            }}
-          >
-            Refresh
-          </Button>
-          <Button type="button" onClick={openModal}>
-            New Training Job
-          </Button>
-        </div>
-      </div>
+      <AppRouteHeader
+        className="mb-6 items-start"
+        left={
+          <AppRouteHeaderLead
+            title="Training"
+            subtitle={
+              <>
+                API:{' '}
+                <span className={healthToneClass} data-testid="training-api-status">
+                  {apiHealthLabel}
+                </span>
+              </>
+            }
+          />
+        }
+        right={
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                void fetchJobs()
+                void refreshHealth()
+              }}
+            >
+              Refresh
+            </Button>
+            <Button type="button" onClick={openModal}>
+              New Training Job
+            </Button>
+          </div>
+        }
+      />
 
       {loading ? (
         <div className="text-center py-8 text-muted-foreground">Loading...</div>

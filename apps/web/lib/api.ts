@@ -143,6 +143,28 @@ function buildChatPayload(req: ChatCompletionRequest) {
   }
 }
 
+/** FastAPI may return `detail` as a string, object, or Pydantic validation list — normalize for errors. */
+function formatFastApiDetail(detail: unknown): string | null {
+  if (detail == null) return null
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (item && typeof item === 'object' && 'msg' in item) {
+          const m = (item as { msg?: string }).msg
+          return typeof m === 'string' ? m : JSON.stringify(item)
+        }
+        return typeof item === 'string' ? item : JSON.stringify(item)
+      })
+      .join('; ')
+  }
+  if (typeof detail === 'object' && 'msg' in (detail as object)) {
+    const m = (detail as { msg?: string }).msg
+    return typeof m === 'string' ? m : null
+  }
+  return null
+}
+
 /** `GET /health` — drives UI for inference readiness (see `apps/api/server/main.py`). */
 export interface ApiHealth {
   status: string
@@ -574,11 +596,9 @@ export const api = {
 
     if (!res.ok) {
       const msg =
-        typeof body.error === 'string'
+        typeof body.error === 'string' && body.error.trim() !== ''
           ? body.error
-          : typeof body.detail === 'string'
-            ? body.detail
-            : `HTTP ${res.status}`
+          : formatFastApiDetail(body.detail) ?? `HTTP ${res.status}`
       throw new Error(msg)
     }
 

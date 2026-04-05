@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 
+import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import { api, BenchmarkResult } from '@/lib/api'
 import { useApiHealth } from '@/hooks/useApiHealth'
 import { Button } from '@/components/ui/button'
@@ -54,19 +55,26 @@ export default function BenchmarkPage() {
 
   return (
     <div className="sl-page mx-auto max-w-4xl">
-      <div className="mb-6">
-        <h1 className="sl-h1">Benchmark</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Needs a loaded model in the API (same as Chat). Current:{' '}
-          {apiHealth === null
-            ? 'checking…'
-            : apiHealth === 'offline'
-              ? 'API unreachable'
-              : apiHealth.model_loaded
-                ? apiHealth.model_type
-                : 'no weights loaded'}
-        </p>
-      </div>
+      <AppRouteHeader
+        className="mb-6 items-start"
+        left={
+          <AppRouteHeaderLead
+            title="Benchmark"
+            subtitle={
+              <>
+                Needs a loaded model in the API (same as Chat). Current:{' '}
+                {apiHealth === null
+                  ? 'checking…'
+                  : apiHealth === 'offline'
+                    ? 'API unreachable'
+                    : apiHealth.model_loaded
+                      ? apiHealth.model_type
+                      : 'no weights loaded'}
+              </>
+            }
+          />
+        }
+      />
 
       <Card className="mb-6">
         <CardHeader>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 
+import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import { api, ExportResult } from '@/lib/api'
 import { devDebug } from '@/lib/dev-log'
 import { Button } from '@/components/ui/button'
@@ -45,7 +46,7 @@ export default function ExportPage() {
 
   return (
     <div className="sl-page mx-auto max-w-4xl">
-      <h1 className="sl-h1 mb-6">Export model</h1>
+      <AppRouteHeader className="mb-6 items-start" left={<AppRouteHeaderLead title="Export model" />} />
 
       <Card className="mb-6">
         <CardHeader>

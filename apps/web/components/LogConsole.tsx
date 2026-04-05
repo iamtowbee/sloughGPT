@@ -39,11 +39,11 @@ function levelStyle(level: Exclude<LogLevel, 'all'>) {
 function levelDot(level: Exclude<LogLevel, 'all'>) {
   switch (level) {
     case 'error':
-      return 'bg-destructive shadow-[0_0_0.375rem_color-mix(in_srgb,var(--destructive)_55%,transparent)]'
+      return 'bg-destructive shadow-[0_0_0.375rem_color-mix(in_srgb,rgb(var(--destructive))_55%,transparent)]'
     case 'warn':
-      return 'bg-warning shadow-[0_0_0.375rem_color-mix(in_srgb,var(--warning)_50%,transparent)]'
+      return 'bg-warning shadow-[0_0_0.375rem_color-mix(in_srgb,rgb(var(--warning))_50%,transparent)]'
     default:
-      return 'bg-chart-3 shadow-[0_0_0.375rem_color-mix(in_srgb,var(--chart-3)_45%,transparent)]'
+      return 'bg-chart-3 shadow-[0_0_0.375rem_color-mix(in_srgb,rgb(var(--chart-3))_45%,transparent)]'
   }
 }
 
@@ -119,7 +119,7 @@ export function LogConsole({ tick = 0, className }: LogConsoleProps) {
         <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 font-mono">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span
-              className="h-2 w-2 shrink-0 rounded-full bg-success shadow-[0_0_0.5rem_color-mix(in_srgb,var(--success)_60%,transparent)]"
+              className="h-2 w-2 shrink-0 rounded-full bg-success shadow-[0_0_0.5rem_color-mix(in_srgb,rgb(var(--success))_60%,transparent)]"
               aria-hidden
             />
             <span className="text-[0.625rem] font-semibold uppercase tracking-[0.22em] text-primary">SYS.LOG</span>
@@ -149,7 +149,7 @@ export function LogConsole({ tick = 0, className }: LogConsoleProps) {
                   className={cn(
                     'h-7 min-w-[3rem] rounded-none px-2.5 py-0 font-mono text-[0.625rem] font-semibold uppercase tracking-wider transition-colors duration-200',
                     active
-                      ? 'bg-primary/15 text-primary shadow-[inset_0_-0.125rem_0_0_var(--primary)]'
+                      ? 'bg-primary/15 text-primary shadow-[inset_0_-0.125rem_0_0_rgb(var(--primary))]'
                       : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground',
                   )}
                 >

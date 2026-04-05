@@ -1,21 +1,90 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import type { ApiHealthSnapshot } from '@/hooks/useApiHealth'
 import { catalogIdMatchesRuntime } from '@/lib/inference-display'
+import { cn } from '@/lib/cn'
 
 type Props = {
   health: ApiHealthSnapshot
   selectedCatalogId: string
 }
 
+function InlineCode({ children }: { children: ReactNode }) {
+  return <code className="sl-chat-inline-code">{children}</code>
+}
+
+function runtimeModelLabel(health: ApiHealthSnapshot): string {
+  if (health === null || health === 'offline') return 'unknown'
+  return String(health.model_type ?? '').trim() || 'unknown'
+}
+
+function CheckCircleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
+    </svg>
+  )
+}
+
+function AlertTriangleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+      />
+    </svg>
+  )
+}
+
+/** Blocked / unreachable — reads clearly at 16px in header toolbars. */
+function OfflineIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <circle cx="12" cy="12" r="9" strokeWidth={2} />
+      <path strokeLinecap="round" strokeWidth={2} d="M7 7l10 10" />
+    </svg>
+  )
+}
+
+function DotsPulseIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <circle className="animate-pulse opacity-60" cx="6" cy="12" r="2" />
+      <circle className="animate-pulse [animation-delay:150ms]" cx="12" cy="12" r="2" />
+      <circle className="animate-pulse [animation-delay:300ms]" cx="18" cy="12" r="2" />
+    </svg>
+  )
+}
+
+function CpuIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
+      />
+    </svg>
+  )
+}
+
 /**
- * Offline / no-weights / catalog-vs-runtime alerts below the chat toolbar.
- * Runtime badges and refresh live in the toolbar (`InferenceRuntimeToolbar`).
+ * Offline / no-weights / catalog-vs-runtime notices below the chat toolbar.
+ * Styled as compact shell notes (see `.sl-chat-toolbar-note` in globals.css).
+ * Runtime controls live in the toolbar (`InferenceRuntimeToolbar`).
  */
 export function InferenceStatusBar({ health, selectedCatalogId }: Props) {
   const mismatch =
@@ -34,42 +103,41 @@ export function InferenceStatusBar({ health, selectedCatalogId }: Props) {
   }
 
   return (
-    <div className="space-y-2 border-b border-border pb-2">
+    <div className="flex flex-col gap-1.5" role="status">
       {showOffline ? (
-        <Card className="border-destructive/30 bg-muted/20">
-          <CardContent className="p-3 pt-3 text-xs text-muted-foreground">
-            Cannot reach the API. Start it from the repo root (
-            <code className="font-mono text-xs">python3 apps/api/server/main.py</code>) and ensure{' '}
-            <code className="font-mono text-xs">NEXT_PUBLIC_API_URL</code> matches.
-          </CardContent>
-        </Card>
+        <div className="sl-chat-toolbar-note sl-chat-toolbar-note--err">
+          <p className="sl-chat-toolbar-note__label">API unreachable</p>
+          <p className="text-xs leading-snug text-muted-foreground">
+            Start the server from the repo root (
+            <InlineCode>python3 apps/api/server/main.py</InlineCode>) and ensure{' '}
+            <InlineCode>NEXT_PUBLIC_API_URL</InlineCode> matches.
+          </p>
+        </div>
       ) : null}
 
       {showNoWeights ? (
-        <Card className="border-warning/40 bg-warning/5">
-          <CardContent className="p-3 pt-3 text-xs text-muted-foreground">
-            No weights loaded in the API process yet.{' '}
+        <div className="sl-chat-toolbar-note sl-chat-toolbar-note--warn">
+          <p className="sl-chat-toolbar-note__label">No weights loaded</p>
+          <p className="text-xs leading-snug text-muted-foreground">
+            Load weights in the API before chatting.{' '}
             <Link href="/models" className="text-primary underline-offset-2 hover:underline">
-              Load a model
+              Open models
             </Link>{' '}
-            or wait for server autoload (<code className="font-mono text-xs">SLOUGHGPT_AUTOLOAD_MODEL</code>).
-          </CardContent>
-        </Card>
+            or wait for autoload (<InlineCode>SLOUGHGPT_AUTOLOAD_MODEL</InlineCode>).
+          </p>
+        </div>
       ) : null}
 
       {showMismatch ? (
-        <Card className="border-border bg-muted/15">
-          <CardContent className="flex flex-col gap-1 p-3 pt-3 text-xs text-muted-foreground">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">Catalog ≠ runtime</Badge>
-              <span>
-                This chat&apos;s dropdown is <span className="font-mono text-foreground">{selectedCatalogId}</span>;{' '}
-                generation uses the API&apos;s loaded weights (
-                <span className="font-mono text-foreground">{health.model_type}</span>).
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="sl-chat-toolbar-note sl-chat-toolbar-note--hint flex flex-row items-start gap-2.5">
+          <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+          <p className="min-w-0 text-xs leading-snug text-muted-foreground">
+            <span className="font-medium text-foreground/85">Catalog ≠ runtime.</span>{' '}
+            Chat selection <InlineCode>{selectedCatalogId}</InlineCode>
+            <span className="text-foreground/35"> · </span>
+            API <InlineCode>{runtimeModelLabel(health)}</InlineCode>.
+          </p>
+        </div>
       ) : null}
     </div>
   )
@@ -93,28 +161,53 @@ function RefreshIcon({ className }: { className?: string }) {
   )
 }
 
-/** Compact API runtime row: badges + refresh (use beside model catalog dropdown). */
+/** Icon-first API runtime cluster for route headers (pair with `AppRouteHeader` right slot). */
 export function InferenceRuntimeToolbar({ health, onRefresh }: ToolbarProps) {
   return (
-    <div className="flex flex-wrap items-center justify-end gap-1.5 sm:justify-start">
+    <div className="flex items-center justify-end gap-1">
       {health === null ? (
-        <Badge variant="outline" className="font-normal text-muted-foreground">
-          API status…
-        </Badge>
+        <span
+          className="inline-flex h-8 w-8 items-center justify-center rounded-none border border-border/70 bg-muted/25 text-muted-foreground"
+          title="Checking API status…"
+          role="status"
+          aria-label="Checking API status"
+        >
+          <DotsPulseIcon className="h-4 w-4" />
+        </span>
       ) : health === 'offline' ? (
-        <Badge variant="destructive">Disconnected</Badge>
+        <span
+          className="inline-flex h-8 w-8 items-center justify-center rounded-none border border-destructive/35 bg-destructive/10 text-destructive"
+          title="Cannot reach the API"
+          aria-label="API disconnected"
+        >
+          <OfflineIcon className="h-4 w-4" />
+        </span>
       ) : (
         <>
-          <Badge variant={health.model_loaded ? 'success' : 'warning'}>
-            {health.model_loaded ? 'Weights loaded' : 'No weights'}
-          </Badge>
-          <Badge
-            variant="outline"
-            className="max-w-[min(100%,14rem)] truncate font-mono text-xs font-normal sm:max-w-[min(100%,18rem)]"
-            title="Loaded in API process (inference uses this)"
+          <span
+            className={cn(
+              'inline-flex h-8 w-8 items-center justify-center rounded-none border',
+              health.model_loaded
+                ? 'border-success/40 bg-success/10 text-success'
+                : 'border-warning/45 bg-warning/10 text-warning',
+            )}
+            title={health.model_loaded ? 'Weights loaded in API' : 'No weights in API process'}
+            aria-label={health.model_loaded ? 'Weights loaded' : 'No weights loaded'}
           >
-            {health.model_type}
-          </Badge>
+            {health.model_loaded ? (
+              <CheckCircleIcon className="h-4 w-4" />
+            ) : (
+              <AlertTriangleIcon className="h-4 w-4" />
+            )}
+          </span>
+          <span
+            className="inline-flex h-8 max-w-[min(100%,10rem)] items-center justify-center gap-1 rounded-none border border-border/75 bg-background/90 px-2 font-mono text-[10px] text-muted-foreground"
+            title={`API runtime: ${health.model_type}`}
+            aria-label={`API runtime model ${health.model_type}`}
+          >
+            <CpuIcon className="h-3.5 w-3.5 shrink-0 opacity-80" />
+            <span className="truncate">{health.model_type}</span>
+          </span>
         </>
       )}
       <Button
@@ -123,6 +216,7 @@ export function InferenceRuntimeToolbar({ health, onRefresh }: ToolbarProps) {
         size="icon"
         className="h-8 w-8 shrink-0"
         onClick={() => void onRefresh()}
+        title="Refresh API status"
         aria-label="Refresh API status"
       >
         <RefreshIcon className="h-4 w-4" />

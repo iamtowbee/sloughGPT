@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 
+import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,10 +70,11 @@ export default function SettingsPage() {
 
   return (
     <div className="sl-page mx-auto max-w-2xl">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="sl-h1">Settings</h1>
-        {saved && <span className="text-sm font-medium text-success">Saved!</span>}
-      </div>
+      <AppRouteHeader
+        className="mb-6 items-center"
+        left={<AppRouteHeaderLead title="Settings" />}
+        right={saved ? <span className="text-sm font-medium text-success">Saved!</span> : undefined}
+      />
 
       <Tabs defaultValue="connection" className="space-y-6">
         <TabsList className="w-full justify-start">

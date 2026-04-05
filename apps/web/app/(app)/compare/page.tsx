@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 
+import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -57,15 +58,20 @@ export default function ComparePage() {
 
   return (
     <div className="sl-page mx-auto max-w-6xl">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="sl-h1">Model comparison</h1>
-          <p className="text-sm text-muted-foreground">Compare performance across quantization levels</p>
-        </div>
-        <Button type="button" onClick={runComparison} disabled={loading}>
-          {loading ? 'Running…' : 'Run comparison'}
-        </Button>
-      </div>
+      <AppRouteHeader
+        className="mb-6 items-start"
+        left={
+          <AppRouteHeaderLead
+            title="Model comparison"
+            subtitle="Compare performance across quantization levels"
+          />
+        }
+        right={
+          <Button type="button" onClick={runComparison} disabled={loading}>
+            {loading ? 'Running…' : 'Run comparison'}
+          </Button>
+        }
+      />
 
       {error && (
         <Card className="mb-6 border-destructive/40 bg-destructive/10">
