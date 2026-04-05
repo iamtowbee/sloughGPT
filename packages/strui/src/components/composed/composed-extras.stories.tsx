@@ -1,11 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { Chip } from './chip'
+import { FoldSection } from './fold-section'
 import { KeyValueList } from './key-value-list'
 import { ListRow } from './list-row'
 import { ProgressBar } from './progress-bar'
 import { ScrollPanel } from './scroll-panel'
 import { SectionHeader } from './section-header'
+import { StatusDot } from './status-dot'
 import { StepIndicator } from './step-indicator'
+import { Timeline } from './timeline'
 
 const meta = {
   title: 'Composed/Extras',
@@ -52,6 +55,19 @@ export const MetadataAndProgress: StoryObj = {
           removable
         </Chip>
       </div>
+      <div className="flex flex-wrap items-center gap-4 border-t border-border pt-4">
+        <StatusDot tone="success" label="API" showLabel />
+        <StatusDot tone="warning" pulse label="Throttled" showLabel />
+      </div>
+      <FoldSection heading="Optional: extra hyperparameters">
+        <p className="text-xs">Learning-rate schedule and weight decay overrides.</p>
+      </FoldSection>
+      <Timeline
+        items={[
+          { id: 'x1', title: 'Resolve dataset', meta: 'ok' },
+          { id: 'x2', title: 'Train', meta: 'in progress' },
+        ]}
+      />
     </div>
   ),
 }

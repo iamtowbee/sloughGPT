@@ -100,6 +100,15 @@ export {
   type SectionHeaderProps,
   type ScrollPanelProps,
   type ListRowProps,
+  StatusDot,
+  STATUS_DOT_TONE_CLASSES,
+  type StatusDotProps,
+  type StatusDotTone,
+  FoldSection,
+  type FoldSectionProps,
+  Timeline,
+  type TimelineProps,
+  type TimelineItem,
 } from './components/composed'
 
 export { ChevronDownIcon, SearchIcon, XIcon } from './lib/icons'

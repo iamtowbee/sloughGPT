@@ -18,3 +18,11 @@ export { Chip, chipVariants, type ChipProps } from './chip'
 export { SectionHeader, type SectionHeaderProps } from './section-header'
 export { ScrollPanel, type ScrollPanelProps } from './scroll-panel'
 export { ListRow, type ListRowProps } from './list-row'
+export {
+  StatusDot,
+  STATUS_DOT_TONE_CLASSES,
+  type StatusDotProps,
+  type StatusDotTone,
+} from './status-dot'
+export { FoldSection, type FoldSectionProps } from './fold-section'
+export { Timeline, type TimelineProps, type TimelineItem } from './timeline'
