@@ -285,6 +285,8 @@ class SloughGPTTrainer:
     """
     Unified trainer for SloughGPTModel.
 
+    Satisfies :class:`domains.training.trainer_protocol.TrainerProtocol` structurally (``train()``).
+
     Features:
     - Mixed precision (FP16/BF16)
     - Gradient accumulation
