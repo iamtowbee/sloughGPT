@@ -287,6 +287,11 @@ body {
     min-height: 44px;
     min-width: 44px;
   }
+  /** Matches @sloughgpt/strui ChatThread — iOS momentum scroll, no scroll chaining. */
+  .str-chat-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
 }
 
 ::-webkit-scrollbar {
