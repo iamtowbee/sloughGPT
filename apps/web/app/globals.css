@@ -234,6 +234,44 @@ body {
     @apply font-mono text-sm rounded-none border border-border px-2 py-0.5 text-foreground;
     background-color: color-mix(in srgb, rgb(var(--muted)) 45%, transparent);
   }
+
+  /**
+   * Typing indicator dots — synced with @sloughgpt/strui TypingIndicator (str-dot-*).
+   * Uses rgb(var(--primary)) to match web token triples.
+   */
+  .str-dot {
+    height: 0.5rem;
+    width: 0.5rem;
+    border-radius: 9999px;
+    background-color: color-mix(in srgb, rgb(var(--primary)) 60%, transparent);
+    animation: str-dot-bounce 1.2s ease-in-out infinite;
+  }
+  .str-dot-2 {
+    animation-delay: 0.15s;
+  }
+  .str-dot-3 {
+    animation-delay: 0.3s;
+  }
+}
+
+@keyframes str-dot-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .str-dot {
+    animation: none;
+    opacity: 0.75;
+  }
 }
 
 ::-webkit-scrollbar {

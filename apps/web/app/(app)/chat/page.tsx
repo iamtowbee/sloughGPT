@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/cn'
-import { MessageBubble } from '@sloughgpt/strui'
+import { MessageBubble, TypingIndicator } from '@sloughgpt/strui'
 
 interface Message {
   id: string
@@ -830,11 +830,7 @@ export default function ChatPage() {
             )}
             {isLoading && (
               <div className="mb-4 flex w-full justify-start sm:mb-5" aria-busy>
-                <div className="flex gap-1.5 py-3 text-muted-foreground" aria-label="Assistant is responding">
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/80 [animation-delay:0s]" />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/80 [animation-delay:0.15s]" />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/80 [animation-delay:0.3s]" />
-                </div>
+                <TypingIndicator />
               </div>
             )}
             <div ref={messagesEndRef} />
