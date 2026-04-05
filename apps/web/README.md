@@ -81,6 +81,7 @@ To change the API URL, copy **`.env.example`** to **`.env.local`** (or edit **`.
 | `npm run e2e` / `e2e:open` | Cypress E2E (browser) against a running app; default baseUrl `http://localhost:3000` |
 | `npm run e2e:ci` | `next dev -p 3010` + headless Cypress with mocked FastAPI — complements Vitest, not a substitute |
 | `npm run ci:e2e` | `build` then `e2e:ci` (full UI smoke with mocked backend) |
+| `npm run clean` | Deletes **`.next`** (use if dev server shows missing chunk errors like `Cannot find module './NNN.js'` or `/_next/static/chunks/*.js` **404**) |
 
 ## Project Structure
 

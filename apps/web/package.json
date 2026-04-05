@@ -16,6 +16,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
+    "clean": "rm -rf .next",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
