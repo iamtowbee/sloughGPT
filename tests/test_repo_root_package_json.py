@@ -24,3 +24,10 @@ def test_root_package_json_declares_dev_stack() -> None:
 def test_verify_sh_requires_root_package_json() -> None:
     text = (_repo_root() / "verify.sh").read_text(encoding="utf-8")
     assert '"package.json"' in text, "verify.sh file list should include root package.json"
+
+
+def test_verify_sh_documents_dev_stack() -> None:
+    text = (_repo_root() / "verify.sh").read_text(encoding="utf-8")
+    assert "npm run dev:stack" in text
+    assert "./scripts/dev-stack.sh" in text
+    assert "concurrently" in text, "verify.sh should mention concurrently (root npm install / dev:stack)"
