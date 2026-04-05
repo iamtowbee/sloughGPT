@@ -17,6 +17,7 @@ import {
   IconTraining,
 } from '@/components/icons/NavIcons'
 import { cn } from '@/lib/cn'
+import { routeMatchesPath } from '@/lib/route-match'
 import { ThemeSwitcher } from './ThemeSwitcher'
 
 const navItems = [
@@ -66,18 +67,19 @@ export function Sidebar({ variant = 'desktop', onNavigate, onClose }: SidebarPro
   const apiStatusTitle = useMemo(() => inferenceHealthLabel(apiHealth), [apiHealth])
 
   const navLinkClass = (active: boolean) =>
-    `group relative flex min-h-[2.25rem] items-center gap-2.5 rounded-none px-3 py-1.5 text-sm transition-colors duration-200 ease-smooth ${
+    cn(
+      'group relative flex min-h-[2.25rem] items-center gap-2.5 rounded-none px-3 py-1.5 text-sm transition-colors duration-200 ease-smooth',
       active
-        ? 'bg-primary/[0.11] font-medium text-primary shadow-[inset_3px_0_0_0] shadow-primary'
-        : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-    }`
+        ? 'bg-primary/[0.13] font-medium text-primary shadow-[inset_3px_0_0_0] shadow-primary dark:bg-primary/[0.11]'
+        : 'text-foreground/78 hover:bg-secondary hover:text-foreground dark:text-muted-foreground',
+    )
 
   const afterNav = onNavigate
 
   return (
     <aside
       className={cn(
-        'flex shrink-0 flex-col border-r border-border/90 bg-card/85 backdrop-blur-md',
+        'sl-sidebar-surface flex shrink-0 flex-col',
         isDrawer
           ? 'h-full w-full min-w-0 pb-[max(0px,env(safe-area-inset-bottom))]'
           : 'h-dvh w-[var(--sidebar-width)]',
@@ -86,7 +88,7 @@ export function Sidebar({ variant = 'desktop', onNavigate, onClose }: SidebarPro
     >
       <div
         className={cn(
-          'flex h-[3.25rem] shrink-0 items-center border-b border-border',
+          'flex h-[3.25rem] shrink-0 items-center border-b border-border/80 dark:border-border',
           isDrawer ? 'gap-1 px-2' : 'px-3',
         )}
       >
@@ -111,7 +113,9 @@ export function Sidebar({ variant = 'desktop', onNavigate, onClose }: SidebarPro
           </div>
           <div className="flex min-w-0 flex-col justify-center gap-0.5 leading-none">
             <span className="truncate text-sm font-semibold tracking-tight text-foreground">SloughGPT</span>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Console</span>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-foreground/55 dark:text-muted-foreground">
+              Console
+            </span>
           </div>
         </Link>
       </div>
@@ -122,14 +126,14 @@ export function Sidebar({ variant = 'desktop', onNavigate, onClose }: SidebarPro
       >
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <p
-            className="mb-2 px-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
+            className="mb-2 px-3 font-mono text-[10px] uppercase tracking-wider text-foreground/48 dark:text-muted-foreground"
             id="sidebar-workspace-heading"
           >
             Workspace
           </p>
           <ul className="space-y-0.5" aria-labelledby="sidebar-workspace-heading">
             {navItems.map((item) => {
-              const active = pathname === item.path
+              const active = routeMatchesPath(pathname, item.path)
               return (
                 <li key={item.path}>
                   <Link
@@ -138,7 +142,10 @@ export function Sidebar({ variant = 'desktop', onNavigate, onClose }: SidebarPro
                     className={navLinkClass(active)}
                     onClick={afterNav}
                   >
-                    <item.Icon className={`${NAV_ICON} ${active ? 'opacity-100' : 'opacity-80'}`} />
+                    <item.Icon
+                      className={cn(NAV_ICON, active ? 'opacity-100' : 'opacity-90 dark:opacity-80')}
+                      aria-hidden
+                    />
                     {item.label}
                   </Link>
                 </li>
@@ -147,16 +154,16 @@ export function Sidebar({ variant = 'desktop', onNavigate, onClose }: SidebarPro
           </ul>
         </div>
 
-        <div className="shrink-0 border-t border-border pt-3">
+        <div className="shrink-0 border-t border-border/80 pt-3 dark:border-border">
           <p
-            className="mb-1.5 px-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
+            className="mb-1.5 px-3 font-mono text-[10px] uppercase tracking-wider text-foreground/48 dark:text-muted-foreground"
             id="sidebar-system-heading"
           >
             System
           </p>
           <div className="space-y-0.5" role="group" aria-labelledby="sidebar-system-heading">
             {bottomItems.map((item) => {
-              const active = pathname === item.path
+              const active = routeMatchesPath(pathname, item.path)
               return (
                 <Link
                   key={item.path}
@@ -165,7 +172,10 @@ export function Sidebar({ variant = 'desktop', onNavigate, onClose }: SidebarPro
                   className={navLinkClass(active)}
                   onClick={afterNav}
                 >
-                  <item.Icon className={`${NAV_ICON} ${active ? 'opacity-100' : 'opacity-80'}`} />
+                  <item.Icon
+                    className={cn(NAV_ICON, active ? 'opacity-100' : 'opacity-90 dark:opacity-80')}
+                    aria-hidden
+                  />
                   {item.label}
                 </Link>
               )
@@ -174,14 +184,14 @@ export function Sidebar({ variant = 'desktop', onNavigate, onClose }: SidebarPro
         </div>
       </nav>
 
-      <div className="shrink-0 space-y-2 border-t border-border px-3 py-2.5">
+      <div className="shrink-0 space-y-2 border-t border-border/80 px-3 py-2.5 dark:border-border">
         <div
           className="flex min-w-0 items-center gap-2"
           title={apiStatusTitle}
           data-testid="sidebar-api-status"
         >
           <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${apiStatusDot}`} aria-hidden />
-          <span className="min-w-0 truncate font-mono text-[10px] leading-tight text-muted-foreground">
+          <span className="min-w-0 truncate font-mono text-[10px] leading-tight text-foreground/70 dark:text-muted-foreground">
             {apiStatusShort}
           </span>
         </div>
