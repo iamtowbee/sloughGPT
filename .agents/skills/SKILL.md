@@ -64,6 +64,7 @@ python3 -m pip install -e ".[dev]"
 
 # Start API server
 cd apps/api/server && python3 main.py
+# From repo root (pin :8000 so Next.js proxy matches): SLOUGHGPT_API_PORT=8000 python3 apps/api/server/main.py
 
 # Start web UI
 cd apps/web && npm run dev
