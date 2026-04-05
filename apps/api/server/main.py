@@ -364,6 +364,8 @@ def _format_chat_messages_for_standard(messages: List[ChatMessage]) -> str:
 def _generate_core(request: GenerateRequest, client_ip: str) -> Dict[str, Any]:
     """Shared generation logic for /generate and /v1/infer."""
     prompt = input_validator.validate_prompt(request.prompt)
+    if not prompt:
+        raise HTTPException(status_code=422, detail="prompt must not be empty")
     soul_defaults = get_soul_generation_params()
     soul_info = get_soul_personality()
 
@@ -1659,11 +1661,11 @@ async def generate_stream(request: GenerateRequest):
                 enc = tokenizer(request.prompt, return_tensors="pt")
                 return _inputs_to_model_device(enc, model)
 
-            inputs = await loop.run_in_thread(None, _first_inputs)
+            inputs = await loop.run_in_executor(None, _first_inputs)
 
             generated_text = request.prompt
             for i in range(max_gen):
-                outputs = await loop.run_in_thread(
+                outputs = await loop.run_in_executor(
                     None,
                     lambda inp=inputs: model.generate(
                         **inp,
@@ -1684,7 +1686,7 @@ async def generate_stream(request: GenerateRequest):
                     enc = tokenizer(tok, return_tensors="pt")
                     return _inputs_to_model_device(enc, model)
 
-                inputs = await loop.run_in_thread(None, _next_inputs, token)
+                inputs = await loop.run_in_executor(None, _next_inputs, token)
 
                 if i >= max_gen - 1:
                     break
