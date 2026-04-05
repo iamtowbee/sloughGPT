@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/cn'
 
 interface Message {
   id: string
@@ -388,67 +389,77 @@ export default function ChatPage() {
     setMobileSessionsOpen(false)
   }
 
+  const sessionRowClass = (active: boolean) =>
+    cn(
+      'group relative flex w-full min-h-[2.25rem] cursor-pointer items-center gap-2 border-0 px-3 py-2 text-left text-sm transition-colors duration-200 ease-smooth',
+      active
+        ? 'bg-primary/[0.11] font-medium text-primary shadow-[inset_3px_0_0_0] shadow-primary dark:bg-primary/[0.09]'
+        : 'text-foreground/78 hover:bg-secondary/70 hover:text-foreground dark:text-muted-foreground',
+    )
+
   const sessionsPanel = (
-    <>
-      <Button
+    <nav className="flex min-h-0 flex-1 flex-col" aria-label="Chat history">
+      <p className="mb-2 px-3 font-mono text-[10px] uppercase tracking-wider text-foreground/48 dark:text-muted-foreground">
+        Conversations
+      </p>
+      <button
         type="button"
-        variant="secondary"
-        className="mb-3 w-full border-dashed"
         onClick={startNewConversation}
+        className="mb-3 w-full border-b border-border/70 pb-3 text-left text-sm text-primary transition-colors hover:text-primary/85"
       >
         + New chat
-      </Button>
-      <Input
+      </button>
+      <label className="sr-only" htmlFor="chat-session-search">
+        Search chats
+      </label>
+      <input
+        id="chat-session-search"
+        type="search"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        placeholder="Search chats…"
-        className="mb-3 bg-muted/30"
-        aria-label="Search chats"
+        placeholder="Search…"
+        className="mb-3 w-full border-0 border-b border-border/60 bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/80 outline-none ring-0 transition-colors focus:border-primary/45"
       />
-      <div className="flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto overscroll-contain">
-        {filteredSessions.map((session) => (
-          <div
-            key={session.id}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                pickSession(session.id)
-              }
-            }}
-            className={`group cursor-pointer border px-2 py-2 transition-colors duration-200 ease-smooth ${
-              session.id === activeSessionId
-                ? 'border-primary/40 bg-primary/10'
-                : 'border-transparent hover:bg-muted/50'
-            }`}
-            onClick={() => pickSession(session.id)}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div className="truncate text-sm text-foreground">{session.title}</div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs opacity-0 transition-opacity group-hover:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  deleteSession(session.id)
-                }}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
+      <ul className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain border-t border-border/50">
+        {filteredSessions.map((session) => {
+          const active = session.id === activeSessionId
+          return (
+            <li key={session.id} className="group border-b border-border/35 last:border-b-0">
+              <div className="flex min-h-[2.25rem] items-stretch">
+                <button
+                  type="button"
+                  className={cn('min-w-0 flex-1 truncate text-left', sessionRowClass(active))}
+                  onClick={() => pickSession(session.id)}
+                >
+                  {session.title}
+                </button>
+                <button
+                  type="button"
+                  className="flex shrink-0 items-center px-2 font-mono text-base leading-none text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                  title="Remove chat"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    deleteSession(session.id)
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </nav>
   )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row md:gap-2">
       {/* Desktop: session rail */}
-      <aside className="sl-chat-sessions hidden min-h-0 w-[var(--sidebar-width)] shrink-0 flex-col overflow-hidden border-r border-border bg-card/55 py-3 pr-3 md:flex">
+      <aside
+        className="sl-chat-sessions sl-sidebar-surface hidden min-h-0 w-[var(--sidebar-width)] shrink-0 flex-col overflow-hidden p-2 md:flex"
+        aria-label="Conversations"
+      >
         {sessionsPanel}
       </aside>
 
@@ -512,12 +523,18 @@ export default function ChatPage() {
         </div>
 
         <Dialog open={mobileSessionsOpen} onOpenChange={setMobileSessionsOpen}>
-          <DialogContent className="flex max-h-[min(90dvh,32rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
-            <DialogHeader className="shrink-0 border-b border-border px-4 py-3 text-left">
-              <DialogTitle>Your chats</DialogTitle>
-              <DialogDescription className="text-xs">Search, switch, or start a new conversation.</DialogDescription>
+          <DialogContent className="flex max-h-[min(90dvh,32rem)] flex-col gap-0 overflow-hidden border-border/80 p-0 sm:max-w-md">
+            <DialogHeader className="shrink-0 border-b border-border/70 px-4 py-3 text-left">
+              <DialogTitle className="font-mono text-[10px] uppercase tracking-wider text-foreground/55">
+                Conversations
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Search, switch, or start a new chat.
+              </DialogDescription>
             </DialogHeader>
-            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-4">{sessionsPanel}</div>
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-2 py-3">
+              {sessionsPanel}
+            </div>
           </DialogContent>
         </Dialog>
 
