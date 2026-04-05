@@ -17,6 +17,8 @@ def test_root_package_json_declares_dev_stack() -> None:
     scripts = data.get("scripts", {})
     assert "dev:stack" in scripts, "root package.json should expose npm run dev:stack"
     assert "concurrently" in scripts["dev:stack"]
+    assert "test:repo-root" in scripts, "root package.json should expose npm run test:repo-root"
+    assert "test_repo_root_package_json.py" in scripts["test:repo-root"]
     dev_deps = data.get("devDependencies", {})
     assert "concurrently" in dev_deps, "root package.json should list concurrently as a devDependency"
 
