@@ -278,6 +278,17 @@ body {
   }
 }
 
+/* @sloughgpt/strui PromptComposer — safe-area + touch targets (host mirrors strui utilities). */
+@layer utilities {
+  .str-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .str-touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

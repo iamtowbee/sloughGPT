@@ -25,9 +25,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/cn'
-import { ChatThread, MessageBubble, TypingIndicator } from '@sloughgpt/strui'
+import { ChatThread, MessageBubble, PromptComposer, TypingIndicator } from '@sloughgpt/strui'
 
 interface Message {
   id: string
@@ -79,20 +78,6 @@ function ChevronDownIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-    </svg>
-  )
-}
-
-/** Paper-plane outline — avoid trailing stem reading like a warning glyph. */
-function SendIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M12 19l9 2-9-18-9 18 9-2z"
-      />
     </svg>
   )
 }
@@ -840,9 +825,9 @@ export default function ChatPage() {
         </ChatThread>
 
           <div className="shrink-0 border-t border-border/80 bg-background/90 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
-            {/* Composer shell — pill well + lead action + send (see docs/design/references/chat-composer-reference-*.png) */}
+            {/* strui PromptComposer inside pill shell (lead action + shared design system) */}
             <div className="rounded-2xl border border-border/90 bg-card/95 p-2 shadow-sm ring-1 ring-border/15 dark:bg-card/90 dark:ring-border/25">
-              <div className="flex items-end gap-1.5 sm:gap-2">
+              <div className="flex min-w-0 items-end gap-1.5 sm:gap-2">
                 <Button
                   type="button"
                   variant="ghost"
@@ -854,34 +839,23 @@ export default function ChatPage() {
                 >
                   <PlusIcon className="h-5 w-5" />
                 </Button>
-                <Textarea
-                  data-testid="chat-message-input"
-                  ref={inputRef}
+                <PromptComposer
+                  className="min-w-0 flex-1 border-0 bg-transparent p-0 shadow-none"
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey && !e.metaKey) {
-                      e.preventDefault()
-                      sendMessage()
-                    }
-                  }}
+                  onValueChange={setInput}
+                  onSubmit={sendMessage}
+                  busy={isLoading}
+                  disabled={!canInfer}
+                  safeAreaBottom={false}
                   placeholder="Message…"
-                  rows={2}
-                  title={!canInfer ? sendBlockedReason : undefined}
-                  className="min-h-[2.75rem] flex-1 resize-none border-0 bg-transparent px-1 py-2.5 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  sendLabel="Send"
+                  textareaRef={inputRef}
+                  textAreaProps={{
+                    'data-testid': 'chat-message-input',
+                    title: !canInfer ? sendBlockedReason : undefined,
+                  }}
+                  sendButtonProps={{ 'data-testid': 'chat-send-button', 'aria-label': 'Send message' }}
                 />
-                <Button
-                  type="button"
-                  data-testid="chat-send-button"
-                  size="icon"
-                  className="h-11 w-11 shrink-0 rounded-full"
-                  onClick={sendMessage}
-                  disabled={isLoading || !input.trim() || !canInfer}
-                  title={!canInfer ? sendBlockedReason : undefined}
-                  aria-label="Send message"
-                >
-                  <SendIcon className="h-4 w-4" />
-                </Button>
               </div>
             </div>
             <p className="mt-2.5 text-center text-[11px] leading-relaxed text-muted-foreground/85">
