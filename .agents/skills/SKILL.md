@@ -68,6 +68,10 @@ cd apps/api/server && python3 main.py
 # Start web UI
 cd apps/web && npm run dev
 
+# API + web in one terminal (from repo root; Ctrl+C stops both)
+./scripts/dev-stack.sh
+# make dev-stack
+
 # Run tests
 python3 -m pytest tests/ -q
 # or (uses .venv when present): ./run.sh python3 -m pytest tests/ -q
