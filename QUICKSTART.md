@@ -12,7 +12,7 @@ python3 -m pip install -e ".[dev]"
 ./verify.sh
 # With a .venv, prefix commands so they use that interpreter: ./run.sh python3 -m pytest tests/ -q
 # Minimal editable install only: python3 -m pip install -e .  (add dev extras or python3 -m pip install ruff to use ./verify.sh lint)
-# Next.js (apps/web): npm ci && npm run ci — same as CI job test-web (clean .next, lint, typecheck, Vitest, next build)
+# Next.js (apps/web): npm ci && npm run ci — same as CI job test-web (lint, typecheck, Vitest, build:clean / next build)
 # TypeScript SDK (packages/sdk-ts/typescript-sdk): npm ci && npm run ci — job test-sdk-ts (lint + build + test)
 # Python SDK: python3 -m pytest tests/test_sdk.py — job sdk-test-py
 # Standards: python3 scripts/validate_standards_schemas.py (jsonschema in .[dev]) — job standards-schemas

@@ -70,6 +70,11 @@ if [ "$all_found" = true ]; then
         echo ""
     fi
 
+    if command -v node &>/dev/null && [ ! -d "node_modules" ]; then
+        echo "(Optional: npm install at repo root pulls concurrently for npm run dev:stack — same API+web as ./scripts/dev-stack.sh.)"
+        echo ""
+    fi
+
     echo "CLI onboarding:"
     echo "  python3 cli.py start"
     echo ""
