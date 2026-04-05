@@ -1,16 +1,27 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import { api, type Dataset } from '@/lib/api'
 import { devDebug } from '@/lib/dev-log'
 
 export default function DatasetsPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [loading, setLoading] = useState(true)
+  const { state: health, refresh: refreshHealth } = useApiHealth()
+
+  const apiHealthLabel = useMemo(() => inferenceHealthLabel(health), [health])
+
+  const healthToneClass = useMemo(() => {
+    if (health === null) return 'text-muted-foreground'
+    if (health === 'offline') return 'text-destructive'
+    if (health.model_loaded) return 'text-success'
+    return 'text-warning'
+  }, [health])
 
   useEffect(() => {
     fetchDatasets()
@@ -31,10 +42,26 @@ export default function DatasetsPage() {
 
   return (
     <div className="sl-page mx-auto max-w-6xl">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="sl-h1">Datasets</h1>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="sl-h1">Datasets</h1>
+          <p className="mt-1 text-muted-foreground">
+            API:{' '}
+            <span className={healthToneClass} data-testid="datasets-api-status">
+              {apiHealthLabel}
+            </span>
+          </p>
+        </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" size="sm" onClick={() => void fetchDatasets()}>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void fetchDatasets()
+              void refreshHealth()
+            }}
+          >
             Refresh
           </Button>
           <Button type="button" size="sm" variant="outline" asChild>

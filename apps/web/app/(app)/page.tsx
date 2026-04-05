@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -112,10 +113,17 @@ export default function HomePage() {
                   {apiStatus === 'online' ? 'Online' : 'Offline'}
                 </p>
               )}
-              {apiStatus === 'online' && inferenceReady !== null ? (
-                <p className="mt-1.5 text-xs leading-snug text-muted-foreground">
-                  Inference weights: {inferenceReady ? 'loaded' : 'not loaded'}
-                </p>
+              {apiStatus === 'online' && inferenceReady !== null && health !== null && health !== 'offline' ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <p className="text-xs leading-snug text-muted-foreground">
+                    Inference weights: {inferenceReady ? 'loaded' : 'not loaded'}
+                  </p>
+                  {inferenceReady ? (
+                    <Badge variant="outline" className="font-mono text-[11px] font-normal" title="Loaded model_type from GET /health">
+                      {health.model_type}
+                    </Badge>
+                  ) : null}
+                </div>
               ) : null}
             </div>
           </CardHeader>
