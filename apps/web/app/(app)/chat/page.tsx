@@ -759,7 +759,7 @@ export default function ChatPage() {
           </DialogContent>
         </Dialog>
 
-        <div className="sl-chat-thread flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pt-2 pb-4">
+        <div className="sl-chat-thread flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto overscroll-contain px-3 pt-3 pb-4 sm:px-5 sm:pt-4">
             {messages.length === 0 && (
               <div className="flex min-h-[min(50dvh,28rem)] flex-col items-center justify-center px-2 py-8 text-center sm:py-16">
                 <div className="mb-5 flex aspect-square w-[4.5rem] shrink-0 items-center justify-center border border-primary/35 bg-gradient-to-br from-primary/12 to-accent/20 font-mono text-2xl font-semibold text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] dark:shadow-none">
@@ -788,18 +788,29 @@ export default function ChatPage() {
               </div>
             )}
             {messages.map((msg) => (
-              <div key={msg.id} className={`mb-3 flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div
+                key={msg.id}
+                className={`mb-4 flex w-full sm:mb-5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
                 <div
-                  className={`group max-w-[min(100%,42rem)] border px-4 py-2.5 shadow-sm transition-colors duration-200 ease-smooth ${
+                  className={`group max-w-[min(100%,var(--chat-thread-max))] transition-colors duration-200 ease-smooth ${
                     msg.role === 'user'
-                      ? 'border-primary/35 bg-primary text-primary-foreground'
-                      : 'border-border bg-card text-foreground'
+                      ? 'border border-primary/35 bg-primary px-4 py-2.5 text-primary-foreground shadow-sm'
+                      : 'border-0 bg-transparent px-0 py-1 text-foreground shadow-none'
                   }`}
                 >
-                  <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">{msg.content}</div>
+                  <div
+                    className={`whitespace-pre-wrap break-words ${
+                      msg.role === 'user'
+                        ? 'text-sm leading-relaxed'
+                        : 'text-[0.9375rem] leading-[1.65] text-foreground'
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
 
                   {msg.role === 'assistant' && (
-                    <div className="mt-1.5 flex gap-3 border-t border-border pt-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    <div className="mt-2 flex gap-3 border-t border-border/60 pt-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                       <button
                         type="button"
                         onClick={() => copyToClipboard(msg.content)}
@@ -831,11 +842,11 @@ export default function ChatPage() {
               </div>
             ))}
             {isLoading && (
-              <div className="mb-3 flex w-full justify-start">
-                <div className="flex gap-1 border border-border bg-card px-4 py-3 shadow-sm" aria-busy>
-                  <span className="h-1.5 w-1.5 animate-bounce bg-primary [animation-delay:0s]" />
-                  <span className="h-1.5 w-1.5 animate-bounce bg-primary [animation-delay:0.15s]" />
-                  <span className="h-1.5 w-1.5 animate-bounce bg-primary [animation-delay:0.3s]" />
+              <div className="mb-4 flex w-full justify-start sm:mb-5" aria-busy>
+                <div className="flex gap-1.5 py-3 text-muted-foreground" aria-label="Assistant is responding">
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/80 [animation-delay:0s]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/80 [animation-delay:0.15s]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/80 [animation-delay:0.3s]" />
                 </div>
               </div>
             )}
