@@ -109,6 +109,11 @@ export {
   Timeline,
   type TimelineProps,
   type TimelineItem,
+  Breadcrumbs,
+  type BreadcrumbsProps,
+  type BreadcrumbItem,
+  Kbd,
+  type KbdProps,
 } from './components/composed'
 
 export { ChevronDownIcon, SearchIcon, XIcon } from './lib/icons'

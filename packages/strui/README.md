@@ -6,13 +6,13 @@ Keep `src/styles/globals.css` aligned with `apps/web/app/globals.css` when the s
 
 ### Composed (apps & dashboards)
 
-`PageHeader`, `AppShell`, `NavRail` / `NavRailLink`, `Toolbar`, `KpiGrid`, `StatCard`, `FormField`, `SettingsRow`, `SearchInput`, `InlineBanner`, `Skeleton`, `EmptyCard`, `CopyButton`, `KeyValueList`, `ProgressBar`, `StepIndicator`, `Chip`, `SectionHeader`, `ScrollPanel`, `ListRow`, `StatusDot`, `FoldSection`, `Timeline`.
+`PageHeader`, `AppShell`, `NavRail` / `NavRailLink`, `Toolbar`, `KpiGrid`, `StatCard`, `FormField`, `SettingsRow`, `SearchInput`, `InlineBanner`, `Skeleton`, `EmptyCard`, `CopyButton`, `KeyValueList`, `ProgressBar`, `StepIndicator`, `Chip`, `SectionHeader`, `ScrollPanel`, `ListRow`, `StatusDot`, `FoldSection`, `Timeline`, `Breadcrumbs`, `Kbd`.
 
 ### AI (agents & assistants)
 
 `ChatLayout`, `ModelPicker`, `Citation`, `ReasoningPanel`, `SourceList`, `AttachmentChip`, `StreamingAssistantPlaceholder`, `JobStatus`, plus `ChatThread`, `PromptComposer`, `MessageBubble`, `ToolCallCard`, `TokenMeter`, etc.
 
-Storybook: **Composed → Overview** / **Extras**, **StatusDot**, **FoldSection**, **Timeline**, **AI → Composed flows**, **JobStatus**, **StreamingAssistantPlaceholder**.
+Storybook: **Composed → Overview** / **Extras**, **StatusDot**, **FoldSection**, **Timeline**, **Breadcrumbs**, **Kbd**, **AI → Composed flows**, **JobStatus**, **StreamingAssistantPlaceholder**.
 
 ## Commands
 

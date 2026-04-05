@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { Chip } from './chip'
+import { Breadcrumbs } from './breadcrumbs'
 import { FoldSection } from './fold-section'
+import { Kbd } from './kbd'
 import { KeyValueList } from './key-value-list'
 import { ListRow } from './list-row'
 import { ProgressBar } from './progress-bar'
@@ -20,11 +22,19 @@ export default meta
 export const MetadataAndProgress: StoryObj = {
   render: () => (
     <div className="str-safe-x mx-auto max-w-2xl space-y-8 p-4">
+      <Breadcrumbs
+        className="text-[0.7rem]"
+        items={[{ label: 'Training', href: '#' }, { label: 'Job draft' }]}
+      />
       <SectionHeader
         title="Run configuration"
         description="Read-only snapshot for this job."
         action={<Chip variant="primary">v2</Chip>}
       />
+      <p className="text-xs text-muted-foreground">
+        Tip: <Kbd>⌘</Kbd>
+        <Kbd>K</Kbd> command palette (host app)
+      </p>
       <KeyValueList
         items={[
           { label: 'Run id', value: 'run_01a2b3c', mono: true },

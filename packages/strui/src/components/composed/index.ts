@@ -26,3 +26,5 @@ export {
 } from './status-dot'
 export { FoldSection, type FoldSectionProps } from './fold-section'
 export { Timeline, type TimelineProps, type TimelineItem } from './timeline'
+export { Breadcrumbs, type BreadcrumbsProps, type BreadcrumbItem } from './breadcrumbs'
+export { Kbd, type KbdProps } from './kbd'
