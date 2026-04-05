@@ -212,8 +212,17 @@ async def start_training(request: TrainingRequest):
 
     def run_training() -> None:
         from domains.training.train_pipeline import SloughGPTTrainer
+        from domains.training.wandb_helpers import create_training_tracker_for_api_job
 
+        tracker = None
         try:
+            tracker = create_training_tracker_for_api_job(
+                job_id=jid,
+                job_name=str(req_snapshot.get("name") or "training"),
+                data_path=data_path_for_thread,
+                hyperparams=dict(req_snapshot),
+            )
+
             def on_progress(info: dict[str, Any]) -> None:
                 rec = training_jobs.get(jid)
                 if not rec:
@@ -233,6 +242,7 @@ async def start_training(request: TrainingRequest):
             trainer = SloughGPTTrainer(
                 data_path=data_path_for_thread,
                 **_sloughgpt_trainer_kwds(req_snapshot),
+                experiment_tracker=tracker,
             )
             result = trainer.train(on_progress=on_progress)
             safe_stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in out_stem_for_thread)[:120]
@@ -248,6 +258,12 @@ async def start_training(request: TrainingRequest):
             training_jobs[jid]["status"] = "failed"
             training_jobs[jid]["error"] = str(e)
             training_jobs[jid]["progress"] = 0
+        finally:
+            if tracker is not None:
+                try:
+                    tracker.end_run()
+                except Exception:
+                    logger.exception("W&B end_run failed for job %s", jid)
 
     thread = threading.Thread(target=run_training, daemon=True)
     thread.start()

@@ -9,7 +9,7 @@ export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ className, ...props }, ref) => {
   return (
     <textarea
-      className={cn(inputFieldClassName, 'min-h-[80px] resize-y', className)}
+      className={cn(inputFieldClassName, 'min-h-20 resize-y', className)}
       ref={ref}
       {...props}
     />

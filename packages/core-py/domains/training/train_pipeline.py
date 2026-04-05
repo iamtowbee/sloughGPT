@@ -20,7 +20,10 @@ import json
 import logging
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from domains.training.tracking import ExperimentTracker
 from datetime import datetime
 
 import torch
@@ -327,6 +330,7 @@ class SloughGPTTrainer:
         soul_name: Optional[str] = None,
         log_interval: int = 10,
         eval_interval: int = 100,
+        experiment_tracker: Optional["ExperimentTracker"] = None,
     ):
         # Handle both TrainerConfig and legacy parameters
         if config is not None:
@@ -365,6 +369,7 @@ class SloughGPTTrainer:
 
         self.data_path = data_path
         self.soul_name = soul_name or "sloughgpt"
+        self._experiment_tracker = experiment_tracker
         self._best_val_loss = float("inf")
         self._train_loss_at_best = 0.0
 
@@ -745,6 +750,12 @@ class SloughGPTTrainer:
         if is_main:
             logger.info(f"Training config: {self.config}")
             logger.info(f"Total parameters: {sum(p.numel() for p in self.model.parameters()):,}")
+            if self._experiment_tracker is not None:
+                n_params = sum(p.numel() for p in self.model.parameters())
+                self._experiment_tracker.log_metrics(
+                    {"meta/total_parameters": float(n_params)},
+                    step=0,
+                )
 
         def _emit_progress(
             *,
@@ -801,6 +812,14 @@ class SloughGPTTrainer:
                     logger.info(
                         f"Step {self.global_step} | Loss: {metrics['loss']:.4f} | LR: {lr:.2e}"
                     )
+                    if self._experiment_tracker is not None:
+                        self._experiment_tracker.log_metrics(
+                            {
+                                "train/loss": float(metrics["loss"]),
+                                "train/learning_rate": float(lr),
+                            },
+                            step=int(self.global_step),
+                        )
 
                 if is_main and on_progress:
                     if (
@@ -817,6 +836,14 @@ class SloughGPTTrainer:
                             f"Eval | Loss: {eval_metrics['eval_loss']:.4f} | "
                             f"PPL: {eval_metrics['eval_ppl']:.2f}"
                         )
+                        if self._experiment_tracker is not None:
+                            self._experiment_tracker.log_metrics(
+                                {
+                                    "eval/loss": float(eval_metrics["eval_loss"]),
+                                    "eval/perplexity": float(eval_metrics["eval_ppl"]),
+                                },
+                                step=int(self.global_step),
+                            )
 
                         if eval_metrics["eval_loss"] < self._best_val_loss:
                             self._best_val_loss = eval_metrics["eval_loss"]
@@ -838,6 +865,14 @@ class SloughGPTTrainer:
 
         if is_main:
             self.save_checkpoint({"loss": 0.0}, is_final=True)
+            if self._experiment_tracker is not None:
+                self._experiment_tracker.log_metrics(
+                    {
+                        "train/best_eval_loss": float(self._best_val_loss),
+                        "train/final_step": float(self.global_step),
+                    },
+                    step=int(self.global_step),
+                )
 
         return {"best_eval_loss": self._best_val_loss, "global_step": self.global_step}
 

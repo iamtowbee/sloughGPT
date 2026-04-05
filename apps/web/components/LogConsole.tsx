@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
@@ -39,11 +39,11 @@ function levelStyle(level: Exclude<LogLevel, 'all'>) {
 function levelDot(level: Exclude<LogLevel, 'all'>) {
   switch (level) {
     case 'error':
-      return 'bg-destructive shadow-[0_0_6px_color-mix(in_srgb,var(--destructive)_55%,transparent)]'
+      return 'bg-destructive shadow-[0_0_0.375rem_color-mix(in_srgb,var(--destructive)_55%,transparent)]'
     case 'warn':
-      return 'bg-warning shadow-[0_0_6px_color-mix(in_srgb,var(--warning)_50%,transparent)]'
+      return 'bg-warning shadow-[0_0_0.375rem_color-mix(in_srgb,var(--warning)_50%,transparent)]'
     default:
-      return 'bg-chart-3 shadow-[0_0_6px_color-mix(in_srgb,var(--chart-3)_45%,transparent)]'
+      return 'bg-chart-3 shadow-[0_0_0.375rem_color-mix(in_srgb,var(--chart-3)_45%,transparent)]'
   }
 }
 
@@ -64,6 +64,8 @@ export function LogConsole({ tick = 0, className }: LogConsoleProps) {
   const baseId = useId()
   const [lines, setLines] = useState<LogLine[]>(() => seedLines())
   const [filter, setFilter] = useState<LogLevel>('all')
+  /** One append per distinct tick (avoids duplicate lines when React Strict Mode re-runs effects in dev). */
+  const lastPollTickLogged = useRef<number | null>(null)
 
   const append = useCallback(
     (level: Exclude<LogLevel, 'all'>, message: string) => {
@@ -91,6 +93,8 @@ export function LogConsole({ tick = 0, className }: LogConsoleProps) {
 
   useEffect(() => {
     if (tick <= 0) return
+    if (lastPollTickLogged.current === tick) return
+    lastPollTickLogged.current = tick
     append('info', `[poll] metrics.tick=${tick} route=GET /info status=ok`)
   }, [tick, append])
 
@@ -107,7 +111,7 @@ export function LogConsole({ tick = 0, className }: LogConsoleProps) {
     <div
       className={cn(
         'overflow-hidden rounded-none border border-border/90 bg-card/90 shadow-sm ring-1 ring-border/50 backdrop-blur-sm',
-        'shadow-[inset_3px_0_0_0] shadow-primary/35',
+        'shadow-[inset_0.1875rem_0_0_0] shadow-primary/35',
         className,
       )}
     >
@@ -115,15 +119,16 @@ export function LogConsole({ tick = 0, className }: LogConsoleProps) {
         <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 font-mono">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span
-              className="h-2 w-2 shrink-0 rounded-full bg-success shadow-[0_0_8px_color-mix(in_srgb,var(--success)_60%,transparent)]"
+              className="h-2 w-2 shrink-0 rounded-full bg-success shadow-[0_0_0.5rem_color-mix(in_srgb,var(--success)_60%,transparent)]"
               aria-hidden
             />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">SYS.LOG</span>
-            <span className="hidden text-[10px] text-muted-foreground sm:inline">
+            <span className="text-[0.625rem] font-semibold uppercase tracking-[0.22em] text-primary">SYS.LOG</span>
+            <span className="hidden text-[0.625rem] text-muted-foreground sm:inline">
               {'//'} telemetry · stdout
+              {tick > 0 ? ' · live' : ' · idle'}
             </span>
           </div>
-          <span className="text-[9px] uppercase tracking-wider text-muted-foreground/90">sloughgpt.web</span>
+          <span className="text-[0.5625rem] uppercase tracking-wider text-muted-foreground/90">sloughgpt.web</span>
         </div>
 
         <div className="flex flex-col border-t border-border/50 sm:flex-row sm:items-stretch sm:justify-between">
@@ -142,9 +147,9 @@ export function LogConsole({ tick = 0, className }: LogConsoleProps) {
                   aria-selected={active}
                   onClick={() => setFilter(value)}
                   className={cn(
-                    'h-7 min-w-[3rem] rounded-none px-2.5 py-0 font-mono text-[10px] font-semibold uppercase tracking-wider transition-colors duration-200',
+                    'h-7 min-w-[3rem] rounded-none px-2.5 py-0 font-mono text-[0.625rem] font-semibold uppercase tracking-wider transition-colors duration-200',
                     active
-                      ? 'bg-primary/15 text-primary shadow-[inset_0_-2px_0_0_var(--primary)]'
+                      ? 'bg-primary/15 text-primary shadow-[inset_0_-0.125rem_0_0_var(--primary)]'
                       : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground',
                   )}
                 >
@@ -154,14 +159,14 @@ export function LogConsole({ tick = 0, className }: LogConsoleProps) {
             })}
           </div>
           <div className="flex items-center justify-between gap-2 border-t border-border/50 px-2 py-1.5 sm:border-t-0 sm:border-l sm:border-border/50 sm:py-0">
-            <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+            <span className="font-mono text-[0.625rem] tabular-nums text-muted-foreground">
               buf:{filtered.length}
             </span>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-7 rounded-none px-2 font-mono text-[10px] uppercase tracking-wide"
+              className="h-7 rounded-none px-2 font-mono text-[0.625rem] uppercase tracking-wide"
               onClick={clear}
             >
               Clear
@@ -171,13 +176,13 @@ export function LogConsole({ tick = 0, className }: LogConsoleProps) {
       </div>
 
       <div
-        className="sl-log-feed max-h-52 overflow-y-auto overscroll-contain px-3 py-2.5 font-mono text-[11px] leading-relaxed"
+        className="sl-log-feed max-h-52 overflow-y-auto overscroll-contain px-3 py-2.5 font-mono text-[0.6875rem] leading-relaxed"
         role="log"
         aria-live="polite"
         aria-relevant="additions"
       >
         {filtered.length === 0 ? (
-          <p className="py-8 text-center font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <p className="py-8 text-center font-mono text-[0.625rem] uppercase tracking-wider text-muted-foreground">
             ∅ no frames for filter
           </p>
         ) : (
@@ -185,10 +190,10 @@ export function LogConsole({ tick = 0, className }: LogConsoleProps) {
             {filtered.map((line) => (
               <li key={line.id} className="flex gap-2 break-all border-l border-transparent pl-1 hover:border-primary/25">
                 <span className="shrink-0 tabular-nums text-muted-foreground/90">[{line.ts}]</span>
-                <span className={cn('w-7 shrink-0 font-semibold tabular-nums text-[9px]', levelStyle(line.level))}>
+                <span className={cn('w-7 shrink-0 font-semibold tabular-nums text-[0.5625rem]', levelStyle(line.level))}>
                   {levelTag(line.level)}
                 </span>
-                <span className={cn('mt-[2px] h-1.5 w-1.5 shrink-0 rounded-full', levelDot(line.level))} aria-hidden />
+                <span className={cn('mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full', levelDot(line.level))} aria-hidden />
                 <span className={cn('min-w-0 flex-1', levelStyle(line.level))}>{line.message}</span>
               </li>
             ))}

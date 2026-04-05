@@ -823,30 +823,29 @@ def cmd_train(args):
         # Setup tracking
         tracker = None
         if config.tracking.enabled:
+            from dataclasses import asdict
+
             from domains.training.tracking import ExperimentTracker, TrackerBackend, TrackingConfig
+            from domains.training.wandb_helpers import flatten_for_wandb_config
 
             backend = (
                 TrackerBackend.WANDB
                 if config.tracking.backend == "wandb"
                 else TrackerBackend.MLFLOW
             )
+            run_name = f"run_{config.data.dataset}_{config.training.epochs}ep"
             tracking_config = TrackingConfig(
                 backend=backend,
                 experiment_name=f"{config.model.name}_training",
                 project=config.tracking.project,
                 entity=config.tracking.entity,
+                run_name=run_name,
+                job_type="train",
+                tags=["sloughgpt", "cli"],
             )
             tracker = ExperimentTracker(config=tracking_config)
-            tracker.start_run(
-                run_name=f"run_{config.data.dataset}_{config.training.epochs}ep"
-            )
-            tracker.log_params(
-                {
-                    "model": str(config.model.__dict__),
-                    "training": str(config.training.__dict__),
-                    "lora": str(config.lora.__dict__),
-                }
-            )
+            tracker.start_run(run_name=run_name)
+            tracker.log_params(flatten_for_wandb_config(asdict(config)))
             print(f"Tracking enabled: {config.tracking.backend}")
 
         # Use unified train_pipeline
@@ -913,6 +912,7 @@ def cmd_train(args):
             log_interval=config.training.log_interval,
             eval_interval=config.training.eval_interval,
             device=train_device,
+            experiment_tracker=tracker,
         )
 
         # Print training config

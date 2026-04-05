@@ -11,8 +11,10 @@
  */
 
 :root {
-  /* App shell — sidebar + main column */
+  /* App shell — sidebar + main column (rem-relative to root font size) */
   --sidebar-width: 15.75rem;
+  /* Chat column max width — ~80ch at default scale; scales with font */
+  --chat-thread-max: min(100%, 48rem);
   color-scheme: light;
   /* Light — soft lavender paper */
   --background: #f3f0fa;
@@ -233,6 +235,46 @@ button {
 .theme-teal {
   --primary: #6cabcc;
   --ring: #98c8e4;
+}
+
+/**
+ * Shell navigation — light: opaque pastel lattice (matches main column, readable on busy UIs).
+ * Dark: glass (blur + translucent card) to sit on deep plum-gray.
+ */
+.sl-sidebar-surface {
+  border-right: 1px solid color-mix(in srgb, var(--border) 82%, var(--primary) 18%);
+  background-color: color-mix(in srgb, var(--card) 97%, var(--muted) 3%);
+  background-image: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--primary) 10%, transparent) 0%,
+    transparent 40%,
+    color-mix(in srgb, var(--accent) 9%, transparent) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent),
+    4px 0 28px -12px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.dark .sl-sidebar-surface {
+  background-color: color-mix(in srgb, var(--card) 86%, transparent);
+  background-image: none;
+  border-right-color: color-mix(in srgb, var(--border) 92%, transparent);
+  box-shadow: 4px 0 24px -8px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.sl-mobile-header {
+  background-color: color-mix(in srgb, var(--card) 96%, var(--muted) 4%);
+  border-bottom-color: color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.dark .sl-mobile-header {
+  background-color: color-mix(in srgb, var(--card) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: none;
 }
 
 .gradient-bg {

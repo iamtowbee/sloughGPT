@@ -77,12 +77,13 @@ class ChatMessage:
 
 @dataclass
 class ChatRequest:
-    """Request model for chat completions."""
+    """Request model for chat completions (``POST /chat`` and ``POST /chat/stream``)."""
     messages: List[ChatMessage]
     model: Optional[str] = "gpt2"
     temperature: Optional[float] = 0.8
     max_new_tokens: Optional[int] = 100
     top_p: Optional[float] = 0.9
+    top_k: Optional[int] = 50
     stream: bool = False
     
     def to_dict(self) -> Dict[str, Any]:
@@ -98,8 +99,8 @@ class ChatRequest:
             data["max_new_tokens"] = self.max_new_tokens
         if self.top_p is not None:
             data["top_p"] = self.top_p
-        if self.stream:
-            data["stream"] = self.stream
+        if self.top_k is not None:
+            data["top_k"] = self.top_k
         return data
 
 
@@ -153,14 +154,16 @@ class ChatResult:
     
     @classmethod
     def from_response(cls, response: Dict[str, Any]) -> "ChatResult":
-        """Create from API response."""
-        choices = response.get("choices", [{}])
-        choice = choices[0] if choices else {}
-        msg_data = choice.get("message", {})
-        message = ChatMessage(
-            role=msg_data.get("role", "assistant"),
-            content=msg_data.get("content", ""),
-        )
+        """Create from API response (SloughGPT ``POST /chat`` or OpenAI-style ``choices``)."""
+        content = ""
+        if response.get("choices"):
+            choices = response.get("choices") or []
+            choice = choices[0] if choices else {}
+            msg_data = choice.get("message", {})
+            content = msg_data.get("content", "") or ""
+        elif "text" in response:
+            content = response.get("text") or ""
+        message = ChatMessage(role="assistant", content=content)
         return cls(
             message=message,
             model=response.get("model"),

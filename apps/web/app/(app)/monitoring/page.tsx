@@ -9,20 +9,7 @@ import { Separator } from '@/components/ui/separator'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import { PUBLIC_API_URL } from '@/lib/config'
 
-interface SystemInfo {
-  platform: string
-  python: string
-  cpu_cores: number
-  cpu_percent: number
-  memory_total: number
-  memory_used: number
-  memory_percent: number
-  gpu_available: boolean
-  gpu_name?: string
-  gpu_memory?: number
-  gpu_used?: number
-  gpu_percent?: number
-}
+import { mapInfoToSystemInfo, type SystemInfo } from '@/lib/monitoring-info'
 
 export default function MonitoringPage() {
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null)
@@ -44,35 +31,21 @@ export default function MonitoringPage() {
     try {
       const res = await fetch(`${PUBLIC_API_URL}/info`)
       const data = await res.json()
-
-      const sys: SystemInfo = {
-        platform: data.pytorch_version ? 'PyTorch System' : 'Unknown',
-        python: data.pytorch_version || 'N/A',
-        cpu_cores: typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4,
-        cpu_percent: Math.random() * 50 + 20,
-        memory_total: 16 * 1024 * 1024 * 1024,
-        memory_used: Math.random() * 8 * 1024 * 1024 * 1024,
-        memory_percent: 50,
-        gpu_available: data.cuda_available || false,
-        gpu_name: data.cuda?.device,
-        gpu_memory: data.cuda?.memory_total,
-        gpu_used: data.cuda?.memory_total ? data.cuda.memory_total * 0.3 : 0,
-        gpu_percent: 30,
-      }
-
-      setSysInfo(sys)
+      setSysInfo(mapInfoToSystemInfo(data))
       setLoading(false)
       setLogTick((t) => t + 1)
     } catch {
       setSysInfo({
-        platform: 'Unknown',
+        platform: 'Unavailable',
         python: 'N/A',
-        cpu_cores: typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4,
-        cpu_percent: Math.random() * 50 + 20,
-        memory_total: 16 * 1024 * 1024 * 1024,
-        memory_used: Math.random() * 8 * 1024 * 1024 * 1024,
-        memory_percent: Math.random() * 50 + 30,
+        cpu_cores: typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 0 : 0,
+        cpu_percent: null,
+        memory_total: 0,
+        memory_used: 0,
+        memory_percent: null,
         gpu_available: false,
+        gpu_percent: null,
+        host_metrics_available: false,
       })
       setLoading(false)
       setLogTick((t) => t + 1)
@@ -86,26 +59,33 @@ export default function MonitoringPage() {
   }, [fetchInfo])
 
   useEffect(() => {
-    if (sysInfo) {
-      const now = new Date()
-      const time = now.toLocaleTimeString('en-US', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      })
-      setHistory((prev) => {
-        const newData = [
-          ...prev,
-          {
-            time,
-            cpu: Math.random() * 30 + sysInfo.cpu_percent * 0.3,
-            memory: sysInfo.memory_percent,
-          },
-        ]
-        return newData.slice(-30)
-      })
+    if (!sysInfo?.host_metrics_available) {
+      setHistory([])
     }
+  }, [sysInfo?.host_metrics_available])
+
+  useEffect(() => {
+    if (
+      !sysInfo ||
+      !sysInfo.host_metrics_available ||
+      sysInfo.cpu_percent == null ||
+      sysInfo.memory_percent == null
+    ) {
+      return
+    }
+    const cpu = sysInfo.cpu_percent
+    const mem = sysInfo.memory_percent
+    const now = new Date()
+    const time = now.toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+    setHistory((prev) => {
+      const next = [...prev, { time, cpu, memory: mem }]
+      return next.slice(-30)
+    })
   }, [sysInfo])
 
   const formatBytes = (bytes: number) => {
@@ -134,6 +114,13 @@ export default function MonitoringPage() {
               {inferenceSummary}
             </span>
           </p>
+          {sysInfo && !sysInfo.host_metrics_available && (
+            <p className="mt-2 max-w-prose text-xs text-muted-foreground">
+              Host CPU/RAM are not included in the last <code className="font-mono">/info</code> response (API
+              offline, or install <code className="font-mono">psutil</code> on the server). Charts use real
+              samples only when the API exposes a <code className="font-mono">host</code> block.
+            </p>
+          )}
         </div>
         <Button
           type="button"
@@ -152,14 +139,20 @@ export default function MonitoringPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription className="text-xs font-mono uppercase tracking-wider">CPU usage</CardDescription>
-            <p className="text-2xl font-semibold tabular-nums text-chart-1">{sysInfo?.cpu_percent.toFixed(0)}%</p>
+            <p className="text-2xl font-semibold tabular-nums text-chart-1">
+              {sysInfo?.cpu_percent != null ? `${sysInfo.cpu_percent.toFixed(0)}%` : '—'}
+            </p>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription className="text-xs font-mono uppercase tracking-wider">Memory</CardDescription>
             <p className="text-lg font-semibold leading-tight text-chart-2">
-              {sysInfo ? `${formatBytes(sysInfo.memory_used)} / ${formatBytes(sysInfo.memory_total)}` : '—'}
+              {sysInfo?.host_metrics_available && sysInfo.memory_total > 0
+                ? `${formatBytes(sysInfo.memory_used)} / ${formatBytes(sysInfo.memory_total)}${
+                    sysInfo.memory_percent != null ? ` (${sysInfo.memory_percent.toFixed(0)}%)` : ''
+                  }`
+                : '—'}
             </p>
           </CardHeader>
         </Card>
@@ -167,7 +160,13 @@ export default function MonitoringPage() {
           <CardHeader className="pb-2">
             <CardDescription className="text-xs font-mono uppercase tracking-wider">GPU</CardDescription>
             <p className="text-2xl font-semibold tabular-nums text-chart-4">
-              {sysInfo?.gpu_available ? `${sysInfo.gpu_percent}%` : 'N/A'}
+              {!sysInfo?.gpu_available
+                ? 'N/A'
+                : sysInfo.gpu_percent != null
+                  ? `${sysInfo.gpu_percent.toFixed(0)}%`
+                  : sysInfo.gpu_memory != null && sysInfo.gpu_used != null
+                    ? `${formatBytes(sysInfo.gpu_used)} / ${formatBytes(sysInfo.gpu_memory)}`
+                    : '—'}
             </p>
           </CardHeader>
         </Card>
@@ -185,7 +184,10 @@ export default function MonitoringPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">CPU & memory history</CardTitle>
-            <CardDescription>Last samples (demo visualization)</CardDescription>
+            <CardDescription>
+              Last samples from the API host (<code className="font-mono">GET /info</code> →{' '}
+              <code className="font-mono">host</code>, polled every 5s)
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {history.slice(-10).map((h, i) => (
@@ -242,12 +244,16 @@ export default function MonitoringPage() {
               <span className="text-muted-foreground">GPU</span>
               <span className="text-right text-foreground">{sysInfo?.gpu_name || 'Not detected'}</span>
             </div>
-            {sysInfo?.gpu_memory && (
+            {sysInfo?.gpu_memory != null && sysInfo.gpu_memory > 0 && (
               <>
                 <Separator />
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">GPU memory</span>
-                  <span className="text-foreground">{formatBytes(sysInfo.gpu_memory)}</span>
+                  <span className="text-foreground">
+                    {sysInfo.gpu_used != null
+                      ? `${formatBytes(sysInfo.gpu_used)} / ${formatBytes(sysInfo.gpu_memory)}`
+                      : formatBytes(sysInfo.gpu_memory)}
+                  </span>
                 </div>
               </>
             )}

@@ -108,12 +108,12 @@ export function Sidebar({ variant = 'desktop', onNavigate, onClose }: SidebarPro
           aria-label="SloughGPT home"
           onClick={afterNav}
         >
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-none bg-primary/15 font-mono text-[11px] font-semibold tracking-tight text-primary ring-1 ring-primary/25">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-none bg-primary/15 font-mono text-xs font-semibold leading-none tracking-tight text-primary ring-1 ring-primary/25">
             S
           </div>
           <div className="flex min-w-0 flex-col justify-center gap-0.5 leading-none">
             <span className="truncate text-sm font-semibold tracking-tight text-foreground">SloughGPT</span>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-foreground/55 dark:text-muted-foreground">
+            <span className="font-mono text-[0.625rem] uppercase leading-tight tracking-wider text-foreground/55 dark:text-muted-foreground">
               Console
             </span>
           </div>
@@ -156,7 +156,7 @@ export function Sidebar({ variant = 'desktop', onNavigate, onClose }: SidebarPro
 
         <div className="shrink-0 border-t border-border/80 pt-3 dark:border-border">
           <p
-            className="mb-1.5 px-3 font-mono text-[10px] uppercase tracking-wider text-foreground/48 dark:text-muted-foreground"
+            className="mb-1.5 px-3 font-mono text-[0.625rem] uppercase leading-tight tracking-wider text-foreground/48 dark:text-muted-foreground"
             id="sidebar-system-heading"
           >
             System
@@ -191,7 +191,7 @@ export function Sidebar({ variant = 'desktop', onNavigate, onClose }: SidebarPro
           data-testid="sidebar-api-status"
         >
           <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${apiStatusDot}`} aria-hidden />
-          <span className="min-w-0 truncate font-mono text-[10px] leading-tight text-foreground/70 dark:text-muted-foreground">
+          <span className="min-w-0 truncate font-mono text-[0.625rem] leading-tight text-foreground/70 dark:text-muted-foreground">
             {apiStatusShort}
           </span>
         </div>

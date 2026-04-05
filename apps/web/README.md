@@ -50,7 +50,9 @@ npm run dev
 
 Before pushing changes, run the same checks as CI: **`npm ci && npm run ci`** (from this directory — runs lint, typecheck, Vitest, and production `next build`).
 
-**Talking to models:** set **`NEXT_PUBLIC_API_URL`** to your FastAPI base (default `http://localhost:8000`). Use **Models** to **`POST /models/load`** (`model_id` in JSON), then **Chat** calls **`/inference/generate/stream`** and **`/inference/generate`**. The client **`api.loadModel`** matches that contract (not `/models/{id}/load`).
+**Talking to models:** set **`NEXT_PUBLIC_API_URL`** to your FastAPI base (default `http://localhost:8000`). Use **Models** to **`POST /models/load`** (`model_id` in JSON), then **Chat** sends message history to **`POST /chat/stream`** (SSE) with fallback to **`POST /chat`**. Older single-prompt paths **`/inference/generate/stream`** / **`/inference/generate`** remain available for other clients. The client **`api.loadModel`** matches that contract (not `/models/{id}/load`).
+
+**UI vs core engine:** this app is **only** HTML/CSS/TS and `fetch` to the API. It does **not** bundle or import Python (`packages/core-py`, trainers, or inference kernels). Deploy the Next build on any static/hosted frontend; run the FastAPI process separately — the only link is **`NEXT_PUBLIC_API_URL`** and the JSON contracts in **`lib/api.ts`** (see also **`docs/STRUCTURE.md`**).
 
 **Cypress E2E** (mocked API, no Python process): after `npm run build`, run **`npm run e2e:ci`** (starts `next dev` on port **3010** so it does not clash with `output: 'standalone'` + `next start`). Or `npm run dev` on 3000 and **`npm run e2e`** / **`npm run e2e:open`**.
 

@@ -22,7 +22,8 @@ export const API_DOC_ENDPOINTS: ApiDocEndpoint[] = [
   {
     method: 'GET',
     path: '/info',
-    description: 'Detailed system and model information',
+    description:
+      'Detailed system and model information. When psutil is installed on the API host, includes a `host` object (CPU %, RAM bytes/%) for the server process machine.',
   },
   {
     method: 'POST',
@@ -63,12 +64,26 @@ export const API_DOC_ENDPOINTS: ApiDocEndpoint[] = [
   },
   {
     method: 'POST',
-    path: '/chat/stream',
-    description: 'Streaming chat completion',
+    path: '/chat',
+    description: 'Chat completion (JSON body, non-streaming)',
     body: [
       { field: 'messages', type: 'array', required: true },
       { field: 'max_new_tokens', type: 'number', required: false },
       { field: 'temperature', type: 'number', required: false },
+      { field: 'top_p', type: 'number', required: false },
+      { field: 'top_k', type: 'number', required: false },
+    ],
+  },
+  {
+    method: 'POST',
+    path: '/chat/stream',
+    description: 'Streaming chat completion (SSE)',
+    body: [
+      { field: 'messages', type: 'array', required: true },
+      { field: 'max_new_tokens', type: 'number', required: false },
+      { field: 'temperature', type: 'number', required: false },
+      { field: 'top_p', type: 'number', required: false },
+      { field: 'top_k', type: 'number', required: false },
     ],
   },
   {

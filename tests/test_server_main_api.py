@@ -394,6 +394,12 @@ def test_info_returns_api_version_and_model_block(client: TestClient) -> None:
     assert "loaded" in data["model"]
     assert isinstance(data["model"]["loaded"], bool)
     assert data.get("pytorch_version")
+    if data.get("host"):
+        h = data["host"]
+        assert "cpu_percent" in h
+        assert isinstance(h["cpu_percent"], (int, float))
+        assert "memory_total_bytes" in h
+        assert "memory_percent" in h
 
 
 def test_list_models_returns_wrapped_array(client: TestClient) -> None:
@@ -431,6 +437,46 @@ def test_inference_generate_json_shape(client: TestClient) -> None:
         assert data["text"] == ""
     else:
         assert isinstance(data.get("tokens_generated"), int)
+
+
+def test_chat_post_empty_messages_400(client: TestClient) -> None:
+    r = client.post("/chat", json={"messages": []})
+    assert r.status_code == 400, r.text
+
+
+def test_chat_post_json_shape(client: TestClient) -> None:
+    """``POST /chat`` mirrors inference: ``text`` + optional error when engine unset."""
+    r = client.post(
+        "/chat",
+        json={"messages": [{"role": "user", "content": "Hello"}], "max_new_tokens": 8},
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert "text" in data
+    assert isinstance(data["text"], str)
+    if data.get("error"):
+        assert data["text"] == ""
+    else:
+        assert isinstance(data.get("tokens_generated"), int)
+
+
+def test_chat_stream_requires_messages(client: TestClient) -> None:
+    r = client.post("/chat/stream", json={"messages": []})
+    assert r.status_code == 400, r.text
+
+
+def test_chat_stream_returns_sse_terminal_done(client: TestClient) -> None:
+    """``/chat/stream`` ends with a ``done`` frame (same contract as inference stream)."""
+    r = client.post(
+        "/chat/stream",
+        json={"messages": [{"role": "user", "content": "Hi"}], "max_new_tokens": 8},
+    )
+    assert r.status_code == 200, r.text
+    assert "event-stream" in (r.headers.get("content-type") or "")
+    lines = [ln for ln in r.text.splitlines() if ln.startswith("data:")]
+    assert lines, r.text
+    last = json.loads(lines[-1].split("data:", 1)[1].strip())
+    assert last.get("done") is True
 
 
 def test_inference_stats_json_shape(client: TestClient) -> None:

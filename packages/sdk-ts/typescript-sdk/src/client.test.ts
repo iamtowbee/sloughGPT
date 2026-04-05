@@ -113,13 +113,14 @@ describe('SloughGPTClient', () => {
   });
 
   describe('chat()', () => {
-    it('sends chat request', async () => {
-      const mockResult = {
-        message: { role: 'assistant', content: 'Hello!' },
-        model: 'gpt2',
-        inference_time_ms: 100,
-      };
-      mockFetch.mockResolvedValue(createMockResponse(mockResult));
+    it('sends POST /chat and maps { text } to ChatResult', async () => {
+      mockFetch.mockResolvedValue(
+        createMockResponse({
+          text: 'Hello!',
+          model: 'gpt2-engine',
+          tokens_generated: 3,
+        })
+      );
 
       const client = new SloughGPTClient();
       const result = await client.chat({
@@ -128,9 +129,14 @@ describe('SloughGPTClient', () => {
         max_new_tokens: 150,
       });
 
-      expect(result).toEqual(mockResult);
+      expect(result.message.content).toBe('Hello!');
+      expect(result.model).toBe('gpt2-engine');
       const call = mockFetch.mock.calls[0];
+      expect(call[0]).toContain('/chat');
       expect((call[1] as { method: string }).method).toBe('POST');
+      const body = JSON.parse((call[1] as { body: string }).body);
+      expect(body.messages).toHaveLength(1);
+      expect(body.max_new_tokens).toBe(150);
     });
   });
 
@@ -147,10 +153,12 @@ describe('SloughGPTClient', () => {
 
   describe('quickChat()', () => {
     it('returns just the message content', async () => {
-      mockFetch.mockResolvedValue(createMockResponse({
-        message: { role: 'assistant', content: 'Quick reply' },
-        model: 'gpt2',
-      }));
+      mockFetch.mockResolvedValue(
+        createMockResponse({
+          text: 'Quick reply',
+          model: 'gpt2-engine',
+        })
+      );
 
       const client = new SloughGPTClient();
       const result = await client.quickChat('Hello');

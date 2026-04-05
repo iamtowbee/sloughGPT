@@ -39,7 +39,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           Skip to main content
         </a>
 
-        <header className="sl-mobile-header sticky top-0 z-40 flex min-h-[3.25rem] shrink-0 items-center gap-2 border-b px-3 pt-[max(0px,env(safe-area-inset-top))] lg:hidden">
+        <header className="sl-mobile-header sticky top-0 z-40 flex min-h-14 shrink-0 items-center gap-2 border-b px-3 pt-[max(0rem,env(safe-area-inset-top))] lg:hidden">
           <button
             type="button"
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-none text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -74,7 +74,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay
             className={cn(
-              'fixed inset-0 z-[100] bg-black/45 backdrop-blur-[2px] lg:hidden',
+              'fixed inset-0 z-[100] bg-black/45 backdrop-blur-sm lg:hidden',
               'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200',
               // Match React state so taps pass through during close animation (don’t rely on data-state timing).
               !mobileNavOpen && 'pointer-events-none',
@@ -84,7 +84,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             id="mobile-navigation-drawer"
             className={cn(
               'fixed inset-y-0 left-0 z-[110] flex w-[min(var(--sidebar-width),min(18rem,92vw))] max-w-full outline-none lg:hidden',
-              'shadow-[4px_0_24px_-4px_rgba(0,0,0,0.25)]',
+              'shadow-[0.25rem_0_1.5rem_-0.25rem_rgba(0,0,0,0.28)]',
               'data-[state=open]:animate-in data-[state=closed]:animate-out duration-200 ease-smooth',
               'data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left',
               !mobileNavOpen && 'pointer-events-none',

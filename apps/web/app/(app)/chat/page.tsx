@@ -233,17 +233,35 @@ export default function ChatPage() {
     })
   }
 
-  const generateForPrompt = async (prompt: string) => {
+  const generateForPrompt = async (
+    prompt: string,
+    options?: {
+      skipUserAppend?: boolean
+      /** Use when `skipUserAppend` and state may not have flushed yet (e.g. retry). */
+      chatMessagesOverride?: Array<{ role: string; content: string }>
+    },
+  ) => {
     if (!activeSession) return
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: prompt,
-      timestamp: new Date(),
+    const skipUserAppend = options?.skipUserAppend ?? false
+
+    const chatMessages: Array<{ role: string; content: string }> =
+      options?.chatMessagesOverride ??
+      (skipUserAppend
+        ? activeSession.messages.map((m) => ({ role: m.role, content: m.content }))
+        : [...activeSession.messages.map((m) => ({ role: m.role, content: m.content })), { role: 'user', content: prompt }])
+
+    if (!skipUserAppend) {
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: prompt,
+        timestamp: new Date(),
+      }
+      updateActiveSession((session) => ({ ...session, messages: [...session.messages, userMessage] }))
+      upsertSessionTitle(prompt)
+      setInput('')
     }
-    updateActiveSession((session) => ({ ...session, messages: [...session.messages, userMessage] }))
-    upsertSessionTitle(prompt)
-    setInput('')
+
     setIsLoading(true)
 
     const assistantId = (Date.now() + 1).toString()
@@ -275,12 +293,12 @@ export default function ChatPage() {
       }
     }
 
-    const streamViaInference = (): Promise<boolean> =>
+    const streamViaChat = (): Promise<boolean> =>
       new Promise((resolve) => {
         let gotToken = false
-        api.generateStream(
+        api.chatStream(
           {
-            prompt,
+            messages: chatMessages,
             model: selectedModel,
             max_new_tokens: settings.maxNewTokens,
             temperature: settings.temperature,
@@ -296,17 +314,17 @@ export default function ChatPage() {
       })
 
     try {
-      if (await streamViaInference()) {
+      if (await streamViaChat()) {
         setIsLoading(false)
         return
       }
     } catch (err) {
-      devDebug('Inference streaming failed, falling back to non-stream generation:', err)
+      devDebug('Chat streaming failed, falling back to non-stream generation:', err)
     }
 
     try {
-      const data = await api.generate({
-        prompt,
+      const data = await api.chat({
+        messages: chatMessages,
         model: selectedModel,
         max_new_tokens: settings.maxNewTokens,
         temperature: settings.temperature,
@@ -338,8 +356,11 @@ export default function ChatPage() {
       .reverse()
       .find((m) => m.role === 'user')?.content
     if (!prompt) return
+    const historyForApi = activeSession.messages
+      .slice(0, idx)
+      .map((m) => ({ role: m.role, content: m.content }))
     updateActiveSession((session) => ({ ...session, messages: session.messages.slice(0, idx) }))
-    await generateForPrompt(prompt)
+    await generateForPrompt(prompt, { skipUserAppend: true, chatMessagesOverride: historyForApi })
   }
 
   const editFromUserMessage = (userMessageId: string) => {
@@ -364,7 +385,7 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-full min-h-0 gap-0 md:gap-2">
-      <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-card/40 py-3 pr-3">
+      <aside className="flex w-[var(--sidebar-width)] shrink-0 flex-col border-r border-border bg-card/55 py-3 pr-3">
         <Button type="button" variant="secondary" className="mb-3 w-full border-dashed" onClick={startNewConversation}>
           + New chat
         </Button>
@@ -414,14 +435,14 @@ export default function ChatPage() {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col px-1 md:px-2">
-        <div className="flex flex-col gap-2 border-b border-border py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex flex-col gap-2 border-b border-border px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4 md:px-6">
           <div className="flex min-w-0 flex-wrap items-center gap-2 md:gap-3">
             <h1 className="text-lg font-semibold text-foreground">{activeSession?.title ?? 'Chat'}</h1>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="secondary" size="sm" className="gap-2 font-normal" title="Catalog label; inference uses the API runtime shown on the right">
-                  <span className="max-w-[140px] truncate">{selectedModelLabel}</span>
+                  <span className="max-w-[min(100%,20ch)] truncate">{selectedModelLabel}</span>
                   <ChevronDownIcon className="h-3 w-3 shrink-0 opacity-70" />
                 </Button>
               </DropdownMenuTrigger>
@@ -456,7 +477,9 @@ export default function ChatPage() {
           <InferenceRuntimeToolbar health={apiHealth} onRefresh={refreshHealth} />
         </div>
 
-        <InferenceStatusBar health={apiHealth} selectedCatalogId={selectedModel} />
+        <div className="px-3 sm:px-4 md:px-6">
+          <InferenceStatusBar health={apiHealth} selectedCatalogId={selectedModel} />
+        </div>
 
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
           <DialogContent className="max-w-md">
@@ -552,10 +575,11 @@ export default function ChatPage() {
           </DialogContent>
         </Dialog>
 
-        <div className="flex flex-1 flex-col space-y-3 overflow-y-auto py-4">
+        <div className="mx-auto flex min-h-0 w-full max-w-[var(--chat-thread-max)] flex-1 flex-col px-3 sm:px-4 md:px-6">
+        <div className="flex min-h-0 flex-1 flex-col space-y-3 overflow-y-auto py-4">
           {messages.length === 0 && (
-            <div className="flex h-full flex-col items-center justify-center py-20 text-center">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center border border-primary/30 bg-primary/10 font-mono text-xl font-semibold text-primary">
+            <div className="flex h-full min-h-[min(40vh,24rem)] flex-col items-center justify-center py-12 text-center sm:py-20">
+              <div className="mb-4 flex aspect-square w-16 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 font-mono text-xl font-semibold text-primary">
                 S
               </div>
               <h2 className="mb-2 text-xl font-medium text-foreground">SloughGPT</h2>
@@ -579,12 +603,12 @@ export default function ChatPage() {
             </div>
           )}
           {messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div key={msg.id} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
-                className={`group max-w-[85%] border px-4 py-2.5 transition-colors duration-200 ease-smooth ${
+                className={`group max-w-2xl border px-4 py-2.5 shadow-sm transition-colors duration-200 ease-smooth ${
                   msg.role === 'user'
-                    ? 'border-primary/40 bg-primary text-primary-foreground'
-                    : 'border-border bg-muted/40 text-foreground'
+                    ? 'border-primary/35 bg-primary text-primary-foreground'
+                    : 'border-border bg-card text-foreground'
                 }`}
               >
                 <div className="whitespace-pre-wrap text-sm">{msg.content}</div>
@@ -622,19 +646,16 @@ export default function ChatPage() {
             </div>
           ))}
           {isLoading && (
-            <div className="flex justify-start">
-              <div className="flex gap-1 border border-border bg-muted/40 px-4 py-3">
+            <div className="flex w-full justify-start">
+              <div className="flex gap-1 border border-border bg-card px-4 py-3 shadow-sm">
                 <span
-                  className="h-1.5 w-1.5 animate-bounce bg-primary"
-                  style={{ animationDelay: '0ms' }}
+                  className="h-1.5 w-1.5 animate-bounce bg-primary [animation-delay:0s]"
                 />
                 <span
-                  className="h-1.5 w-1.5 animate-bounce bg-primary"
-                  style={{ animationDelay: '150ms' }}
+                  className="h-1.5 w-1.5 animate-bounce bg-primary [animation-delay:0.15s]"
                 />
                 <span
-                  className="h-1.5 w-1.5 animate-bounce bg-primary"
-                  style={{ animationDelay: '300ms' }}
+                  className="h-1.5 w-1.5 animate-bounce bg-primary [animation-delay:0.3s]"
                 />
               </div>
             </div>
@@ -644,7 +665,7 @@ export default function ChatPage() {
 
         <Separator className="mt-1" />
 
-        <div className="pt-3">
+        <div className="pb-3 pt-2">
           <div className="flex gap-2">
             <Textarea
               data-testid="chat-message-input"
@@ -660,13 +681,13 @@ export default function ChatPage() {
               placeholder="Message…"
               rows={2}
               title={!canInfer ? sendBlockedReason : undefined}
-              className="min-h-[52px] flex-1 resize-none"
+              className="min-h-14 flex-1 resize-none"
             />
             <Button
               type="button"
               data-testid="chat-send-button"
               size="icon"
-              className="h-[52px] w-10 shrink-0 self-end"
+              className="h-14 w-11 min-h-14 shrink-0 self-end"
               onClick={sendMessage}
               disabled={isLoading || !input.trim() || !canInfer}
               title={!canInfer ? sendBlockedReason : undefined}
@@ -675,6 +696,7 @@ export default function ChatPage() {
               <SendIcon className="h-4 w-4" />
             </Button>
           </div>
+        </div>
         </div>
       </div>
     </div>

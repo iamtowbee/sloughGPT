@@ -39,8 +39,8 @@ export function InferenceStatusBar({ health, selectedCatalogId }: Props) {
         <Card className="border-destructive/30 bg-muted/20">
           <CardContent className="p-3 pt-3 text-xs text-muted-foreground">
             Cannot reach the API. Start it from the repo root (
-            <code className="text-[11px]">python3 apps/api/server/main.py</code>) and ensure{' '}
-            <code className="text-[11px]">NEXT_PUBLIC_API_URL</code> matches.
+            <code className="font-mono text-xs">python3 apps/api/server/main.py</code>) and ensure{' '}
+            <code className="font-mono text-xs">NEXT_PUBLIC_API_URL</code> matches.
           </CardContent>
         </Card>
       ) : null}
@@ -52,7 +52,7 @@ export function InferenceStatusBar({ health, selectedCatalogId }: Props) {
             <Link href="/models" className="text-primary underline-offset-2 hover:underline">
               Load a model
             </Link>{' '}
-            or wait for server autoload (<code className="text-[11px]">SLOUGHGPT_AUTOLOAD_MODEL</code>).
+            or wait for server autoload (<code className="font-mono text-xs">SLOUGHGPT_AUTOLOAD_MODEL</code>).
           </CardContent>
         </Card>
       ) : null}
@@ -110,7 +110,7 @@ export function InferenceRuntimeToolbar({ health, onRefresh }: ToolbarProps) {
           </Badge>
           <Badge
             variant="outline"
-            className="max-w-[min(100vw-8rem,14rem)] truncate font-mono text-[11px] font-normal"
+            className="max-w-[min(100%,14rem)] truncate font-mono text-xs font-normal sm:max-w-[min(100%,18rem)]"
             title="Loaded in API process (inference uses this)"
           >
             {health.model_type}

@@ -117,6 +117,32 @@ export interface GenerateResponse {
   tokens_generated: number
 }
 
+/** `POST /chat` and `/chat/stream` — OpenAI-style message list (see `ChatRequest` in `apps/api/server/main.py`). */
+export interface ChatMessagePayload {
+  role: string
+  content: string
+}
+
+export interface ChatCompletionRequest {
+  messages: ChatMessagePayload[]
+  model?: string
+  max_new_tokens?: number
+  temperature?: number
+  top_p?: number
+  top_k?: number
+}
+
+function buildChatPayload(req: ChatCompletionRequest) {
+  return {
+    messages: req.messages,
+    max_new_tokens: req.max_new_tokens ?? 100,
+    temperature: req.temperature ?? 0.8,
+    top_p: req.top_p ?? 0.9,
+    top_k: req.top_k ?? 50,
+    ...(req.model != null && req.model !== '' ? { model: req.model } : {}),
+  }
+}
+
 /** `GET /health` — drives UI for inference readiness (see `apps/api/server/main.py`). */
 export interface ApiHealth {
   status: string
@@ -475,6 +501,141 @@ export const api = {
                   : raw.slice(0, 200)
             if (msg) {
               devDebug('[api] inference stream HTTP error:', res.status, msg)
+            }
+          } catch {
+            /* ignore */
+          }
+          finish()
+          return
+        }
+        if (!res.body) {
+          finish()
+          return
+        }
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? ''
+          for (const line of lines) {
+            const trimmed = line.trimEnd()
+            if (!trimmed.startsWith('data:')) continue
+            const payload = trimmed.slice(5).trim()
+            if (!payload || payload === '[DONE]') continue
+            try {
+              const data = JSON.parse(payload) as {
+                token?: string
+                done?: boolean
+                error?: string
+              }
+              if (data.error) {
+                finish()
+                return
+              }
+              if (data.token) onToken(data.token)
+              if (data.done) {
+                finish()
+                return
+              }
+            } catch {
+              /* ignore partial / malformed frames */
+            }
+          }
+        }
+        finish()
+      } catch {
+        finish()
+      }
+    })()
+
+    return () => {
+      ac.abort()
+      finish()
+    }
+  },
+
+  /**
+   * Non-streaming chat completion (`POST /chat`). Same engine as `/inference/generate`, chat-formatted prompt.
+   */
+  async chat(req: ChatCompletionRequest): Promise<GenerateResponse> {
+    const res = await fetchWithAuth(`${API_URL}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildChatPayload(req)),
+    })
+    const body = (await res.json().catch(() => ({}))) as Partial<GenerateResponse> & {
+      error?: string
+      detail?: unknown
+    }
+
+    if (!res.ok) {
+      const msg =
+        typeof body.error === 'string'
+          ? body.error
+          : typeof body.detail === 'string'
+            ? body.detail
+            : `HTTP ${res.status}`
+      throw new Error(msg)
+    }
+
+    if (typeof body.error === 'string' && body.error.trim() !== '') {
+      throw new Error(body.error)
+    }
+
+    const text = typeof body.text === 'string' ? body.text : ''
+    if (!text.trim()) {
+      throw new Error(
+        'Model returned no text. Start the API, load a model (e.g. via /models), then try again.',
+      )
+    }
+
+    return {
+      text,
+      model: typeof body.model === 'string' ? body.model : 'unknown',
+      tokens_generated: typeof body.tokens_generated === 'number' ? body.tokens_generated : 0,
+    }
+  },
+
+  /**
+   * Stream tokens from `POST /chat/stream` (SSE). Message history is sent in the JSON body.
+   */
+  chatStream(
+    req: ChatCompletionRequest,
+    onToken: (token: string) => void,
+    onDone: () => void,
+  ) {
+    const ac = new AbortController()
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      onDone()
+    }
+
+    ;(async () => {
+      try {
+        const res = await fetchWithAuth(`${API_URL}/chat/stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildChatPayload(req)),
+          signal: ac.signal,
+        })
+        if (!res.ok) {
+          try {
+            const raw = await res.text()
+            const j = JSON.parse(raw) as { detail?: unknown; error?: string }
+            const msg =
+              typeof j.error === 'string'
+                ? j.error
+                : typeof j.detail === 'string'
+                  ? j.detail
+                  : raw.slice(0, 200)
+            if (msg) {
+              devDebug('[api] chat stream HTTP error:', res.status, msg)
             }
           } catch {
             /* ignore */

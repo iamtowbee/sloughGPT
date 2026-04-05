@@ -325,8 +325,14 @@ class SloughGPTClient:
             **kwargs
         )
         
-        response = self._request("POST", "/chat/completions", json=request.to_dict())
-        return ChatResult.from_response(response.json())
+        response = self._request("POST", "/chat", json=request.to_dict())
+        data = response.json()
+        err = data.get("error")
+        if isinstance(err, str) and err.strip() and not str(data.get("text") or "").strip():
+            from .exceptions import SloughGPTError
+
+            raise SloughGPTError(err)
+        return ChatResult.from_response(data)
     
     def chat_stream(
         self,
@@ -353,20 +359,30 @@ class SloughGPTClient:
                     content=m.get("content", "")
                 ))
         
-        request = ChatRequest(messages=chat_messages, stream=True, **kwargs)
+        request = ChatRequest(messages=chat_messages, **kwargs)
         
         response = self._request(
             "POST",
-            "/chat/completions",
+            "/chat/stream",
             json=request.to_dict(),
             stream=True
         )
         
         for line in response.iter_lines(decode_unicode=True):
+            if not line:
+                continue
             if line.startswith("data:"):
-                data = line[5:].strip()
-                if data and data != "[DONE]":
-                    yield data
+                raw = line[5:].strip()
+                if raw and raw != "[DONE]":
+                    try:
+                        obj = json.loads(raw)
+                    except json.JSONDecodeError:
+                        continue
+                    if obj.get("error"):
+                        break
+                    tok = obj.get("token")
+                    if tok:
+                        yield tok
     
     # Batch Processing
     
@@ -890,10 +906,16 @@ class AsyncSloughGPTClient:
     
     async def chat(self, messages: List[ChatMessage], **kwargs) -> ChatResult:
         """Generate chat completion."""
-        data = await self._request("POST", "/chat/completions", json={
+        body = {
             "messages": [m.to_dict() if isinstance(m, ChatMessage) else m for m in messages],
-            **kwargs
-        })
+            **kwargs,
+        }
+        data = await self._request("POST", "/chat", json=body)
+        err = data.get("error")
+        if isinstance(err, str) and err.strip() and not str(data.get("text") or "").strip():
+            from .exceptions import SloughGPTError
+
+            raise SloughGPTError(err)
         return ChatResult.from_response(data)
     
     async def list_models(self) -> List[ModelInfo]:

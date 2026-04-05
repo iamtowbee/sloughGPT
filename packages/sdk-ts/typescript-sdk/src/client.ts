@@ -69,6 +69,9 @@ export interface ChatRequest {
   model?: string;
   temperature?: number;
   max_new_tokens?: number;
+  top_p?: number;
+  top_k?: number;
+  /** Ignored for wire format; server uses `POST /chat` vs `POST /chat/stream`. */
   stream?: boolean;
 }
 
@@ -385,19 +388,44 @@ export class SloughGPTClient {
 
   async chat(request: ChatRequest): Promise<ChatResult> {
     this.log('info', `Chat: ${request.messages.length} messages`);
-    return this.request<ChatResult>('POST', '/chat/completions', {
+    const raw = await this.request<{
+      text?: string;
+      model?: string;
+      tokens_generated?: number;
+      error?: string;
+      choices?: Array<{ message?: { role?: string; content?: string } }>;
+    }>('POST', '/chat', {
       messages: request.messages,
       model: request.model,
-      temperature: request.temperature || 0.8,
-      max_new_tokens: request.max_new_tokens || 100,
-      stream: request.stream,
+      temperature: request.temperature ?? 0.8,
+      max_new_tokens: request.max_new_tokens ?? 100,
+      top_p: request.top_p ?? 0.9,
+      top_k: request.top_k ?? 50,
     });
+
+    let content = '';
+    const choiceContent = raw.choices?.[0]?.message?.content;
+    if (choiceContent != null && choiceContent !== '') {
+      content = String(choiceContent);
+    } else if (typeof raw.text === 'string') {
+      content = raw.text;
+    }
+
+    if (typeof raw.error === 'string' && raw.error.trim() !== '' && !content.trim()) {
+      throw new SloughGPTError(raw.error, 400);
+    }
+
+    return {
+      message: { role: 'assistant', content },
+      model: raw.model ?? 'unknown',
+      tokens_generated: raw.tokens_generated,
+    };
   }
 
   async *chatStream(
     request: ChatRequest
   ): AsyncGenerator<string, void, unknown> {
-    const url = `${this.baseUrl}/chat/completions`;
+    const url = `${this.baseUrl}/chat/stream`;
     this.log('info', `Chat stream: ${request.messages.length} messages`);
 
     const response = await fetch(url, {
@@ -406,9 +434,10 @@ export class SloughGPTClient {
       body: JSON.stringify({
         messages: request.messages,
         model: request.model,
-        temperature: request.temperature || 0.8,
-        max_new_tokens: request.max_new_tokens || 100,
-        stream: true,
+        temperature: request.temperature ?? 0.8,
+        max_new_tokens: request.max_new_tokens ?? 100,
+        top_p: request.top_p ?? 0.9,
+        top_k: request.top_k ?? 50,
       }),
     });
 
@@ -431,11 +460,30 @@ export class SloughGPTClient {
       buffer = lines.pop() || '';
 
       for (const line of lines) {
-        if (line.startsWith('data:')) {
-          const data = line.slice(5).trim();
-          if (data && data !== '[DONE]') {
-            yield data;
+        const trimmed = line.trimEnd();
+        if (!trimmed.startsWith('data:')) continue;
+        const payload = trimmed.slice(5).trim();
+        if (!payload || payload === '[DONE]') continue;
+        try {
+          const data = JSON.parse(payload) as {
+            token?: string;
+            done?: boolean;
+            error?: string;
+          };
+          if (data.error) {
+            throw new SloughGPTError(data.error, 500);
           }
+          if (data.token) {
+            yield data.token;
+          }
+          if (data.done) {
+            return;
+          }
+        } catch (e) {
+          if (e instanceof SloughGPTError) {
+            throw e;
+          }
+          /* ignore malformed frames */
         }
       }
     }

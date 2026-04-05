@@ -51,6 +51,8 @@ import asyncio
 import time
 import logging
 
+from domains.ops.wandb_server import record_inference_call
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sloughgpt")
 
@@ -664,6 +666,18 @@ class HttpMetricsCollector:
             lines.append(f'http_request_duration_seconds_count{{method="{ml}",endpoint="{elms}"}} {counts[(method, endpoint)]}')
         return lines
 
+    def wandb_aggregate(self) -> Dict[str, float]:
+        """Point-in-time totals for optional W&B server run (``domains.ops.wandb_server``)."""
+        with self._lock:
+            total = sum(self.requests_total.values())
+            s = sum(self.dur_sum.values())
+            c = sum(self.dur_count.values())
+        mean_ms = (s / max(c, 1)) * 1000.0
+        return {
+            "server/http_requests_total": float(total),
+            "server/http_latency_mean_ms": float(mean_ms),
+        }
+
 
 http_metrics = HttpMetricsCollector()
 
@@ -742,7 +756,20 @@ async def lifespan(app: FastAPI):
         await asyncio.to_thread(_autoload_hf_model_at_startup)
     except Exception as e:
         logger.warning("Startup model autoload failed: %s", e)
+    wandb_server_task: Optional[asyncio.Task] = None
+    try:
+        from domains.ops.wandb_server import start_wandb_server_background
+
+        wandb_server_task = await start_wandb_server_background(http_metrics)
+    except Exception as e:
+        logger.warning("W&B server background task did not start: %s", e)
     yield
+    if wandb_server_task is not None:
+        wandb_server_task.cancel()
+        try:
+            await wandb_server_task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(
@@ -904,6 +931,7 @@ class ChatRequest(BaseModel):
     max_new_tokens: Optional[int] = 100
     temperature: Optional[float] = 0.8
     top_p: Optional[float] = 0.9
+    top_k: Optional[int] = 50
     model: Optional[str] = None
 
 
@@ -1161,8 +1189,10 @@ async def root():
 
 @app.get("/info")
 async def info():
-    """Get detailed server info."""
+    """Get detailed server info (includes host CPU/RAM when psutil is available)."""
     import torch
+
+    from host_metrics import sample_host_metrics_async
 
     info = {
         "api_version": "1.0.0",
@@ -1173,6 +1203,10 @@ async def info():
         "pytorch_version": torch.__version__,
         "cuda_available": torch.cuda.is_available(),
     }
+
+    host = await sample_host_metrics_async()
+    if host is not None:
+        info["host"] = host
 
     if checkpoint:
         info["model"].update(
@@ -1208,9 +1242,15 @@ async def info():
             info["soul"] = soul_info_val
 
     if torch.cuda.is_available():
+        props = torch.cuda.get_device_properties(0)
+        total_b = int(props.total_memory)
+        used_b = int(torch.cuda.memory_allocated(0))
         info["cuda"] = {
             "device": torch.cuda.get_device_name(0),
-            "memory_total": torch.cuda.get_device_properties(0).total_memory / 1e9,
+            "memory_total": total_b / 1e9,
+            "memory_total_bytes": total_b,
+            "memory_used_bytes": used_b,
+            "memory_percent": round(100.0 * used_b / max(total_b, 1), 2),
         }
 
     return info
@@ -1637,75 +1677,78 @@ async def generate_stream(request: GenerateRequest):
     return StreamingResponse(generate_stream_tokens(), media_type="text/event-stream")
 
 
+@app.post("/chat", tags=["chat"])
+async def chat_completion(request: ChatRequest, req: Request):
+    """Non-streaming chat completion (messages → assistant text). Uses the same engine as ``/inference/generate``."""
+    client_ip = req.client.host if req.client else "unknown"
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="messages must not be empty")
+
+    prompt = _format_chat_messages_for_standard(request.messages)
+    max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
+    temperature = input_validator.validate_temperature(request.temperature if request.temperature is not None else 0.8)
+    top_p_val = max(0.0, min(1.0, float(request.top_p if request.top_p is not None else 0.9)))
+    top_k = request.top_k if request.top_k is not None else 50
+    top_k = max(1, min(500, int(top_k)))
+
+    t0 = time.perf_counter()
+    text = ""
+    try:
+        engine = get_inference_engine()
+        if engine is None:
+            audit_logger.log("chat", client_ip, resource="/chat", action="no_model", status="success")
+            return {"error": "Model not loaded", "text": ""}
+
+        text = engine.generate_single(
+            prompt=prompt,
+            max_new_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p_val,
+            top_k=top_k,
+            repetition_penalty=1.0,
+        )
+        audit_logger.log("chat", client_ip, resource="/chat", action="inference", status="success")
+        return {
+            "text": text,
+            "model": "gpt2-engine",
+            "tokens_generated": len(text.split()) if text else 0,
+        }
+    except Exception as e:
+        return {"error": str(e), "text": ""}
+    finally:
+        record_inference_call(time.perf_counter() - t0, float(len(text.split()) if text else 0))
+
+
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
-    """Streaming chat completion using Server-Sent Events."""
+    """Streaming chat completion using Server-Sent Events (same prompt formatting as ``POST /chat``)."""
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="messages must not be empty")
+
+    prompt = _format_chat_messages_for_standard(request.messages)
     max_gen = input_validator.validate_max_tokens(request.max_new_tokens or 100)
-    temperature = input_validator.validate_temperature(request.temperature or 0.8)
+    temperature = input_validator.validate_temperature(request.temperature if request.temperature is not None else 0.8)
     top_p_val = max(0.0, min(1.0, float(request.top_p if request.top_p is not None else 0.9)))
+    top_k = request.top_k if request.top_k is not None else 50
+    top_k = max(1, min(500, int(top_k)))
 
-    def format_chat_prompt(messages):
-        formatted = ""
-        for msg in messages:
-            role = msg.role
-            content = msg.content
-            if role == "user":
-                formatted += f"User: {content}\n"
-            elif role == "assistant":
-                formatted += f"Assistant: {content}\n"
-            elif role == "system":
-                formatted += f"System: {content}\n"
-        formatted += "Assistant:"
-        return formatted
+    engine = get_inference_engine()
 
-    async def generate_stream_tokens():
-        prompt = format_chat_prompt([m.model_dump() for m in request.messages])
-
-        if model is None:
-            demo = "Demo chat response..."
-            for char in demo:
-                yield f"data: {json.dumps({'token': char, 'done': False})}\n\n"
-                await asyncio.sleep(0.02)
-            yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
+    async def token_stream():
+        if engine is None:
+            yield f"data: {json.dumps({'error': 'Model not loaded', 'token': '', 'done': True})}\n\n"
             return
-
-        if model_type == "gpt2":
-            loop = asyncio.get_event_loop()
-
-            def _first_chat_inputs():
-                enc = tokenizer(prompt, return_tensors="pt")
-                return _inputs_to_model_device(enc, model)
-
-            inputs = await loop.run_in_thread(None, _first_chat_inputs)
-
-            for i in range(max_gen):
-                outputs = await loop.run_in_thread(
-                    None,
-                    lambda inp=inputs: model.generate(
-                        **inp,
-                        max_new_tokens=1,
-                        temperature=temperature,
-                        top_p=top_p_val,
-                        do_sample=True,
-                        return_dict_in_generate=True,
-                    ),
-                )
-                token = tokenizer.decode(outputs.sequences[0][-1], skip_special_tokens=True)
-                if token:
-                    yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
-
-                def _next_chat_inputs(tok: str):
-                    enc = tokenizer(tok, return_tensors="pt")
-                    return _inputs_to_model_device(enc, model)
-
-                inputs = await loop.run_in_thread(None, _next_chat_inputs, token)
-
-                if i >= max_gen - 1:
-                    break
-
+        async for token in engine.generate_stream(
+            prompt=prompt,
+            max_new_tokens=max_gen,
+            temperature=temperature,
+            top_p=top_p_val,
+            top_k=top_k,
+        ):
+            yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
         yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
 
-    return StreamingResponse(generate_stream_tokens(), media_type="text/event-stream")
+    return StreamingResponse(token_stream(), media_type="text/event-stream")
 
 
 @app.websocket("/ws/generate")
@@ -2262,6 +2305,8 @@ async def inference_generate(gr: GenerateRequest, req: Request):
     top_k = gr.top_k if gr.top_k is not None else 50
     top_k = max(1, min(500, int(top_k)))
 
+    t0 = time.perf_counter()
+    text = ""
     try:
         engine = get_inference_engine()
 
@@ -2287,6 +2332,8 @@ async def inference_generate(gr: GenerateRequest, req: Request):
         }
     except Exception as e:
         return {"error": str(e), "text": ""}
+    finally:
+        record_inference_call(time.perf_counter() - t0, float(len(text.split()) if text else 0))
 
 
 @app.post("/inference/generate/stream", tags=["inference"])

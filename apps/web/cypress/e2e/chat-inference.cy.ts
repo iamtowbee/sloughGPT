@@ -10,13 +10,12 @@ describe('Chat page — inference contract (mocked API)', () => {
       statusCode: 200,
       body: { status: 'healthy', model_type: 'gpt2', model_loaded: true },
     }).as('health')
-    cy.intercept('POST', `${api}/inference/generate/stream`, {
+    cy.intercept('POST', `${api}/chat/stream`, {
       statusCode: 503,
       body: 'no sse in e2e',
-    }).as('streamFail')
-    // Must not use **/inference/generate — that also matches .../generate/stream.
+    }).as('chatStreamFail')
     cy.intercept(
-      { method: 'POST', url: /\/inference\/generate$/ },
+      { method: 'POST', url: /\/chat$/ },
       {
         statusCode: 200,
         body: {
@@ -25,7 +24,7 @@ describe('Chat page — inference contract (mocked API)', () => {
           tokens_generated: 5,
         },
       },
-    ).as('generate')
+    ).as('chat')
   })
 
   it('sends a user message and shows an assistant reply', () => {
@@ -38,7 +37,7 @@ describe('Chat page — inference contract (mocked API)', () => {
     cy.get('[data-testid="chat-message-input"]').should('have.value', 'Hello from Cypress')
     cy.get('[data-testid="chat-send-button"]').should('not.be.disabled').click()
 
-    cy.wait('@generate', { timeout: 30_000 })
+    cy.wait('@chat', { timeout: 30_000 })
     cy.get('.whitespace-pre-wrap').last().should('include.text', 'Mock reply: integration test body.')
   })
 })

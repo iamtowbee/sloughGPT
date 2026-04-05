@@ -1,10 +1,11 @@
-/** Minimal 24×24 stroke icons — shared by sidebar and home quick actions */
+/** Minimal stroke icons (24×24 viewBox) — shared by sidebar and home quick actions; default size is rem-based */
 
 type IconProps = { className?: string }
 
 const base = 'shrink-0'
+const navSize = 'h-[1.125rem] w-[1.125rem]'
 
-export function IconChat({ className = 'w-[18px] h-[18px]' }: IconProps) {
+export function IconChat({ className = navSize }: IconProps) {
   return (
     <svg className={`${base} ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
@@ -18,7 +19,7 @@ export function IconChat({ className = 'w-[18px] h-[18px]' }: IconProps) {
   )
 }
 
-export function IconAgents({ className = 'w-[18px] h-[18px]' }: IconProps) {
+export function IconAgents({ className = navSize }: IconProps) {
   return (
     <svg className={`${base} ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden>
       <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" />
@@ -27,7 +28,7 @@ export function IconAgents({ className = 'w-[18px] h-[18px]' }: IconProps) {
   )
 }
 
-export function IconPlugins({ className = 'w-[18px] h-[18px]' }: IconProps) {
+export function IconPlugins({ className = navSize }: IconProps) {
   return (
     <svg className={`${base} ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
@@ -41,7 +42,7 @@ export function IconPlugins({ className = 'w-[18px] h-[18px]' }: IconProps) {
   )
 }
 
-export function IconModels({ className = 'w-[18px] h-[18px]' }: IconProps) {
+export function IconModels({ className = navSize }: IconProps) {
   return (
     <svg className={`${base} ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
@@ -59,7 +60,7 @@ export function IconModels({ className = 'w-[18px] h-[18px]' }: IconProps) {
   )
 }
 
-export function IconTraining({ className = 'w-[18px] h-[18px]' }: IconProps) {
+export function IconTraining({ className = navSize }: IconProps) {
   return (
     <svg className={`${base} ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
@@ -73,7 +74,7 @@ export function IconTraining({ className = 'w-[18px] h-[18px]' }: IconProps) {
   )
 }
 
-export function IconMonitor({ className = 'w-[18px] h-[18px]' }: IconProps) {
+export function IconMonitor({ className = navSize }: IconProps) {
   return (
     <svg className={`${base} ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden>
       <path d="M3 3v18h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -82,7 +83,7 @@ export function IconMonitor({ className = 'w-[18px] h-[18px]' }: IconProps) {
   )
 }
 
-export function IconSettings({ className = 'w-[18px] h-[18px]' }: IconProps) {
+export function IconSettings({ className = navSize }: IconProps) {
   return (
     <svg className={`${base} ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden>
       <line x1="4" y1="21" x2="4" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -98,7 +99,7 @@ export function IconSettings({ className = 'w-[18px] h-[18px]' }: IconProps) {
   )
 }
 
-export function IconApiDocs({ className = 'w-[18px] h-[18px]' }: IconProps) {
+export function IconApiDocs({ className = navSize }: IconProps) {
   return (
     <svg className={`${base} ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
@@ -120,7 +121,7 @@ export function IconApiDocs({ className = 'w-[18px] h-[18px]' }: IconProps) {
   )
 }
 
-export function IconDatasets({ className = 'w-[18px] h-[18px]' }: IconProps) {
+export function IconDatasets({ className = navSize }: IconProps) {
   return (
     <svg className={`${base} ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden>
       <path

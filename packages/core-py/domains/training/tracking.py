@@ -33,6 +33,10 @@ class TrackingConfig:
     api_key: Optional[str] = None
     project: str = "sloughgpt"
     entity: Optional[str] = None
+    #: Passed to ``wandb.init`` (e.g. ``train``, ``server``).
+    job_type: Optional[str] = None
+    #: Optional W&B run tags (e.g. ``["sloughgpt", "api"]``).
+    tags: Optional[list] = None
 
     def __post_init__(self):
         if self.backend == TrackerBackend.WANDB:
@@ -85,14 +89,29 @@ class ExperimentTracker:
         try:
             import wandb
 
-            wandb.init(
-                project=self.config.project,
-                name=self.config.run_name,
-                entity=self.config.entity,
-                api_key=self.config.api_key,
-            )
+            from domains.training.wandb_helpers import default_wandb_project
+
+            kwargs: Dict[str, Any] = {
+                "project": self.config.project or default_wandb_project(),
+                "name": self.config.run_name,
+                "entity": self.config.entity,
+                "api_key": self.config.api_key,
+            }
+            mode = os.environ.get("WANDB_MODE", "online")
+            if mode:
+                kwargs["mode"] = mode
+            if self.config.job_type:
+                kwargs["job_type"] = self.config.job_type
+            if self.config.tags:
+                kwargs["tags"] = list(self.config.tags)
+            wandb_dir = os.environ.get("WANDB_DIR")
+            if wandb_dir:
+                kwargs["dir"] = wandb_dir
+            kwargs = {k: v for k, v in kwargs.items() if v is not None}
+
+            wandb.init(**kwargs)
             self._client = wandb
-            logger.info(f"WandB initialized: {self.config.project}")
+            logger.info("WandB initialized: project=%s", kwargs.get("project"))
         except ImportError:
             logger.warning("WandB not installed: pip install wandb")
 
@@ -125,14 +144,19 @@ class ExperimentTracker:
             return
 
         if self.config.backend == TrackerBackend.MLFLOW:
-            self._client.log_metric(self._client.Metric(name, value, step=step))
+            self._client.log_metric(name, value, step=step)
         elif self.config.backend == TrackerBackend.WANDB:
-            self._client.log({name: value, "step": step or 0})
+            self._client.log({name: value}, step=step)
         elif self.config.backend == TrackerBackend.COMET:
             self._client.log_metric(name, value, step=step)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
         """Log multiple metrics."""
+        if self._run is None:
+            return
+        if self.config.backend == TrackerBackend.WANDB:
+            self._client.log(metrics, step=step)
+            return
         for name, value in metrics.items():
             self.log_metric(name, value, step)
 
