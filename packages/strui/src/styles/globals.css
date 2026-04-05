@@ -292,3 +292,86 @@ button {
     color-mix(in srgb, var(--accent) 70%, var(--primary)) 100%
   );
 }
+
+/*
+ * strui — PWA & mobile web (iOS Safari, installed PWA, Android Chrome).
+ * Use with viewport meta viewport-fit=cover; optional theme-color in the host app.
+ */
+@layer utilities {
+  .str-min-h-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  .str-safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .str-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .str-safe-left {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .str-safe-right {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .str-safe-x {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .str-safe-all {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  /** Minimum 44×44 pt touch target (Apple HIG / Material). */
+  .str-touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /** Chat / log regions: smooth momentum scroll, no scroll chaining to the page. */
+  .str-chat-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer components {
+  .str-dot {
+    height: 0.5rem;
+    width: 0.5rem;
+    border-radius: 9999px;
+    background-color: color-mix(in srgb, var(--primary) 60%, transparent);
+    animation: str-dot-bounce 1.2s ease-in-out infinite;
+  }
+  .str-dot-2 {
+    animation-delay: 0.15s;
+  }
+  .str-dot-3 {
+    animation-delay: 0.3s;
+  }
+}
+
+@keyframes str-dot-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .str-dot {
+    animation: none;
+    opacity: 0.75;
+  }
+}

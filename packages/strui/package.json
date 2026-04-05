@@ -15,7 +15,11 @@
       "types": "./src/lib/cn.ts",
       "import": "./src/lib/cn.ts"
     },
-    "./styles/globals.css": "./src/styles/globals.css"
+    "./styles/globals.css": "./src/styles/globals.css",
+    "./ai": {
+      "types": "./src/components/ai/index.ts",
+      "import": "./src/components/ai/index.ts"
+    }
   },
   "scripts": {
     "storybook": "storybook dev -p 6006",
