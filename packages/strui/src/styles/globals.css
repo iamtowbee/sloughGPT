@@ -1,4 +1,8 @@
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&display=swap");
+/*
+ * Synced from apps/web/app/globals.css — keep in lockstep when the web shell changes.
+ * Storybook loads Google Fonts here; Next.js uses next/font in apps/web.
+ */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,15 +10,21 @@
 
 /*
  * SloughGPT — Pastel lattice (sharp geometry)
- * Kept in sync with apps/web/app/globals.css for design parity.
+ * Palette derived from Coolors pastel generator — blend & tune for contrast:
+ * https://coolors.co/e7c6ff-c6e7ff-c6ffd9-fff3c6-ffd6c9
+ * Light: lavender paper + periwinkle primary. Dark: deep plum-gray + soft accents.
+ * html.light / html.dark + theme-* accent chips (ThemeProvider).
  */
 
 :root {
-  --font-outfit: "Outfit", system-ui, sans-serif;
-  --font-jetbrains-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-outfit: 'Outfit', system-ui, sans-serif;
+  --font-jetbrains-mono: 'JetBrains Mono', ui-monospace, monospace;
+  /* App shell — sidebar + main column (rem-relative to root font size) */
   --sidebar-width: 15.75rem;
+  /* Chat column max width — ~80ch at default scale; scales with font */
   --chat-thread-max: min(100%, 48rem);
   color-scheme: light;
+  /* Light — soft lavender paper */
   --background: #f3f0fa;
   --foreground: #262130;
   --card: #ffffff;
@@ -93,6 +103,7 @@ body {
       transparent 38%,
       color-mix(in srgb, var(--accent) 10%, transparent) 100%
     );
+    /* Subtle separation from sidebar without a heavy rule */
     box-shadow: inset 1px 0 0 color-mix(in srgb, var(--border) 65%, transparent);
   }
 
@@ -100,6 +111,7 @@ body {
     @apply p-4 sm:p-6 md:p-8 text-foreground;
   }
 
+  /** Monitoring SYS.LOG — subtle scanlines + primary wash (matches shell “lattice” look) */
   .sl-log-feed {
     background-color: color-mix(in srgb, var(--card) 88%, var(--muted));
     background-image:
@@ -203,6 +215,7 @@ button {
   font-size: 14px;
 }
 
+/* Accent chips — pastel variants (storage ids unchanged) */
 .theme-blue {
   --primary: #8b7bc4;
   --ring: #a898d8;
@@ -232,6 +245,10 @@ button {
   --ring: #98c8e4;
 }
 
+/**
+ * Shell navigation — light: opaque pastel lattice (matches main column, readable on busy UIs).
+ * Dark: glass (blur + translucent card) to sit on deep plum-gray.
+ */
 .sl-sidebar-surface {
   border-right: 1px solid color-mix(in srgb, var(--border) 82%, var(--primary) 18%);
   background-color: color-mix(in srgb, var(--card) 97%, var(--muted) 3%);
