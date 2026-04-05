@@ -32,6 +32,22 @@ describe('mapInfoToSystemInfo', () => {
     expect(s.process_rss_bytes).toBe(256_000_000)
   })
 
+  it('derives host memory % from used/total bytes when psutil percent disagrees', () => {
+    const s = mapInfoToSystemInfo({
+      pytorch_version: '2.2.0',
+      cuda_available: false,
+      host: {
+        platform: 'Darwin',
+        cpu_count_logical: 8,
+        cpu_percent: 25,
+        memory_total_bytes: 16 * 1024 ** 3,
+        memory_used_bytes: 8.2 * 1024 ** 3,
+        memory_percent: 63,
+      },
+    })
+    expect(s.memory_percent).toBeCloseTo((8.2 / 16) * 100, 5)
+  })
+
   it('falls back when host is missing', () => {
     const s = mapInfoToSystemInfo({ pytorch_version: '2.0.0', cuda_available: false })
     expect(s.host_metrics_available).toBe(false)

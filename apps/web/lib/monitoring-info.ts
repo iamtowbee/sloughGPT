@@ -7,6 +7,7 @@ export interface SystemInfo {
   cpu_percent: number | null
   memory_total: number
   memory_used: number
+  /** Host RAM; from used/total bytes when available so % matches the GB line. */
   memory_percent: number | null
   gpu_available: boolean
   gpu_name?: string
@@ -41,6 +42,12 @@ type InfoJson = {
   }
 }
 
+/** Match the same bytes we show as GB — psutil `memory_percent` can disagree with `used`/`total`. */
+function memoryPercentFromBytes(used: number, total: number): number | null {
+  if (!(total > 0) || used < 0) return null
+  return Math.min(100, Math.max(0, (used / total) * 100))
+}
+
 export function mapInfoToSystemInfo(data: InfoJson): SystemInfo {
   const pytorch = typeof data.pytorch_version === 'string' ? data.pytorch_version : 'N/A'
   const host = data.host
@@ -69,14 +76,22 @@ export function mapInfoToSystemInfo(data: InfoJson): SystemInfo {
       typeof host.process_rss_bytes === 'number' && host.process_rss_bytes >= 0
         ? host.process_rss_bytes
         : null
+    const memTotal = typeof host.memory_total_bytes === 'number' ? host.memory_total_bytes : 0
+    const memUsed = typeof host.memory_used_bytes === 'number' ? host.memory_used_bytes : 0
+    const memPctFromBytes = memoryPercentFromBytes(memUsed, memTotal)
     return {
       platform: [host.platform, host.platform_release].filter(Boolean).join(' '),
       python: pytorch,
       cpu_cores: typeof host.cpu_count_logical === 'number' ? host.cpu_count_logical : 0,
       cpu_percent: host.cpu_percent,
-      memory_total: typeof host.memory_total_bytes === 'number' ? host.memory_total_bytes : 0,
-      memory_used: typeof host.memory_used_bytes === 'number' ? host.memory_used_bytes : 0,
-      memory_percent: typeof host.memory_percent === 'number' ? host.memory_percent : null,
+      memory_total: memTotal,
+      memory_used: memUsed,
+      memory_percent:
+        memPctFromBytes != null
+          ? memPctFromBytes
+          : typeof host.memory_percent === 'number'
+            ? host.memory_percent
+            : null,
       gpu_available: Boolean(data.cuda_available),
       gpu_name: typeof cuda?.device === 'string' ? cuda.device : undefined,
       gpu_memory: gpuMemory,
