@@ -8,7 +8,7 @@ describe('Chat page — inference contract (mocked API)', () => {
     cy.intercept('GET', `${api}/models`, { fixture: 'models-list.json' }).as('getModels')
     cy.intercept('GET', `${api}/health`, {
       statusCode: 200,
-      body: { status: 'healthy', model_type: 'gpt2', model_loaded: false },
+      body: { status: 'healthy', model_type: 'gpt2', model_loaded: true },
     }).as('health')
     cy.intercept('POST', `${api}/inference/generate/stream`, {
       statusCode: 503,
@@ -30,6 +30,9 @@ describe('Chat page — inference contract (mocked API)', () => {
 
   it('sends a user message and shows an assistant reply', () => {
     cy.visit('/chat/')
+
+    // Chat gates send until /health reports model_loaded; wait for mocks before typing.
+    cy.wait(['@health', '@getModels'], { timeout: 30_000 })
 
     cy.get('[data-testid="chat-message-input"]', { timeout: 30_000 }).should('be.visible').type('Hello from Cypress')
     cy.get('[data-testid="chat-message-input"]').should('have.value', 'Hello from Cypress')
