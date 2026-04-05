@@ -32,8 +32,20 @@ describe('api.getModels', () => {
 
     expect(fetch).toHaveBeenCalledWith('http://127.0.0.1:9/models')
     expect(rows).toEqual([
-      { id: 'm1', name: 'Alpha', size: '512 MB', type: 'huggingface' },
-      { id: 'unnamed-id', name: 'unnamed-id', size: '1.5 MB', type: 'unknown' },
+      {
+        id: 'm1',
+        name: 'Alpha',
+        size: '512.00 MB',
+        type: 'huggingface',
+        size_mb: 512,
+      },
+      {
+        id: 'unnamed-id',
+        name: 'unnamed-id',
+        size: '1.50 MB',
+        type: 'unknown',
+        size_mb: 1.5,
+      },
     ])
   })
 
@@ -45,6 +57,32 @@ describe('api.getModels', () => {
 
     const rows = await api.getModels()
     expect(rows).toEqual([])
+  })
+
+  it('maps description and string-only tags', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        models: [
+          {
+            id: 't1',
+            name: 'Tagged',
+            source: 'local',
+            size_mb: 8,
+            description: 'A model',
+            tags: ['gen', 99, 'small'],
+          },
+        ],
+      }),
+    } as Response)
+
+    const rows = await api.getModels()
+    expect(rows[0]).toMatchObject({
+      id: 't1',
+      description: 'A model',
+      tags: ['gen', 'small'],
+      type: 'local',
+    })
   })
 
   it('throws when GET /models is not ok', async () => {

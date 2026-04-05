@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { api, type ApiHealth } from '@/lib/api'
+import { useApiHealth } from '@/hooks/useApiHealth'
+import { api } from '@/lib/api'
 import { revealTypingSequence } from '@/lib/chat-reveal'
 import { Button } from '@/components/ui/button'
 import {
@@ -100,8 +101,7 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string; source?: string }>>([])
-  /** `null` = not polled yet; `offline` = unreachable; else `GET /health` body. */
-  const [apiHealth, setApiHealth] = useState<ApiHealth | 'offline' | null>(null)
+  const { state: apiHealth } = useApiHealth()
   const [modelsCatalogError, setModelsCatalogError] = useState(false)
   const [modelsCatalogLoading, setModelsCatalogLoading] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -164,25 +164,6 @@ export default function ChatPage() {
     const session = createSession()
     setSessions([session])
     setActiveSessionId(session.id)
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    const pollHealth = async () => {
-      const h = await api.getHealth()
-      if (!cancelled) setApiHealth(h ?? 'offline')
-    }
-    void pollHealth()
-    const healthInterval = setInterval(pollHealth, 28000)
-    const onVis = () => {
-      if (document.visibilityState === 'visible') void pollHealth()
-    }
-    document.addEventListener('visibilitychange', onVis)
-    return () => {
-      cancelled = true
-      clearInterval(healthInterval)
-      document.removeEventListener('visibilitychange', onVis)
-    }
   }, [])
 
   useEffect(() => {

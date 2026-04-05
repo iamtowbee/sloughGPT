@@ -53,9 +53,14 @@ export interface Model {
   id: string
   name: string
   size: string
+  /** Mirrors API `source` (e.g. local / huggingface). */
   type: string
   quantization?: string
   loaded?: boolean
+  description?: string
+  tags?: string[]
+  /** Numeric size when the API provides `size_mb`. */
+  size_mb?: number
 }
 
 export interface TrainingJob {
@@ -324,16 +329,24 @@ export const api = {
         name?: string
         source?: string
         size_mb?: number
+        description?: string
+        tags?: unknown
       }>
     }
     const rows = body.models ?? []
-    return rows.map((m) => ({
-      id: String(m.id ?? m.name ?? ''),
-      name: String(m.name ?? m.id ?? ''),
-      size:
-        typeof m.size_mb === 'number' ? `${m.size_mb} MB` : '—',
-      type: m.source ?? 'unknown',
-    }))
+    return rows.map((m) => {
+      const tags = Array.isArray(m.tags) ? m.tags.filter((t): t is string => typeof t === 'string') : undefined
+      const sizeMb = typeof m.size_mb === 'number' ? m.size_mb : undefined
+      return {
+        id: String(m.id ?? m.name ?? ''),
+        name: String(m.name ?? m.id ?? ''),
+        size: typeof sizeMb === 'number' ? `${sizeMb.toFixed(2)} MB` : '—',
+        type: m.source ?? 'unknown',
+        description: typeof m.description === 'string' ? m.description : undefined,
+        tags,
+        size_mb: sizeMb,
+      }
+    })
   },
 
   /**

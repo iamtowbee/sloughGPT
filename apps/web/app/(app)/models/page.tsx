@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,8 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import { api } from '@/lib/api'
-import { PUBLIC_API_URL } from '@/lib/config'
 
 interface Model {
   id: string
@@ -29,37 +29,40 @@ export default function ModelsPage() {
   const [loading, setLoading] = useState(true)
   const [loadingModel, setLoadingModel] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'local' | 'huggingface'>('all')
-  const [apiHealth, setApiHealth] = useState<string>('checking...')
+  const { state: health, refresh: refreshHealth } = useApiHealth()
   const [loadDialog, setLoadDialog] = useState<{ open: boolean; title: string; body: string }>({
     open: false,
     title: '',
     body: '',
   })
 
-  useEffect(() => {
-    checkHealth()
-    fetchModels()
-  }, [])
+  const apiHealthLabel = useMemo(() => inferenceHealthLabel(health), [health])
 
-  const checkHealth = async () => {
-    const h = await api.getHealth()
-    if (!h) {
-      setApiHealth('disconnected')
-      return
-    }
-    if (h.model_loaded) {
-      setApiHealth(`inference ready · ${h.model_type}`)
-    } else {
-      setApiHealth(`connected · no weights (${h.model_type})`)
-    }
-  }
+  const healthToneClass = useMemo(() => {
+    if (health === null) return 'text-muted-foreground'
+    if (health === 'offline') return 'text-destructive'
+    if (health.model_loaded) return 'text-success'
+    return 'text-warning'
+  }, [health])
+
+  useEffect(() => {
+    void fetchModels()
+  }, [])
 
   const fetchModels = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${PUBLIC_API_URL}/models`)
-      const data = await res.json()
-      setModels(data.models || [])
+      const rows = await api.getModels()
+      setModels(
+        rows.map((m) => ({
+          id: m.id,
+          name: m.name,
+          source: m.type,
+          description: m.description,
+          tags: m.tags,
+          size_mb: m.size_mb,
+        })),
+      )
     } catch (err) {
       console.error('Failed to fetch models:', err)
       setModels([])
@@ -85,7 +88,7 @@ export default function ModelsPage() {
       })
     } finally {
       setLoadingModel(null)
-      void checkHealth()
+      void refreshHealth()
     }
   }
 
@@ -108,22 +111,18 @@ export default function ModelsPage() {
           <h1 className="sl-h1">Models</h1>
           <p className="mt-1 text-muted-foreground">
             API:{' '}
-            <span
-              className={
-                apiHealth === 'checking...'
-                  ? 'text-muted-foreground'
-                  : apiHealth === 'disconnected'
-                    ? 'text-destructive'
-                    : apiHealth.startsWith('connected ·')
-                      ? 'text-warning'
-                      : 'text-success'
-              }
-            >
-              {apiHealth}
-            </span>
+            <span className={healthToneClass}>{apiHealthLabel}</span>
           </p>
         </div>
-        <Button type="button" variant="secondary" size="sm" onClick={() => void fetchModels()}>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            void fetchModels()
+            void refreshHealth()
+          }}
+        >
           Refresh list
         </Button>
       </div>
