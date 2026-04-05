@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
+import { JobStatus, ProgressBar, type JobStatusState } from '@/components/strui'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
@@ -21,6 +22,23 @@ import {
 } from '@/lib/training-defaults'
 
 type CorpusMode = 'folder' | 'manifest' | 'ref'
+
+function trainingStatusToStrui(status: TrainingJob['status']): JobStatusState {
+  switch (status) {
+    case 'pending':
+      return 'queued'
+    case 'running':
+      return 'running'
+    case 'completed':
+      return 'success'
+    case 'failed':
+      return 'error'
+    case 'cancelled':
+      return 'cancelled'
+    default:
+      return 'idle'
+  }
+}
 
 const initialForm = {
   name: '',
@@ -266,21 +284,7 @@ export default function TrainingPage() {
                       </p>
                     )}
                   </div>
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      job.status === 'running'
-                        ? 'bg-primary/20 text-primary'
-                        : job.status === 'completed'
-                          ? 'bg-success/20 text-success'
-                          : job.status === 'pending'
-                            ? 'bg-warning/20 text-warning'
-                            : job.status === 'failed'
-                              ? 'bg-destructive/20 text-destructive'
-                              : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    {job.status}
-                  </span>
+                  <JobStatus status={trainingStatusToStrui(job.status)} />
                 </div>
 
                 <div className="mt-3">
@@ -295,12 +299,14 @@ export default function TrainingPage() {
                     </span>
                     <span>{job.progress}%</span>
                   </div>
-                  <div className="w-full bg-muted rounded-none h-2">
-                    <div
-                      className="bg-primary h-2 rounded-none transition-all duration-200 ease-smooth"
-                      style={{ width: `${job.progress}%` }}
-                    />
-                  </div>
+                  <ProgressBar
+                    value={job.progress}
+                    max={100}
+                    indeterminate={
+                      job.status === 'pending' ||
+                      (job.status === 'running' && job.progress === 0)
+                    }
+                  />
                 </div>
 
                 {(job.train_loss != null && Number.isFinite(job.train_loss)) ||
