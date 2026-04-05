@@ -101,7 +101,7 @@ jobs:
 
       - name: Build
         working-directory: apps/web
-        run: npm run build
+        run: npm run build:clean
 
       - name: E2E (Cypress, mocked API)
         working-directory: apps/web
