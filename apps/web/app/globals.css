@@ -104,8 +104,12 @@ body {
     @apply min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 text-foreground sm:p-6 md:p-8;
   }
 
-  /** Chat: message list scroll region — flat notebook canvas (matches @sloughgpt/strui str-chat-thread). */
-  .sl-chat-thread {
+  /**
+   * Chat message list — flat notebook canvas (matches @sloughgpt/strui).
+   * `.str-chat-thread` is applied by strui `ChatThread`; `.sl-chat-thread` is legacy/alternate hook.
+   */
+  .sl-chat-thread,
+  .str-chat-thread {
     scroll-padding-bottom: 1.25rem;
     background-color: rgb(var(--background));
   }

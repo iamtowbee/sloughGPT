@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/cn'
-import { MessageBubble, TypingIndicator } from '@sloughgpt/strui'
+import { ChatThread, MessageBubble, TypingIndicator } from '@sloughgpt/strui'
 
 interface Message {
   id: string
@@ -760,7 +760,10 @@ export default function ChatPage() {
           </DialogContent>
         </Dialog>
 
-        <div className="sl-chat-thread flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto overscroll-contain px-3 pt-3 pb-4 sm:px-5 sm:pt-4">
+        <ChatThread
+          className="min-h-0 flex-1 overscroll-contain gap-0 px-3 py-0 pt-3 pb-4 sm:px-5 sm:pt-4"
+          live
+        >
             {messages.length === 0 && (
               <div className="flex min-h-[min(50dvh,28rem)] flex-col items-center justify-center px-2 py-8 text-center sm:py-16">
                 <div className="mb-5 flex aspect-square w-[4.5rem] shrink-0 items-center justify-center border border-primary/35 bg-gradient-to-br from-primary/12 to-accent/20 font-mono text-2xl font-semibold text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] dark:shadow-none">
@@ -834,7 +837,7 @@ export default function ChatPage() {
               </div>
             )}
             <div ref={messagesEndRef} />
-          </div>
+        </ChatThread>
 
           <div className="shrink-0 border-t border-border/80 bg-background/90 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
             {/* Composer shell — pill well + lead action + send (see docs/design/references/chat-composer-reference-*.png) */}
