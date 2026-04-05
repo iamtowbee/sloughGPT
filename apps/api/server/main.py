@@ -737,8 +737,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Don't load model at startup to avoid hanging
-    # User can call /health to check status
+    """Load default HF weights in-process when ``SLOUGHGPT_AUTOLOAD_MODEL`` is set (default: ``gpt2``)."""
+    try:
+        await asyncio.to_thread(_autoload_hf_model_at_startup)
+    except Exception as e:
+        logger.warning("Startup model autoload failed: %s", e)
     yield
 
 
@@ -2001,9 +2004,8 @@ class LoadModelRequest(BaseModel):
     device: Optional[str] = "auto"
 
 
-@app.post("/models/load")
-async def load_hf_model_endpoint(request: LoadModelRequest):
-    """Load a HuggingFace model."""
+def _load_hf_model_core(request: LoadModelRequest) -> Dict[str, Any]:
+    """Load HuggingFace weights into process globals; shared by ``POST /models/load`` and startup autoload."""
     global model, tokenizer, model_type
 
     try:
@@ -2048,6 +2050,12 @@ async def load_hf_model_endpoint(request: LoadModelRequest):
         }
     except Exception as e:
         return {"status": "error", "error": str(e)}
+
+
+@app.post("/models/load")
+async def load_hf_model_endpoint(request: LoadModelRequest):
+    """Load a HuggingFace model."""
+    return _load_hf_model_core(request)
 
 
 @app.get("/models/hf")
@@ -2214,14 +2222,6 @@ def find_available_port(start_port: int = 8000, max_attempts: int = 10) -> int:
         except OSError:
             continue
     raise RuntimeError(f"Could not find available port in range {start_port}-{start_port + max_attempts}")
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    port = find_available_port(8000)
-    print(f"Starting SloughGPT server on port {port}...")
-    uvicorn.run(app, host="0.0.0.0", port=port)
 
 
 # Global inference engine (lazy loaded)
@@ -2910,3 +2910,39 @@ async def search_vectors(
             for r in results
         ],
     }
+
+
+def _autoload_hf_model_at_startup() -> None:
+    """
+    Load default inference weights without a manual ``POST /models/load``.
+
+    - ``SLOUGHGPT_AUTOLOAD_MODEL``: HuggingFace model id (default: ``gpt2``). Set to empty to skip.
+    - ``SLOUGHGPT_AUTOLOAD_DEVICE``: passed through to the loader (default: ``auto``).
+    """
+    global model
+
+    raw = os.environ.get("SLOUGHGPT_AUTOLOAD_MODEL", "gpt2").strip()
+    if not raw:
+        logger.info("SLOUGHGPT_AUTOLOAD_MODEL is empty; skipping startup autoload")
+        return
+    if model is not None:
+        return
+    device = (os.environ.get("SLOUGHGPT_AUTOLOAD_DEVICE") or "auto").strip() or "auto"
+    req = LoadModelRequest(model_id=raw, mode="local", device=device)
+    result = _load_hf_model_core(req)
+    if result.get("status") == "error":
+        logger.warning("Startup autoload failed for %s: %s", raw, result.get("error"))
+    else:
+        logger.info(
+            "Startup autoload ok: model_id=%s effective_device=%s",
+            raw,
+            result.get("effective_device"),
+        )
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    port = find_available_port(8000)
+    print(f"Starting SloughGPT server on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port)

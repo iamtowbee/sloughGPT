@@ -1,8 +1,10 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { api } from '@/lib/api'
+import { api, type ApiHealth } from '@/lib/api'
+import { revealTypingSequence } from '@/lib/chat-reveal'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -98,6 +100,10 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string; source?: string }>>([])
+  /** `null` = not polled yet; `offline` = unreachable; else `GET /health` body. */
+  const [apiHealth, setApiHealth] = useState<ApiHealth | 'offline' | null>(null)
+  const [modelsCatalogError, setModelsCatalogError] = useState(false)
+  const [modelsCatalogLoading, setModelsCatalogLoading] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -161,12 +167,36 @@ export default function ChatPage() {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+    const pollHealth = async () => {
+      const h = await api.getHealth()
+      if (!cancelled) setApiHealth(h ?? 'offline')
+    }
+    void pollHealth()
+    const healthInterval = setInterval(pollHealth, 28000)
+    const onVis = () => {
+      if (document.visibilityState === 'visible') void pollHealth()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      cancelled = true
+      clearInterval(healthInterval)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [])
+
+  useEffect(() => {
     ;(async () => {
+      setModelsCatalogLoading(true)
+      setModelsCatalogError(false)
       try {
         const models = await api.getModels()
         setAvailableModels(models.map((m) => ({ id: m.id, name: m.name, source: m.type })))
       } catch {
-        setAvailableModels([{ id: 'gpt2', name: 'GPT-2', source: 'huggingface' }])
+        setAvailableModels([])
+        setModelsCatalogError(true)
+      } finally {
+        setModelsCatalogLoading(false)
       }
     })()
   }, [])
@@ -235,23 +265,17 @@ export default function ChatPage() {
       }))
     }
 
-    /** Chunked typing animation; step-by-`chunk` slices can miss the tail — always finalize to full text. */
+    /** Chunked typing animation (see `revealTypingSequence` tests for tail coverage). */
     const revealAssistantText = async (fullContent: string, delayMs: number) => {
-      for (let i = 0; i <= fullContent.length; i += 3) {
+      for (const partial of revealTypingSequence(fullContent, 3)) {
         updateActiveSession((session) => ({
           ...session,
           messages: session.messages.map((m) =>
-            m.id === assistantId ? { ...m, content: fullContent.slice(0, i) } : m,
+            m.id === assistantId ? { ...m, content: partial } : m,
           ),
         }))
         await new Promise((r) => setTimeout(r, delayMs))
       }
-      updateActiveSession((session) => ({
-        ...session,
-        messages: session.messages.map((m) =>
-          m.id === assistantId ? { ...m, content: fullContent } : m,
-        ),
-      }))
     }
 
     const streamViaInference = (): Promise<boolean> =>
@@ -295,14 +319,9 @@ export default function ChatPage() {
       const fullContent = data.text || ''
       await revealAssistantText(fullContent, 10)
     } catch (err) {
-      console.log('Generation failed, using demo response:', err)
-      const demoResponses = [
-        `Hey! I'm SloughGPT. Start the API server for real AI responses.`,
-        `Interesting question! Let me think about that.\n\nThis is a demo response.`,
-        `Got it! I can help with:\n\n- Writing code\n- Answering questions\n- Creative writing\n- And more!`,
-      ]
-      const fullContent = demoResponses[Math.floor(Math.random() * demoResponses.length)]
-      await revealAssistantText(fullContent, 15)
+      const message = err instanceof Error ? err.message : 'Generation failed'
+      const fullContent = `Could not generate a reply. ${message}\n\nIf the API is running, load a model (Models page or POST /models/load) or ensure the server finished startup autoload (SLOUGHGPT_AUTOLOAD_MODEL, default gpt2).`
+      await revealAssistantText(fullContent, 4)
     }
 
     setIsLoading(false)
@@ -410,8 +429,14 @@ export default function ChatPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
-                {availableModels.length === 0 && (
-                  <div className="px-2 py-2 text-sm text-muted-foreground">Loading models…</div>
+                {modelsCatalogLoading && (
+                  <div className="px-2 py-2 text-sm text-muted-foreground">Loading catalog…</div>
+                )}
+                {!modelsCatalogLoading && modelsCatalogError && (
+                  <div className="px-2 py-2 text-sm text-destructive">Could not list models (API error).</div>
+                )}
+                {!modelsCatalogLoading && !modelsCatalogError && availableModels.length === 0 && (
+                  <div className="px-2 py-2 text-sm text-muted-foreground">No models in catalog.</div>
                 )}
                 {availableModels.map((model) => (
                   <DropdownMenuItem
@@ -432,6 +457,22 @@ export default function ChatPage() {
             </Button>
           </div>
         </div>
+
+        {apiHealth === 'offline' ? (
+          <div className="border-b border-border bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground">
+            Cannot reach the API. Start it from the repo root (<code className="text-[11px]">python3 apps/api/server/main.py</code>) and ensure{' '}
+            <code className="text-[11px]">NEXT_PUBLIC_API_URL</code> matches.
+          </div>
+        ) : null}
+        {apiHealth !== null && apiHealth !== 'offline' && !apiHealth.model_loaded ? (
+          <div className="border-b border-border bg-muted/15 px-2 py-1.5 text-xs text-muted-foreground">
+            No weights loaded in the API process yet.{' '}
+            <Link href="/models" className="text-primary underline-offset-2 hover:underline">
+              Load a model
+            </Link>{' '}
+            or wait for server autoload (<code className="text-[11px]">SLOUGHGPT_AUTOLOAD_MODEL</code>).
+          </div>
+        ) : null}
 
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
           <DialogContent className="max-w-md">

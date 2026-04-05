@@ -109,6 +109,15 @@ export interface GenerateResponse {
   tokens_generated: number
 }
 
+/** `GET /health` — drives UI for inference readiness (see `apps/api/server/main.py`). */
+export interface ApiHealth {
+  status: string
+  model_loaded: boolean
+  model_type: string
+  soul_engine_active?: boolean
+  soul_name?: string | null
+}
+
 /** Body shape for `POST /inference/generate` and `/inference/generate/stream` (see server `GenerateRequest`). */
 function buildInferenceGeneratePayload(req: GenerateRequest) {
   return {
@@ -260,6 +269,20 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
 }
 
 export const api = {
+  /**
+   * Lightweight probe for whether the API process has weights/tokenizers for `/inference/*`.
+   * Returns `null` when the server is unreachable or returns a non-OK status.
+   */
+  async getHealth(): Promise<ApiHealth | null> {
+    try {
+      const res = await fetch(`${API_URL}/health`, { cache: 'no-store' })
+      if (!res.ok) return null
+      return (await res.json()) as ApiHealth
+    } catch {
+      return null
+    }
+  },
+
   async healthCheck() {
     const res = await fetch(`${API_URL}/health`)
     return res.json()
@@ -292,6 +315,9 @@ export const api = {
 
   async getModels(): Promise<Model[]> {
     const res = await fetch(`${API_URL}/models`)
+    if (!res.ok) {
+      throw new Error(`GET /models failed (${res.status})`)
+    }
     const body = (await res.json()) as {
       models?: Array<{
         id?: string
@@ -421,7 +447,26 @@ export const api = {
           body: JSON.stringify(buildInferenceGeneratePayload(req)),
           signal: ac.signal,
         })
-        if (!res.ok || !res.body) {
+        if (!res.ok) {
+          try {
+            const raw = await res.text()
+            const j = JSON.parse(raw) as { detail?: unknown; error?: string }
+            const msg =
+              typeof j.error === 'string'
+                ? j.error
+                : typeof j.detail === 'string'
+                  ? j.detail
+                  : raw.slice(0, 200)
+            if (msg && process.env.NODE_ENV === 'development') {
+              console.debug('[api] inference stream HTTP error:', res.status, msg)
+            }
+          } catch {
+            /* ignore */
+          }
+          finish()
+          return
+        }
+        if (!res.body) {
           finish()
           return
         }

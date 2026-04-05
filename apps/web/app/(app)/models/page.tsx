@@ -42,12 +42,15 @@ export default function ModelsPage() {
   }, [])
 
   const checkHealth = async () => {
-    try {
-      const res = await fetch(`${PUBLIC_API_URL}/health`)
-      const data = await res.json()
-      setApiHealth(data.model_type || 'connected')
-    } catch {
+    const h = await api.getHealth()
+    if (!h) {
       setApiHealth('disconnected')
+      return
+    }
+    if (h.model_loaded) {
+      setApiHealth(`inference ready · ${h.model_type}`)
+    } else {
+      setApiHealth(`connected · no weights (${h.model_type})`)
     }
   }
 
@@ -82,6 +85,7 @@ export default function ModelsPage() {
       })
     } finally {
       setLoadingModel(null)
+      void checkHealth()
     }
   }
 
@@ -104,7 +108,17 @@ export default function ModelsPage() {
           <h1 className="sl-h1">Models</h1>
           <p className="mt-1 text-muted-foreground">
             API:{' '}
-            <span className={apiHealth === 'disconnected' ? 'text-destructive' : 'text-success'}>
+            <span
+              className={
+                apiHealth === 'checking...'
+                  ? 'text-muted-foreground'
+                  : apiHealth === 'disconnected'
+                    ? 'text-destructive'
+                    : apiHealth.startsWith('connected ·')
+                      ? 'text-warning'
+                      : 'text-success'
+              }
+            >
               {apiHealth}
             </span>
           </p>

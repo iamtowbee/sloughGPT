@@ -13,6 +13,7 @@ import {
   IconMonitor,
   IconTraining,
 } from '@/components/icons/NavIcons'
+import { api } from '@/lib/api'
 import { PUBLIC_API_URL, WEB_UI_VERSION } from '@/lib/config'
 
 const features = [
@@ -26,20 +27,23 @@ const features = [
 
 export default function HomePage() {
   const [apiStatus, setApiStatus] = useState<'loading' | 'online' | 'offline'>('loading')
+  const [inferenceReady, setInferenceReady] = useState<boolean | null>(null)
   const [modelCount, setModelCount] = useState<number | null>(null)
   const [datasetCount, setDatasetCount] = useState<number | null>(null)
 
   useEffect(() => {
     const checkApi = async () => {
       try {
-        const res = await fetch(`${PUBLIC_API_URL}/health`)
-        if (!res.ok) {
+        const health = await api.getHealth()
+        if (!health) {
           setApiStatus('offline')
+          setInferenceReady(null)
           setModelCount(null)
           setDatasetCount(null)
           return
         }
         setApiStatus('online')
+        setInferenceReady(health.model_loaded)
         const [modelsRes, datasetsRes] = await Promise.all([
           fetch(`${PUBLIC_API_URL}/models`),
           fetch(`${PUBLIC_API_URL}/datasets`),
@@ -59,6 +63,7 @@ export default function HomePage() {
         }
       } catch {
         setApiStatus('offline')
+        setInferenceReady(null)
         setModelCount(null)
         setDatasetCount(null)
       }
@@ -111,6 +116,11 @@ export default function HomePage() {
                   {apiStatus === 'online' ? 'Online' : 'Offline'}
                 </p>
               )}
+              {apiStatus === 'online' && inferenceReady !== null ? (
+                <p className="mt-1.5 text-xs leading-snug text-muted-foreground">
+                  Inference weights: {inferenceReady ? 'loaded' : 'not loaded'}
+                </p>
+              ) : null}
             </div>
           </CardHeader>
         </Card>
