@@ -21,6 +21,10 @@ import '@sloughgpt/strui/styles/globals.css'
 
 AI-focused building blocks are also available as `@sloughgpt/strui/ai` (same exports as the root barrel).
 
+### `apps/web` (this repo)
+
+The Next app depends on **`file:../../packages/strui`**, uses **`transpilePackages: ['@sloughgpt/strui']`**, and keeps stable imports via thin client shims under **`apps/web/components/ui/*`** that re-export from `@sloughgpt/strui`. **`lib/cn`** re-exports `cn` from the same package. **Do not** import `@sloughgpt/strui/styles/globals.css` in the web app: the shell keeps **`app/globals.css`** with its own token format (RGB triplets for `/opacity`); Tailwind **`content`** includes `../../packages/strui/src/**` so classes from the library are not purged.
+
 ## PWA and mobile web
 
 This is **one React + Tailwind codebase** for browsers (including installed PWAs). It is not React Native; use the same components in Capacitor/Tauri/WebView shells.

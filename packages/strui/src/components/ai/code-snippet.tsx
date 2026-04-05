@@ -1,6 +1,6 @@
 import * as React from 'react'
 
-import { cn } from '@/lib/cn'
+import { cn } from '../../lib/cn'
 
 export interface CodeSnippetProps extends React.HTMLAttributes<HTMLPreElement> {
   /** When true, allows horizontal scroll on small screens without breaking layout. */

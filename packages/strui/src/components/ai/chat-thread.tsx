@@ -1,6 +1,6 @@
 import * as React from 'react'
 
-import { cn } from '@/lib/cn'
+import { cn } from '../../lib/cn'
 
 export interface ChatThreadProps extends React.HTMLAttributes<HTMLDivElement> {
   /** When true, thread is announced politely for new messages (screen readers). */

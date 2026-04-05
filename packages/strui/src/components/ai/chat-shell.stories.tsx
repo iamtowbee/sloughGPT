@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react'
-import { Button } from '@/components/ui/button'
+import { Button } from '../ui/button'
 import { ChatThread } from './chat-thread'
 import { CodeSnippet } from './code-snippet'
 import { EmptyState } from './empty-state'

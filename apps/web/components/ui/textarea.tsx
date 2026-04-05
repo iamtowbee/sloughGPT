@@ -1,20 +1,3 @@
-import * as React from 'react'
+'use client'
 
-import { cn } from '@/lib/cn'
-
-import { inputFieldClassName } from '@/components/ui/input'
-
-export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>
-
-const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ className, ...props }, ref) => {
-  return (
-    <textarea
-      className={cn(inputFieldClassName, 'min-h-20 resize-y', className)}
-      ref={ref}
-      {...props}
-    />
-  )
-})
-Textarea.displayName = 'Textarea'
-
-export { Textarea }
+export { Textarea, type TextareaProps } from '@sloughgpt/strui'

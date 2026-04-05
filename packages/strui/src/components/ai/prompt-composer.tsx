@@ -1,8 +1,8 @@
 import * as React from 'react'
 
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/cn'
+import { Button } from '../ui/button'
+import { Textarea } from '../ui/textarea'
+import { cn } from '../../lib/cn'
 
 export interface PromptComposerProps extends Omit<React.FormHTMLAttributes<HTMLFormElement>, 'onSubmit'> {
   value: string

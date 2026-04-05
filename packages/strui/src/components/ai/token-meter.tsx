@@ -1,6 +1,6 @@
 import * as React from 'react'
 
-import { cn } from '@/lib/cn'
+import { cn } from '../../lib/cn'
 
 export interface TokenMeterProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Approximate prompt + completion tokens. */

@@ -1,8 +1,8 @@
 import * as React from 'react'
 
-import { cn } from '@/lib/cn'
+import { cn } from '../../lib/cn'
 
-import { inputFieldClassName } from '@/components/ui/input'
+import { inputFieldClassName } from './input'
 
 export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>
 
