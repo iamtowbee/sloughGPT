@@ -40,17 +40,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </a>
 
         <header className="sl-mobile-header sticky top-0 z-40 flex min-h-[3.25rem] shrink-0 items-center gap-2 border-b px-3 pt-[max(0px,env(safe-area-inset-top))] lg:hidden">
-          <DialogPrimitive.Trigger asChild>
-            <button
-              type="button"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-none text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-expanded={mobileNavOpen}
-              aria-controls="mobile-navigation-drawer"
-            >
-              <IconMenu className="h-4 w-4" aria-hidden />
-              <span className="sr-only">Open menu</span>
-            </button>
-          </DialogPrimitive.Trigger>
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-none text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-expanded={mobileNavOpen}
+            aria-controls="mobile-navigation-drawer"
+            aria-haspopup="dialog"
+            onClick={() => setMobileNavOpen((open) => !open)}
+          >
+            <IconMenu className="h-4 w-4" aria-hidden />
+            <span className="sr-only">Open menu</span>
+          </button>
           <Link
             href="/"
             className="min-w-0 truncate text-sm font-semibold tracking-tight text-foreground"
@@ -76,8 +76,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             className={cn(
               'fixed inset-0 z-[100] bg-black/45 backdrop-blur-[2px] lg:hidden',
               'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200',
-              // Let taps reach the header trigger while exit animation runs (z-40 < z-100/110).
-              'data-[state=closed]:pointer-events-none',
+              // Match React state so taps pass through during close animation (don’t rely on data-state timing).
+              !mobileNavOpen && 'pointer-events-none',
             )}
           />
           <DialogPrimitive.Content
@@ -87,7 +87,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               'shadow-[4px_0_24px_-4px_rgba(0,0,0,0.25)]',
               'data-[state=open]:animate-in data-[state=closed]:animate-out duration-200 ease-smooth',
               'data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left',
-              'data-[state=closed]:pointer-events-none',
+              !mobileNavOpen && 'pointer-events-none',
             )}
           >
             <DialogPrimitive.Title className="sr-only">Main navigation</DialogPrimitive.Title>
