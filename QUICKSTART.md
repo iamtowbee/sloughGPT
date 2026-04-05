@@ -30,6 +30,10 @@ python3 apps/api/server/main.py
 # Access at http://localhost:8000/docs
 ```
 
+**Web UI** (another terminal): `cd apps/web && npm install && npm run dev` → http://localhost:3000
+
+**API + web together** (one terminal; Ctrl+C stops both): `./scripts/dev-stack.sh` or `make dev-stack`
+
 Load a Hugging Face model for real generation (optional):
 
 ```bash
