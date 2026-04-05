@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
-import { FoldSection, JobStatus, ProgressBar, type JobStatusState } from '@/components/strui'
+import { FoldSection, JobStatus, ProgressBar } from '@/components/strui'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
@@ -20,25 +20,9 @@ import {
   TRAINING_API_DEFAULTS,
   type TrainingMixedPrecisionDtype,
 } from '@/lib/training-defaults'
+import { trainingJobStatusToStrui } from '@/lib/training-status'
 
 type CorpusMode = 'folder' | 'manifest' | 'ref'
-
-function trainingStatusToStrui(status: TrainingJob['status']): JobStatusState {
-  switch (status) {
-    case 'pending':
-      return 'queued'
-    case 'running':
-      return 'running'
-    case 'completed':
-      return 'success'
-    case 'failed':
-      return 'error'
-    case 'cancelled':
-      return 'cancelled'
-    default:
-      return 'idle'
-  }
-}
 
 const initialForm = {
   name: '',
@@ -282,7 +266,7 @@ export default function TrainingPage() {
                       </p>
                     )}
                   </div>
-                  <JobStatus status={trainingStatusToStrui(job.status)} />
+                  <JobStatus status={trainingJobStatusToStrui(job.status)} />
                 </div>
 
                 <div className="mt-3">

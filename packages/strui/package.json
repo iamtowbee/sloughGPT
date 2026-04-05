@@ -29,7 +29,9 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build -o storybook-static",
     "typecheck": "tsc --noEmit",
-    "ci": "npm run typecheck && npm run build-storybook"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "ci": "npm run typecheck && npm run test && npm run build-storybook"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -47,6 +49,7 @@
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
     "@storybook/addon-essentials": "^8.4.7",
     "@storybook/react": "^8.4.7",
     "@storybook/react-vite": "^8.4.7",
@@ -59,7 +62,8 @@
     "tailwindcss": "^3.4.15",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.7.2",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "^3.0.0"
   },
   "peerDependencies": {
     "react": "^18.2.0",

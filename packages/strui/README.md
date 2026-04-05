@@ -21,6 +21,10 @@ cd packages/strui && npm ci && npm run storybook
 ```
 
 ```sh
+npm run test
+```
+
+```sh
 npm run ci
 ```
 

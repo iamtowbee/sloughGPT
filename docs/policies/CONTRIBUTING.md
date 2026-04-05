@@ -11,6 +11,7 @@ Thanks for helping improve SloughGPT.
    - **`tests/test_sloughgpt_colab_notebook.py`** runs **`bash`** for **`scripts/run_colab_notebook_smoke.sh --help`**; if **`bash`** is not on **`PATH`**, that case is **skipped** (on Windows, use Git Bash, WSL, or rely on Linux/macOS CI).
    - If you touch **`apps/web/`**: `cd apps/web && npm ci && npm run ci` (**`clean`** then lint, typecheck, Vitest, **`next build`** — avoids flaky **`.next`** / trace issues; aligns with job **`test-web`**). To run **API + web** locally in one terminal: **`./scripts/dev-stack.sh`**, **`make dev-stack`**, or **`npm install` at repo root** then **`npm run dev:stack`** (see **QUICKSTART.md**).
    - If you touch **`packages/sdk-ts/typescript-sdk/`**: `cd packages/sdk-ts/typescript-sdk && npm ci && npm run ci` (job **`test-sdk-ts`**).
+   - If you touch **`packages/strui/`**: `cd packages/strui && npm ci && npm run ci` (job **`test-strui`** — typecheck, Vitest, Storybook build).
    - If you touch **`packages/sdk-py/sloughgpt_sdk/`**: `python3 -m pytest tests/test_sdk.py -q` (job **`sdk-test-py`**).
    - If you change **`packages/standards/`** or schemas: `python3 scripts/validate_standards_schemas.py` (**`jsonschema`** is in **`python3 -m pip install -e ".[dev]"`**; otherwise `python3 -m pip install jsonschema`). Job **`standards-schemas`**.
 4. **Open a PR** with a clear description of intent and scope (see **`.github/pull_request_template.md`**).
