@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/cn'
+import { MessageBubble } from '@sloughgpt/strui'
 
 interface Message {
   id: string
@@ -787,29 +788,11 @@ export default function ChatPage() {
                 </div>
               </div>
             )}
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`mb-4 flex w-full sm:mb-5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`group max-w-[min(100%,var(--chat-thread-max))] transition-colors duration-200 ease-smooth ${
-                    msg.role === 'user'
-                      ? 'border border-primary/35 bg-primary px-4 py-2.5 text-primary-foreground shadow-sm'
-                      : 'border-0 bg-transparent px-0 py-1 text-foreground shadow-none'
-                  }`}
-                >
-                  <div
-                    className={`whitespace-pre-wrap break-words ${
-                      msg.role === 'user'
-                        ? 'text-sm leading-relaxed'
-                        : 'text-[0.9375rem] leading-[1.65] text-foreground'
-                    }`}
-                  >
-                    {msg.content}
-                  </div>
-
-                  {msg.role === 'assistant' && (
+            {messages.map((msg) =>
+              msg.role === 'assistant' ? (
+                <div key={msg.id} className="mb-4 flex w-full justify-start sm:mb-5">
+                  <MessageBubble role="assistant" variant="transcript" className="group">
+                    <div className="whitespace-pre-wrap break-words">{msg.content}</div>
                     <div className="mt-2 flex gap-3 border-t border-border/60 pt-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                       <button
                         type="button"
@@ -826,8 +809,12 @@ export default function ChatPage() {
                         Retry
                       </button>
                     </div>
-                  )}
-                  {msg.role === 'user' && (
+                  </MessageBubble>
+                </div>
+              ) : (
+                <div key={msg.id} className="mb-4 flex w-full justify-end sm:mb-5">
+                  <div className="group max-w-[min(100%,var(--chat-thread-max))] border border-primary/35 bg-primary px-4 py-2.5 text-primary-foreground shadow-sm transition-colors duration-200 ease-smooth">
+                    <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">{msg.content}</div>
                     <div className="mt-1.5 flex gap-3 border-t border-primary-foreground/25 pt-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                       <button
                         type="button"
@@ -837,10 +824,10 @@ export default function ChatPage() {
                         Edit & resend
                       </button>
                     </div>
-                  )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ),
+            )}
             {isLoading && (
               <div className="mb-4 flex w-full justify-start sm:mb-5" aria-busy>
                 <div className="flex gap-1.5 py-3 text-muted-foreground" aria-label="Assistant is responding">
