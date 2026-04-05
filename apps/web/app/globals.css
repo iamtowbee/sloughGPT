@@ -87,6 +87,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Matches @sloughgpt/strui — fewer accidental grey flashes on iOS tap targets. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 @layer components {
   .sl-shell-main {
     background-color: rgb(var(--background));
