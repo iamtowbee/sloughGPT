@@ -1,5 +1,6 @@
 import { useAuthStore } from './auth'
 import { PUBLIC_API_URL } from './config'
+import { devDebug } from './dev-log'
 
 const API_URL = PUBLIC_API_URL
 
@@ -472,8 +473,8 @@ export const api = {
                 : typeof j.detail === 'string'
                   ? j.detail
                   : raw.slice(0, 200)
-            if (msg && process.env.NODE_ENV === 'development') {
-              console.debug('[api] inference stream HTTP error:', res.status, msg)
+            if (msg) {
+              devDebug('[api] inference stream HTTP error:', res.status, msg)
             }
           } catch {
             /* ignore */

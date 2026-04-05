@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { api, type Dataset } from '@/lib/api'
+import { devDebug } from '@/lib/dev-log'
 
 export default function DatasetsPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([])
@@ -21,7 +22,7 @@ export default function DatasetsPage() {
       const rows = await api.getDatasets()
       setDatasets(rows)
     } catch (err) {
-      console.error('Failed to fetch datasets:', err)
+      devDebug('Failed to fetch datasets:', err)
       setDatasets([])
     } finally {
       setLoading(false)

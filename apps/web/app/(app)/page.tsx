@@ -146,13 +146,22 @@ export default function HomePage() {
 
       <section>
         <h2 className="mb-4 text-sm font-semibold tracking-tight text-foreground">Quick actions</h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-6">
           {features.map((f) => (
-            <Button key={f.href} variant="outline" className="h-auto flex-col items-start gap-2 p-4" asChild>
-              <Link href={f.href}>
-                <f.Icon className="h-7 w-7 text-primary opacity-90" />
-                <span className="block w-full text-left text-sm font-medium text-foreground">{f.title}</span>
-                <span className="block w-full text-left text-xs font-normal text-muted-foreground">{f.desc}</span>
+            <Button
+              key={f.href}
+              variant="outline"
+              className="flex h-auto w-full min-w-0 flex-col items-start justify-start gap-3 p-3 text-left sm:p-4"
+              asChild
+            >
+              <Link href={f.href} className="min-w-0">
+                <f.Icon className="h-7 w-7 shrink-0 text-primary opacity-90" aria-hidden />
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-sm font-medium leading-tight text-foreground">{f.title}</span>
+                  <span className="text-balance text-xs font-normal leading-snug text-muted-foreground">
+                    {f.desc}
+                  </span>
+                </div>
               </Link>
             </Button>
           ))}

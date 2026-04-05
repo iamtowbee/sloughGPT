@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { api, Experiment, Run } from '@/lib/api'
+import { devDebug } from '@/lib/dev-log'
 
 function statusClass(status: string) {
   if (status === 'running') return 'border-primary/30 bg-primary/10 text-primary'
@@ -21,13 +22,13 @@ export default function ExperimentsPage() {
     api
       .getExperiments()
       .then(setExperiments)
-      .catch(console.error)
+      .catch((e) => devDebug('getExperiments:', e))
       .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
     if (selectedExp) {
-      api.getRuns(selectedExp).then(setRuns).catch(console.error)
+      api.getRuns(selectedExp).then(setRuns).catch((e) => devDebug('getRuns:', e))
     }
   }, [selectedExp])
 

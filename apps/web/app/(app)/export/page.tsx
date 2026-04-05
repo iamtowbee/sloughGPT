@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 
 import { api, ExportResult } from '@/lib/api'
+import { devDebug } from '@/lib/dev-log'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -19,7 +20,10 @@ export default function ExportPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.getExportFormats().then((r) => setFormats(r.formats)).catch(console.error)
+    api
+      .getExportFormats()
+      .then((r) => setFormats(r.formats))
+      .catch((e) => devDebug('getExportFormats:', e))
   }, [])
 
   const exportModel = async () => {

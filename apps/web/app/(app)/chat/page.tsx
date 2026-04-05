@@ -1,11 +1,12 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useApiHealth } from '@/hooks/useApiHealth'
 import { api } from '@/lib/api'
 import { revealTypingSequence } from '@/lib/chat-reveal'
+import { devDebug } from '@/lib/dev-log'
+import { InferenceRuntimeToolbar, InferenceStatusBar } from '@/components/InferenceStatusBar'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -101,7 +102,7 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string; source?: string }>>([])
-  const { state: apiHealth } = useApiHealth()
+  const { state: apiHealth, refresh: refreshHealth } = useApiHealth()
   const [modelsCatalogError, setModelsCatalogError] = useState(false)
   const [modelsCatalogLoading, setModelsCatalogLoading] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -114,6 +115,21 @@ export default function ChatPage() {
   )
   const selectedModel = activeSession?.selectedModel ?? 'gpt2'
   const settings = activeSession?.settings ?? defaultSettings
+
+  const canInfer = useMemo(() => {
+    if (apiHealth === null) return false
+    if (apiHealth === 'offline') return false
+    return apiHealth.model_loaded
+  }, [apiHealth])
+
+  const sendBlockedReason =
+    apiHealth === null
+      ? 'Waiting for API status…'
+      : apiHealth === 'offline'
+        ? 'Cannot reach the API'
+        : !apiHealth.model_loaded
+          ? 'Load weights in the API (Models page or autoload)'
+          : undefined
 
   const updateActiveSession = (updater: (session: ChatSession) => ChatSession) => {
     if (!activeSessionId) return
@@ -285,7 +301,7 @@ export default function ChatPage() {
         return
       }
     } catch (err) {
-      console.log('Inference streaming failed, falling back to non-stream generation:', err)
+      devDebug('Inference streaming failed, falling back to non-stream generation:', err)
     }
 
     try {
@@ -309,12 +325,12 @@ export default function ChatPage() {
   }
 
   const sendMessage = async () => {
-    if (!input.trim() || isLoading) return
+    if (!input.trim() || isLoading || !canInfer) return
     await generateForPrompt(input.trim())
   }
 
   const retryAssistantMessage = async (assistantMessageId: string) => {
-    if (!activeSession || isLoading) return
+    if (!activeSession || isLoading || !canInfer) return
     const idx = activeSession.messages.findIndex((m) => m.id === assistantMessageId && m.role === 'assistant')
     if (idx <= 0) return
     const prompt = [...activeSession.messages]
@@ -399,12 +415,12 @@ export default function ChatPage() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col px-1 md:px-2">
-        <div className="flex items-center justify-between border-b border-border py-3">
-          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+        <div className="flex flex-col gap-2 border-b border-border py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 md:gap-3">
             <h1 className="text-lg font-semibold text-foreground">{activeSession?.title ?? 'Chat'}</h1>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="secondary" size="sm" className="gap-2 font-normal">
+                <Button variant="secondary" size="sm" className="gap-2 font-normal" title="Catalog label; inference uses the API runtime shown on the right">
                   <span className="max-w-[140px] truncate">{selectedModelLabel}</span>
                   <ChevronDownIcon className="h-3 w-3 shrink-0 opacity-70" />
                 </Button>
@@ -437,29 +453,18 @@ export default function ChatPage() {
               Generation settings
             </Button>
           </div>
+          <InferenceRuntimeToolbar health={apiHealth} onRefresh={refreshHealth} />
         </div>
 
-        {apiHealth === 'offline' ? (
-          <div className="border-b border-border bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground">
-            Cannot reach the API. Start it from the repo root (<code className="text-[11px]">python3 apps/api/server/main.py</code>) and ensure{' '}
-            <code className="text-[11px]">NEXT_PUBLIC_API_URL</code> matches.
-          </div>
-        ) : null}
-        {apiHealth !== null && apiHealth !== 'offline' && !apiHealth.model_loaded ? (
-          <div className="border-b border-border bg-muted/15 px-2 py-1.5 text-xs text-muted-foreground">
-            No weights loaded in the API process yet.{' '}
-            <Link href="/models" className="text-primary underline-offset-2 hover:underline">
-              Load a model
-            </Link>{' '}
-            or wait for server autoload (<code className="text-[11px]">SLOUGHGPT_AUTOLOAD_MODEL</code>).
-          </div>
-        ) : null}
+        <InferenceStatusBar health={apiHealth} selectedCatalogId={selectedModel} />
 
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Generation settings</DialogTitle>
-              <DialogDescription>Applied to this chat only. Uses the HTTP inference API.</DialogDescription>
+              <DialogDescription>
+                Applied to this chat only. Generation calls the API; the loaded weights are those reported on the chat header (not only this dropdown).
+              </DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4 py-2">
               <div className="space-y-2">
@@ -563,6 +568,8 @@ export default function ChatPage() {
                     variant="secondary"
                     size="sm"
                     className="text-xs"
+                    disabled={!canInfer}
+                    title={!canInfer ? sendBlockedReason : undefined}
                     onClick={() => setInput(example)}
                   >
                     {example}
@@ -652,6 +659,7 @@ export default function ChatPage() {
               }}
               placeholder="Message…"
               rows={2}
+              title={!canInfer ? sendBlockedReason : undefined}
               className="min-h-[52px] flex-1 resize-none bg-muted/30"
             />
             <Button
@@ -660,7 +668,8 @@ export default function ChatPage() {
               size="icon"
               className="h-[52px] w-10 shrink-0 self-end"
               onClick={sendMessage}
-              disabled={isLoading || !input.trim()}
+              disabled={isLoading || !input.trim() || !canInfer}
+              title={!canInfer ? sendBlockedReason : undefined}
               aria-label="Send message"
             >
               <SendIcon className="h-4 w-4" />

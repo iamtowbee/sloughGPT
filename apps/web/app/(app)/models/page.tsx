@@ -14,6 +14,8 @@ import {
 } from '@/components/ui/dialog'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import { api } from '@/lib/api'
+import { catalogIdMatchesRuntime } from '@/lib/inference-display'
+import { devDebug } from '@/lib/dev-log'
 
 interface Model {
   id: string
@@ -64,7 +66,7 @@ export default function ModelsPage() {
         })),
       )
     } catch (err) {
-      console.error('Failed to fetch models:', err)
+      devDebug('Failed to fetch models:', err)
       setModels([])
     } finally {
       setLoading(false)
@@ -98,6 +100,9 @@ export default function ModelsPage() {
     if (filter === 'huggingface') return m.source === 'huggingface'
     return true
   })
+
+  const activeRuntimeId =
+    health !== null && health !== 'offline' && health.model_loaded ? health.model_type : null
 
   const sourceBadge = (src: string) =>
     src === 'local'
@@ -154,50 +159,60 @@ export default function ModelsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredModels.map((model) => (
-            <Card key={model.id} className="transition-colors duration-200 ease-smooth hover:border-primary/30">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-base leading-snug">{model.name}</CardTitle>
-                  {model.source && (
-                    <span className={`shrink-0 px-2 py-0.5 text-xs font-medium ${sourceBadge(model.source)}`}>
-                      {model.source}
-                    </span>
-                  )}
-                </div>
-                {model.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2">{model.description}</p>
-                )}
-              </CardHeader>
-              <CardContent className="pt-0">
-                {model.tags && model.tags.length > 0 && (
-                  <div className="mb-3 flex flex-wrap gap-1">
-                    {model.tags.slice(0, 4).map((tag) => (
-                      <span
-                        key={tag}
-                        className="border border-border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground"
-                      >
-                        {tag}
+          {filteredModels.map((model) => {
+            const isRuntimeActive =
+              activeRuntimeId != null && catalogIdMatchesRuntime(model.id, activeRuntimeId)
+            return (
+              <Card
+                key={model.id}
+                data-testid={isRuntimeActive ? 'model-card-active-runtime' : undefined}
+                className={`transition-colors duration-200 ease-smooth hover:border-primary/30 ${
+                  isRuntimeActive ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20' : ''
+                }`}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="text-base leading-snug">{model.name}</CardTitle>
+                    {model.source && (
+                      <span className={`shrink-0 px-2 py-0.5 text-xs font-medium ${sourceBadge(model.source)}`}>
+                        {model.source}
                       </span>
-                    ))}
+                    )}
                   </div>
-                )}
-              </CardContent>
-              <CardFooter className="flex justify-between border-t border-border pt-4">
-                <span className="text-sm text-muted-foreground">
-                  {model.size_mb ? `${model.size_mb.toFixed(1)} MB` : model.id}
-                </span>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => loadModel(model.id)}
-                  disabled={loadingModel !== null}
-                >
-                  {loadingModel === model.id ? 'Loading…' : 'Load'}
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+                  {model.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2">{model.description}</p>
+                  )}
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {model.tags && model.tags.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-1">
+                      {model.tags.slice(0, 4).map((tag) => (
+                        <span
+                          key={tag}
+                          className="border border-border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter className="flex justify-between border-t border-border pt-4">
+                  <span className="text-sm text-muted-foreground">
+                    {model.size_mb ? `${model.size_mb.toFixed(1)} MB` : model.id}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => loadModel(model.id)}
+                    disabled={loadingModel !== null}
+                  >
+                    {loadingModel === model.id ? 'Loading…' : 'Load'}
+                  </Button>
+                </CardFooter>
+              </Card>
+            )
+          })}
         </div>
       )}
 

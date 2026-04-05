@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { api, TrainingJob, TrainResolveResponse } from '@/lib/api'
+import { devDebug } from '@/lib/dev-log'
 import {
   TRAINING_API_DEFAULTS,
   type TrainingMixedPrecisionDtype,
@@ -51,7 +52,7 @@ export default function TrainingPage() {
       const data = await api.getTrainingJobs()
       setJobs(data)
     } catch (error) {
-      console.error('Failed to fetch jobs:', error)
+      devDebug('Failed to fetch jobs:', error)
     } finally {
       setLoading(false)
     }
@@ -160,7 +161,7 @@ export default function TrainingPage() {
       setResolveResult(null)
       fetchJobs()
     } catch (error) {
-      console.error('Failed to start training:', error)
+      devDebug('Failed to start training:', error)
       setResolveError(error instanceof Error ? error.message : 'Start failed')
     } finally {
       setStarting(false)
