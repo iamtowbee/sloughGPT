@@ -68,6 +68,10 @@ python3 apps/api/server/main.py
 python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000
 ```
 
+**Web UI** (another terminal): `cd apps/web && npm install && npm run dev` → http://localhost:3000
+
+**API + web in one terminal** (from repo root): `./scripts/dev-stack.sh`, `make dev-stack`, or `npm install && npm run dev:stack` — see **QUICKSTART.md**.
+
 ### Docker
 ```bash
 # Start with Docker (run from repo root)

@@ -162,8 +162,8 @@ services:
   # Web UI
   web:
     build:
-      context: ../../apps/web
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: apps/web/Dockerfile
     container_name: sloughgpt-web
     image: sloughgpt/web:latest
     ports:

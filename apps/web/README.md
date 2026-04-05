@@ -48,7 +48,7 @@ npm run dev
 # The app will open at http://localhost:3000
 ```
 
-Before pushing changes, run the same checks as CI: **`npm ci && npm run ci`** (from this directory — deletes **`.next`**, then lint, typecheck, Vitest, **`next build`**; same outcome as CI **Build**’s **`build:clean`**).
+Before pushing changes, run the same checks as CI: **`npm ci && npm run ci`** (from this directory — lint, typecheck, Vitest, then **`npm run build:clean`**, i.e. remove **`.next`** and **`next build`**; same as job **`test-web`**).
 
 **Talking to models:** set **`NEXT_PUBLIC_API_URL`** to your FastAPI base (default `http://localhost:8000`). Use **Models** to **`POST /models/load`** (`model_id` in JSON), then **Chat** sends message history to **`POST /chat/stream`** (SSE) with fallback to **`POST /chat`**. Older single-prompt paths **`/inference/generate/stream`** / **`/inference/generate`** remain available for other clients. The client **`api.loadModel`** matches that contract (not `/models/{id}/load`).
 
@@ -63,6 +63,16 @@ npm run build
 npm run start   # serves the production build (default port 3000)
 ```
 
+### Docker image
+
+The **`file:../../packages/strui`** dependency must resolve, so build the image from the **repository root**:
+
+```bash
+docker build -f apps/web/Dockerfile -t sloughgpt/web:latest .
+```
+
+**`infra/docker/docker-compose.yml`** `web` service uses `context: ../..` and `dockerfile: apps/web/Dockerfile`. Root **`.dockerignore`** excludes **`.next/`** and **`node_modules/`** so local caches are not copied into the build context.
+
 ## API Configuration
 
 The web UI connects to the FastAPI backend. By default, it expects the API at `http://localhost:8000`.
@@ -74,15 +84,16 @@ To change the API URL, copy **`.env.example`** to **`.env.local`** (or edit **`.
 | Script | Description |
 |--------|-------------|
 | `npm run dev` | Start development server (Next.js) |
-| `npm run build` | Production build |
+| `npm run build` | Production build (may reuse **`.next`**) |
+| `npm run build:clean` | **`rm -rf .next`** then **`next build`** — final step of **`npm run ci`** / CI **`test-web`** |
 | `npm run start` | Run production server after `build` |
 | `npm run lint` | Run ESLint (`next lint`) |
 | `npm run typecheck` | TypeScript `tsc --noEmit` |
 | `npm run test` | Vitest unit tests (`lib/**/*.test.ts`, `hooks/**/*.test.ts`) — fast API/UX helpers |
-| `npm run ci` | **`clean`** → lint → typecheck → Vitest → **`next build`** (CI **`test-web`** uses the same steps; **Build** runs **`build:clean`**) |
+| `npm run ci` | Lint + typecheck + Vitest + **`build:clean`** (parity with CI **`test-web`**) |
 | `npm run e2e` / `e2e:open` | Cypress E2E (browser) against a running app; default baseUrl `http://localhost:3000` |
 | `npm run e2e:ci` | `next dev -p 3010` + headless Cypress with mocked FastAPI — complements Vitest, not a substitute |
-| `npm run ci:e2e` | **`clean`** → **`build`** → `e2e:ci` (full UI smoke with mocked backend) |
+| `npm run ci:e2e` | **`build:clean`** then `e2e:ci` (full UI smoke with mocked backend) |
 | `npm run clean` | Deletes **`.next`** (use if dev server shows missing chunk errors like `Cannot find module './NNN.js'` or `/_next/static/chunks/*.js` **404**) |
 
 ## Project Structure
