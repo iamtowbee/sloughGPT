@@ -70,7 +70,7 @@ python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000
 
 **Web UI** (another terminal): `cd apps/web && npm install && npm run dev` → http://localhost:3000
 
-**API + web in one terminal** (from repo root): `./scripts/dev-stack.sh`, `make dev-stack`, or `npm install && npm run dev:stack` — see **QUICKSTART.md**. Root **`package.json`** checks: **`npm run test:repo-root`** (after **`npm install`** at repo root).
+**API + web in one terminal** (from repo root): `./scripts/dev-stack.sh`, `make dev-stack`, or `npm install && npm run dev:stack` — see **QUICKSTART.md**. Root **`package.json`** checks: **`npm run test:repo-root`**, **`make test-repo-root`**, or **`python3 -m pytest tests/test_repo_root_package_json.py -q`**.
 
 ### Docker
 ```bash
@@ -85,7 +85,7 @@ python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000
 ```
 
 ### Verify install (optional)
-From the repo root, `verify.sh` checks core paths and (if **`ruff`** is available) runs the same lint smoke as CI; if **`node`** is available and **`apps/web/node_modules`** exists, it runs **`npm run ci`** there (lint + typecheck + Vitest + **`npm run build:clean`** — clean **`.next`** then **`next build`**). It also prints commands that mirror CI (**`test-web`**, **`test-sdk-ts`**, **`sdk-test-py`**, **`standards-schemas`** in **`.github/workflows/ci_cd.yml`**). See **QUICKSTART.md** for the full install flow.
+From the repo root, `verify.sh` checks core paths and (if **`ruff`** is available) runs the same lint smoke as CI; if **`node`** is available and **`apps/web/node_modules`** exists, it runs **`npm run ci`** there (lint + typecheck + Vitest + **`npm run build:clean`** — clean **`.next`** then **`next build`**). It prints **root `package.json`** contract commands (**`npm run test:repo-root`**, **`make test-repo-root`**, etc.) and other commands that mirror CI (**`test-web`**, **`test-sdk-ts`**, **`sdk-test-py`**, **`standards-schemas`** in **`.github/workflows/ci_cd.yml`**). See **QUICKSTART.md** for the full install flow.
 
 ```bash
 python3 -m pip install -e ".[dev]"   # optional; includes ruff + pytest among dev tools

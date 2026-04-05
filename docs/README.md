@@ -29,6 +29,8 @@ python3 apps/api/server/main.py
 # Web UI (separate terminal; needs Node per repo root .nvmrc)
 cd apps/web && npm install && npm run dev
 
+# API + web together (repo root; one terminal): ./scripts/dev-stack.sh | make dev-stack | npm install && npm run dev:stack
+
 # CLI
 python3 cli.py --help
 ```

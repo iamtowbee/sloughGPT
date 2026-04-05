@@ -28,6 +28,12 @@ def test_verify_sh_requires_root_package_json() -> None:
     assert '"package.json"' in text, "verify.sh file list should include root package.json"
 
 
+def test_makefile_declares_test_repo_root() -> None:
+    text = (_repo_root() / "Makefile").read_text(encoding="utf-8")
+    assert "test-repo-root:" in text
+    assert "test_repo_root_package_json.py" in text
+
+
 def test_verify_sh_documents_dev_stack() -> None:
     text = (_repo_root() / "verify.sh").read_text(encoding="utf-8")
     assert "npm run dev:stack" in text
@@ -35,3 +41,5 @@ def test_verify_sh_documents_dev_stack() -> None:
     assert "concurrently" in text, "verify.sh should mention concurrently (root npm install / dev:stack)"
     assert "tests/test_repo_root_package_json.py" in text, "verify.sh CI parity hint should list this module"
     assert "reusable-ci-core.yml" in text, "verify.sh should point to the workflow for the full pytest list"
+    assert "npm run test:repo-root" in text
+    assert "make test-repo-root" in text

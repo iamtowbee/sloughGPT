@@ -1,6 +1,6 @@
 # SloughGPT Installation Script
 
-**Canonical repository:** [github.com/iamtowbee/sloughGPT](https://github.com/iamtowbee/sloughGPT). For a maintained local setup, start with **QUICKSTART.md** (`python3 -m pip install -e ".[dev]"` from the repo root, then `./verify.sh`).
+**Canonical repository:** [github.com/iamtowbee/sloughGPT](https://github.com/iamtowbee/sloughGPT). For a maintained local setup, start with **QUICKSTART.md** (`python3 -m pip install -e ".[dev]"` from the repo root, then `./verify.sh`). With **Node** installed, optional repo-root **`npm install`** enables **`npm run dev:stack`** (API + web) and **`npm run test:repo-root`** (root **`package.json`** contract); **`make dev-stack`** / **`make test-repo-root`** are equivalent shell entrypoints.
 
 ## 🚀 Automated Installation
 

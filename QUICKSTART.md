@@ -34,7 +34,7 @@ python3 apps/api/server/main.py
 
 **API + web together** (one terminal; Ctrl+C stops both): `./scripts/dev-stack.sh`, `make dev-stack`, or **`npm install` at repo root once then `npm run dev:stack`** (uses `concurrently`; same processes as the shell script).
 
-**Root `package.json` contract test** (optional): after `npm install` at repo root, **`npm run test:repo-root`** runs **`tests/test_repo_root_package_json.py`**.
+**Root `package.json` contract test** (optional): **`npm run test:repo-root`** (after `npm install` at repo root), **`make test-repo-root`**, or **`python3 -m pytest tests/test_repo_root_package_json.py -q`**.
 
 Load a Hugging Face model for real generation (optional):
 

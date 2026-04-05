@@ -75,6 +75,9 @@ if [ "$all_found" = true ]; then
         echo ""
     fi
 
+    echo "Root package.json contract: npm run test:repo-root  |  make test-repo-root  |  python3 -m pytest tests/test_repo_root_package_json.py -q"
+    echo ""
+
     echo "CLI onboarding:"
     echo "  python3 cli.py start"
     echo ""
