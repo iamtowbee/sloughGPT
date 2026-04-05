@@ -12,6 +12,13 @@ different loop/checkpoint/export ergonomics) kept for Colab §7b, quick runs, an
 ``SloughGPTTrainer`` — ``examples/quick_train.py`` / ``lora_train.py``. Tensor
 data + same model class; checkpoint layout differs from this script.
 
+**Async / protocol:** ``SloughGPTTrainer.train`` matches ``TrainerProtocol``
+(``domains.training.trainer_protocol``); use ``run_trainer_async`` from async
+code so the event loop is not blocked. ``train_sloughgpt()`` returns
+``(model, stoi, itos)``, not a metrics ``dict`` — wrap with
+``asyncio.to_thread`` if you need non-blocking script execution. See
+``docs/policies/CONTRIBUTING.md`` (*Training entry points*).
+
 CI runs ``tests/test_train_sloughgpt_*.py`` to lock this script; change either
 path together when altering shared training contracts.
 
