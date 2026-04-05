@@ -84,6 +84,22 @@ export {
   type EmptyCardProps,
   type ToolbarProps,
   type CopyButtonProps,
+  KeyValueList,
+  ProgressBar,
+  StepIndicator,
+  Chip,
+  chipVariants,
+  SectionHeader,
+  ScrollPanel,
+  ListRow,
+  type KeyValueListProps,
+  type KeyValueItem,
+  type ProgressBarProps,
+  type StepIndicatorProps,
+  type ChipProps,
+  type SectionHeaderProps,
+  type ScrollPanelProps,
+  type ListRowProps,
 } from './components/composed'
 
 export { ChevronDownIcon, SearchIcon, XIcon } from './lib/icons'
@@ -120,4 +136,9 @@ export {
   type AttachmentChipProps,
   type SourceListProps,
   type SourceItem,
+  StreamingAssistantPlaceholder,
+  JobStatus,
+  type StreamingAssistantPlaceholderProps,
+  type JobStatusProps,
+  type JobStatusState,
 } from './components/ai'
