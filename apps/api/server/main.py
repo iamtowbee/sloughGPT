@@ -3007,6 +3007,10 @@ def _autoload_hf_model_at_startup() -> None:
 if __name__ == "__main__":
     import uvicorn
 
-    port = find_available_port(8000)
+    raw_port = os.environ.get("SLOUGHGPT_API_PORT", "").strip()
+    if raw_port:
+        port = int(raw_port)
+    else:
+        port = find_available_port(8000)
     print(f"Starting SloughGPT server on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
