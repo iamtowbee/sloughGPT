@@ -19,6 +19,10 @@
     "./ai": {
       "types": "./src/components/ai/index.ts",
       "import": "./src/components/ai/index.ts"
+    },
+    "./composed": {
+      "types": "./src/components/composed/index.ts",
+      "import": "./src/components/composed/index.ts"
     }
   },
   "scripts": {

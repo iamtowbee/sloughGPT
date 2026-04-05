@@ -1,6 +1,18 @@
 # strui (`@sloughgpt/strui`)
 
-Standalone UI package: **SloughGPT web design** (pastel lattice tokens, `sl-*` utilities, Radix + CVA components) copied from `apps/web`. Primitives include **Button, Input, Textarea, Card, Badge, Dialog, AlertDialog, DropdownMenu, Tabs, Label, Separator, Switch** plus **AI** chat building blocks. Keep `src/styles/globals.css` aligned with `apps/web/app/globals.css` when the shell changes.
+Standalone UI package: **SloughGPT web design** (pastel lattice tokens, `sl-*` utilities, Radix + CVA). **Primitives** match `apps/web/components/ui`. **Composed** layouts and patterns live under `src/components/composed/` (also exported as `@sloughgpt/strui/composed`). **AI** flows (`src/components/ai/`) include chat shell, model picker, RAG citations, reasoning panel, sources, attachments, and more.
+
+Keep `src/styles/globals.css` aligned with `apps/web/app/globals.css` when the shell changes.
+
+### Composed (apps & dashboards)
+
+`PageHeader`, `AppShell`, `NavRail` / `NavRailLink`, `Toolbar`, `KpiGrid`, `StatCard`, `FormField`, `SettingsRow`, `SearchInput`, `InlineBanner`, `Skeleton`, `EmptyCard`, `CopyButton`.
+
+### AI (agents & assistants)
+
+`ChatLayout`, `ModelPicker`, `Citation`, `ReasoningPanel`, `SourceList`, `AttachmentChip`, plus `ChatThread`, `PromptComposer`, `MessageBubble`, `ToolCallCard`, `TokenMeter`, etc.
+
+Storybook: **Composed → Overview** and **AI → Composed flows** demo full screens.
 
 ## Commands
 
@@ -19,7 +31,7 @@ import { Button, ChatThread, PromptComposer, cn } from '@sloughgpt/strui'
 import '@sloughgpt/strui/styles/globals.css'
 ```
 
-AI-focused building blocks are also available as `@sloughgpt/strui/ai` (same exports as the root barrel).
+Subpath barrels: `@sloughgpt/strui/ai`, `@sloughgpt/strui/composed` (subset of the root export; root re-exports everything).
 
 ### `apps/web` (this repo)
 
@@ -35,4 +47,4 @@ This is **one React + Tailwind codebase** for browsers (including installed PWAs
 - **`str-min-h-screen`** uses `100dvh` for stable mobile viewport height.
 - **`str-chat-scroll`** enables momentum scrolling and avoids scroll chaining on chat regions.
 
-Storybook: **AI → ChatShell → iPhone** previews the integrated layout at a phone viewport.
+Storybook: **AI → ChatShell → iPhone** for viewport preview; **Composed → Overview** for app shell patterns.
