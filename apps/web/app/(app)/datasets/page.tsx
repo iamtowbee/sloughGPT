@@ -5,15 +5,7 @@ import Link from 'next/link'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { PUBLIC_API_URL } from '@/lib/config'
-
-interface Dataset {
-  name: string
-  path?: string
-  size_kb?: number
-  size_bytes?: number
-  size_formatted?: string
-}
+import { api, type Dataset } from '@/lib/api'
 
 export default function DatasetsPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([])
@@ -26,28 +18,14 @@ export default function DatasetsPage() {
   const fetchDatasets = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${PUBLIC_API_URL}/datasets`)
-      const data = await res.json()
-      setDatasets(data.datasets || [])
+      const rows = await api.getDatasets()
+      setDatasets(rows)
     } catch (err) {
       console.error('Failed to fetch datasets:', err)
       setDatasets([])
     } finally {
       setLoading(false)
     }
-  }
-
-  const formatSize = (d: Dataset) => {
-    if (d.size_formatted) return d.size_formatted
-    if (typeof d.size_bytes === 'number' && d.size_bytes > 0)
-      return `${(d.size_bytes / 1024).toFixed(1)} KB`
-    if (typeof d.size_kb === 'number' && d.size_kb > 0) {
-      const kb = d.size_kb
-      if (kb < 1024) return `${kb.toFixed(1)} KB`
-      if (kb < 1024 * 1024) return `${(kb / 1024).toFixed(1)} MB`
-      return `${(kb / (1024 * 1024)).toFixed(1)} GB`
-    }
-    return 'Unknown'
   }
 
   return (
@@ -75,16 +53,16 @@ export default function DatasetsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {datasets.map((dataset, i) => (
+          {datasets.map((dataset) => (
             <Card
-              key={dataset.name || String(i)}
+              key={dataset.id}
               className="transition-colors duration-200 ease-smooth hover:border-primary/25"
             >
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="text-base">{dataset.name}</CardTitle>
                   <span className="shrink-0 border border-border bg-muted/50 px-2 py-0.5 font-mono text-xs text-muted-foreground">
-                    text
+                    {dataset.type}
                   </span>
                 </div>
               </CardHeader>
@@ -94,7 +72,7 @@ export default function DatasetsPage() {
                 )}
               </CardContent>
               <CardFooter className="flex justify-between border-t border-border pt-4">
-                <span className="text-sm font-medium text-chart-3">{formatSize(dataset)}</span>
+                <span className="text-sm font-medium text-chart-3">{dataset.size}</span>
                 <Button type="button" variant="ghost" size="sm">
                   View
                 </Button>

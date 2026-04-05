@@ -111,7 +111,9 @@ export default function ModelsPage() {
           <h1 className="sl-h1">Models</h1>
           <p className="mt-1 text-muted-foreground">
             API:{' '}
-            <span className={healthToneClass}>{apiHealthLabel}</span>
+            <span className={healthToneClass} data-testid="models-api-status">
+              {apiHealthLabel}
+            </span>
           </p>
         </div>
         <Button

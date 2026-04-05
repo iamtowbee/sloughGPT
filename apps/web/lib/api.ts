@@ -94,6 +94,8 @@ export interface Dataset {
   size: string
   samples: number
   type: string
+  /** Present when the API includes a path field. */
+  path?: string
 }
 
 export interface GenerateRequest {
@@ -594,6 +596,9 @@ export const api = {
 
   async getDatasets(): Promise<Dataset[]> {
     const res = await fetch(`${API_URL}/datasets`)
+    if (!res.ok) {
+      throw new Error(`GET /datasets failed (${res.status})`)
+    }
     const body = (await res.json()) as {
       datasets?: Array<{
         id?: string
@@ -618,6 +623,7 @@ export const api = {
             : '—'),
       samples: 0,
       type: d.type ?? 'text',
+      path: typeof d.path === 'string' ? d.path : undefined,
     }))
   },
 

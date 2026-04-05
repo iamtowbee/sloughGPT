@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,7 @@ import {
   IconMonitor,
   IconTraining,
 } from '@/components/icons/NavIcons'
+import { useApiHealth } from '@/hooks/useApiHealth'
 import { api } from '@/lib/api'
 import { PUBLIC_API_URL, WEB_UI_VERSION } from '@/lib/config'
 
@@ -26,50 +27,45 @@ const features = [
 ] as const
 
 export default function HomePage() {
-  const [apiStatus, setApiStatus] = useState<'loading' | 'online' | 'offline'>('loading')
-  const [inferenceReady, setInferenceReady] = useState<boolean | null>(null)
+  const { state: health } = useApiHealth()
   const [modelCount, setModelCount] = useState<number | null>(null)
   const [datasetCount, setDatasetCount] = useState<number | null>(null)
 
+  const apiStatus = useMemo<'loading' | 'online' | 'offline'>(() => {
+    if (health === null) return 'loading'
+    if (health === 'offline') return 'offline'
+    return 'online'
+  }, [health])
+
+  const inferenceReady = useMemo(() => {
+    if (health === null || health === 'offline') return null
+    return health.model_loaded
+  }, [health])
+
   useEffect(() => {
-    const checkApi = async () => {
-      try {
-        const health = await api.getHealth()
-        if (!health) {
-          setApiStatus('offline')
-          setInferenceReady(null)
-          setModelCount(null)
-          setDatasetCount(null)
-          return
-        }
-        setApiStatus('online')
-        setInferenceReady(health.model_loaded)
-        const [modelsRes, datasetsRes] = await Promise.all([
-          fetch(`${PUBLIC_API_URL}/models`),
-          fetch(`${PUBLIC_API_URL}/datasets`),
-        ])
-        try {
-          const modelsData = await modelsRes.json()
-          setModelCount(modelsData.models?.length ?? 0)
-        } catch {
-          setModelCount(null)
-        }
-        try {
-          const dsBody = await datasetsRes.json()
-          const rows = (dsBody as { datasets?: unknown[] }).datasets ?? []
-          setDatasetCount(Array.isArray(rows) ? rows.length : null)
-        } catch {
-          setDatasetCount(null)
-        }
-      } catch {
-        setApiStatus('offline')
-        setInferenceReady(null)
-        setModelCount(null)
-        setDatasetCount(null)
-      }
+    if (health === null || health === 'offline') {
+      setModelCount(null)
+      setDatasetCount(null)
+      return
     }
-    void checkApi()
-  }, [])
+    let cancelled = false
+    ;(async () => {
+      try {
+        const [models, datasets] = await Promise.all([api.getModels(), api.getDatasets()])
+        if (cancelled) return
+        setModelCount(models.length)
+        setDatasetCount(datasets.length)
+      } catch {
+        if (!cancelled) {
+          setModelCount(null)
+          setDatasetCount(null)
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [health])
 
   return (
     <div className="max-w-6xl space-y-10 p-8 md:p-10">

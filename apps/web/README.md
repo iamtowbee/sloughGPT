@@ -76,10 +76,10 @@ To change the API URL, copy **`.env.example`** to **`.env.local`** (or edit **`.
 | `npm run start` | Run production server after `build` |
 | `npm run lint` | Run ESLint (`next lint`) |
 | `npm run typecheck` | TypeScript `tsc --noEmit` |
-| `npm run test` | Vitest unit tests (`lib/*.test.ts`) |
+| `npm run test` | Vitest unit tests (`lib/**/*.test.ts`, `hooks/**/*.test.ts`) — fast API/UX helpers |
 | `npm run ci` | Lint + typecheck + Vitest + production build (parity with CI **`test-web`**) |
-| `npm run e2e` / `e2e:open` | Cypress against running app (default baseUrl `http://localhost:3000`) |
-| `npm run e2e:ci` | `next dev -p 3010` + headless Cypress (use after `build` for warm compile) |
+| `npm run e2e` / `e2e:open` | Cypress E2E (browser) against a running app; default baseUrl `http://localhost:3000` |
+| `npm run e2e:ci` | `next dev -p 3010` + headless Cypress with mocked FastAPI — complements Vitest, not a substitute |
 | `npm run ci:e2e` | `build` then `e2e:ci` (full UI smoke with mocked backend) |
 
 ## Project Structure
