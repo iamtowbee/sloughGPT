@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Start FastAPI (default :8000) and Next.js dev (:3000). Ctrl+C stops both.
+# Same processes from repo root: npm install && npm run dev:stack (see package.json).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"

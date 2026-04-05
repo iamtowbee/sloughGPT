@@ -325,7 +325,7 @@ function GalleryCanvas() {
             </div>
             <div className="flex flex-col gap-2">
               <MessageBubble role="user">User message bubble</MessageBubble>
-              <MessageBubble role="assistant">Assistant reply uses card fill.</MessageBubble>
+              <MessageBubble role="assistant">Assistant transcript — readable prose, no card.</MessageBubble>
             </div>
             <TypingIndicator />
             <StreamingAssistantPlaceholder lines={2} />
