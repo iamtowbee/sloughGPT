@@ -1,6 +1,6 @@
 # strui (`@sloughgpt/strui`)
 
-Standalone UI package: **SloughGPT web design** (pastel lattice tokens, `sl-*` utilities, Radix + CVA components) copied from `apps/web`. Keep `src/styles/globals.css` aligned with `apps/web/app/globals.css` when the shell changes.
+Standalone UI package: **SloughGPT web design** (pastel lattice tokens, `sl-*` utilities, Radix + CVA components) copied from `apps/web`. Primitives include **Button, Input, Textarea, Card, Badge, Dialog, DropdownMenu, Tabs, Label, Separator** plus **AI** chat building blocks. Keep `src/styles/globals.css` aligned with `apps/web/app/globals.css` when the shell changes.
 
 ## Commands
 

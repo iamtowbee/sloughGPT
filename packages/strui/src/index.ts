@@ -11,6 +11,34 @@ export {
 export { Badge, badgeVariants, type BadgeProps } from './components/ui/badge'
 export { Input, inputFieldClassName, type InputProps } from './components/ui/input'
 export { Textarea, type TextareaProps } from './components/ui/textarea'
+export {
+  Dialog,
+  DialogPortal,
+  DialogOverlay,
+  DialogClose,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from './components/ui/dialog'
+export {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuGroup,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuRadioGroup,
+} from './components/ui/dropdown-menu'
+export { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs'
+export { Label } from './components/ui/label'
+export { Separator } from './components/ui/separator'
 
 export {
   MessageBubble,
