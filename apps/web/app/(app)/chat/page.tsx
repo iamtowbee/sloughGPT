@@ -764,79 +764,79 @@ export default function ChatPage() {
           className="min-h-0 flex-1 overscroll-contain gap-0 px-3 py-0 pt-3 pb-4 sm:px-5 sm:pt-4"
           live
         >
-            {messages.length === 0 && (
-              <div className="flex min-h-[min(50dvh,28rem)] flex-col items-center justify-center px-2 py-8 text-center sm:py-16">
-                <div className="mb-5 flex aspect-square w-[4.5rem] shrink-0 items-center justify-center border border-primary/35 bg-gradient-to-br from-primary/12 to-accent/20 font-mono text-2xl font-semibold text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] dark:shadow-none">
-                  S
-                </div>
-                <h2 className="mb-1.5 text-xl font-semibold tracking-tight text-foreground">SloughGPT</h2>
-                <p className="mb-8 max-w-sm text-sm leading-relaxed text-muted-foreground">
-                  Start a conversation — prompts use the loaded model shown in the status bar.
-                </p>
-                <div className="flex max-w-lg flex-wrap justify-center gap-2">
-                  {['Explain quantum', 'Write code', 'What is ML?', 'Help me create'].map((example, i) => (
-                    <Button
-                      type="button"
-                      key={i}
-                      variant="secondary"
-                      size="sm"
-                      className="text-xs"
-                      disabled={!canInfer}
-                      title={!canInfer ? sendBlockedReason : undefined}
-                      onClick={() => setInput(example)}
-                    >
-                      {example}
-                    </Button>
-                  ))}
-                </div>
+          {messages.length === 0 && (
+            <div className="flex min-h-[min(50dvh,28rem)] flex-col items-center justify-center px-2 py-8 text-center sm:py-16">
+              <div className="mb-5 flex aspect-square w-[4.5rem] shrink-0 items-center justify-center border border-primary/35 bg-gradient-to-br from-primary/12 to-accent/20 font-mono text-2xl font-semibold text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] dark:shadow-none">
+                S
               </div>
-            )}
-            {messages.map((msg) =>
-              msg.role === 'assistant' ? (
-                <div key={msg.id} className="mb-4 flex w-full justify-start sm:mb-5">
-                  <MessageBubble role="assistant" variant="transcript" className="group">
-                    <div className="whitespace-pre-wrap break-words">{msg.content}</div>
-                    <div className="mt-2 flex gap-3 border-t border-border/60 pt-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(msg.content)}
-                        className="text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        Copy
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => retryAssistantMessage(msg.id)}
-                        className="text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        Retry
-                      </button>
-                    </div>
-                  </MessageBubble>
-                </div>
-              ) : (
-                <div key={msg.id} className="mb-4 flex w-full justify-end sm:mb-5">
-                  <div className="group max-w-[min(100%,var(--chat-thread-max))] border border-primary/35 bg-primary px-4 py-2.5 text-primary-foreground shadow-sm transition-colors duration-200 ease-smooth">
-                    <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">{msg.content}</div>
-                    <div className="mt-1.5 flex gap-3 border-t border-primary-foreground/25 pt-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                      <button
-                        type="button"
-                        onClick={() => editFromUserMessage(msg.id)}
-                        className="text-xs text-primary-foreground/90 hover:text-primary-foreground"
-                      >
-                        Edit & resend
-                      </button>
-                    </div>
+              <h2 className="mb-1.5 text-xl font-semibold tracking-tight text-foreground">SloughGPT</h2>
+              <p className="mb-8 max-w-sm text-sm leading-relaxed text-muted-foreground">
+                Start a conversation — prompts use the loaded model shown in the status bar.
+              </p>
+              <div className="flex max-w-lg flex-wrap justify-center gap-2">
+                {['Explain quantum', 'Write code', 'What is ML?', 'Help me create'].map((example, i) => (
+                  <Button
+                    type="button"
+                    key={i}
+                    variant="secondary"
+                    size="sm"
+                    className="text-xs"
+                    disabled={!canInfer}
+                    title={!canInfer ? sendBlockedReason : undefined}
+                    onClick={() => setInput(example)}
+                  >
+                    {example}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+          {messages.map((msg) =>
+            msg.role === 'assistant' ? (
+              <div key={msg.id} className="mb-4 flex w-full justify-start sm:mb-5">
+                <MessageBubble role="assistant" variant="transcript" className="group">
+                  <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+                  <div className="mt-2 flex gap-3 border-t border-border/60 pt-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(msg.content)}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Copy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => retryAssistantMessage(msg.id)}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                </MessageBubble>
+              </div>
+            ) : (
+              <div key={msg.id} className="mb-4 flex w-full justify-end sm:mb-5">
+                <div className="group max-w-[min(100%,var(--chat-thread-max))] border border-primary/35 bg-primary px-4 py-2.5 text-primary-foreground shadow-sm transition-colors duration-200 ease-smooth">
+                  <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">{msg.content}</div>
+                  <div className="mt-1.5 flex gap-3 border-t border-primary-foreground/25 pt-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => editFromUserMessage(msg.id)}
+                      className="text-xs text-primary-foreground/90 hover:text-primary-foreground"
+                    >
+                      Edit & resend
+                    </button>
                   </div>
                 </div>
-              ),
-            )}
-            {isLoading && (
-              <div className="mb-4 flex w-full justify-start sm:mb-5" aria-busy>
-                <TypingIndicator />
               </div>
-            )}
-            <div ref={messagesEndRef} />
+            ),
+          )}
+          {isLoading && (
+            <div className="mb-4 flex w-full justify-start sm:mb-5" aria-busy>
+              <TypingIndicator />
+            </div>
+          )}
+          <div ref={messagesEndRef} />
         </ChatThread>
 
           <div className="shrink-0 border-t border-border/80 bg-background/90 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
