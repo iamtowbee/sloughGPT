@@ -39,7 +39,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           Skip to main content
         </a>
 
-        <header className="sticky top-0 z-40 flex min-h-[3.25rem] shrink-0 items-center gap-2 border-b border-border bg-card/90 px-3 pt-[max(0px,env(safe-area-inset-top))] backdrop-blur-md supports-[backdrop-filter]:bg-card/75 lg:hidden">
+        <header className="sl-mobile-header sticky top-0 z-40 flex min-h-[3.25rem] shrink-0 items-center gap-2 border-b px-3 pt-[max(0px,env(safe-area-inset-top))] lg:hidden">
           <DialogPrimitive.Trigger asChild>
             <button
               type="button"
@@ -75,7 +75,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <DialogPrimitive.Overlay
             className={cn(
               'fixed inset-0 z-[100] bg-black/45 backdrop-blur-[2px] lg:hidden',
-              'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200'
+              'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200',
+              // Let taps reach the header trigger while exit animation runs (z-40 < z-100/110).
+              'data-[state=closed]:pointer-events-none',
             )}
           />
           <DialogPrimitive.Content
@@ -84,7 +86,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               'fixed inset-y-0 left-0 z-[110] flex w-[min(var(--sidebar-width),min(18rem,92vw))] max-w-full outline-none lg:hidden',
               'shadow-[4px_0_24px_-4px_rgba(0,0,0,0.25)]',
               'data-[state=open]:animate-in data-[state=closed]:animate-out duration-200 ease-smooth',
-              'data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left'
+              'data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left',
+              'data-[state=closed]:pointer-events-none',
             )}
           >
             <DialogPrimitive.Title className="sr-only">Main navigation</DialogPrimitive.Title>
