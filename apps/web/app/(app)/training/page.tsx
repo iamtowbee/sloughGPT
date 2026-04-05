@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
-import { JobStatus, ProgressBar, type JobStatusState } from '@/components/strui'
+import { FoldSection, JobStatus, ProgressBar, type JobStatusState } from '@/components/strui'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
@@ -65,7 +65,6 @@ export default function TrainingPage() {
   const [resolving, setResolving] = useState(false)
   const [resolveResult, setResolveResult] = useState<TrainResolveResponse | null>(null)
   const [resolveError, setResolveError] = useState<string | null>(null)
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const { state: health, refresh: refreshHealth } = useApiHealth()
 
   const apiHealthLabel = useMemo(() => inferenceHealthLabel(health), [health])
@@ -201,7 +200,6 @@ export default function TrainingPage() {
   const openModal = () => {
     setResolveResult(null)
     setResolveError(null)
-    setShowAdvanced(false)
     setShowModal(true)
   }
 
@@ -345,7 +343,6 @@ export default function TrainingPage() {
           if (!open) {
             setResolveResult(null)
             setResolveError(null)
-            setShowAdvanced(false)
           }
         }}
       >
@@ -514,16 +511,8 @@ export default function TrainingPage() {
                 </pre>
               )}
 
-              <button
-                type="button"
-                onClick={() => setShowAdvanced((v) => !v)}
-                className="text-sm text-primary hover:underline"
-              >
-                {showAdvanced ? 'Hide' : 'Show'} advanced (model, loop, trainer)
-              </button>
-
-              {showAdvanced && (
-                <div className="grid grid-cols-2 gap-3 p-3 rounded-none border border-border">
+              <FoldSection heading="Advanced (model dimensions, loop, trainer)">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-1">n_embed</label>
                     <input
@@ -898,7 +887,7 @@ export default function TrainingPage() {
                     <span className="text-xs text-muted-foreground">save_best_only</span>
                   </label>
                 </div>
-              )}
+              </FoldSection>
 
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1">Epochs</label>
