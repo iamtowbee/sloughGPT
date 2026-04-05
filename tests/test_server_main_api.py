@@ -400,6 +400,9 @@ def test_info_returns_api_version_and_model_block(client: TestClient) -> None:
         assert isinstance(h["cpu_percent"], (int, float))
         assert "memory_total_bytes" in h
         assert "memory_percent" in h
+        if h.get("process_rss_bytes") is not None:
+            assert isinstance(h["process_rss_bytes"], int)
+            assert h["process_rss_bytes"] >= 0
 
 
 def test_list_models_returns_wrapped_array(client: TestClient) -> None:

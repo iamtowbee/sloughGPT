@@ -23,7 +23,7 @@ export const API_DOC_ENDPOINTS: ApiDocEndpoint[] = [
     method: 'GET',
     path: '/info',
     description:
-      'Detailed system and model information. When psutil is installed on the API host, includes a `host` object (CPU %, RAM bytes/%) for the server process machine.',
+      'Detailed system and model information. When psutil is installed on the API host, includes a `host` object (CPU %, RAM bytes/%, optional `process_rss_bytes` for the API process).',
   },
   {
     method: 'POST',

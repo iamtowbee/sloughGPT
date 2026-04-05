@@ -6,7 +6,7 @@ import asyncio
 import logging
 import os
 import threading
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger("sloughgpt.wandb.server")
 
@@ -79,8 +79,15 @@ def _wandb_finish_run() -> None:
         logger.debug("wandb.finish failed", exc_info=True)
 
 
-async def start_wandb_server_background(http_metrics: Any) -> Optional[asyncio.Task]:
-    """Start periodic W&B logging when ``SLOUGHGPT_WANDB_SERVER`` is set. Returns task or ``None``."""
+async def start_wandb_server_background(
+    http_metrics: Any,
+    *,
+    extra_metrics: Optional[Callable[[], Dict[str, Any]]] = None,
+) -> Optional[asyncio.Task]:
+    """Start periodic W&B logging when ``SLOUGHGPT_WANDB_SERVER`` is set. Returns task or ``None``.
+
+    ``extra_metrics`` is called in a worker thread each flush (e.g. psutil host snapshot aligned with ``GET /info``).
+    """
     from domains.training.wandb_helpers import wandb_server_enabled_from_env
 
     if not wandb_server_enabled_from_env():
@@ -103,7 +110,13 @@ async def start_wandb_server_background(http_metrics: Any) -> Optional[asyncio.T
                 if hasattr(http_metrics, "wandb_aggregate"):
                     http_part = http_metrics.wandb_aggregate()
                 inf_part = _drain_inference_snapshot()
-                payload = {**http_part, **inf_part}
+                extra_part: Dict[str, Any] = {}
+                if extra_metrics is not None:
+                    try:
+                        extra_part = await asyncio.to_thread(extra_metrics)
+                    except Exception:
+                        logger.debug("extra_metrics() failed", exc_info=True)
+                payload = {**http_part, **inf_part, **extra_part}
                 if payload:
                     await asyncio.to_thread(_wandb_log_payload, payload, step)
                 step += 1

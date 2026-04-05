@@ -760,7 +760,24 @@ async def lifespan(app: FastAPI):
     try:
         from domains.ops.wandb_server import start_wandb_server_background
 
-        wandb_server_task = await start_wandb_server_background(http_metrics)
+        def _wandb_server_extra_metrics() -> Dict[str, Any]:
+            """Align W&B server flush with ``GET /info`` host snapshot + API process RSS."""
+            from host_metrics import sample_host_metrics_sync
+
+            h = sample_host_metrics_sync()
+            out: Dict[str, Any] = {
+                "host/cpu_percent": float(h["cpu_percent"]),
+                "host/memory_percent": float(h["memory_percent"]),
+            }
+            rss = h.get("process_rss_bytes")
+            if isinstance(rss, int) and rss >= 0:
+                out["server/process_rss_bytes"] = float(rss)
+            return out
+
+        wandb_server_task = await start_wandb_server_background(
+            http_metrics,
+            extra_metrics=_wandb_server_extra_metrics,
+        )
     except Exception as e:
         logger.warning("W&B server background task did not start: %s", e)
     yield

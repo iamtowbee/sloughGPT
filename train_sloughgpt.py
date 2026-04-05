@@ -201,6 +201,10 @@ def train_sloughgpt(
     save_path=None,
     soul_name=None,
     checkpoint_interval=0,  # Save checkpoint every N batches (0 = disabled)
+    wandb_log=False,
+    wandb_project=None,
+    wandb_run_name=None,
+    wandb_log_interval=50,
 ):
     """Train SloughGPT model.
 
@@ -371,6 +375,49 @@ def train_sloughgpt(
 
     best_val_loss = float("inf")
 
+    _wandb_tracker = None
+    if wandb_log:
+        try:
+            from domains.training.tracking import ExperimentTracker, TrackerBackend, TrackingConfig
+            from domains.training.wandb_helpers import default_wandb_project, flatten_for_wandb_config
+
+            run_name = wandb_run_name or f"train_sloughgpt_{datetime.now():%Y%m%d_%H%M%S}"
+            tc = TrackingConfig(
+                backend=TrackerBackend.WANDB,
+                project=wandb_project or default_wandb_project(),
+                entity=os.environ.get("WANDB_ENTITY"),
+                api_key=os.environ.get("WANDB_API_KEY"),
+                run_name=run_name,
+                job_type="train",
+                tags=["sloughgpt", "train_sloughgpt"],
+            )
+            _wandb_tracker = ExperimentTracker(config=tc)
+            _wandb_tracker.start_run(run_name=run_name)
+            _wandb_tracker.log_params(
+                flatten_for_wandb_config(
+                    {
+                        "script": "train_sloughgpt",
+                        "data_path": data_path,
+                        "n_embed": getattr(model, "n_embed", n_embed),
+                        "n_layer": getattr(model, "n_layer", n_layer),
+                        "n_head": getattr(model, "n_head", n_head),
+                        "block_size": getattr(model, "block_size", block_size),
+                        "batch_size": batch_size,
+                        "epochs": epochs,
+                        "lr": lr,
+                        "device": device,
+                        "max_steps": max_steps,
+                    }
+                )
+            )
+            _wandb_tracker.log_metrics(
+                {"meta/total_parameters": float(sum(p.numel() for p in model.parameters()))},
+                step=0,
+            )
+        except Exception as exc:
+            print(f"W&B logging disabled ({exc}); install wandb and set WANDB_API_KEY or use WANDB_MODE=offline.")
+            _wandb_tracker = None
+
     print(f"\nTraining on {device} | epochs {start_epoch + 1}..{epochs}")
     print(f"Total steps (schedule): {total_steps}, warmup: {warmup_steps}")
     print("-" * 50)
@@ -429,6 +476,17 @@ def train_sloughgpt(
                 }
             )
 
+            if _wandb_tracker is not None:
+                global_batch = epoch * len(train_loader) + batch_idx
+                if global_batch % max(1, wandb_log_interval) == 0:
+                    _wandb_tracker.log_metrics(
+                        {
+                            "train/loss": float(loss.item() * gradient_accumulation),
+                            "train/learning_rate": float(scheduler.get_last_lr()[0]),
+                        },
+                        step=int(global_batch),
+                    )
+
             # Periodic full checkpoint (resume with train_sloughgpt.py --resume)
             if checkpoint_interval and (batch_idx + 1) % checkpoint_interval == 0:
                 step = epoch * len(train_loader) + batch_idx + 1
@@ -479,6 +537,17 @@ def train_sloughgpt(
             f"Epoch {epoch + 1}/{epochs} | Train Loss: {avg_train_loss:.4f} | "
             f"Val Loss: {val_loss:.4f} | LR: {current_lr:.2e}"
         )
+
+        if _wandb_tracker is not None:
+            ep_step = (epoch + 1) * max(1, len(train_loader))
+            _wandb_tracker.log_metrics(
+                {
+                    "epoch/train_loss": float(avg_train_loss),
+                    "epoch/val_loss": float(val_loss),
+                    "epoch/learning_rate": float(current_lr),
+                },
+                step=int(ep_step),
+            )
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -533,6 +602,15 @@ def train_sloughgpt(
     )
 
     print(f"\nModel saved ({save_format}) to {final_path}")
+
+    if _wandb_tracker is not None:
+        try:
+            _wandb_tracker.log_metrics(
+                {"train/best_val_loss": float(best_val_loss)},
+                step=int(max(1, epochs) * max(1, len(train_loader))),
+            )
+        finally:
+            _wandb_tracker.end_run()
 
     return model, stoi, itos
 
@@ -660,6 +738,19 @@ if __name__ == "__main__":
         default=None,
         help="Name for the soul profile (default: SloughGPT)",
     )
+    parser.add_argument(
+        "--wandb",
+        action="store_true",
+        help="Log metrics to Weights & Biases (pip install wandb; WANDB_API_KEY or WANDB_MODE=offline)",
+    )
+    parser.add_argument("--wandb-project", type=str, default=None, help="W&B project (default: WANDB_PROJECT or sloughgpt)")
+    parser.add_argument("--wandb-name", type=str, default=None, help="W&B run name (default: auto)")
+    parser.add_argument(
+        "--wandb-log-interval",
+        type=int,
+        default=50,
+        help="Log train/loss every N global batches (default: 50)",
+    )
 
     args = parser.parse_args()
 
@@ -691,6 +782,10 @@ if __name__ == "__main__":
         save_path=args.save_path,
         soul_name=args.soul_name,
         checkpoint_interval=args.checkpoint_interval,
+        wandb_log=args.wandb,
+        wandb_project=args.wandb_project,
+        wandb_run_name=args.wandb_name,
+        wandb_log_interval=args.wandb_log_interval,
     )
 
     # Generate sample

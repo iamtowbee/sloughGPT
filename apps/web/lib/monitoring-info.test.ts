@@ -15,6 +15,7 @@ describe('mapInfoToSystemInfo', () => {
         memory_total_bytes: 16_000_000_000,
         memory_used_bytes: 8_000_000_000,
         memory_percent: 50,
+        process_rss_bytes: 256_000_000,
       },
       cuda: {
         device: 'Test GPU',
@@ -28,6 +29,7 @@ describe('mapInfoToSystemInfo', () => {
     expect(s.memory_percent).toBe(50)
     expect(s.gpu_percent).toBe(25)
     expect(s.platform).toContain('Darwin')
+    expect(s.process_rss_bytes).toBe(256_000_000)
   })
 
   it('falls back when host is missing', () => {

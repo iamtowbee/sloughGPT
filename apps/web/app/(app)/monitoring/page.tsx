@@ -45,6 +45,7 @@ export default function MonitoringPage() {
         memory_percent: null,
         gpu_available: false,
         gpu_percent: null,
+        process_rss_bytes: null,
         host_metrics_available: false,
       })
       setLoading(false)
@@ -239,6 +240,15 @@ export default function MonitoringPage() {
               <span className="text-muted-foreground">CPU cores</span>
               <span className="text-foreground">{sysInfo?.cpu_cores}</span>
             </div>
+            {sysInfo?.process_rss_bytes != null && sysInfo.process_rss_bytes > 0 && (
+              <>
+                <Separator />
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">API process RSS</span>
+                  <span className="font-mono text-foreground">{formatBytes(sysInfo.process_rss_bytes)}</span>
+                </div>
+              </>
+            )}
             <Separator />
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">GPU</span>

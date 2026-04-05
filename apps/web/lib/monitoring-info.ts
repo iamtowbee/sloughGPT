@@ -13,6 +13,8 @@ export interface SystemInfo {
   gpu_memory?: number
   gpu_used?: number
   gpu_percent: number | null
+  /** API process resident set size (bytes), when psutil reports it. */
+  process_rss_bytes?: number | null
   /** True when API returned a ``host`` block (psutil-backed). */
   host_metrics_available: boolean
 }
@@ -28,6 +30,7 @@ type InfoJson = {
     memory_total_bytes?: number
     memory_used_bytes?: number
     memory_percent?: number
+    process_rss_bytes?: number | null
   }
   cuda?: {
     device?: string
@@ -62,6 +65,10 @@ export function mapInfoToSystemInfo(data: InfoJson): SystemInfo {
   }
 
   if (host && typeof host.cpu_percent === 'number') {
+    const rss =
+      typeof host.process_rss_bytes === 'number' && host.process_rss_bytes >= 0
+        ? host.process_rss_bytes
+        : null
     return {
       platform: [host.platform, host.platform_release].filter(Boolean).join(' '),
       python: pytorch,
@@ -75,6 +82,7 @@ export function mapInfoToSystemInfo(data: InfoJson): SystemInfo {
       gpu_memory: gpuMemory,
       gpu_used: gpuUsed,
       gpu_percent: gpuPercent,
+      process_rss_bytes: rss,
       host_metrics_available: true,
     }
   }
@@ -92,6 +100,7 @@ export function mapInfoToSystemInfo(data: InfoJson): SystemInfo {
     gpu_memory: gpuMemory,
     gpu_used: gpuUsed,
     gpu_percent: gpuPercent,
+    process_rss_bytes: null,
     host_metrics_available: false,
   }
 }
