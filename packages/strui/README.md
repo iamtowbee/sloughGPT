@@ -12,7 +12,14 @@ Keep `src/styles/globals.css` aligned with `apps/web/app/globals.css` when the s
 
 `ChatLayout`, `ModelPicker`, `Citation`, `ReasoningPanel`, `SourceList`, `AttachmentChip`, `StreamingAssistantPlaceholder`, `JobStatus`, plus `ChatThread`, `PromptComposer`, `MessageBubble`, `ToolCallCard`, `TokenMeter`, etc.
 
-Storybook: **Composed → Overview** / **Extras**, **StatusDot**, **FoldSection**, **Timeline**, **Breadcrumbs**, **Kbd**, **AI → Composed flows**, **JobStatus**, **StreamingAssistantPlaceholder**.
+Storybook is the design reference for strui:
+
+- **Docs → Introduction** — brand overview and how to use the book.
+- **Docs → Foundations** — color roles and typography (Outfit + JetBrains Mono, `sl-h1` / `sl-h2`).
+- **Docs → Component gallery** — one scrollable page of primitives, composed blocks, and AI surfaces; use the **Surface** toolbar (sun/moon) for light/dark.
+- Per-component stories under **UI**, **Composed**, and **AI** include **Controls** (props) and **Docs** (API tables).
+
+The manager UI uses the same lavender accent as the lattice; the canvas uses a soft mesh gradient behind stories.
 
 ## Commands
 
