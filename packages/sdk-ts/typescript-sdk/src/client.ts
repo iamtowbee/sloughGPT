@@ -86,6 +86,8 @@ export interface ChatResult {
   message: ChatMessage;
   model: string;
   inference_time_ms?: number;
+  /** Present when the API includes token counts on `POST /chat`. */
+  tokens_generated?: number;
 }
 
 export interface HealthStatus {
