@@ -18,7 +18,15 @@ import { Toolbar } from './toolbar'
 
 const meta = {
   title: 'Composed/Overview',
-  parameters: { layout: 'fullscreen' },
+  parameters: {
+    layout: 'fullscreen',
+    docs: {
+      description: {
+        story:
+          'Application shell patterns: nav rail, page header, KPI grid, forms, banners, and settings rows built from strui primitives.',
+      },
+    },
+  },
 } satisfies Meta
 
 export default meta

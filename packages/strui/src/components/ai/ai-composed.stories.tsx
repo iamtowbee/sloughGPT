@@ -15,7 +15,15 @@ import { TypingIndicator } from './typing-indicator'
 
 const meta = {
   title: 'AI/Composed flows',
-  parameters: { layout: 'fullscreen' },
+  parameters: {
+    layout: 'fullscreen',
+    docs: {
+      description: {
+        story:
+          'End-to-end agent chat: model picker, token meter, citations, reasoning, tools, sources, attachments, and composer. Use the Surface toolbar to check light and dark contrast.',
+      },
+    },
+  },
 } satisfies Meta
 
 export default meta

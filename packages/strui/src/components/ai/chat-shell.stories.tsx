@@ -14,6 +14,12 @@ const meta = {
   title: 'AI/ChatShell',
   parameters: {
     layout: 'fullscreen',
+    docs: {
+      description: {
+        story:
+          'Minimal chat surface: header with token meter, empty state, thread with bubbles, tool card, code snippet, and prompt composer. **iPhone** uses the Storybook viewport preset.',
+      },
+    },
   },
 } satisfies Meta
 
