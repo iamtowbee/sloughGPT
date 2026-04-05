@@ -12,6 +12,7 @@
 
 :root {
   /* App shell — sidebar + main column (rem-relative to root font size) */
+  --app-mobile-header-h: 3.25rem;
   --sidebar-width: 15.75rem;
   /* Chat column max width — ~80ch at default scale; scales with font */
   --chat-thread-max: min(100%, 48rem);
@@ -100,7 +101,12 @@ body {
   }
 
   .sl-page {
-    @apply p-4 sm:p-6 md:p-8 text-foreground;
+    @apply min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 text-foreground sm:p-6 md:p-8;
+  }
+
+  /** Chat: session rail + message list (scroll container) */
+  .sl-chat-thread {
+    scroll-padding-bottom: 0.75rem;
   }
 
   /** Monitoring SYS.LOG — subtle scanlines + primary wash (matches shell “lattice” look) */

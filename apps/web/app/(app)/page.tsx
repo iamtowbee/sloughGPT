@@ -69,7 +69,7 @@ export default function HomePage() {
   }, [health])
 
   return (
-    <div className="max-w-6xl space-y-10 p-8 md:p-10">
+    <div className="mx-auto max-h-none min-h-0 w-full max-w-6xl flex-1 space-y-10 overflow-y-auto overscroll-contain p-8 md:p-10">
       <header className="space-y-2">
         <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">Overview</p>
         <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">SloughGPT</h1>

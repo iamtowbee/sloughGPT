@@ -80,7 +80,7 @@ function ChevronDownIcon({ className }: { className?: string }) {
   )
 }
 
-/** Paper-plane outline — avoid trailing `v-8` stem; it reads like a warning (⚠) glyph. */
+/** Paper-plane outline — avoid trailing stem reading like a warning glyph. */
 function SendIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -101,6 +101,7 @@ export default function ChatPage() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [mobileSessionsOpen, setMobileSessionsOpen] = useState(false)
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string; source?: string }>>([])
   const { state: apiHealth, refresh: refreshHealth } = useApiHealth()
   const [modelsCatalogError, setModelsCatalogError] = useState(false)
@@ -216,6 +217,7 @@ export default function ChatPage() {
     const session = createSession()
     setSessions((prev) => [session, ...prev])
     setActiveSessionId(session.id)
+    setMobileSessionsOpen(false)
   }
 
   const deleteSession = (id: string) => {
@@ -237,7 +239,6 @@ export default function ChatPage() {
     prompt: string,
     options?: {
       skipUserAppend?: boolean
-      /** Use when `skipUserAppend` and state may not have flushed yet (e.g. retry). */
       chatMessagesOverride?: Array<{ role: string; content: string }>
     },
   ) => {
@@ -280,7 +281,6 @@ export default function ChatPage() {
       }))
     }
 
-    /** Chunked typing animation (see `revealTypingSequence` tests for tail coverage). */
     const revealAssistantText = async (fullContent: string, delayMs: number) => {
       for (const partial of revealTypingSequence(fullContent, 3)) {
         updateActiveSession((session) => ({
@@ -383,62 +383,92 @@ export default function ChatPage() {
 
   const selectedModelLabel = availableModels.find((m) => m.id === selectedModel)?.name || selectedModel
 
-  return (
-    <div className="flex h-full min-h-0 gap-0 md:gap-2">
-      <aside className="flex w-[var(--sidebar-width)] shrink-0 flex-col border-r border-border bg-card/55 py-3 pr-3">
-        <Button type="button" variant="secondary" className="mb-3 w-full border-dashed" onClick={startNewConversation}>
-          + New chat
-        </Button>
-        <Input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search chats…"
-          className="mb-3 bg-muted/30"
-          aria-label="Search chats"
-        />
-        <div className="flex flex-1 flex-col space-y-1 overflow-y-auto">
-          {filteredSessions.map((session) => (
-            <div
-              key={session.id}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  setActiveSessionId(session.id)
-                }
-              }}
-              className={`group cursor-pointer border px-2 py-2 transition-colors duration-200 ease-smooth ${
-                session.id === activeSessionId
-                  ? 'border-primary/40 bg-primary/10'
-                  : 'border-transparent hover:bg-muted/50'
-              }`}
-              onClick={() => setActiveSessionId(session.id)}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="truncate text-sm text-foreground">{session.title}</div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs opacity-0 transition-opacity group-hover:opacity-100"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    deleteSession(session.id)
-                  }}
-                >
-                  Delete
-                </Button>
-              </div>
+  const pickSession = (id: string) => {
+    setActiveSessionId(id)
+    setMobileSessionsOpen(false)
+  }
+
+  const sessionsPanel = (
+    <>
+      <Button
+        type="button"
+        variant="secondary"
+        className="mb-3 w-full border-dashed"
+        onClick={startNewConversation}
+      >
+        + New chat
+      </Button>
+      <Input
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        placeholder="Search chats…"
+        className="mb-3 bg-muted/30"
+        aria-label="Search chats"
+      />
+      <div className="flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto overscroll-contain">
+        {filteredSessions.map((session) => (
+          <div
+            key={session.id}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                pickSession(session.id)
+              }
+            }}
+            className={`group cursor-pointer border px-2 py-2 transition-colors duration-200 ease-smooth ${
+              session.id === activeSessionId
+                ? 'border-primary/40 bg-primary/10'
+                : 'border-transparent hover:bg-muted/50'
+            }`}
+            onClick={() => pickSession(session.id)}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="truncate text-sm text-foreground">{session.title}</div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs opacity-0 transition-opacity group-hover:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  deleteSession(session.id)
+                }}
+              >
+                Delete
+              </Button>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row md:gap-2">
+      {/* Desktop: session rail */}
+      <aside className="sl-chat-sessions hidden min-h-0 w-[var(--sidebar-width)] shrink-0 flex-col overflow-hidden border-r border-border bg-card/55 py-3 pr-3 md:flex">
+        {sessionsPanel}
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex flex-col gap-2 border-b border-border px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4 md:px-6">
+      {/* Main column: toolbar + thread + composer */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4 md:px-6">
           <div className="flex min-w-0 flex-wrap items-center gap-2 md:gap-3">
-            <h1 className="text-lg font-semibold text-foreground">{activeSession?.title ?? 'Chat'}</h1>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0 md:hidden"
+              onClick={() => setMobileSessionsOpen(true)}
+              aria-expanded={mobileSessionsOpen}
+            >
+              Chats
+            </Button>
+            <h1 className="min-w-0 truncate text-lg font-semibold text-foreground">
+              {activeSession?.title ?? 'Chat'}
+            </h1>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="secondary" size="sm" className="gap-2 font-normal" title="Catalog label; inference uses the API runtime shown on the right">
@@ -477,9 +507,19 @@ export default function ChatPage() {
           <InferenceRuntimeToolbar health={apiHealth} onRefresh={refreshHealth} />
         </div>
 
-        <div className="px-3 sm:px-4 md:px-6">
+        <div className="shrink-0 px-3 sm:px-4 md:px-6">
           <InferenceStatusBar health={apiHealth} selectedCatalogId={selectedModel} />
         </div>
+
+        <Dialog open={mobileSessionsOpen} onOpenChange={setMobileSessionsOpen}>
+          <DialogContent className="flex max-h-[min(90dvh,32rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+            <DialogHeader className="shrink-0 border-b border-border px-4 py-3 text-left">
+              <DialogTitle>Your chats</DialogTitle>
+              <DialogDescription className="text-xs">Search, switch, or start a new conversation.</DialogDescription>
+            </DialogHeader>
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-4">{sessionsPanel}</div>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
           <DialogContent className="max-w-md">
@@ -575,128 +615,122 @@ export default function ChatPage() {
           </DialogContent>
         </Dialog>
 
-        <div className="mx-auto flex min-h-0 w-full max-w-[var(--chat-thread-max)] flex-1 flex-col px-3 sm:px-4 md:px-6">
-        <div className="flex min-h-0 flex-1 flex-col space-y-3 overflow-y-auto py-4">
-          {messages.length === 0 && (
-            <div className="flex h-full min-h-[min(40vh,24rem)] flex-col items-center justify-center py-12 text-center sm:py-20">
-              <div className="mb-4 flex aspect-square w-16 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 font-mono text-xl font-semibold text-primary">
-                S
-              </div>
-              <h2 className="mb-2 text-xl font-medium text-foreground">SloughGPT</h2>
-              <p className="mb-6 text-sm text-muted-foreground">Start a conversation</p>
-              <div className="flex max-w-md flex-wrap justify-center gap-2">
-                {['Explain quantum', 'Write code', 'What is ML?', 'Help me create'].map((example, i) => (
-                  <Button
-                    type="button"
-                    key={i}
-                    variant="secondary"
-                    size="sm"
-                    className="text-xs"
-                    disabled={!canInfer}
-                    title={!canInfer ? sendBlockedReason : undefined}
-                    onClick={() => setInput(example)}
-                  >
-                    {example}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div
-                className={`group max-w-2xl border px-4 py-2.5 shadow-sm transition-colors duration-200 ease-smooth ${
-                  msg.role === 'user'
-                    ? 'border-primary/35 bg-primary text-primary-foreground'
-                    : 'border-border bg-card text-foreground'
-                }`}
-              >
-                <div className="whitespace-pre-wrap text-sm">{msg.content}</div>
-
-                {msg.role === 'assistant' && (
-                  <div className="mt-1 flex gap-3 border-t border-border pt-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                    <button
+        <div className="mx-auto flex min-h-0 w-full max-w-[var(--chat-thread-max)] flex-1 flex-col overflow-hidden px-3 sm:px-4 md:px-6">
+          <div className="sl-chat-thread flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain py-4">
+            {messages.length === 0 && (
+              <div className="flex min-h-[min(50dvh,28rem)] flex-col items-center justify-center px-2 py-8 text-center sm:py-16">
+                <div className="mb-5 flex aspect-square w-[4.5rem] shrink-0 items-center justify-center border border-primary/35 bg-gradient-to-br from-primary/12 to-accent/20 font-mono text-2xl font-semibold text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] dark:shadow-none">
+                  S
+                </div>
+                <h2 className="mb-1.5 text-xl font-semibold tracking-tight text-foreground">SloughGPT</h2>
+                <p className="mb-8 max-w-sm text-sm leading-relaxed text-muted-foreground">
+                  Start a conversation — prompts use the loaded model shown in the status bar.
+                </p>
+                <div className="flex max-w-lg flex-wrap justify-center gap-2">
+                  {['Explain quantum', 'Write code', 'What is ML?', 'Help me create'].map((example, i) => (
+                    <Button
                       type="button"
-                      onClick={() => copyToClipboard(msg.content)}
-                      className="text-xs text-muted-foreground hover:text-foreground"
+                      key={i}
+                      variant="secondary"
+                      size="sm"
+                      className="text-xs"
+                      disabled={!canInfer}
+                      title={!canInfer ? sendBlockedReason : undefined}
+                      onClick={() => setInput(example)}
                     >
-                      Copy
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => retryAssistantMessage(msg.id)}
-                      className="text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      Retry
-                    </button>
-                  </div>
-                )}
-                {msg.role === 'user' && (
-                  <div className="mt-1 flex gap-3 border-t border-primary-foreground/25 pt-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                    <button
-                      type="button"
-                      onClick={() => editFromUserMessage(msg.id)}
-                      className="text-xs text-primary-foreground/90 hover:text-primary-foreground"
-                    >
-                      Edit & resend
-                    </button>
-                  </div>
-                )}
+                      {example}
+                    </Button>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-          {isLoading && (
-            <div className="flex w-full justify-start">
-              <div className="flex gap-1 border border-border bg-card px-4 py-3 shadow-sm">
-                <span
-                  className="h-1.5 w-1.5 animate-bounce bg-primary [animation-delay:0s]"
-                />
-                <span
-                  className="h-1.5 w-1.5 animate-bounce bg-primary [animation-delay:0.15s]"
-                />
-                <span
-                  className="h-1.5 w-1.5 animate-bounce bg-primary [animation-delay:0.3s]"
-                />
+            )}
+            {messages.map((msg) => (
+              <div key={msg.id} className={`mb-3 flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`group max-w-[min(100%,42rem)] border px-4 py-2.5 shadow-sm transition-colors duration-200 ease-smooth ${
+                    msg.role === 'user'
+                      ? 'border-primary/35 bg-primary text-primary-foreground'
+                      : 'border-border bg-card text-foreground'
+                  }`}
+                >
+                  <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">{msg.content}</div>
+
+                  {msg.role === 'assistant' && (
+                    <div className="mt-1.5 flex gap-3 border-t border-border pt-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(msg.content)}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Copy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => retryAssistantMessage(msg.id)}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  )}
+                  {msg.role === 'user' && (
+                    <div className="mt-1.5 flex gap-3 border-t border-primary-foreground/25 pt-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                      <button
+                        type="button"
+                        onClick={() => editFromUserMessage(msg.id)}
+                        className="text-xs text-primary-foreground/90 hover:text-primary-foreground"
+                      >
+                        Edit & resend
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        <Separator className="mt-1" />
-
-        <div className="pb-3 pt-2">
-          <div className="flex gap-2">
-            <Textarea
-              data-testid="chat-message-input"
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && !e.metaKey) {
-                  e.preventDefault()
-                  sendMessage()
-                }
-              }}
-              placeholder="Message…"
-              rows={2}
-              title={!canInfer ? sendBlockedReason : undefined}
-              className="min-h-14 flex-1 resize-none"
-            />
-            <Button
-              type="button"
-              data-testid="chat-send-button"
-              size="icon"
-              className="h-14 w-11 min-h-14 shrink-0 self-end"
-              onClick={sendMessage}
-              disabled={isLoading || !input.trim() || !canInfer}
-              title={!canInfer ? sendBlockedReason : undefined}
-              aria-label="Send message"
-            >
-              <SendIcon className="h-4 w-4" />
-            </Button>
+            ))}
+            {isLoading && (
+              <div className="mb-3 flex w-full justify-start">
+                <div className="flex gap-1 border border-border bg-card px-4 py-3 shadow-sm" aria-busy>
+                  <span className="h-1.5 w-1.5 animate-bounce bg-primary [animation-delay:0s]" />
+                  <span className="h-1.5 w-1.5 animate-bounce bg-primary [animation-delay:0.15s]" />
+                  <span className="h-1.5 w-1.5 animate-bounce bg-primary [animation-delay:0.3s]" />
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
           </div>
-        </div>
+
+          <div className="shrink-0 border-t border-border/80 bg-background/90 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
+            <div className="flex gap-2">
+              <Textarea
+                data-testid="chat-message-input"
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey && !e.metaKey) {
+                    e.preventDefault()
+                    sendMessage()
+                  }
+                }}
+                placeholder="Message…"
+                rows={2}
+                title={!canInfer ? sendBlockedReason : undefined}
+                className="min-h-14 flex-1 resize-none"
+              />
+              <Button
+                type="button"
+                data-testid="chat-send-button"
+                size="icon"
+                className="h-14 w-11 min-h-14 shrink-0 self-end"
+                onClick={sendMessage}
+                disabled={isLoading || !input.trim() || !canInfer}
+                title={!canInfer ? sendBlockedReason : undefined}
+                aria-label="Send message"
+              >
+                <SendIcon className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

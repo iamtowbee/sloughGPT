@@ -118,7 +118,7 @@ export default function AgentsPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col px-2">
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-2">
       <div className="flex items-center justify-between border-b border-border py-3">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold text-foreground">Agents</h1>

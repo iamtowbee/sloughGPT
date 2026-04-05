@@ -31,7 +31,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <DialogPrimitive.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-      <div className="flex min-h-dvh flex-col bg-background lg:flex-row">
+      <div className="flex min-h-dvh flex-col bg-background lg:h-dvh lg:max-h-dvh lg:min-h-0 lg:flex-row">
         <a
           href="#main-content"
           className="sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[200] focus:inline-block focus:rounded-md focus:border focus:border-border focus:bg-card focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring"
@@ -68,7 +68,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           className="sl-shell-main flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
           tabIndex={-1}
         >
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
         </main>
 
         <DialogPrimitive.Portal>
