@@ -278,16 +278,41 @@ body {
   }
 }
 
-/* @sloughgpt/strui PromptComposer — safe-area + touch targets (host mirrors strui utilities). */
+/*
+ * @sloughgpt/strui host utilities — keep in sync with packages/strui/src/styles/globals.css
+ * (ChatThread uses str-safe-x + str-chat-scroll; PromptComposer uses str-safe-bottom + str-touch-target).
+ */
 @layer utilities {
+  .str-min-h-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  .str-safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
   .str-safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .str-safe-left {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .str-safe-right {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .str-safe-x {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .str-safe-all {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
   }
   .str-touch-target {
     min-height: 44px;
     min-width: 44px;
   }
-  /** Matches @sloughgpt/strui ChatThread — iOS momentum scroll, no scroll chaining. */
   .str-chat-scroll {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
