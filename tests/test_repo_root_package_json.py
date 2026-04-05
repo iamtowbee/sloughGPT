@@ -31,3 +31,4 @@ def test_verify_sh_documents_dev_stack() -> None:
     assert "npm run dev:stack" in text
     assert "./scripts/dev-stack.sh" in text
     assert "concurrently" in text, "verify.sh should mention concurrently (root npm install / dev:stack)"
+    assert "tests/test_repo_root_package_json.py" in text, "verify.sh CI parity hint should list this module"
