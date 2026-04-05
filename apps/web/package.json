@@ -20,7 +20,7 @@
     "dev": "next dev",
     "dev:clean": "npm run clean && next dev",
     "build": "next build",
-    "build:clean": "npm run clean && next build",
+    "build:clean": "npm run clean && node ./scripts/next-build-retry.mjs",
     "start": "next start",
     "dev:e2e": "next dev -p 3010",
     "lint": "next lint",
