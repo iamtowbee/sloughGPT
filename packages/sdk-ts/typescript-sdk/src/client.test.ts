@@ -131,6 +131,7 @@ describe('SloughGPTClient', () => {
 
       expect(result.message.content).toBe('Hello!');
       expect(result.model).toBe('gpt2-engine');
+      expect(result.tokens_generated).toBe(3);
       const call = mockFetch.mock.calls[0];
       expect(call[0]).toContain('/chat');
       expect((call[1] as { method: string }).method).toBe('POST');
