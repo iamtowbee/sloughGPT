@@ -112,7 +112,7 @@ if [ "$all_found" = true ]; then
     echo "  python3 -m pytest tests/test_sdk.py -q"
     echo ""
     echo "Python core CI parity (job test in reusable-ci-core.yml), training smoke subset:"
-    echo "  python3 -m pytest tests/test_checkpoint_utils.py tests/test_config.py tests/test_train_sloughgpt_generate_text.py tests/test_train_sloughgpt_resume.py tests/test_sloughgpt_trainer_smoke.py tests/test_sloughgpt_trainer_resume.py tests/test_sloughgpt_trainer_progress_callback.py tests/test_cli_train_export_stem.py tests/test_cli_train_api_payload.py tests/test_training_router_kwds.py tests/test_training_schemas.py tests/test_lm_eval_char.py tests/test_cli_local_soul_candidates.py tests/test_soul_engine_conversation.py tests/test_sloughgpt_colab_notebook.py -q"
+    echo "  python3 -m pytest tests/test_checkpoint_utils.py tests/test_config.py tests/test_train_sloughgpt_generate_text.py tests/test_train_sloughgpt_resume.py tests/test_sloughgpt_trainer_smoke.py tests/test_sloughgpt_trainer_resume.py tests/test_sloughgpt_trainer_progress_callback.py tests/test_cli_train_export_stem.py tests/test_cli_train_api_payload.py tests/test_training_router_kwds.py tests/test_training_schemas.py tests/test_lm_eval_char.py tests/test_cli_local_soul_candidates.py tests/test_soul_engine_conversation.py tests/test_repo_root_package_json.py tests/test_sloughgpt_colab_notebook.py -q"
     echo "  python3 train_sloughgpt.py --help"
     echo ""
     echo "Standards CI parity (job standards-schemas):"
