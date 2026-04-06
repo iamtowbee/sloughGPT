@@ -55,6 +55,15 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter_between_tests() -> None:
+    """Shared module ``TestClient`` + global limiter exhaust 60 req/min for ``testclient``; clear so tests stay deterministic."""
+    from main import rate_limiter
+
+    rate_limiter.clients.clear()
+    yield
+
+
 def test_train_resolve_rejects_duplicate_sources(client: TestClient) -> None:
     r = client.post(
         "/train/resolve",
