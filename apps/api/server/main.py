@@ -51,6 +51,7 @@ import asyncio
 import time
 import logging
 
+from domains.errors import require_non_empty_prompt, SloughGPTDomainError
 from domains.ops.wandb_server import record_inference_call
 
 logging.basicConfig(level=logging.INFO)
@@ -363,9 +364,7 @@ def _format_chat_messages_for_standard(messages: List[ChatMessage]) -> str:
 
 def _generate_core(request: GenerateRequest, client_ip: str) -> Dict[str, Any]:
     """Shared generation logic for /generate and /v1/infer."""
-    prompt = input_validator.validate_prompt(request.prompt)
-    if not prompt:
-        raise HTTPException(status_code=422, detail="prompt must not be empty")
+    prompt = require_non_empty_prompt(input_validator.validate_prompt(request.prompt))
     soul_defaults = get_soul_generation_params()
     soul_info = get_soul_personality()
 
@@ -809,6 +808,24 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": exc.detail, "status_code": exc.status_code},
+    )
+
+
+@app.exception_handler(SloughGPTDomainError)
+async def domain_exception_handler(request: Request, exc: SloughGPTDomainError):
+    """Map core ``domains`` errors to JSON (validation and other predictable failures)."""
+    client_ip = request.client.host if request.client else "unknown"
+    audit_logger.log(
+        "domain_error",
+        client_ip,
+        resource=str(request.url.path),
+        action=exc.code,
+        status="failure",
+        details={"detail": str(exc)},
+    )
+    return JSONResponse(
+        status_code=exc.http_status,
+        content={"error": str(exc), "status_code": exc.http_status, "code": exc.code},
     )
 
 
@@ -1528,7 +1545,7 @@ async def health_detailed():
 @app.post("/generate/demo")
 async def generate_demo(request: GenerateRequest):
     """Demo endpoint - works without loading any model."""
-    prompt = input_validator.validate_prompt(request.prompt)
+    prompt = require_non_empty_prompt(input_validator.validate_prompt(request.prompt))
     max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
     
     # Simple demo response based on prompt
@@ -1641,6 +1658,7 @@ async def v1_infer(body: StandardInferenceRequest, req: Request, response: Respo
 @app.post("/generate/stream")
 async def generate_stream(request: GenerateRequest):
     """Streaming text generation using Server-Sent Events."""
+    require_non_empty_prompt(input_validator.validate_prompt(request.prompt))
     max_gen = input_validator.validate_max_tokens(request.max_new_tokens or 100)
     temperature = input_validator.validate_temperature(request.temperature or 0.8)
     top_p_val = max(0.0, min(1.0, float(request.top_p if request.top_p is not None else 0.9)))
@@ -1732,6 +1750,8 @@ async def chat_completion(request: ChatRequest, req: Request):
             "model": "gpt2-engine",
             "tokens_generated": len(text.split()) if text else 0,
         }
+    except SloughGPTDomainError:
+        raise
     except Exception as e:
         return {"error": str(e), "text": ""}
     finally:
@@ -1745,6 +1765,7 @@ async def chat_stream(request: ChatRequest):
         raise HTTPException(status_code=400, detail="messages must not be empty")
 
     prompt = _format_chat_messages_for_standard(request.messages)
+    require_non_empty_prompt(prompt, field_name="messages")
     max_gen = input_validator.validate_max_tokens(request.max_new_tokens or 100)
     temperature = input_validator.validate_temperature(request.temperature if request.temperature is not None else 0.8)
     top_p_val = max(0.0, min(1.0, float(request.top_p if request.top_p is not None else 0.9)))
@@ -1816,7 +1837,14 @@ async def websocket_generate(websocket: WebSocket):
             data = await websocket.receive_text()
             request_data = json.loads(data)
 
-            prompt = input_validator.validate_prompt(request_data.get("prompt", ""))
+            try:
+                prompt = require_non_empty_prompt(
+                    input_validator.validate_prompt(request_data.get("prompt", ""))
+                )
+            except SloughGPTDomainError as e:
+                await websocket.send_json({"status": "error", "error": str(e), "code": e.code})
+                continue
+
             max_tokens = input_validator.validate_max_tokens(request_data.get("max_tokens", 100))
             temperature = input_validator.validate_temperature(request_data.get("temperature", 0.8))
             raw_top_p = request_data.get("top_p", 0.9)
@@ -2317,7 +2345,7 @@ async def inference_generate(gr: GenerateRequest, req: Request):
     client_ip = req.client.host if req.client else "unknown"
 
     # Validate input
-    prompt = input_validator.validate_prompt(gr.prompt)
+    prompt = require_non_empty_prompt(input_validator.validate_prompt(gr.prompt))
     max_tokens = input_validator.validate_max_tokens(gr.max_new_tokens or 100)
     temperature = input_validator.validate_temperature(gr.temperature if gr.temperature is not None else 0.8)
     top_p_val = max(0.0, min(1.0, float(gr.top_p if gr.top_p is not None else 0.9)))
@@ -2349,6 +2377,8 @@ async def inference_generate(gr: GenerateRequest, req: Request):
             "model": "gpt2-engine",
             "tokens_generated": len(text.split()),
         }
+    except SloughGPTDomainError:
+        raise
     except Exception as e:
         return {"error": str(e), "text": ""}
     finally:
@@ -2358,6 +2388,7 @@ async def inference_generate(gr: GenerateRequest, req: Request):
 @app.post("/inference/generate/stream", tags=["inference"])
 async def inference_generate_stream(request: GenerateRequest):
     """Streaming generation using the production inference engine."""
+    require_non_empty_prompt(input_validator.validate_prompt(request.prompt))
     engine = get_inference_engine()
     max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
     temperature = input_validator.validate_temperature(request.temperature if request.temperature is not None else 0.8)
@@ -2418,7 +2449,7 @@ async def batch_generate(batch: BatchGenerateRequest, http_request: Request):
     results: List[BatchGenerateItem] = []
 
     for prompt in batch.prompts[:50]:
-        validated_prompt = input_validator.validate_prompt(prompt)
+        validated_prompt = require_non_empty_prompt(input_validator.validate_prompt(prompt))
         max_tokens = input_validator.validate_max_tokens(batch.max_new_tokens or 100)
         temp = input_validator.validate_temperature(batch.temperature or 0.8)
         top_p_val = max(0.0, min(1.0, float(batch.top_p if batch.top_p is not None else 0.9)))

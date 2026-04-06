@@ -14,6 +14,8 @@ import logging
 import torch
 import torch.nn.functional as F
 
+from domains.errors import require_non_empty_prompt
+
 logger = logging.getLogger(__name__)
 
 
@@ -190,6 +192,7 @@ class InferenceEngine:
         repetition_penalty: float = 1.0,
     ) -> str:
         """Generate text for a single prompt (synchronous)."""
+        prompt = require_non_empty_prompt(prompt)
         start_time = time.time()
         
         # Tokenize prompt
@@ -246,6 +249,7 @@ class InferenceEngine:
         repetition_penalty: float = 1.0,
     ) -> AsyncIterator[str]:
         """Generate text with streaming (async)."""
+        prompt = require_non_empty_prompt(prompt)
         loop = asyncio.get_event_loop()
         
         # Tokenize prompt

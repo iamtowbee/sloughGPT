@@ -9,6 +9,8 @@ import torch.nn.functional as F
 from typing import List, Optional, Iterator, Dict
 from dataclasses import dataclass
 
+from domains.errors import require_non_empty_prompt
+
 
 @dataclass
 class GenerationConfig:
@@ -66,6 +68,8 @@ class InferenceEngine:
         """Generate text from prompt (non-streaming)."""
         if config is None:
             config = GenerationConfig()
+
+        prompt = require_non_empty_prompt(prompt)
 
         if config.seed is not None:
             torch.manual_seed(config.seed)
@@ -131,6 +135,8 @@ class InferenceEngine:
         """Generate text with streaming output."""
         if config is None:
             config = GenerationConfig()
+
+        prompt = require_non_empty_prompt(prompt)
 
         if config.seed is not None:
             torch.manual_seed(config.seed)

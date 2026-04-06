@@ -442,6 +442,20 @@ def test_inference_generate_json_shape(client: TestClient) -> None:
         assert isinstance(data.get("tokens_generated"), int)
 
 
+def test_inference_generate_empty_prompt_domain_422(client: TestClient) -> None:
+    r = client.post("/inference/generate", json={"prompt": "  ", "max_new_tokens": 4})
+    assert r.status_code == 422, r.text
+    data = r.json()
+    assert data.get("code") == "empty_prompt"
+    assert "error" in data
+
+
+def test_generate_empty_prompt_domain_422(client: TestClient) -> None:
+    r = client.post("/generate", json={"prompt": ""})
+    assert r.status_code == 422, r.text
+    assert r.json().get("code") == "empty_prompt"
+
+
 def test_chat_post_empty_messages_400(client: TestClient) -> None:
     r = client.post("/chat", json={"messages": []})
     assert r.status_code == 400, r.text
