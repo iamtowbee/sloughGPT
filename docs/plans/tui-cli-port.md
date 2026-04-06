@@ -1,6 +1,6 @@
 # Plan: Interactive TUI for SloughGPT CLI
 
-This document maps **today’s argparse CLI** to a future **terminal UI (TUI)** without duplicating core training or inference logic. Status: **planning only** — no TUI package is required for a normal install yet.
+This document maps **today’s argparse CLI** to a future **terminal UI (TUI)** without duplicating core training or inference logic. Status: **Phase 1** — minimal **`apps/tui/`** (session, read-only HTTP/local adapters, stub CLI); **Textual** and optional install extras are later. Normal **`pip install -e .`** unchanged.
 
 ## Goals
 
@@ -50,7 +50,7 @@ Representative **`cmd_*`** (non-exhaustive): **`cmd_chat`**, **`cmd_generate`**,
 
 ## Target architecture (TUI package)
 
-Suggested layout (not created until implementation):
+Layout (Phase 1 started: **`apps/tui/`** with **`session`**, **`adapters/http_api`**, **`adapters/local_status`**; **`screens/`** and full train/export adapters later):
 
 - **`apps/tui/`** (or **`packages/tui/`** if you want it installable as an extra).
 - **`session.py`**: repo root, **`--host`/`--port`**, device, paths, last error.
@@ -65,7 +65,7 @@ Suggested layout (not created until implementation):
 | Phase | Scope | Outcome |
 |-------|--------|---------|
 | **0 — Hygiene** | Done: **`models`** / **`personalities`** wired; dead **`cmd_export`** removed; **`cli.py train --api`** sends **`TrainingRequest`** JSON to **`POST /training/start`**. | Cleaner surface for TUI to mirror. |
-| **1 — Shell** | Home + read-only rooms (**`config check`**, **`health`**, **`stats`**, **`datasets`**); global command palette stub; log viewer for one short command. | Proves layout + session, low risk. |
+| **1 — Shell** | Home + read-only rooms (**`config check`**, **`health`**, **`stats`**, **`datasets`**); global command palette stub; log viewer for one short command. | Proves layout + session, low risk. **TDD:** `tests/test_tui_phase1.py` covers **`TuiSession`**, **`discover_repo_root`**, **`fetch_health`**; run **`python3 -m apps.tui`**. |
 | **2 — Core local** | Train room (build trainer kwargs / **`Namespace`**), Generate/Soul play room, Export wizard; use **`on_progress`** where available. | “Heavenly” daily driver for local work. |
 | **3 — API-attached** | Training jobs, model load, auth using **`apps/api/server`** (and optionally **`sloughgpt_sdk`**). | Parity with web console patterns. |
 | **4 — Ops** | Docker compose panes, setup; demos behind confirmations. | Power users. |
