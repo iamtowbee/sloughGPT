@@ -65,7 +65,7 @@ Layout (Phase 1 started: **`apps/tui/`** with **`session`**, **`adapters/http_ap
 | Phase | Scope | Outcome |
 |-------|--------|---------|
 | **0 — Hygiene** | Done: **`models`** / **`personalities`** wired; dead **`cmd_export`** removed; **`cli.py train --api`** sends **`TrainingRequest`** JSON to **`POST /training/start`**. | Cleaner surface for TUI to mirror. |
-| **1 — Shell** | Home + read-only rooms (**`config check`**, **`health`**, **`stats`**, **`datasets`**); global command palette stub; log viewer for one short command. | Proves layout + session, low risk. **TDD:** `tests/test_tui_phase1.py` covers **`TuiSession`**, **`discover_repo_root`**, **`fetch_health`**; run **`python3 -m apps.tui`**. |
+| **1 — Shell** | Home + read-only rooms (**`config check`**, **`health`**, **`stats`**, **`datasets`**); global command palette stub; log viewer for one short command. | Proves layout + session, low risk. **TDD:** `tests/test_tui_phase1.py` — **`TuiSession`**, **`discover_repo_root`**, **`fetch_health` / `fetch_metrics` / `fetch_health_detailed`**, **`scan_local_repo`**; CLI: **`python3 -m apps.tui --local-status`** and **`--api-*`**. |
 | **2 — Core local** | Train room (build trainer kwargs / **`Namespace`**), Generate/Soul play room, Export wizard; use **`on_progress`** where available. | “Heavenly” daily driver for local work. |
 | **3 — API-attached** | Training jobs, model load, auth using **`apps/api/server`** (and optionally **`sloughgpt_sdk`**). | Parity with web console patterns. |
 | **4 — Ops** | Docker compose panes, setup; demos behind confirmations. | Power users. |
