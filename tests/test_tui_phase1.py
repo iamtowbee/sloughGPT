@@ -221,6 +221,34 @@ def test_app_main_api_health_mocked(monkeypatch: pytest.MonkeyPatch, capsys: pyt
     assert "healthy" in out
 
 
+def test_app_main_api_metrics_mocked(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    from apps.tui import app
+    from apps.tui.adapters import http_api
+
+    def _fake_fetch(base: str):
+        return http_api.ApiJsonResult(200, {"requests_per_minute": 60}, None)
+
+    monkeypatch.setattr(http_api, "fetch_metrics", _fake_fetch)
+    app.main(["--api-metrics"])
+    out = capsys.readouterr().out
+    assert "GET /metrics" in out
+    assert "60" in out
+
+
+def test_app_main_api_health_detailed_mocked(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    from apps.tui import app
+    from apps.tui.adapters import http_api
+
+    def _fake_fetch(base: str):
+        return http_api.ApiJsonResult(200, {"model_loaded": True}, None)
+
+    monkeypatch.setattr(http_api, "fetch_health_detailed", _fake_fetch)
+    app.main(["--api-health-detailed"])
+    out = capsys.readouterr().out
+    assert "GET /health/detailed" in out
+    assert "model_loaded" in out
+
+
 def test_app_main_no_action_message(capsys: pytest.CaptureFixture[str]) -> None:
     from apps.tui import app
 
