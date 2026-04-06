@@ -79,6 +79,7 @@ cd apps/web && npm run dev
 # Run tests
 python3 -m pytest tests/ -q
 # or (uses .venv when present): ./run.sh python3 -m pytest tests/ -q
+# Optional: pytest tests/test_integration.py — needs a live API on :8000 (see tests/README.md; websocket-client in pip install -e ".[dev]")
 
 # CLI (repo root)
 python3 cli.py --help
@@ -132,6 +133,7 @@ python3 -m pytest tests/ -q
 ./verify.sh
 ```
 
+- **Optional:** `tests/test_integration.py` exercises a running HTTP API (and WebSocket if `websocket-client` is installed); see **tests/README.md** and **CONTRIBUTING.md**.
 - **Python CI subset:** `.github/workflows/reusable-ci-core.yml` (`workflow_call`): ruff smoke includes **`train_sloughgpt.py`**; pytest includes training smoke tests (see **CONTRIBUTING.md**).
 - **Also in `ci_cd.yml`:** `test-web` (lint, typecheck, Vitest, **`build:clean`** — same as local **`npm run ci`** in **`apps/web`**: ends with **`rm -rf .next`** + **`next build`**, not a leading **`clean`**), `test-strui` (**`npm run ci`** in **`packages/strui`** — typecheck, Vitest, Storybook build), `test-sdk-ts` (**`npm run ci`** in **`packages/sdk-ts/typescript-sdk`**), `sdk-test-py`, `standards-schemas` (run `python3 scripts/validate_standards_schemas.py`; `jsonschema` is in `python3 -m pip install -e ".[dev]"`).
 
