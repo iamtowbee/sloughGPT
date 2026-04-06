@@ -53,7 +53,7 @@ Shared checkpoint I/O: **`packages/core-py/domains/training/checkpoint_utils.py`
 - **strui** (`packages/strui`, `@sloughgpt/strui`): shared primitives / composed / AI for the web app. Storybook: **Design principles** (a11y addon, Tailwind viewports), **Foundations**, **Component gallery** — **`packages/strui/README.md`**; **`npm run storybook`** / **`npm run ci`** (job **`test-strui`**).
 - **Colab**: Root **`sloughgpt_colab.ipynb`** — **§2** dataset, **§3–§6** setup, then exactly one training path: manual **§7**, **`RUN_TRAIN_PIPELINE`** / **`train_sloughgpt()`** (**§7b**), or optional **`SloughGPTTrainer`**. **§11** cognitive (SM-2 + SCAMPER) must stay **one** code cell (single **`_asyncio_run`** — see **`tests/test_sloughgpt_colab_notebook.py`**). Optional smoke execute: **`scripts/run_colab_notebook_smoke.sh`** / **`make colab-smoke`** (`--help`, **`make help`**) → **`sloughgpt_colab.executed.ipynb`** (gitignored); **`make colab-test`** for the regression module only. **README.md** (*Google Colab*) summarizes order and env vars.
 - **API**: FastAPI with auth, streaming, WebSocket
-- **CLI**: Full command-line interface (`apps/cli/cli.py`); optional TUI shell in **`apps/tui/`** (Phase 1 probes; roadmap **`docs/plans/tui-cli-port.md`**).
+- **CLI**: Full command-line interface (`apps/cli/cli.py`); optional TUI: Python **`apps/tui/`** (Phase 1 probes) or TS **`packages/tui-ts/`** (Ink + **`@sloughgpt/typescript-sdk`**); roadmap **`docs/plans/tui-cli-port.md`**.
 - **Models**: 14 custom architectures + HuggingFace integration
 
 ## Commands

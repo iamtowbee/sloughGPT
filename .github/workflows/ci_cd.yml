@@ -72,6 +72,25 @@ jobs:
         working-directory: packages/sdk-ts/typescript-sdk
         run: npm run ci
 
+  test-tui-ts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: packages/tui-ts/package-lock.json
+
+      - name: Build TypeScript SDK (tui depends on dist/)
+        working-directory: packages/sdk-ts/typescript-sdk
+        run: npm ci && npm run ci
+
+      - name: Lint, test, build TUI
+        working-directory: packages/tui-ts
+        run: npm ci && npm run ci
+
   test-strui:
     runs-on: ubuntu-latest
     steps:

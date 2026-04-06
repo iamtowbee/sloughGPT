@@ -50,9 +50,10 @@ Representative **`cmd_*`** (non-exhaustive): **`cmd_chat`**, **`cmd_generate`**,
 
 ## Target architecture (TUI package)
 
-Layout (Phase 1 started: **`apps/tui/`** with **`session`**, **`adapters/http_api`**, **`adapters/local_status`**; **`screens/`** and full train/export adapters later):
+Layout (Phase 1 started: **`apps/tui/`** Python probes; **`packages/tui-ts/`** Ink + TS SDK; **`screens/`** and full train/export adapters later):
 
-- **`apps/tui/`** (or **`packages/tui/`** if you want it installable as an extra).
+- **`apps/tui/`** — **`session`**, **`adapters/http_api`**, **`adapters/local_status`** (`python3 -m apps.tui`).
+- **`packages/tui-ts/`** — **`@sloughgpt/tui`**, **`sloughgpt-tui`** (Ink; uses **`@sloughgpt/typescript-sdk`**).
 - **`session.py`**: repo root, **`--host`/`--port`**, device, paths, last error.
 - **`adapters/`**: `LocalTrainAdapter`, `HttpTrainAdapter` (canonical **`TrainingRequest`**), `ExportAdapter`, `InferenceAdapter`, `DockerAdapter` — each thin; **no** flag reimplementation beyond building a **`Namespace`** or dataclass.
 - **`screens/`**: Home, Train, Play (chat/generate), Ship (export), Data, API, Docker (later).
