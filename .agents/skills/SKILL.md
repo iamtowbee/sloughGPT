@@ -133,7 +133,7 @@ python3 -m pytest tests/ -q
 ./verify.sh
 ```
 
-- **Python CI subset:** `.github/workflows/reusable-ci-core.yml` (`workflow_call`): ruff smoke includes **`train_sloughgpt.py`**; pytest includes training smoke tests (see **CONTRIBUTING.md**).
+- **Python CI subset:** `.github/workflows/reusable-ci-core.yml` (`workflow_call`): ruff smoke includes **`train_sloughgpt.py`**; pytest includes **`tests/test_domains_errors.py`** (`domains.errors`), training smoke tests (see **CONTRIBUTING.md**).
 - **Also in `ci_cd.yml`:** `test-web` (lint, typecheck, Vitest, **`build:clean`** — same as local **`npm run ci`** in **`apps/web`**: ends with **`rm -rf .next`** + **`next build`**, not a leading **`clean`**), `test-strui` (**`npm run ci`** in **`packages/strui`** — typecheck, Vitest, Storybook build), `test-sdk-ts` (**`npm run ci`** in **`packages/sdk-ts/typescript-sdk`**), `sdk-test-py`, `standards-schemas` (run `python3 scripts/validate_standards_schemas.py`; `jsonschema` is in `python3 -m pip install -e ".[dev]"`).
 
 ## Environment
