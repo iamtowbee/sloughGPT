@@ -49,6 +49,7 @@ Shared checkpoint I/O: **`packages/core-py/domains/training/checkpoint_utils.py`
 
 ### Deployment
 - **Web UI**: Next.js 14 with chat, training, models, experiments; shared **“Ochre & ink”** tokens in `app/globals.css` + Tailwind `theme.extend.colors` (CSS variables), light mode via `html.light`, mode/accent classes on `<html>` (`lib/theme-storage.ts`, `lib/sync-html-theme.ts`, inline bootstrap in `app/layout.tsx`), accent presets `theme-*`. App routes use **`components/AppRouteHeader.tsx`** with **`AppRouteHeaderLead`** for title/subtitle; **`InferenceRuntimeToolbar`** / **`InferenceStatusBar`** cover API/runtime in the header (chat toolbar is a custom row).
+- **strui** (`packages/strui`, `@sloughgpt/strui`): shared primitives / composed / AI for the web app. Storybook: **Design principles** (a11y addon, Tailwind viewports), **Foundations**, **Component gallery** — **`packages/strui/README.md`**; **`npm run storybook`** / **`npm run ci`** (job **`test-strui`**).
 - **Colab**: Root **`sloughgpt_colab.ipynb`** — **§2** dataset, **§3–§6** setup, then exactly one training path: manual **§7**, **`RUN_TRAIN_PIPELINE`** / **`train_sloughgpt()`** (**§7b**), or optional **`SloughGPTTrainer`**. **§11** cognitive (SM-2 + SCAMPER) must stay **one** code cell (single **`_asyncio_run`** — see **`tests/test_sloughgpt_colab_notebook.py`**). Optional smoke execute: **`scripts/run_colab_notebook_smoke.sh`** / **`make colab-smoke`** (`--help`, **`make help`**) → **`sloughgpt_colab.executed.ipynb`** (gitignored); **`make colab-test`** for the regression module only. **README.md** (*Google Colab*) summarizes order and env vars.
 - **API**: FastAPI with auth, streaming, WebSocket
 - **CLI**: Full command-line interface (`apps/cli/cli.py`); optional future TUI mapped in **`docs/plans/tui-cli-port.md`** (`apps/tui/` placeholder).
@@ -79,7 +80,6 @@ cd apps/web && npm run dev
 # Run tests
 python3 -m pytest tests/ -q
 # or (uses .venv when present): ./run.sh python3 -m pytest tests/ -q
-# Optional: pytest tests/test_integration.py — needs a live API on :8000 (see tests/README.md; websocket-client in pip install -e ".[dev]")
 
 # CLI (repo root)
 python3 cli.py --help
@@ -133,7 +133,6 @@ python3 -m pytest tests/ -q
 ./verify.sh
 ```
 
-- **Optional:** `tests/test_integration.py` exercises a running HTTP API (and WebSocket if `websocket-client` is installed); see **tests/README.md** and **CONTRIBUTING.md**.
 - **Python CI subset:** `.github/workflows/reusable-ci-core.yml` (`workflow_call`): ruff smoke includes **`train_sloughgpt.py`**; pytest includes training smoke tests (see **CONTRIBUTING.md**).
 - **Also in `ci_cd.yml`:** `test-web` (lint, typecheck, Vitest, **`build:clean`** — same as local **`npm run ci`** in **`apps/web`**: ends with **`rm -rf .next`** + **`next build`**, not a leading **`clean`**), `test-strui` (**`npm run ci`** in **`packages/strui`** — typecheck, Vitest, Storybook build), `test-sdk-ts` (**`npm run ci`** in **`packages/sdk-ts/typescript-sdk`**), `sdk-test-py`, `standards-schemas` (run `python3 scripts/validate_standards_schemas.py`; `jsonschema` is in `python3 -m pip install -e ".[dev]"`).
 
