@@ -1,0 +1,33 @@
+[package]
+name = "sloughgpt_grpc"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.81"
+
+[[bin]]
+name = "trainer-server"
+path = "src/bin/trainer_server.rs"
+
+[[bin]]
+name = "inference-server"
+path = "src/bin/inference_server.rs"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "sync", "signal"] }
+sloughgpt_trainer = { path = "../sloughgpt-trainer", features = ["pyo3"] }
+sloughgpt_inference = { path = "../sloughgpt-inference", features = ["pyo3"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+target-cpu = "native"
