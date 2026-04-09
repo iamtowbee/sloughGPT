@@ -1,42 +1,32 @@
 //! Inference gRPC Service
 //! 
 //! Async service for inference serving.
+//! 
+//! Note: Inference is delegated to llama.cpp (Python). This service
+//! provides gRPC interface for distributed inference coordination.
 
-use std::sync::Arc;
-use tokio::sync::RwLock;
-
-/// Inference service state
-pub struct InferenceService {
-    // Placeholder for inference engine
-    // Will be integrated with sloughgpt_inference
+pub struct InferenceGrpcService {
+    #[allow(dead_code)]
+    model_path: Option<String>,
 }
 
-impl InferenceService {
-    pub fn new() -> Self {
-        Self {}
-    }
-
-    pub async fn forward(&self, tokens: Vec<i32>) -> InferenceResult {
-        // TODO: Integrate with sloughgpt_inference
-        // For now, return dummy result
-        InferenceResult {
-            logits: vec![0.0; 1000], // dummy vocab size
-            next_token: 0,
-            latency_ms: 0.0,
-        }
+impl InferenceGrpcService {
+    pub fn new(model_path: Option<String>) -> Self {
+        Self { model_path }
     }
 
     pub async fn health_check(&self) -> HealthResult {
         HealthResult {
             healthy: true,
             version: env!("CARGO_PKG_VERSION").to_string(),
+            status: "ready".to_string(),
         }
     }
 }
 
-impl Default for InferenceService {
+impl Default for InferenceGrpcService {
     fn default() -> Self {
-        Self::new()
+        Self::new(None)
     }
 }
 
@@ -51,9 +41,9 @@ pub struct InferenceResult {
 pub struct HealthResult {
     pub healthy: bool,
     pub version: String,
+    pub status: String,
 }
 
-/// Token streaming for generation
 pub struct TokenStreamer {
     tokens: Vec<i32>,
     position: usize,

@@ -48,9 +48,16 @@ from .engine import (
     create_engine,
 )
 
+from .llama_engine import (
+    LlamaInferenceEngine,
+    LlamaInferenceConfig,
+    OllamaInferenceEngine,
+    find_gguf_models,
+    LLAMA_CPP_AVAILABLE,
+    LLAMA_CPP_ERROR,
+)
 
 __all__ = [
-    ".sou Soul Unit Format",
     "SoulProfile",
     "PersonalityCore",
     "BehavioralTraits",
@@ -83,4 +90,10 @@ __all__ = [
     "GenerationRequest",
     "BatchedRequest",
     "create_engine",
+    "LlamaInferenceEngine",
+    "LlamaInferenceConfig",
+    "OllamaInferenceEngine",
+    "find_gguf_models",
+    "LLAMA_CPP_AVAILABLE",
+    "LLAMA_CPP_ERROR",
 ]

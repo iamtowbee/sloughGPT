@@ -2,7 +2,7 @@
 //! 
 //! Runs the trainer as a gRPC server.
 
-use sloughgpt_grpc::{TrainerService, GradientAggregator};
+use sloughgpt_grpc::{TrainerGrpcService, GradientAggregator};
 use sloughgpt_trainer::TrainConfig;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -15,25 +15,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    tracing::info!("Starting SloughGPT Trainer Server");
+    tracing::info!("Starting SloughGPT Trainer gRPC Server");
 
     let config = TrainConfig::default();
-    let _service = TrainerService::new(config.clone());
-    let _aggregator = GradientAggregator::new(1); // Single node for now
+    let _service = TrainerGrpcService::new(config.clone());
+    let _aggregator = GradientAggregator::new(1);
 
     tracing::info!("Trainer initialized");
     tracing::info!("Config: vocab_size={}, layers={}, dim={}", 
         config.vocab_size, config.num_layers, config.embedding_dim);
 
-    // TODO: Start gRPC server
-    // tonic::Server::builder()
-    //     .add_service(TrainerServiceServer::new(service))
-    //     .serve("[::1]:50051")
-    //     .await?;
+    // Note: Full gRPC server with tonic requires proto compilation
+    // Run `cargo build` after proto files are generated
+    
+    // Example usage:
+    // let loss = service.step(vec![1, 2, 3], vec![2, 3, 4]).await;
+    // tracing::info!("Step loss: {}", loss);
 
     tracing::info!("Server ready. Press Ctrl+C to stop.");
 
-    // Keep running
     tokio::signal::ctrl_c().await?;
 
     tracing::info!("Shutting down...");
