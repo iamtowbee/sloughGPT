@@ -59,22 +59,14 @@ def load_text(path):
         for line in f:
             data = json.loads(line)
             texts.append(data.get('text', str(data)))
-    return '\\n'.join(texts)
+    return '\n'.join(texts)
 
-class TextDataset(Dataset):
-    def __init__(self, data, block_size):
-        self.data = data
-        self.block_size = block_size
-    def __len__(self):
-        return len(self.data) - self.block_size
-    def __getitem__(self, idx):
-        return (torch.tensor(self.data[idx:idx+self.block_size], dtype=torch.long),
-                torch.tensor(self.data[idx+1:idx+self.block_size+1], dtype=torch.long))
+# Use canonical implementations
+from domains.training.train_pipeline import TextDataset
+from domains.models import SloughGPTModel
 
 # ============== MODEL ==============
-class SloughGPT(nn.Module):
-    def __init__(self, vocab_size, n_embed, n_layer, n_head, block_size):
-        super().__init__()
+# SloughGPTModel is now imported from domains.models
         self.token_emb = nn.Embedding(vocab_size, n_embed)
         self.pos_emb = nn.Embedding(block_size, n_embed)
         self.blocks = nn.ModuleList([TransformerBlock(n_embed, n_head) for _ in range(n_layer)])

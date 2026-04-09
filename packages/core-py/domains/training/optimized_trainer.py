@@ -19,7 +19,7 @@ import time
 import math
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable
 
 import torch
 import torch.nn as nn
@@ -161,25 +161,27 @@ class Presets:
 
 
 def get_optimal_device() -> str:
-    """Auto-detect best available device."""
-    if torch.cuda.is_available():
-        return "cuda"
-    elif hasattr(torch.version, 'hip') and torch.version.hip is not None:
-        return "rocm"  # AMD ROCm
-    elif torch.backends.mps.is_available():
-        return "mps"
-    return "cpu"
+    """Auto-detect best available device (DEPRECATED - use performance.py)."""
+    import warnings
+    warnings.warn(
+        "get_optimal_device is deprecated. Use from domains.training.performance import get_optimal_device",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    from domains.training.performance import get_optimal_device as _get_optimal_device
+    return _get_optimal_device()
 
 
 def get_device_name() -> str:
-    """Get human-readable device name."""
-    if torch.cuda.is_available():
-        return torch.cuda.get_device_name(0)
-    elif hasattr(torch.version, 'hip') and torch.version.hip is not None:
-        return "AMD GPU (ROCm)"
-    elif torch.backends.mps.is_available():
-        return "Apple Silicon (MPS)"
-    return "CPU"
+    """Get human-readable device name (DEPRECATED - use performance.py)."""
+    import warnings
+    warnings.warn(
+        "get_device_name is deprecated. Use from domains.training.performance import get_device_name",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    from domains.training.performance import get_device_name as _get_device_name
+    return _get_device_name()
 
 
 def is_amd_rocm() -> bool:
@@ -326,307 +328,15 @@ class FlashAttentionWrapper(nn.Module):
         return attention_layer
 
 
-class OptimizedTrainer:
-    """Production-ready optimized trainer."""
-    
-    def __init__(
-        self,
-        model: nn.Module,
-        config: TrainingConfig,
-        train_dataset: Dataset,
-        val_dataset: Optional[Dataset] = None,
-    ):
-        self.model = model
-        self.config = config
-        self.device = config.device if config.device != "auto" else get_optimal_device()
-        
-        print(f"\n{'='*60}")
-        print("Optimized Training Configuration")
-        print(f"{'='*60}")
-        print(f"Device: {self.device}")
-        print(f"Mixed Precision: {config.use_mixed_precision} ({config.dtype})")
-        print(f"Gradient Checkpointing: {config.use_gradient_checkpointing}")
-        print(f"Flash Attention: {config.use_flash_attention}")
-        print(f"torch.compile: {config.use_compile} ({config.compile_mode})")
-        print(f"Batch Size: {config.batch_size} (effective: {config.batch_size * config.gradient_accumulation_steps})")
-        
-        # Move model to device
-        self.model = self.model.to(self.device)
-        
-        # Apply optimizations
-        if config.use_gradient_checkpointing:
-            print("Applying gradient checkpointing...")
-            self.model = apply_gradient_checkpointing(self.model)
-        
-        if config.use_flash_attention and FlashAttentionWrapper.is_available():
-            print("Flash Attention available!")
-        elif config.use_flash_attention:
-            print("Flash Attention not installed (run: pip install flash-attn)")
-        
-        # Compile model (PyTorch 2.0+)
-        if config.use_compile and hasattr(torch, 'compile'):
-            print(f"Compiling model with mode: {config.compile_mode}...")
-            self.model = torch.compile(self.model, mode=config.compile_mode)
-        
-        # Optimizer with proper weight decay
-        self.optimizer = self._create_optimizer()
-        
-        # Mixed precision scaler (CUDA amp only; CPU has no GradScaler)
-        self.scaler = None
-        if config.use_mixed_precision:
-            dtype = torch.bfloat16 if config.dtype == "bf16" else torch.float16
-            if torch.cuda.is_available():
-                self.scaler = GradScaler(enabled=True, init_scale=2**15)
-            print(f"Mixed precision enabled: {dtype}")
-        
-        # Learning rate scheduler with warmup
-        self.scheduler = self._create_scheduler()
-        
-        # DataLoaders
-        self.train_loader = OptimizedDataLoader(
-            train_dataset,
-            batch_size=config.batch_size,
-            num_workers=config.num_workers,
-            prefetch_factor=config.prefetch_factor,
-            pin_memory=config.pin_memory,
-        )
-        
-        self.val_loader = None
-        if val_dataset:
-            self.val_loader = OptimizedDataLoader(
-                val_dataset,
-                batch_size=config.batch_size,
-                num_workers=config.num_workers,
-                prefetch_factor=config.prefetch_factor,
-                pin_memory=config.pin_memory,
-            )
-        
-        # Training state
-        self.step = 0
-        self.best_val_loss = float('inf')
-        
-        print(f"{'='*60}\n")
-    
-    def _create_optimizer(self) -> torch.optim.Optimizer:
-        """Create optimizer with layer-wise learning rates."""
-        decay_params = []
-        no_decay_params = []
-        
-        for name, param in self.model.named_parameters():
-            if not param.requires_grad:
-                continue
-            if 'bias' in name or 'norm' in name:
-                no_decay_params.append(param)
-            else:
-                decay_params.append(param)
-        
-        optimizer = torch.optim.AdamW(
-            [
-                {"params": decay_params, "weight_decay": self.config.weight_decay},
-                {"params": no_decay_params, "weight_decay": 0.0},
-            ],
-            lr=self.config.learning_rate,
-            betas=(0.9, 0.95),
-        )
-        return optimizer
-    
-    def _create_scheduler(self) -> torch.optim.lr_scheduler.LRScheduler:
-        """Create cosine scheduler with warmup."""
-        def lr_lambda(step):
-            if step < self.config.warmup_steps:
-                return step / self.config.warmup_steps
-            progress = (step - self.config.warmup_steps) / (self.config.max_steps - self.config.warmup_steps)
-            return max(0.01, 0.5 * (1.0 + math.cos(math.pi * progress)))
-        
-        return torch.optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda)
-    
-    @property
-    def dtype(self):
-        """Get training dtype."""
-        if self.config.dtype == "bf16":
-            return torch.bfloat16
-        return torch.float16
-    
-    def train_step(self) -> float:
-        """Single training step with optional gradient accumulation."""
-        self.model.train()
-        
-        # Forward pass with mixed precision
-        with autocast(enabled=self.config.use_mixed_precision, dtype=self.dtype):
-            batch = self.train_loader.get_batch()
-            input_ids = batch["input_ids"].to(self.device)
-            labels = batch["labels"].to(self.device)
-            
-            logits, loss = self.model(input_ids, labels)
-            loss = loss / self.config.gradient_accumulation_steps
-        
-        # Backward pass with gradient scaling
-        if self.scaler is not None:
-            self.scaler.scale(loss).backward()
-        else:
-            loss.backward()
-        
-        # Gradient accumulation
-        if (self.step + 1) % self.config.gradient_accumulation_steps == 0:
-            # Unscale gradients for clipping
-            if self.scaler is not None:
-                self.scaler.unscale_(self.optimizer)
-            
-            # Clip gradients
-            torch.nn.utils.clip_grad_norm_(
-                self.model.parameters(), 
-                self.config.clip_grad_norm
-            )
-            
-            # Optimizer step
-            if self.scaler is not None:
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-            else:
-                self.optimizer.step()
-            self.optimizer.zero_grad()
-            self.scheduler.step()
-        
-        self.step += 1
-        return loss.item() * self.config.gradient_accumulation_steps
-    
-    @torch.no_grad()
-    def evaluate(self) -> float:
-        """Evaluate on validation set."""
-        if self.val_loader is None:
-            return 0.0
-        
-        self.model.eval()
-        total_loss = 0.0
-        num_batches = 0
-        
-        for _ in range(min(100, len(self.val_loader.dataloader))):
-            batch = self.val_loader.get_batch()
-            input_ids = batch["input_ids"].to(self.device)
-            labels = batch["labels"].to(self.device)
-            
-            with autocast(enabled=self.config.use_mixed_precision, dtype=self.dtype):
-                _, loss = self.model(input_ids, labels)
-            
-            total_loss += loss.item()
-            num_batches += 1
-        
-        return total_loss / num_batches if num_batches > 0 else 0.0
-    
-    def train(self):
-        """Main training loop."""
-        print(f"Training for {self.config.max_steps} steps...")
-        
-        train_start = time.time()
-        last_log_time = time.time()
-        last_eval_time = time.time()
-        
-        while self.step < self.config.max_steps:
-            loss = self.train_step()
-            
-            # Logging
-            if self.step % self.config.log_interval == 0:
-                elapsed = time.time() - last_log_time
-                tokens_per_sec = (
-                    self.config.batch_size * self.config.block_size * self.config.log_interval / elapsed
-                )
-                lr = self.scheduler.get_last_lr()[0]
-                
-                print(
-                    f"Step {self.step:6d} | "
-                    f"Loss: {loss:.4f} | "
-                    f"LR: {lr:.2e} | "
-                    f"Tokens/s: {tokens_per_sec:.0f} | "
-                    f"Time: {elapsed:.1f}s"
-                )
-                last_log_time = time.time()
-            
-            # Evaluation
-            if self.step % self.config.eval_interval == 0 and self.step > 0:
-                val_loss = self.evaluate()
-                print(f"\n>>> Validation Loss: {val_loss:.4f}")
-                if val_loss < self.best_val_loss:
-                    self.best_val_loss = val_loss
-                    print(f"    New best model!")
-                print()
-                last_eval_time = time.time()
-        
-        total_time = time.time() - train_start
-        print(f"\nTraining complete in {total_time:.1f}s ({total_time/60:.1f} min)")
-        print(f"Total steps: {self.step}")
-        print(f"Best validation loss: {self.best_val_loss:.4f}")
-
-
-def quick_benchmark():
-    """Benchmark training speed with different configurations."""
-    from domains.models import SloughGPTModel
-    
-    print("\n" + "="*60)
-    print("Training Optimization Benchmark")
-    print("="*60)
-    
-    device = get_optimal_device()
-    print(f"Device: {device}")
-    
-    # Create small model for benchmarking
-    model = SloughGPTModel(vocab_size=1000, n_embed=256, n_layer=4, n_head=4, block_size=128)
-    model = model.to(device)
-    
-    # Create dummy data
-    data = torch.randint(0, 1000, (10000,))
-    dataset = OptimizedTextDataset(data, block_size=128)
-    
-    configs = [
-        ("Baseline (FP32)", TrainingConfig(
-            batch_size=16, use_mixed_precision=False, use_gradient_checkpointing=False,
-            use_compile=False, num_workers=0
-        )),
-        ("FP16", TrainingConfig(
-            batch_size=16, use_mixed_precision=True, dtype="fp16",
-            use_gradient_checkpointing=False, use_compile=False, num_workers=0
-        )),
-    ]
-    
-    if hasattr(torch, 'compile'):
-        configs.append(("FP16 + Compile", TrainingConfig(
-            batch_size=16, use_mixed_precision=True, dtype="fp16",
-            use_gradient_checkpointing=False, use_compile=True, compile_mode="default",
-            num_workers=0
-        )))
-    
-    results = []
-    
-    for name, config in configs:
-        print(f"\nTesting: {name}")
-        model = SloughGPTModel(vocab_size=1000, n_embed=256, n_layer=4, n_head=4, block_size=128)
-        
-        trainer = OptimizedTrainer(model, config, dataset)
-        
-        # Warmup
-        for _ in range(5):
-            trainer.train_step()
-        
-        # Benchmark
-        start = time.time()
-        for _ in range(20):
-            trainer.train_step()
-        elapsed = time.time() - start
-        
-        tokens_per_sec = config.batch_size * config.block_size * 20 / elapsed
-        results.append((name, tokens_per_sec))
-        print(f"  Throughput: {tokens_per_sec:.0f} tokens/sec")
-        
-        del trainer
-        del model
-    
-    print("\n" + "="*60)
-    print("Benchmark Results:")
-    print("="*60)
-    baseline = results[0][1]
-    for name, tps in results:
-        speedup = tps / baseline if baseline > 0 else 1.0
-        print(f"{name:20s}: {tps:8.0f} tokens/sec ({speedup:.2f}x)")
-
-
-if __name__ == "__main__":
-    quick_benchmark()
+__all__ = [
+    "TrainingConfig",
+    "Presets",
+    "get_optimal_device",
+    "get_device_name",
+    "is_amd_rocm",
+    "get_best_dtype",
+    "OptimizedTextDataset",
+    "OptimizedDataLoader",
+    "apply_gradient_checkpointing",
+    "FlashAttentionWrapper",
+]

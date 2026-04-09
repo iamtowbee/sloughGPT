@@ -231,3 +231,7 @@ class CacheManager(BaseComponent, ICacheManager):
 
         if expired_keys:
             self.logger.debug(f"Cleaned up {len(expired_keys)} expired cache entries")
+
+
+__all__ = ["CacheEntry", "CacheManager"]
+

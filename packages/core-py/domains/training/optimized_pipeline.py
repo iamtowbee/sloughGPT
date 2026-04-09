@@ -415,247 +415,21 @@ class GradientCheckpointingWrapper(nn.Module):
 # OPTIMIZED TRAINER
 # =============================================================================
 
-class OptimizedTrainer:
-    """
-    High-performance trainer with all optimizations.
-    """
+__all__ = [
+    "Precision",
+    "LoRAMode",
+    "MemoryProfile",
+    "OptimizationConfig",
+    "UnifiedConfig",
+    "MemoryOptimizer",
+    "AdaptiveBatcher",
+    "LoRAModelWrapper",
+    "PipelineParallelTrainer",
+    "OptimizedFederatedTrainer",
+    "DistributedPipelineConfig",
+]
 
-    def __init__(
-        self,
-        model: nn.Module,
-        config: UnifiedConfig,
-        train_data=None,
-        val_data=None,
-    ):
-        self.model = model
-        self.config = config
-        self.train_data = train_data
-        self.val_data = val_data
 
-        self.device = config.device if torch.cuda.is_available() else "cpu"
-        self.opt = config.optimization
-
-        # Initialize components
-        self.memory_optimizer = MemoryOptimizer(self.device)
-        use_amp_scaler = torch.cuda.is_available() and self.opt.GradScaler_enabled
-        self.grad_scaler = GradScaler() if use_amp_scaler else None
-        self.optimizer = None
-        self.scheduler = None
-
-        # State
-        self.step = 0
-        self.epoch = 0
-        self.best_loss = float('inf')
-
-        # LoRA wrapper
-        self.lora_wrapper = None
-        if self.opt.lora_mode != LoRAMode.NONE:
-            self._setup_lora()
-
-        # Apply gradient checkpointing
-        if self.opt.gradient_checkpointing:
-            self._setup_gradient_checkpointing()
-
-        # Setup optimizer
-        self._setup_optimizer()
-
-        # Performance tracking
-        self.forward_time = 0.0
-        self.backward_time = 0.0
-        self.step_time = 0.0
-
-    def _setup_lora(self):
-        """Setup LoRA/QLoRA wrapper."""
-        rank = self.opt.lora_rank
-        alpha = self.opt.lora_alpha
-        dropout = self.opt.lora_dropout
-        targets = self.opt.lora_target_modules
-
-        self.lora_wrapper = LoRAModelWrapper(
-            model=self.model,
-            rank=rank,
-            alpha=alpha,
-            dropout=dropout,
-            target_modules=targets,
-        )
-
-        # LoRA uses lower precision
-        if self.opt.lora_mode == LoRAMode.QLORA:
-            # QLoRA: quantize base model to 4-bit
-            self.model = self._quantize_model(self.model)
-
-        logger.info(f"LoRA enabled: rank={rank}, alpha={alpha}")
-
-    def _quantize_model(self, model: nn.Module) -> nn.Module:
-        """Quantize model for QLoRA."""
-        # Simple quantization simulation
-        # In practice, would use bitsandbytes or GPTQ
-        for name, param in model.named_parameters():
-            if 'lora' not in name:
-                param.data = param.data.to(torch.float16)
-        return model
-
-    def _setup_gradient_checkpointing(self):
-        """Setup gradient checkpointing."""
-        if hasattr(self.model, 'gradient_checkpointing_enable'):
-            self.model.gradient_checkpointing_enable()
-        elif hasattr(self.model, 'use_cache'):
-            # Common flag for transformers
-            pass
-        logger.info("Gradient checkpointing enabled")
-
-    def _setup_optimizer(self):
-        """Setup optimizer with parameter groups."""
-        if self.lora_wrapper:
-            # Only optimize LoRA parameters
-            params = [
-                {"params": self.lora_wrapper.lora_params()},
-            ]
-        else:
-            params = self.model.parameters()
-
-        # Optimizer
-        self.optimizer = torch.optim.AdamW(
-            params,
-            lr=self.config.pretrain_lr,
-            weight_decay=self.opt.weight_decay,
-            betas=(0.9, 0.999),
-        )
-
-        # Scheduler
-        self.scheduler = self._create_scheduler()
-
-    def _create_scheduler(self):
-        """Create smart learning rate scheduler."""
-        warmup_steps = self.opt.warmup_steps
-        max_steps = self.opt.max_steps
-
-        def lr_lambda(step):
-            if step < warmup_steps:
-                # Linear warmup
-                return step / max(warmup_steps, 1)
-            else:
-                # Cosine decay with warmup
-                progress = (step - warmup_steps) / max(max_steps - warmup_steps, 1)
-                return 0.5 * (1 + math.cos(math.pi * progress))
-
-        return torch.optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda)
-
-    def train_step(self, batch) -> Dict[str, float]:
-        """Single optimized training step."""
-        start_time = time.time()
-
-        self.model.train()
-        batch = batch.to(self.device)
-
-        # Forward with mixed precision
-        forward_start = time.time()
-
-        if self.opt.precision in [Precision.FP16, Precision.BF16]:
-            dtype = torch.float16 if self.opt.precision == Precision.FP16 else torch.bfloat16
-            with autocast(dtype=dtype):
-                logits, loss = self.model(batch, batch)
-        else:
-            logits, loss = self.model(batch, batch)
-
-        self.forward_time += time.time() - forward_start
-
-        # Backward
-        backward_start = time.time()
-
-        if self.grad_scaler:
-            self.grad_scaler.scale(loss).backward()
-        else:
-            loss.backward()
-
-        self.backward_time += time.time() - backward_start
-
-        # Gradient accumulation
-        if (self.step + 1) % self.opt.gradient_accumulation_steps == 0:
-            step_start = time.time()
-
-            # Unscale for clipping
-            if self.grad_scaler:
-                self.grad_scaler.unscale_(self.optimizer)
-
-            # Clip gradients
-            torch.nn.utils.clip_grad_norm_(
-                self.model.parameters(),
-                self.opt.max_grad_norm
-            )
-
-            # Optimizer step
-            if self.grad_scaler:
-                self.grad_scaler.step(self.optimizer)
-                self.grad_scaler.update()
-            else:
-                self.optimizer.step()
-
-            self.optimizer.zero_grad()
-            self.scheduler.step()
-
-            self.step_time += time.time() - step_start
-
-        self.step += 1
-
-        # Adaptive batch sizing
-        if self.opt.adaptive_batch_size and self.step % 100 == 0:
-            profile = self.memory_optimizer.get_profile()
-            if profile.utilization_percent > 90:
-                # Memory high, could reduce batch size
-                pass
-
-        return {
-            "loss": loss.item(),
-            "lr": self.scheduler.get_last_lr()[0],
-            "grad_norm": self._get_grad_norm(),
-            "mem_gb": self.memory_optimizer.get_profile().used_gb,
-        }
-
-    def _get_grad_norm(self) -> float:
-        """Get gradient norm."""
-        total_norm = 0.0
-        for p in self.model.parameters():
-            if p.grad is not None:
-                param_norm = p.grad.data.norm(2)
-                total_norm += param_norm.item() ** 2
-        return total_norm ** 0.5
-
-    def train_epoch(self) -> Dict[str, float]:
-        """Train for one epoch."""
-        epoch_metrics = {
-            "loss": 0.0,
-            "steps": 0,
-        }
-
-        for batch in self.train_data:
-            metrics = self.train_step(batch)
-            epoch_metrics["loss"] += metrics["loss"]
-            epoch_metrics["steps"] += 1
-
-        epoch_metrics["loss"] /= max(epoch_metrics["steps"], 1)
-        return epoch_metrics
-
-    def get_performance_stats(self) -> Dict[str, float]:
-        """Get performance statistics."""
-        total_time = self.forward_time + self.backward_time + self.step_time
-        return {
-            "forward_pct": self.forward_time / max(total_time, 0.001) * 100,
-            "backward_pct": self.backward_time / max(total_time, 0.001) * 100,
-            "step_pct": self.step_time / max(total_time, 0.001) * 100,
-            "peak_memory_gb": self.memory_optimizer.get_peak_memory_gb(),
-            "steps_per_sec": self.step / max(time.time() - self.start_time, 0.001),
-        }
-
-    def start(self):
-        """Start training."""
-        self.start_time = time.time()
-        self.memory_optimizer.reset_peak_stats()
-        logger.info(f"Starting optimized training on {self.device}")
-
-    def end(self):
-        """End training."""
-        logger.info(f"Training complete. Peak memory: {self.memory_optimizer.get_peak_memory_gb():.2f} GB")
 
 
 # =============================================================================
@@ -836,13 +610,26 @@ class OptimizedPipeline:
         self.train_data = train_data
         self.val_data = val_data
 
-        # Optimizations
         self._setup_optimizations()
 
-        # Trainers
-        self.trainer = OptimizedTrainer(model, config, train_data, val_data)
+        from domains.training.train_pipeline import SloughGPTTrainer, TrainerConfig
+        trainer_config = TrainerConfig(
+            batch_size=4,
+            learning_rate=config.pretrain_lr,
+            epochs=config.pretrain_epochs,
+            use_compile=config.optimization.compile_model,
+            compile_mode=config.optimization.compile_mode,
+        )
+        self.trainer = SloughGPTTrainer(
+            data_path=train_data if isinstance(train_data, str) else None,
+            n_embed=model.n_embed if hasattr(model, 'n_embed') else 256,
+            n_layer=model.n_layer if hasattr(model, 'n_layer') else 6,
+            n_head=model.n_head if hasattr(model, 'n_head') else 8,
+            block_size=model.block_size if hasattr(model, 'block_size') else 128,
+            dropout=0.1,
+            config=trainer_config,
+        )
 
-        # Federated
         self.federated_trainer = OptimizedFederatedTrainer(
             model,
             num_clients=config.federated_clients,
@@ -856,7 +643,6 @@ class OptimizedPipeline:
             torch.backends.cuda.matmul.allow_tf32 = True
             torch.backends.cudnn.allow_tf32 = True
 
-        # Model compilation
         if self.config.optimization.compile_model:
             try:
                 self.model = torch.compile(

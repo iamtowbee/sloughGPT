@@ -8,11 +8,11 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Trainer service state
-pub struct TrainerService {
+pub struct TrainerGrpcService {
     trainer: Arc<RwLock<Trainer>>,
 }
 
-impl TrainerService {
+impl TrainerGrpcService {
     pub fn new(config: TrainConfig) -> Self {
         Self {
             trainer: Arc::new(RwLock::new(Trainer::new(config))),

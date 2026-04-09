@@ -637,7 +637,7 @@ storage = Storage()
 
 
 class ConnectionManager:
-    """WebSocket connection manager for real-time updates."""
+    """WebSocket connection manager."""
 
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -649,13 +649,12 @@ class ConnectionManager:
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
 
-    async def broadcast(self, message: Dict):
-        """Broadcast message to all connected clients."""
+    async def send_personal(self, message: str, websocket: WebSocket):
+        await websocket.send_text(message)
+
+    async def broadcast(self, message: str):
         for connection in self.active_connections:
-            try:
-                await connection.send_json(message)
-            except:
-                pass
+            await connection.send_text(message)
 
 
 manager = ConnectionManager()

@@ -1,24 +1,36 @@
 """
-RAG System - Ported from recovered slo_rag.py
-Retrieval-Augmented Generation for knowledge retrieval
+RAG System - DEPRECATED
 
-Advanced Patterns:
-- Chain-of-Thought RAG: Decompose queries, retrieve per sub-query, synthesize
-- Self-Reflective RAG: Generate, critique, refine
-- Multi-Hop RAG: Sequential retrieval with context expansion
+This module is deprecated. Use domains.cognitive.rag instead.
 
-Performance:
-- Batch processing
-- In-memory indexing (EndicIndex)
-- SQLite persistence
+Canonical RAG classes:
+- ProductionRAG
+- BM25Indexer
+- HybridRetriever
+- TextChunk
+- RetrievalResult
 
-Search Quality Improvements:
-- BM25 ranking
-- Fuzzy matching
-- Query expansion
-- Re-ranking
+See: domains.cognitive.rag
 """
 
+import warnings
+warnings.warn(
+    "domains.infrastructure.rag is deprecated. Use domains.cognitive.rag instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
+# Re-export canonical classes for backwards compatibility
+from domains.cognitive.rag import (
+    ProductionRAG as RAGSystem,
+    BM25Indexer as BM25,
+    TextChunk,
+    RetrievalResult,
+    HybridRetriever,
+    HallucinationDetector,
+)
+
+# Import the rest for backwards compatibility
 import json
 import sqlite3
 import hashlib

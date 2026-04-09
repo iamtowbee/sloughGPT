@@ -389,3 +389,7 @@ class ConfigurationManager(BaseComponent):
 
         except Exception as e:
             self.logger.error(f"Failed to save configuration: {e}")
+
+
+__all__ = ["ConfigurationItem", "ConfigurationManager"]
+

@@ -295,3 +295,7 @@ class DeploymentManager(BaseComponent, IDeploymentManager):
 
         self.logger.info(f"Running health checks for {deployment.deployment_id}")
         await asyncio.sleep(min(timeout, 10))  # Simulate health checks
+
+
+__all__ = ["DeploymentEnvironment", "DeploymentStatus", "Deployment", "DeploymentManager"]
+

@@ -330,7 +330,7 @@ export default function ChatPage() {
     }
 
     const revealAssistantText = async (fullContent: string, delayMs: number) => {
-      for (const partial of revealTypingSequence(fullContent, 3)) {
+      for (const partial of revealTypingSequence(fullContent, 5)) {
         updateActiveSession((session) => ({
           ...session,
           messages: session.messages.map((m) =>
@@ -380,11 +380,11 @@ export default function ChatPage() {
         top_k: settings.topK,
       })
       const fullContent = data.text || ''
-      await revealAssistantText(fullContent, 10)
+      await revealAssistantText(fullContent, 2)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Generation failed'
       const fullContent = `Could not generate a reply. ${message}\n\nIf the API is running, load a model (Models page or POST /models/load) or ensure the server finished startup autoload (SLOUGHGPT_AUTOLOAD_MODEL, default gpt2).`
-      await revealAssistantText(fullContent, 4)
+      await revealAssistantText(fullContent, 2)
     }
 
     setIsLoading(false)

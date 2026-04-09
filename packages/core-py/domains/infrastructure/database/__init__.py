@@ -496,3 +496,6 @@ class DatabaseManager(BaseComponent, IDatabaseManager):
             if current_time - connection.last_used > timeout_threshold:
                 self.logger.debug(f"Closing idle connection {connection_id}")
                 await self._close_connection(connection_id)
+
+
+__all__ = ["DatabaseConnection", "BaseRepository", "SQLiteRepository", "DatabaseManager"]

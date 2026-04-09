@@ -3,6 +3,7 @@
 SloughGPT Model Server
 FastAPI server for model inference with HuggingFace fallback.
 """
+
 from __future__ import annotations
 
 import os
@@ -36,7 +37,16 @@ import secrets
 import re
 import uuid
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Header, Request, Response
+from fastapi import (
+    FastAPI,
+    WebSocket,
+    WebSocketDisconnect,
+    HTTPException,
+    Depends,
+    Header,
+    Request,
+    Response,
+)
 from fastapi.staticfiles import StaticFiles
 from federated_routes import router as federated_router
 from settings import get_security_settings
@@ -58,6 +68,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sloughgpt")
 
 _PROCESS_START_MONOTONIC = time.monotonic()
+
 
 # ============ Redis Caching ============
 class RedisCache:
@@ -155,7 +166,10 @@ class JWTAuth:
         payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
 
         import hmac
-        signature = hmac.new(self.secret.encode(), f"{header_b64}.{payload_b64}".encode(), hashlib.sha256)
+
+        signature = hmac.new(
+            self.secret.encode(), f"{header_b64}.{payload_b64}".encode(), hashlib.sha256
+        )
         signature_b64 = base64.urlsafe_b64encode(signature.digest()).decode().rstrip("=")
 
         return f"{header_b64}.{payload_b64}.{signature_b64}"
@@ -174,7 +188,9 @@ class JWTAuth:
             header_b64, payload_b64, signature_b64 = parts
 
             # Verify signature
-            expected_sig = hmac.new(self.secret.encode(), f"{header_b64}.{payload_b64}".encode(), hashlib.sha256)
+            expected_sig = hmac.new(
+                self.secret.encode(), f"{header_b64}.{payload_b64}".encode(), hashlib.sha256
+            )
             expected_sig_b64 = base64.urlsafe_b64encode(expected_sig.digest()).decode().rstrip("=")
 
             if not hmac.compare_digest(signature_b64, expected_sig_b64):
@@ -195,7 +211,9 @@ class JWTAuth:
         """Refresh a JWT token."""
         payload = self.verify_token(token)
         if payload:
-            return self.create_token(payload["sub"], **{k: v for k, v in payload.items() if k != "sub"})
+            return self.create_token(
+                payload["sub"], **{k: v for k, v in payload.items() if k != "sub"}
+            )
         return None
 
 
@@ -213,8 +231,9 @@ def validate_api_key(api_key: Optional[str] = Header(None)) -> Optional[str]:
         return api_key
 
     # Check against single key
-    if secrets.compare_digest(hashlib.sha256(api_key.encode()).hexdigest(),
-                              hashlib.sha256(API_KEY.encode()).hexdigest()):
+    if secrets.compare_digest(
+        hashlib.sha256(api_key.encode()).hexdigest(), hashlib.sha256(API_KEY.encode()).hexdigest()
+    ):
         return api_key
 
     return None
@@ -240,8 +259,16 @@ class AuditLogger:
         self.logs: List[Dict] = []
         self.max_logs = 10000
 
-    def log(self, event_type: str, client_ip: str, user_id: Optional[str] = None,
-            resource: str = "", action: str = "", status: str = "success", details: Optional[Dict] = None):
+    def log(
+        self,
+        event_type: str,
+        client_ip: str,
+        user_id: Optional[str] = None,
+        resource: str = "",
+        action: str = "",
+        status: str = "success",
+        details: Optional[Dict] = None,
+    ):
         """Log an audit event."""
         entry = {
             "timestamp": datetime.utcnow().isoformat(),
@@ -255,7 +282,7 @@ class AuditLogger:
         }
         self.logs.append(entry)
         if len(self.logs) > self.max_logs:
-            self.logs = self.logs[-self.max_logs:]
+            self.logs = self.logs[-self.max_logs :]
 
         # Log to standard logger
         log_level = logging.INFO if status == "success" else logging.WARNING
@@ -295,7 +322,14 @@ class InputValidator:
         for pattern in suspicious:
             if pattern.lower() in prompt.lower():
                 logger.warning(f"Suspicious pattern detected: {pattern}")
-                audit_logger.log("security", "unknown", resource="/generate", action="validate", status="warning", details={"pattern": pattern})
+                audit_logger.log(
+                    "security",
+                    "unknown",
+                    resource="/generate",
+                    action="validate",
+                    status="warning",
+                    details={"pattern": pattern},
+                )
         return prompt
 
     @staticmethod
@@ -388,7 +422,9 @@ def _generate_core(request: GenerateRequest, client_ip: str) -> Dict[str, Any]:
                 top_k=top_k,
                 top_p=top_p,
             )
-            audit_logger.log("generate", client_ip, resource="/generate", action="soul_engine", status="success")
+            audit_logger.log(
+                "generate", client_ip, resource="/generate", action="soul_engine", status="success"
+            )
             return {
                 "text": text,
                 "model": model_type,
@@ -397,8 +433,52 @@ def _generate_core(request: GenerateRequest, client_ip: str) -> Dict[str, Any]:
         except Exception as e:
             logger.error(f"SoulEngine generation failed: {e}")
 
+    # Check for Ollama backend
+    ollama_enabled = os.environ.get("SLOUGHGPT_OLLAMA_BACKEND", "").strip()
+    if ollama_enabled:
+        try:
+            import requests as ollama_requests
+
+            ollama_url = os.environ.get("SLOUGHGPT_OLLAMA_URL", "http://localhost:11434")
+            ollama_model = ollama_enabled
+
+            payload = {
+                "model": ollama_model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "num_predict": max_tokens,
+                    "temperature": temperature,
+                    "top_p": top_p,
+                    "top_k": top_k,
+                },
+            }
+
+            start_time = time.perf_counter()
+            resp = ollama_requests.post(f"{ollama_url}/api/generate", json=payload, timeout=60)
+            elapsed = time.perf_counter() - start_time
+
+            if resp.status_code == 200:
+                data = resp.json()
+                text = data.get("response", "")
+                tokens = data.get("eval_count", len(text.split()))
+                tps = tokens / elapsed if elapsed > 0 else 0
+
+                logger.info(f"Ollama backend: {tokens} tokens in {elapsed:.2f}s = {tps:.1f} tok/s")
+
+                return {
+                    "text": text,
+                    "model": f"ollama/{ollama_model}",
+                    "tokens_per_second": tps,
+                    "backend": "ollama",
+                }
+        except Exception as e:
+            logger.error(f"Ollama backend failed: {e}")
+
     if model is None:
-        audit_logger.log("generate", client_ip, resource="/generate", action="no_model", status="success")
+        audit_logger.log(
+            "generate", client_ip, resource="/generate", action="no_model", status="success"
+        )
         return {
             "text": f"Demo response to: {prompt[:50]}... (No model loaded)",
             "model": model_type,
@@ -460,7 +540,9 @@ def _generate_core(request: GenerateRequest, client_ip: str) -> Dict[str, Any]:
                 }
         except Exception as e:
             logger.error(f"Failed to load NanoGPT model: {e}")
-            audit_logger.log("generate", client_ip, resource="/generate", action="model_error", status="failure")
+            audit_logger.log(
+                "generate", client_ip, resource="/generate", action="model_error", status="failure"
+            )
             return {
                 "text": f"Demo response to: {prompt[:50]}... (Model loading failed: {str(e)[:50]})",
                 "model": model_type,
@@ -532,9 +614,7 @@ class RateLimiter:
         """Remove expired timestamps."""
         current_time = time.time()
         cutoff = current_time - 60
-        self.clients[client_id] = [
-            ts for ts in self.clients[client_id] if ts > cutoff
-        ]
+        self.clients[client_id] = [ts for ts in self.clients[client_id] if ts > cutoff]
 
     def is_allowed(self, client_id: str) -> tuple[bool, int]:
         """
@@ -563,7 +643,19 @@ rate_limiter = RateLimiter(requests_per_minute=60, burst_size=10)
 
 
 # ----- HTTP metrics for Prometheus (counters + histogram) -----
-_HTTP_HIST_BOUNDS: Tuple[float, ...] = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)
+_HTTP_HIST_BOUNDS: Tuple[float, ...] = (
+    0.005,
+    0.01,
+    0.025,
+    0.05,
+    0.1,
+    0.25,
+    0.5,
+    1.0,
+    2.5,
+    5.0,
+    10.0,
+)
 
 
 def _uuid_like(segment: str) -> bool:
@@ -663,8 +755,12 @@ class HttpMetricsCollector:
             lines.append(
                 f'http_request_duration_seconds_bucket{{method="{ml}",endpoint="{elms}",le="+Inf"}} {row[-1]}'
             )
-            lines.append(f'http_request_duration_seconds_sum{{method="{ml}",endpoint="{elms}"}} {sums[(method, endpoint)]}')
-            lines.append(f'http_request_duration_seconds_count{{method="{ml}",endpoint="{elms}"}} {counts[(method, endpoint)]}')
+            lines.append(
+                f'http_request_duration_seconds_sum{{method="{ml}",endpoint="{elms}"}} {sums[(method, endpoint)]}'
+            )
+            lines.append(
+                f'http_request_duration_seconds_count{{method="{ml}",endpoint="{elms}"}} {counts[(method, endpoint)]}'
+            )
         return lines
 
     def wandb_aggregate(self) -> Dict[str, float]:
@@ -716,7 +812,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         if not allowed:
             wait_time = rate_limiter.get_wait_time(client_ip)
-            audit_logger.log("rate_limit_exceeded", client_ip, resource=request.url.path, action="rate_limit", status="blocked")
+            audit_logger.log(
+                "rate_limit_exceeded",
+                client_ip,
+                resource=request.url.path,
+                action="rate_limit",
+                status="blocked",
+            )
             return JSONResponse(
                 status_code=429,
                 content={
@@ -804,7 +906,14 @@ app = FastAPI(
 async def http_exception_handler(request: Request, exc: HTTPException):
     """Handle HTTP exceptions with consistent format."""
     client_ip = request.client.host if request.client else "unknown"
-    audit_logger.log("http_error", client_ip, resource=str(request.url.path), action=str(exc.status_code), status="failure", details={"detail": exc.detail})
+    audit_logger.log(
+        "http_error",
+        client_ip,
+        resource=str(request.url.path),
+        action=str(exc.status_code),
+        status="failure",
+        details={"detail": exc.detail},
+    )
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": exc.detail, "status_code": exc.status_code},
@@ -833,7 +942,14 @@ async def domain_exception_handler(request: Request, exc: SloughGPTDomainError):
 async def general_exception_handler(request: Request, exc: Exception):
     """Handle unexpected exceptions."""
     client_ip = request.client.host if request.client else "unknown"
-    audit_logger.log("server_error", client_ip, resource=str(request.url.path), action="exception", status="failure", details={"error": str(exc)})
+    audit_logger.log(
+        "server_error",
+        client_ip,
+        resource=str(request.url.path),
+        action="exception",
+        status="failure",
+        details={"error": str(exc)},
+    )
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
@@ -939,10 +1055,18 @@ def get_soul_personality():
     return {
         "name": current_soul.name if hasattr(current_soul, "name") else "unknown",
         "lineage": current_soul.lineage if hasattr(current_soul, "lineage") else "unknown",
-        "personality": current_soul.personality.to_dict() if hasattr(current_soul, "personality") and current_soul.personality else {},
-        "behavior": current_soul.behavior.to_dict() if hasattr(current_soul, "behavior") and current_soul.behavior else {},
-        "cognition": current_soul.cognition.to_dict() if hasattr(current_soul, "cognition") and current_soul.cognition else {},
-        "emotion": current_soul.emotion.to_dict() if hasattr(current_soul, "emotion") and current_soul.emotion else {},
+        "personality": current_soul.personality.to_dict()
+        if hasattr(current_soul, "personality") and current_soul.personality
+        else {},
+        "behavior": current_soul.behavior.to_dict()
+        if hasattr(current_soul, "behavior") and current_soul.behavior
+        else {},
+        "cognition": current_soul.cognition.to_dict()
+        if hasattr(current_soul, "cognition") and current_soul.cognition
+        else {},
+        "emotion": current_soul.emotion.to_dict()
+        if hasattr(current_soul, "emotion") and current_soul.emotion
+        else {},
     }
 
 
@@ -1059,50 +1183,50 @@ def load_model():
     try:
         from pathlib import Path
         import torch
-        
+
         # Check for available models (relative to server directory)
         model_paths = [
             "../models/sloughgpt_finetuned.pt",
-            "../models/sloughgpt_lora.pt", 
-            "../models/sloughgpt_variant.pt"
+            "../models/sloughgpt_lora.pt",
+            "../models/sloughgpt_variant.pt",
         ]
-        
+
         model_path = None
         for path in model_paths:
             if Path(path).exists():
                 model_path = path
                 break
-                
+
         if model_path is None:
             # Fallback to demo mode
             model = None
             model_type = "demo"
             print("No model found, demo mode active")
             return
-            
+
         # Load the model checkpoint
         print(f"Loading model from {model_path}...")
-        checkpoint = torch.load(model_path, map_location='cpu')
-        
+        checkpoint = torch.load(model_path, map_location="cpu")
+
         # Extract model and tokenizer info
         if isinstance(checkpoint, dict):
             # Store the full checkpoint
             model = checkpoint
             model_type = "sloughgpt_finetuned"
-            
+
             # Also set up tokenizer-like info for generation
-            if 'chars' in checkpoint and 'stoi' in checkpoint and 'itos' in checkpoint:
+            if "chars" in checkpoint and "stoi" in checkpoint and "itos" in checkpoint:
                 # These are needed for the simple character-level model
                 tokenizer = {
-                    'chars': checkpoint['chars'],
-                    'stoi': checkpoint['stoi'],
-                    'itos': checkpoint['itos'],
-                    'vocab_size': len(checkpoint['chars'])
+                    "chars": checkpoint["chars"],
+                    "stoi": checkpoint["stoi"],
+                    "itos": checkpoint["itos"],
+                    "vocab_size": len(checkpoint["chars"]),
                 }
                 print(f"✅ Tokenizer loaded: {len(checkpoint['chars'])} characters")
             else:
                 tokenizer = None
-                
+
             print(f"✅ Model loaded successfully from {model_path}")
             print(f"📊 Model contains {len(checkpoint.get('model', {}))} parameters")
         else:
@@ -1111,10 +1235,11 @@ def load_model():
             model_type = "sloughgpt_finetuned"
             tokenizer = None
             print(f"✅ Model loaded successfully from {model_path}")
-            
+
     except Exception as e:
         print(f"❌ Failed to load model: {e}")
         import traceback
+
         traceback.print_exc()
         # Fallback to demo mode
         model = None
@@ -1162,8 +1287,12 @@ async def load_soul(request: LoadSoulRequest):
                 "top_p": soul.generation.top_p if soul.generation else 0.9,
                 "max_tokens": soul.generation.max_tokens if soul.generation else 2048,
             },
-            "personality": soul.personality.to_dict() if hasattr(soul, "personality") and soul.personality else {},
-            "cognition": soul.cognition.to_dict() if hasattr(soul, "cognition") and soul.cognition else {},
+            "personality": soul.personality.to_dict()
+            if hasattr(soul, "personality") and soul.personality
+            else {},
+            "cognition": soul.cognition.to_dict()
+            if hasattr(soul, "cognition") and soul.cognition
+            else {},
         }
 
     except Exception as e:
@@ -1182,14 +1311,28 @@ async def get_soul():
         "born_at": current_soul.born_at if hasattr(current_soul, "born_at") else "",
         "version": current_soul.version if hasattr(current_soul, "version") else "1.0.0",
         "tagline": current_soul.tagline if hasattr(current_soul, "tagline") else "",
-        "personality": current_soul.personality.to_dict() if hasattr(current_soul, "personality") and current_soul.personality else {},
-        "behavior": current_soul.behavior.to_dict() if hasattr(current_soul, "behavior") and current_soul.behavior else {},
-        "cognition": current_soul.cognition.to_dict() if hasattr(current_soul, "cognition") and current_soul.cognition else {},
-        "emotion": current_soul.emotion.to_dict() if hasattr(current_soul, "emotion") and current_soul.emotion else {},
-        "generation": current_soul.generation.to_dict() if hasattr(current_soul, "generation") and current_soul.generation else {},
-        "integrity_hash": current_soul.integrity_hash if hasattr(current_soul, "integrity_hash") else "",
+        "personality": current_soul.personality.to_dict()
+        if hasattr(current_soul, "personality") and current_soul.personality
+        else {},
+        "behavior": current_soul.behavior.to_dict()
+        if hasattr(current_soul, "behavior") and current_soul.behavior
+        else {},
+        "cognition": current_soul.cognition.to_dict()
+        if hasattr(current_soul, "cognition") and current_soul.cognition
+        else {},
+        "emotion": current_soul.emotion.to_dict()
+        if hasattr(current_soul, "emotion") and current_soul.emotion
+        else {},
+        "generation": current_soul.generation.to_dict()
+        if hasattr(current_soul, "generation") and current_soul.generation
+        else {},
+        "integrity_hash": current_soul.integrity_hash
+        if hasattr(current_soul, "integrity_hash")
+        else "",
         "tags": current_soul.tags if hasattr(current_soul, "tags") else [],
-        "certifications": current_soul.certifications if hasattr(current_soul, "certifications") else [],
+        "certifications": current_soul.certifications
+        if hasattr(current_soul, "certifications")
+        else [],
     }
 
 
@@ -1258,22 +1401,14 @@ async def info():
         soul_info_val = get_soul_personality()
         if soul_info_val:
             soul_info_val["integrity_hash"] = (
-                current_soul.integrity_hash
-                if hasattr(current_soul, "integrity_hash")
-                else ""
+                current_soul.integrity_hash if hasattr(current_soul, "integrity_hash") else ""
             )
             soul_info_val["born_at"] = (
-                current_soul.born_at
-                if hasattr(current_soul, "born_at")
-                else ""
+                current_soul.born_at if hasattr(current_soul, "born_at") else ""
             )
-            soul_info_val["tags"] = (
-                current_soul.tags if hasattr(current_soul, "tags") else []
-            )
+            soul_info_val["tags"] = current_soul.tags if hasattr(current_soul, "tags") else []
             soul_info_val["certifications"] = (
-                current_soul.certifications
-                if hasattr(current_soul, "certifications")
-                else []
+                current_soul.certifications if hasattr(current_soul, "certifications") else []
             )
             info["soul"] = soul_info_val
 
@@ -1347,7 +1482,9 @@ async def check_rate_limit(request: Request):
         "client_ip": client_ip,
         "requests_used": current_count,
         "requests_remaining": max(0, rate_limiter.requests_per_minute - current_count),
-        "retry_after": 0 if current_count < rate_limiter.requests_per_minute else rate_limiter.get_wait_time(client_ip),
+        "retry_after": 0
+        if current_count < rate_limiter.requests_per_minute
+        else rate_limiter.get_wait_time(client_ip),
     }
 
 
@@ -1371,13 +1508,21 @@ async def create_token(token_request: TokenRequest, request: Request):
 
     # Verify API key
     if token_request.api_key not in VALID_API_KEYS:
-        audit_logger.log("auth_failed", client_ip, resource="/auth/token", action="token_create", status="failure")
+        audit_logger.log(
+            "auth_failed",
+            client_ip,
+            resource="/auth/token",
+            action="token_create",
+            status="failure",
+        )
         raise HTTPException(status_code=401, detail="Invalid API key")
 
     # Create JWT token
     token = jwt_auth.create_token(subject=token_request.api_key[:8])
 
-    audit_logger.log("auth_success", client_ip, resource="/auth/token", action="token_create", status="success")
+    audit_logger.log(
+        "auth_success", client_ip, resource="/auth/token", action="token_create", status="success"
+    )
 
     return TokenResponse(
         access_token=token,
@@ -1541,13 +1686,12 @@ async def health_detailed():
     }
 
 
-
 @app.post("/generate/demo")
 async def generate_demo(request: GenerateRequest):
     """Demo endpoint - works without loading any model."""
     prompt = require_non_empty_prompt(input_validator.validate_prompt(request.prompt))
     max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
-    
+
     # Simple demo response based on prompt
     responses = [
         "I'm Aria, your self-learning AI companion. I'm running entirely on-device!",
@@ -1556,8 +1700,9 @@ async def generate_demo(request: GenerateRequest):
         "My transformer model updates its weights in real-time. I'm getting smarter as we talk!",
     ]
     import random
+
     response = random.choice(responses)
-    
+
     return {
         "text": response,
         "model": "demo",
@@ -1572,7 +1717,9 @@ async def generate(request: GenerateRequest, req: Request):
 
 
 @app.post("/v1/infer", tags=["inference"])
-async def v1_infer(body: StandardInferenceRequest, req: Request, response: Response) -> StandardInferenceResponse:
+async def v1_infer(
+    body: StandardInferenceRequest, req: Request, response: Response
+) -> StandardInferenceResponse:
     """SloughGPT Standard v1 inference envelope (see standards/SLOUGHGPT_STANDARD_V1.md)."""
     response.headers["X-SloughGPT-Standard"] = "1"
     trace_id = body.trace_id or req.headers.get("X-Trace-Id") or str(uuid.uuid4())
@@ -1640,7 +1787,9 @@ async def v1_infer(body: StandardInferenceRequest, req: Request, response: Respo
         display_text = text_out
 
     model_id_out = body.model_id or raw.get("model") or model_type
-    audit_logger.log("v1_infer", client_ip, resource="/v1/infer", action=body.task_type, status="success")
+    audit_logger.log(
+        "v1_infer", client_ip, resource="/v1/infer", action=body.task_type, status="success"
+    )
 
     return StandardInferenceResponse(
         trace_id=trace_id,
@@ -1664,6 +1813,54 @@ async def generate_stream(request: GenerateRequest):
     top_p_val = max(0.0, min(1.0, float(request.top_p if request.top_p is not None else 0.9)))
 
     async def generate_stream_tokens():
+        # Check for Ollama backend first
+        ollama_enabled = os.environ.get("SLOUGHGPT_OLLAMA_BACKEND", "").strip()
+        if ollama_enabled:
+            try:
+                import requests as ollama_requests
+
+                ollama_url = os.environ.get("SLOUGHGPT_OLLAMA_URL", "http://localhost:11434")
+                ollama_model = ollama_enabled
+
+                payload = {
+                    "model": ollama_model,
+                    "prompt": request.prompt,
+                    "stream": True,
+                    "options": {
+                        "num_predict": max_gen,
+                        "temperature": temperature,
+                        "top_p": top_p_val,
+                        "top_k": request.top_k or 40,
+                    },
+                }
+
+                start_time = time.perf_counter()
+                tokens_count = 0
+
+                with ollama_requests.post(
+                    f"{ollama_url}/api/generate", json=payload, stream=True, timeout=60
+                ) as resp:
+                    for line in resp.iter_lines():
+                        if line:
+                            data = json.loads(line)
+                            token = data.get("response", "")
+                            done = data.get("done", False)
+                            if data.get("eval_count"):
+                                tokens_count = data["eval_count"]
+
+                            yield f"data: {json.dumps({'token': token, 'done': done})}\n\n"
+
+                            if done:
+                                elapsed = time.perf_counter() - start_time
+                                tps = tokens_count / elapsed if elapsed > 0 else 0
+                                logger.info(
+                                    f"Ollama streaming: {tokens_count} tokens in {elapsed:.2f}s = {tps:.1f} tok/s"
+                                )
+                                break
+                return
+            except Exception as e:
+                logger.error(f"Ollama streaming failed: {e}")
+
         if model is None:
             demo = f"Demo streaming response to: {request.prompt}..."
             for char in demo:
@@ -1675,39 +1872,57 @@ async def generate_stream(request: GenerateRequest):
         if model_type == "gpt2":
             loop = asyncio.get_event_loop()
 
-            def _first_inputs():
+            def _tokenize():
                 enc = tokenizer(request.prompt, return_tensors="pt")
                 return _inputs_to_model_device(enc, model)
 
-            inputs = await loop.run_in_executor(None, _first_inputs)
+            inputs = await loop.run_in_executor(None, _tokenize)
 
-            generated_text = request.prompt
-            for i in range(max_gen):
-                outputs = await loop.run_in_executor(
-                    None,
-                    lambda inp=inputs: model.generate(
-                        **inp,
-                        max_new_tokens=1,
-                        temperature=temperature,
-                        top_k=request.top_k,
-                        top_p=top_p_val,
-                        do_sample=True,
-                        return_dict_in_generate=True,
-                    ),
-                )
-                token = tokenizer.decode(outputs.sequences[0][-1], skip_special_tokens=True)
-                if token:
-                    generated_text += token
-                    yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
+            def _generate_batch():
+                idx = inputs["input_ids"]
+                batch_size = 8
+                generated = []
+                with torch.no_grad():
+                    for _ in range(max_gen):
+                        logits = model(idx, use_cache=True)[0]
+                        logits = logits[:, -1, :]
 
-                def _next_inputs(tok: str):
-                    enc = tokenizer(tok, return_tensors="pt")
-                    return _inputs_to_model_device(enc, model)
+                        if temperature > 0 and top_p_val < 1.0:
+                            logits = logits / temperature
+                            probs = torch.softmax(logits, dim=-1)
+                            if request.top_k and request.top_k > 0:
+                                k = min(request.top_k, probs.size(-1))
+                                _, indices = torch.topk(probs, k)
+                                mask = torch.zeros_like(probs)
+                                mask.scatter_(1, indices, 1.0)
+                                probs = probs * mask
+                                probs = probs / probs.sum(dim=-1, keepdim=True)
+                            cumsum = torch.cumsum(probs, dim=-1)
+                            cumsum[..., -1:] = 1.0
+                            mask = cumsum > top_p_val
+                            probs[mask] = 0
+                            probs = probs / probs.sum(dim=-1, keepdim=True)
+                            next_tok = torch.multinomial(probs, num_samples=1)
+                        else:
+                            next_tok = logits.argmax(dim=-1, keepdim=True)
 
-                inputs = await loop.run_in_executor(None, _next_inputs, token)
+                        idx = torch.cat([idx, next_tok], dim=1)
+                        generated.append(next_tok.item())
 
-                if i >= max_gen - 1:
-                    break
+                        if next_tok.item() == tokenizer.eos_token_id:
+                            break
+
+                        if len(generated) >= batch_size:
+                            yield generated
+                            generated = []
+
+                    if generated:
+                        yield generated
+
+            for token_ids in _generate_batch():
+                token_text = tokenizer.decode(token_ids, skip_special_tokens=True)
+                if token_text:
+                    yield f"data: {json.dumps({'token': token_text, 'done': False})}\n\n"
 
         yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
 
@@ -1723,7 +1938,9 @@ async def chat_completion(request: ChatRequest, req: Request):
 
     prompt = _format_chat_messages_for_standard(request.messages)
     max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
-    temperature = input_validator.validate_temperature(request.temperature if request.temperature is not None else 0.8)
+    temperature = input_validator.validate_temperature(
+        request.temperature if request.temperature is not None else 0.8
+    )
     top_p_val = max(0.0, min(1.0, float(request.top_p if request.top_p is not None else 0.9)))
     top_k = request.top_k if request.top_k is not None else 50
     top_k = max(1, min(500, int(top_k)))
@@ -1733,7 +1950,9 @@ async def chat_completion(request: ChatRequest, req: Request):
     try:
         engine = get_inference_engine()
         if engine is None:
-            audit_logger.log("chat", client_ip, resource="/chat", action="no_model", status="success")
+            audit_logger.log(
+                "chat", client_ip, resource="/chat", action="no_model", status="success"
+            )
             return {"error": "Model not loaded", "text": ""}
 
         text = engine.generate_single(
@@ -1767,7 +1986,9 @@ async def chat_stream(request: ChatRequest):
     prompt = _format_chat_messages_for_standard(request.messages)
     require_non_empty_prompt(prompt, field_name="messages")
     max_gen = input_validator.validate_max_tokens(request.max_new_tokens or 100)
-    temperature = input_validator.validate_temperature(request.temperature if request.temperature is not None else 0.8)
+    temperature = input_validator.validate_temperature(
+        request.temperature if request.temperature is not None else 0.8
+    )
     top_p_val = max(0.0, min(1.0, float(request.top_p if request.top_p is not None else 0.9)))
     top_k = request.top_k if request.top_k is not None else 50
     top_k = max(1, min(500, int(top_k)))
@@ -1810,7 +2031,7 @@ async def websocket_generate(websocket: WebSocket):
             if api_key:
                 if api_key in VALID_API_KEYS or secrets.compare_digest(
                     hashlib.sha256(api_key.encode()).hexdigest(),
-                    hashlib.sha256(API_KEY.encode()).hexdigest()
+                    hashlib.sha256(API_KEY.encode()).hexdigest(),
                 ):
                     authenticated = True
             elif token:
@@ -1820,11 +2041,23 @@ async def websocket_generate(websocket: WebSocket):
             if not authenticated:
                 await websocket.send_json({"status": "error", "error": "Authentication required"})
                 await websocket.close(code=4001)
-                audit_logger.log("ws_auth_failed", client_ip, resource="/ws/generate", action="connect", status="failure")
+                audit_logger.log(
+                    "ws_auth_failed",
+                    client_ip,
+                    resource="/ws/generate",
+                    action="connect",
+                    status="failure",
+                )
                 return
 
             await websocket.send_json({"status": "authenticated"})
-            audit_logger.log("ws_auth_success", client_ip, resource="/ws/generate", action="connect", status="success")
+            audit_logger.log(
+                "ws_auth_success",
+                client_ip,
+                resource="/ws/generate",
+                action="connect",
+                status="success",
+            )
 
         except json.JSONDecodeError:
             await websocket.send_json({"status": "error", "error": "Invalid JSON"})
@@ -1916,7 +2149,9 @@ async def websocket_generate(websocket: WebSocket):
                             {"token": token, "generated": generated, "done": False}
                         )
 
-                        inputs = _inputs_to_model_device(tokenizer(token, return_tensors="pt"), model)
+                        inputs = _inputs_to_model_device(
+                            tokenizer(token, return_tensors="pt"), model
+                        )
 
                 await websocket.send_json({"status": "done", "text": generated, "done": True})
 
@@ -1927,15 +2162,34 @@ async def websocket_generate(websocket: WebSocket):
                     await asyncio.sleep(0.05)
                 await websocket.send_json({"status": "done", "text": demo_text, "done": True})
 
-            audit_logger.log("ws_generate", client_ip, resource="/ws/generate", action="generate", status="success")
+            audit_logger.log(
+                "ws_generate",
+                client_ip,
+                resource="/ws/generate",
+                action="generate",
+                status="success",
+            )
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-        audit_logger.log("ws_disconnect", client_ip, resource="/ws/generate", action="disconnect", status="success")
+        audit_logger.log(
+            "ws_disconnect",
+            client_ip,
+            resource="/ws/generate",
+            action="disconnect",
+            status="success",
+        )
     except Exception as e:
         await websocket.send_json({"status": "error", "error": str(e)})
         manager.disconnect(websocket)
-        audit_logger.log("ws_error", client_ip, resource="/ws/generate", action="error", status="failure", details={"error": str(e)})
+        audit_logger.log(
+            "ws_error",
+            client_ip,
+            resource="/ws/generate",
+            action="error",
+            status="failure",
+            details={"error": str(e)},
+        )
 
 
 @app.get("/personalities")
@@ -1964,10 +2218,10 @@ async def list_datasets():
     """List available datasets."""
     import os
     from pathlib import Path
-    
+
     datasets_dir = Path("datasets")
     datasets = []
-    
+
     if datasets_dir.exists():
         for d in datasets_dir.iterdir():
             if d.is_dir():
@@ -1975,16 +2229,18 @@ async def list_datasets():
                 size = 0
                 if input_file.exists():
                     size = input_file.stat().st_size
-                
-                datasets.append({
-                    "id": d.name,
-                    "name": d.name.replace("_", " ").title(),
-                    "path": str(d),
-                    "size_bytes": size,
-                    "size_formatted": f"{size / 1024:.1f} KB" if size > 0 else "Empty",
-                    "type": "text",
-                })
-    
+
+                datasets.append(
+                    {
+                        "id": d.name,
+                        "name": d.name.replace("_", " ").title(),
+                        "path": str(d),
+                        "size_bytes": size,
+                        "size_formatted": f"{size / 1024:.1f} KB" if size > 0 else "Empty",
+                        "type": "text",
+                    }
+                )
+
     return {"datasets": datasets}
 
 
@@ -1992,28 +2248,30 @@ async def list_datasets():
 async def get_dataset(dataset_id: str):
     """Get dataset details."""
     from pathlib import Path
-    
+
     dataset_path = Path(f"datasets/{dataset_id}")
     input_file = dataset_path / "input.txt"
-    
+
     if not dataset_path.exists():
         raise HTTPException(status_code=404, detail="Dataset not found")
-    
+
     stats = {
         "id": dataset_id,
         "name": dataset_id.replace("_", " ").title(),
         "path": str(dataset_path),
     }
-    
+
     if input_file.exists():
         with open(input_file, "r") as f:
             content = f.read()
-        stats.update({
-            "size_bytes": len(content),
-            "num_lines": content.count("\n") + 1,
-            "num_chars": len(content),
-        })
-    
+        stats.update(
+            {
+                "size_bytes": len(content),
+                "num_lines": content.count("\n") + 1,
+                "num_chars": len(content),
+            }
+        )
+
     return stats
 
 
@@ -2022,18 +2280,18 @@ async def get_dataset_stats(dataset_id: str):
     """Get detailed dataset statistics."""
     from pathlib import Path
     from collections import Counter
-    
+
     dataset_path = Path(f"datasets/{dataset_id}/input.txt")
-    
+
     if not dataset_path.exists():
         raise HTTPException(status_code=404, detail="Dataset not found")
-    
+
     with open(dataset_path, "r") as f:
         content = f.read()
-    
+
     lines = content.split("\n")
     words = content.split()
-    
+
     return {
         "dataset_id": dataset_id,
         "total_chars": len(content),
@@ -2118,6 +2376,25 @@ def _load_hf_model_core(request: LoadModelRequest) -> Dict[str, Any]:
                 model = loader.model
                 tokenizer = loader.tokenizer
                 model_type = "gpt2"
+
+                # Apply dynamic quantization for ~2x speedup on MPS
+                if request.device == "mps" or request.device == "auto":
+                    try:
+                        logger.info("Applying dynamic quantization for faster inference...")
+                        import torch
+
+                        if hasattr(torch, "quantization") and hasattr(
+                            torch.quantization, "quantize_dynamic"
+                        ):
+                            model = torch.quantization.quantize_dynamic(
+                                model, {torch.nn.Linear}, dtype=torch.qint8
+                            )
+                            logger.info("Dynamic quantization applied successfully")
+                    except Exception as e:
+                        logger.warning(f"Quantization failed: {e}")
+
+                # torch.compile can cause issues on MPS, skip for now
+                # TODO: Enable when CUDA is available or MPS issues are resolved
             else:
                 model_type = f"hf/{request.model_id}"
                 logger.warning(
@@ -2179,6 +2456,7 @@ def get_experiment_tracker():
     global _experiment_tracker
     if _experiment_tracker is None:
         from domains.ml_infrastructure.experiment_tracker import ExperimentTracker
+
         _experiment_tracker = ExperimentTracker(storage_path="data/experiments")
     return _experiment_tracker
 
@@ -2191,20 +2469,20 @@ async def create_experiment(
 ):
     """Create a new experiment."""
     tracker = get_experiment_tracker()
-    
+
     params = {}
     if parameters:
         try:
             params = json.loads(parameters)
         except:
             pass
-    
+
     experiment_id = tracker.create_experiment(
         name=name,
         description=description,
         parameters=params,
     )
-    
+
     exp = tracker.get_experiment(experiment_id)
     if exp:
         return exp.to_api_dict()
@@ -2238,23 +2516,19 @@ async def log_metric(
 ):
     """Log a metric for an experiment."""
     import time
-    
+
     tracker = get_experiment_tracker()
     exp = tracker.get_experiment(experiment_id)
     if not exp:
         raise HTTPException(status_code=404, detail="Experiment not found")
-    
+
     from domains.ml_infrastructure.experiment_tracker import MetricPoint
-    
+
     if metric_name not in exp.metrics:
         exp.metrics[metric_name] = []
-    
-    exp.metrics[metric_name].append(MetricPoint(
-        timestamp=time.time(),
-        step=step,
-        value=value
-    ))
-    
+
+    exp.metrics[metric_name].append(MetricPoint(timestamp=time.time(), step=step, value=value))
+
     return {"status": "logged", "metric": metric_name, "value": value}
 
 
@@ -2269,7 +2543,7 @@ async def log_param(
     exp = tracker.get_experiment(experiment_id)
     if not exp:
         raise HTTPException(status_code=404, detail="Experiment not found")
-    
+
     exp.parameters[param_name] = value
     return {"status": "logged", "param": param_name, "value": value}
 
@@ -2300,18 +2574,10 @@ async def complete_experiment(experiment_id: str, status: str = "completed"):
 
 
 def find_available_port(start_port: int = 8000, max_attempts: int = 10) -> int:
-    """Find an available port starting from start_port, rotating if needed."""
-    import socket
-    for port in range(start_port, start_port + max_attempts):
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.bind(("", port))
-            sock.close()
-            return port
-        except OSError:
-            continue
-    raise RuntimeError(f"Could not find available port in range {start_port}-{start_port + max_attempts}")
+    """Find an available port starting from start_port (DEPRECATED - use domains.shared.find_available_port)."""
+    from domains.shared import find_available_port as _find_available_port
+
+    return _find_available_port(host="", start_port=start_port, max_attempts=max_attempts)
 
 
 # Global inference engine (lazy loaded)
@@ -2321,7 +2587,7 @@ _inference_engine = None
 def get_inference_engine():
     """Get or create the inference engine using existing model."""
     global _inference_engine, model, tokenizer
-    
+
     if model is None or tokenizer is None:
         return None
 
@@ -2330,6 +2596,7 @@ def get_inference_engine():
 
     if _inference_engine is None:
         from domains.inference.engine import InferenceEngine
+
         device = _inference_engine_device_str(model)
         _inference_engine = InferenceEngine(
             model=model,
@@ -2347,7 +2614,9 @@ async def inference_generate(gr: GenerateRequest, req: Request):
     # Validate input
     prompt = require_non_empty_prompt(input_validator.validate_prompt(gr.prompt))
     max_tokens = input_validator.validate_max_tokens(gr.max_new_tokens or 100)
-    temperature = input_validator.validate_temperature(gr.temperature if gr.temperature is not None else 0.8)
+    temperature = input_validator.validate_temperature(
+        gr.temperature if gr.temperature is not None else 0.8
+    )
     top_p_val = max(0.0, min(1.0, float(gr.top_p if gr.top_p is not None else 0.9)))
     top_k = gr.top_k if gr.top_k is not None else 50
     top_k = max(1, min(500, int(top_k)))
@@ -2358,7 +2627,13 @@ async def inference_generate(gr: GenerateRequest, req: Request):
         engine = get_inference_engine()
 
         if engine is None:
-            audit_logger.log("generate", client_ip, resource="/inference/generate", action="no_model", status="success")
+            audit_logger.log(
+                "generate",
+                client_ip,
+                resource="/inference/generate",
+                action="no_model",
+                status="success",
+            )
             return {"error": "Model not loaded", "text": ""}
 
         text = engine.generate_single(
@@ -2370,7 +2645,13 @@ async def inference_generate(gr: GenerateRequest, req: Request):
             repetition_penalty=1.0,
         )
 
-        audit_logger.log("generate", client_ip, resource="/inference/generate", action="inference", status="success")
+        audit_logger.log(
+            "generate",
+            client_ip,
+            resource="/inference/generate",
+            action="inference",
+            status="success",
+        )
 
         return {
             "text": text,
@@ -2387,11 +2668,72 @@ async def inference_generate(gr: GenerateRequest, req: Request):
 
 @app.post("/inference/generate/stream", tags=["inference"])
 async def inference_generate_stream(request: GenerateRequest):
-    """Streaming generation using the production inference engine."""
+    """Streaming generation using the production inference engine or Ollama."""
     require_non_empty_prompt(input_validator.validate_prompt(request.prompt))
+
+    # Check for Ollama first
+    ollama_enabled = os.environ.get("SLOUGHGPT_OLLAMA_BACKEND", "").strip()
+    if ollama_enabled:
+        ollama_url = os.environ.get("SLOUGHGPT_OLLAMA_URL", "http://localhost:11434")
+        ollama_model = ollama_enabled
+
+        max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
+        temperature = input_validator.validate_temperature(
+            request.temperature if request.temperature is not None else 0.8
+        )
+        top_p_val = max(0.0, min(1.0, float(request.top_p if request.top_p is not None else 0.9)))
+        top_k = request.top_k if request.top_k is not None else 40
+
+        async def ollama_stream():
+            try:
+                import requests as ollama_requests
+
+                payload = {
+                    "model": ollama_model,
+                    "prompt": request.prompt,
+                    "stream": True,
+                    "options": {
+                        "num_predict": max_tokens,
+                        "temperature": temperature,
+                        "top_p": top_p_val,
+                        "top_k": top_k,
+                    },
+                }
+
+                start_time = time.perf_counter()
+                tokens_count = 0
+
+                with ollama_requests.post(
+                    f"{ollama_url}/api/generate", json=payload, stream=True, timeout=60
+                ) as resp:
+                    for line in resp.iter_lines():
+                        if line:
+                            data = json.loads(line)
+                            token = data.get("response", "")
+                            done = data.get("done", False)
+                            if data.get("eval_count"):
+                                tokens_count = data["eval_count"]
+
+                            yield f"data: {json.dumps({'token': token, 'done': done})}\n\n"
+
+                            if done:
+                                elapsed = time.perf_counter() - start_time
+                                tps = tokens_count / elapsed if elapsed > 0 else 0
+                                logger.info(
+                                    f"Ollama inference stream: {tokens_count} tokens in {elapsed:.2f}s = {tps:.1f} tok/s"
+                                )
+                                break
+            except Exception as e:
+                logger.error(f"Ollama stream failed: {e}")
+                yield f"data: {json.dumps({'error': str(e), 'token': '', 'done': True})}\n\n"
+
+        return StreamingResponse(ollama_stream(), media_type="text/event-stream")
+
     engine = get_inference_engine()
     max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
-    temperature = input_validator.validate_temperature(request.temperature if request.temperature is not None else 0.8)
+    temperature = input_validator.validate_temperature(
+        request.temperature if request.temperature is not None else 0.8
+    )
     top_p_val = max(0.0, min(1.0, float(request.top_p if request.top_p is not None else 0.9)))
     top_k = request.top_k if request.top_k is not None else 50
     top_k = max(1, min(500, int(top_k)))
@@ -2456,7 +2798,9 @@ async def batch_generate(batch: BatchGenerateRequest, http_request: Request):
         top_k = batch.top_k if batch.top_k is not None else 50
         top_k = max(1, min(500, int(top_k)))
 
-        cache_key_str = cache_key(validated_prompt, max_tokens=max_tokens, temp=temp, top_p=top_p_val, top_k=top_k)
+        cache_key_str = cache_key(
+            validated_prompt, max_tokens=max_tokens, temp=temp, top_p=top_p_val, top_k=top_k
+        )
 
         if batch.use_cache:
             cached_result = cache.get(cache_key_str)
@@ -2465,7 +2809,11 @@ async def batch_generate(batch: BatchGenerateRequest, http_request: Request):
                 continue
 
         if model is None:
-            results.append(BatchGenerateItem(prompt=prompt, text=f"Demo: {validated_prompt[:30]}...", error=None))
+            results.append(
+                BatchGenerateItem(
+                    prompt=prompt, text=f"Demo: {validated_prompt[:30]}...", error=None
+                )
+            )
             continue
 
         try:
@@ -2481,15 +2829,26 @@ async def batch_generate(batch: BatchGenerateRequest, http_request: Request):
                         top_p=top_p_val,
                         do_sample=True,
                     )
-                text = tokenizer.decode(outputs[0][len(inputs.input_ids[0]):], skip_special_tokens=True)
+                text = tokenizer.decode(
+                    outputs[0][len(inputs.input_ids[0]) :], skip_special_tokens=True
+                )
                 cache.set(cache_key_str, text)
                 results.append(BatchGenerateItem(prompt=prompt, text=text))
             else:
-                results.append(BatchGenerateItem(prompt=prompt, text=f"Model not ready", error="model_error"))
+                results.append(
+                    BatchGenerateItem(prompt=prompt, text=f"Model not ready", error="model_error")
+                )
         except Exception as e:
             results.append(BatchGenerateItem(prompt=prompt, text="", error=str(e)))
 
-    audit_logger.log("batch_generate", client_ip, resource="/inference/batch", action="batch", status="success", details={"count": len(batch.prompts)})
+    audit_logger.log(
+        "batch_generate",
+        client_ip,
+        resource="/inference/batch",
+        action="batch",
+        status="success",
+        details={"count": len(batch.prompts)},
+    )
 
     return {
         "results": [r.model_dump() for r in results],
@@ -2519,19 +2878,19 @@ class QuantizeRequest(BaseModel):
 async def quantize_model(request: QuantizeRequest):
     """Quantize the current model."""
     global model, _inference_engine
-    
+
     if model is None:
         return {"error": "No model loaded"}
-    
+
     try:
         from domains.inference.quantization import quantize_model as do_quantize, QuantizationType
-        
+
         qtype = QuantizationType(request.quantization_type)
         quantized_model, info = do_quantize(model, request.quantization_type)
-        
+
         model = quantized_model
         _inference_engine = None  # Reset engine
-        
+
         return {
             "status": "quantized",
             "quantization_type": request.quantization_type,
@@ -2551,16 +2910,16 @@ async def run_benchmark(
 ):
     """Run inference benchmark."""
     global model, tokenizer
-    
+
     if model is None or tokenizer is None:
         return {"error": "Model not loaded"}
-    
+
     try:
         from domains.ml_infrastructure.benchmarking import Benchmarker
-        
+
         benchmarker = Benchmarker(model, tokenizer, device="cpu")
         result = benchmarker.benchmark_inference(prompt, max_new_tokens, num_runs)
-        
+
         return result.to_dict()
     except Exception as e:
         return {"error": str(e)}
@@ -2575,19 +2934,19 @@ async def calculate_perplexity(text: str = ""):
     ``docs/policies/CONTRIBUTING.md`` (*Checkpoint vocabulary*).
     """
     global model, tokenizer
-    
+
     if model is None or tokenizer is None:
         return {"error": "Model not loaded"}
-    
+
     if not text:
         return {"error": "Text required"}
-    
+
     try:
         from domains.ml_infrastructure.benchmarking import Benchmarker
-        
+
         benchmarker = Benchmarker(model, tokenizer, device="cpu")
         ppl = benchmarker.calculate_perplexity(text)
-        
+
         return {"perplexity": ppl, "text_length": len(text)}
     except Exception as e:
         return {"error": str(e)}
@@ -2597,28 +2956,31 @@ async def calculate_perplexity(text: str = ""):
 async def compare_benchmarks():
     """Get comparison of different quantization levels."""
     global model, tokenizer
-    
+
     if model is None or tokenizer is None:
         return {"error": "Model not loaded"}
-    
+
     try:
         from domains.ml_infrastructure.benchmarking import Benchmarker
         from domains.inference.quantization import quantize_model
-        
+
         results = {}
-        
+
         for qtype in ["fp32", "fp16", "int8"]:
             try:
                 from copy import deepcopy
+
                 test_model = deepcopy(model)
                 quantized, _ = quantize_model(test_model, qtype)
-                
+
                 benchmarker = Benchmarker(quantized, tokenizer, device="cpu")
-                result = benchmarker.benchmark_inference("Hello world", max_new_tokens=20, num_runs=2)
+                result = benchmarker.benchmark_inference(
+                    "Hello world", max_new_tokens=20, num_runs=2
+                )
                 results[qtype] = result.to_dict()
             except Exception as e:
                 results[qtype] = {"error": str(e)}
-        
+
         return results
     except Exception as e:
         return {"error": str(e)}
@@ -2639,13 +3001,13 @@ async def export_model(request: ExportRequest):
     (*Checkpoint vocabulary*).
     """
     global model, tokenizer, model_type
-    
+
     if model is None:
         return {"error": "No model loaded"}
-    
+
     try:
         from domains.training.export import export_model, list_export_formats, ExportConfig
-        
+
         config = ExportConfig(
             input_path="current",
             output_path=request.output_path,
@@ -2656,9 +3018,9 @@ async def export_model(request: ExportRequest):
                 "exported_at": str(time.time()),
             },
         )
-        
+
         results = export_model(config, model, tokenizer)
-        
+
         return {
             "status": "exported",
             "format": request.format,
@@ -2672,10 +3034,12 @@ async def export_model(request: ExportRequest):
 async def get_export_formats():
     """Get list of supported export formats."""
     from domains.training.export import list_export_formats
+
     return {"formats": list_export_formats()}
 
 
 # ============ Model Registry API ============
+
 
 class RegistryModel(BaseModel):
     id: str
@@ -2714,16 +3078,18 @@ class RecordRequestModel(BaseModel):
 
 # In-memory registry
 _registry: Dict[str, Dict[str, Any]] = {}
-_registry_metrics: Dict[str, Dict[str, Any]] = defaultdict(lambda: {
-    "total_requests": 0,
-    "successful_requests": 0,
-    "failed_requests": 0,
-    "total_tokens": 0,
-    "total_latency_ms": 0,
-    "avg_latency_ms": 0,
-    "min_latency_ms": float("inf"),
-    "max_latency_ms": 0,
-})
+_registry_metrics: Dict[str, Dict[str, Any]] = defaultdict(
+    lambda: {
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens": 0,
+        "total_latency_ms": 0,
+        "avg_latency_ms": 0,
+        "min_latency_ms": float("inf"),
+        "max_latency_ms": 0,
+    }
+)
 
 
 @app.post("/registry/models", tags=["registry"])
@@ -2738,13 +3104,13 @@ async def register_model(request: RegisterModelRequest):
 async def list_registry_models(status: Optional[str] = None, tag: Optional[str] = None):
     """List registered models."""
     models = list(_registry.values())
-    
+
     if status:
         models = [m for m in models if m.get("status") == status]
-    
+
     if tag:
         models = [m for m in models if tag in m.get("tags", [])]
-    
+
     return {"models": models}
 
 
@@ -2753,7 +3119,7 @@ async def get_registry_model(model_id: str):
     """Get a registered model."""
     if model_id not in _registry:
         raise HTTPException(status_code=404, detail="Model not found")
-    
+
     model = _registry[model_id].copy()
     model["metrics"] = _registry_metrics[model_id]
     return model
@@ -2773,7 +3139,7 @@ async def record_model_request(model_id: str, request: RecordRequestModel):
     """Record a request for a model."""
     if model_id not in _registry:
         raise HTTPException(status_code=404, detail="Model not found")
-    
+
     metrics = _registry_metrics[model_id]
     metrics["total_requests"] += 1
     if request.success:
@@ -2785,7 +3151,7 @@ async def record_model_request(model_id: str, request: RecordRequestModel):
     metrics["avg_latency_ms"] = metrics["total_latency_ms"] / metrics["total_requests"]
     metrics["min_latency_ms"] = min(metrics["min_latency_ms"], request.latency_ms)
     metrics["max_latency_ms"] = max(metrics["max_latency_ms"], request.latency_ms)
-    
+
     return {"status": "recorded", "metrics": metrics}
 
 
@@ -2794,7 +3160,7 @@ async def get_model_metrics(model_id: str):
     """Get model metrics."""
     if model_id not in _registry:
         raise HTTPException(status_code=404, detail="Model not found")
-    
+
     return _registry_metrics[model_id]
 
 
@@ -2802,18 +3168,18 @@ async def get_model_metrics(model_id: str):
 async def get_best_model(criteria: str = "latency", tag: Optional[str] = None):
     """Get best model by criteria."""
     models = list(_registry.values())
-    
+
     if tag:
         models = [m for m in models if tag in m.get("tags", [])]
-    
+
     if not models:
         return {"error": "No models found"}
-    
+
     if criteria == "latency":
         models.sort(key=lambda m: _registry_metrics[m["id"]].get("avg_latency_ms", float("inf")))
     elif criteria == "throughput":
         models.sort(key=lambda m: _registry_metrics[m["id"]].get("total_requests", 0), reverse=True)
-    
+
     best = models[0]
     best["metrics"] = _registry_metrics[best["id"]]
     return best
@@ -2825,14 +3191,14 @@ async def get_registry_stats():
     total_models = len(_registry)
     total_requests = sum(m["total_requests"] for m in _registry_metrics.values())
     total_tokens = sum(m["total_tokens"] for m in _registry_metrics.values())
-    
+
     by_status = defaultdict(int)
     by_framework = defaultdict(int)
-    
+
     for model in _registry.values():
         by_status[model.get("status", "unknown")] += 1
         by_framework[model.get("framework", "unknown")] += 1
-    
+
     return {
         "total_models": total_models,
         "total_requests": total_requests,
@@ -2873,6 +3239,7 @@ async def get_vector_store():
     global _vector_store
     if _vector_store is None:
         from domains.inference.vector_store import create_vector_store, simple_embed
+
         _vector_store = await create_vector_store(provider=_vector_store_type)
     return _vector_store
 
@@ -2882,12 +3249,12 @@ async def init_vector_store(config: VectorStoreConfig):
     """Initialize vector store with specified provider."""
     global _vector_store, _vector_store_type
     _vector_store_type = config.provider or "in_memory"
-    
+
     try:
         from domains.inference.vector_store import create_vector_store, VectorStoreType
-        
+
         kwargs = {"dimension": config.dimension or 768}
-        
+
         if config.provider == "pinecone":
             kwargs["api_key"] = config.api_key
             kwargs["index"] = config.index
@@ -2897,9 +3264,9 @@ async def init_vector_store(config: VectorStoreConfig):
             kwargs["api_key"] = config.api_key
         elif config.provider == "chromadb":
             kwargs["persist_directory"] = "data/vector_store"
-        
+
         _vector_store = await create_vector_store(provider=_vector_store_type, **kwargs)
-        
+
         return {
             "status": "connected",
             "provider": _vector_store_type,
@@ -2923,25 +3290,32 @@ async def vector_stats():
 async def upsert_vectors(request: UpsertRequest):
     """Upsert documents with embeddings to vector store."""
     from domains.inference.vector_store import VectorEntry, simple_embed
-    
+
     store = await get_vector_store()
     from domains.inference.vector_store import VectorStoreType
-    
+
     entries = []
     for i, text in enumerate(request.texts):
-        embedding = request.embeddings[i] if request.embeddings and i < len(request.embeddings) else simple_embed(text)
+        embedding = (
+            request.embeddings[i]
+            if request.embeddings and i < len(request.embeddings)
+            else simple_embed(text)
+        )
         metadata = request.metadata[i] if request.metadata and i < len(request.metadata) else {}
-        
+
         import hashlib
+
         entry_id = hashlib.md5(f"{text[:50]}{i}".encode()).hexdigest()[:12]
-        
-        entries.append(VectorEntry(
-            id=entry_id,
-            vector=embedding,
-            text=text,
-            metadata=metadata,
-        ))
-    
+
+        entries.append(
+            VectorEntry(
+                id=entry_id,
+                vector=embedding,
+                text=text,
+                metadata=metadata,
+            )
+        )
+
     count = await store.upsert(entries)
     return {"status": "success", "upserted": count}
 
@@ -2950,17 +3324,17 @@ async def upsert_vectors(request: UpsertRequest):
 async def query_vectors(request: QueryRequest):
     """Query vector store for similar documents."""
     from domains.inference.vector_store import simple_embed
-    
+
     store = await get_vector_store()
-    
+
     embedding = request.embedding or simple_embed(request.query)
-    
+
     results = await store.query(
         vector=embedding,
         top_k=request.top_k or 5,
         filter_metadata=request.filter_metadata,
     )
-    
+
     return {
         "query": request.query,
         "results": [
@@ -2991,14 +3365,14 @@ async def search_vectors(
 ):
     """Combined RAG-style search: embed query, retrieve docs, optionally generate."""
     from domains.inference.vector_store import simple_embed
-    
+
     store = await get_vector_store()
-    
+
     embedding = simple_embed(query)
     results = await store.query(vector=embedding, top_k=top_k)
-    
+
     context = "\n\n".join([r.text for r in results])
-    
+
     return {
         "query": query,
         "context": context,

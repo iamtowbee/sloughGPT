@@ -47,16 +47,29 @@ class RotaryEmbedding(nn.Module):
 
 
 def rotate_half(x: torch.Tensor) -> torch.Tensor:
-    x1, x2 = x[..., : x.shape[-1] // 2], x[..., x.shape[-1] // 2 :]
-    return torch.cat((-x2, x1), dim=-1)
+    """Rotate half the hidden dims (DEPRECATED - use domains.models.rotate_half)."""
+    import warnings
+    warnings.warn(
+        "rotate_half in training.models.llama is deprecated. Use domains.models.rotate_half",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    from domains.models import rotate_half as _rotate_half
+    return _rotate_half(x)
 
 
 def apply_rotary_pos_emb(
     q: torch.Tensor, k: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    q_embed = (q * cos) + (rotate_half(q) * sin)
-    k_embed = (k * cos) + (rotate_half(k) * sin)
-    return q_embed, k_embed
+    """Apply rotary position embeddings (DEPRECATED - use domains.models.apply_rotary_pos_emb)."""
+    import warnings
+    warnings.warn(
+        "apply_rotary_pos_emb in training.models.llama is deprecated. Use domains.models.apply_rotary_pos_emb",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    from domains.models import apply_rotary_pos_emb as _apply_rotary_pos_emb
+    return _apply_rotary_pos_emb(q, k, cos, sin)
 
 
 class LLaMAAttention(nn.Module):

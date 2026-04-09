@@ -391,28 +391,69 @@ class RMSNorm(torch.nn.Module):
 
 
 class RotaryEmbedding(torch.nn.Module):
-    """Rotary Position Embeddings (RoPE) - replaces learned absolute positions."""
+    """Rotary Position Embeddings (RoPE) - replaces learned absolute positions.
 
-    def __init__(self, dim: int, max_seq_len: int = 2048, base: float = 10000.0):
+    Optimized with:
+    - Precomputed frequency buffer
+    - Efficient cache reuse
+    - Optional NTK-aware scaling for context extension
+    """
+
+    def __init__(self, dim: int, max_seq_len: int = 2048, base: float = 10000.0, use_ntk_scaling: bool = False):
         super().__init__()
         self.dim = dim
         self.base = base
-        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float() / dim))
-        self.register_buffer("inv_freq", inv_freq)
         self.max_seq_len = max_seq_len
-        self._cos_cached = None
-        self._sin_cached = None
+        self.use_ntk_scaling = use_ntk_scaling
+        self._ntk_scale = 1.0
+
+        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float() / dim))
+        self.register_buffer("inv_freq", inv_freq, persistent=False)
+
+        self._cos_cached: Optional[torch.Tensor] = None
+        self._sin_cached: Optional[torch.Tensor] = None
+        self._cached_seq_len = 0
+
+        self._precompute_freqs()
+
+    def _precompute_freqs(self, seq_len: Optional[int] = None):
+        """Precompute frequency buffers for maximum sequence length."""
+        seq_len = seq_len or self.max_seq_len
+        if self._cos_cached is not None and self._cached_seq_len >= seq_len:
+            return
+
+        t = torch.arange(self._cached_seq_len, seq_len, device=self.inv_freq.device).type_as(self.inv_freq)
+        if self.use_ntk_scaling:
+            t = t / self._ntk_scale
+        freqs = torch.outer(t, self.inv_freq * self._ntk_scale)
+        emb = torch.cat((freqs, freqs), dim=-1)
+
+        new_cos = emb.cos()
+        new_sin = emb.sin()
+
+        if self._cos_cached is None:
+            self._cos_cached = new_cos
+            self._sin_cached = new_sin
+        else:
+            self._cos_cached = torch.cat([self._cos_cached, new_cos])
+            self._sin_cached = torch.cat([self._sin_cached, new_sin])
+
+        self._cached_seq_len = seq_len
 
     def forward(self, seq_len: int, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
-        if self._cos_cached is not None and self._cos_cached.shape[0] >= seq_len:
-            return self._cos_cached[:seq_len].to(device), self._sin_cached[:seq_len].to(device)
+        if self._cos_cached is None or self._cached_seq_len < seq_len:
+            self._precompute_freqs(seq_len)
 
-        t = torch.arange(seq_len, device=device).type_as(self.inv_freq)
-        freqs = torch.outer(t, self.inv_freq)
-        emb = torch.cat((freqs, freqs), dim=-1)
-        self._cos_cached = emb.cos()
-        self._sin_cached = emb.sin()
-        return self._cos_cached.to(device), self._sin_cached.to(device)
+        return self._cos_cached[:seq_len].to(device), self._sin_cached[:seq_len].to(device)
+
+    def update_ntk_scale(self, scale: float):
+        """Update NTK scaling factor for context extension (e.g., after fine-tuning)."""
+        if abs(scale - self._ntk_scale) > 1e-6:
+            self._ntk_scale = scale
+            self._cos_cached = None
+            self._sin_cached = None
+            self._cached_seq_len = 0
+            self._precompute_freqs()
 
 
 def rotate_half(x: torch.Tensor) -> torch.Tensor:
@@ -433,6 +474,12 @@ class SloughGPTAttention(torch.nn.Module):
     """
     SloughGPT's attention: Flash Attention/SDPA with RoPE and optional KV Cache.
     Falls back gracefully - SDPA works on all hardware, Flash Attention needs flash_attn.
+
+    Optimizations:
+    - Pre-allocated KV cache tensors
+    - GQA (Grouped Query Attention) support
+    - Efficient cache reuse
+    - Flash Attention / SDPA fallback
     """
 
     def __init__(
@@ -467,13 +514,24 @@ class SloughGPTAttention(torch.nn.Module):
         self.dropout = dropout
         self.attn_dropout = torch.nn.Dropout(dropout)
 
-        self._kv_cache = None
+        self._kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+        self._cache_size = 0
+
+    def allocate_cache(self, batch_size: int, max_len: int, device: torch.device, dtype: torch.dtype = torch.float16):
+        """Pre-allocate KV cache tensors for efficient reuse."""
+        if self._kv_cache is None or self._cache_size < max_len:
+            self._kv_cache = (
+                torch.zeros(batch_size, self.n_kv_head, max_len, self.head_dim, device=device, dtype=dtype),
+                torch.zeros(batch_size, self.n_kv_head, max_len, self.head_dim, device=device, dtype=dtype),
+            )
+            self._cache_size = max_len
 
     def forward(
         self,
         x: torch.Tensor,
         kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = True,
+        start_pos: int = 0,
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         B, T, C = x.size()
 
@@ -498,7 +556,6 @@ class SloughGPTAttention(torch.nn.Module):
             v = v.repeat_interleave(self.n_rep, dim=1)
 
         if self.use_sdpa and not self.use_flash:
-            # ``is_causal=True`` is the supported path (avoids NaNs from bool mask + scale on some torch 2.x builds).
             out = torch.nn.functional.scaled_dot_product_attention(
                 q,
                 k,
@@ -521,6 +578,7 @@ class SloughGPTAttention(torch.nn.Module):
 
     def clear_cache(self):
         self._kv_cache = None
+        self._cache_size = 0
 
 
 class SwiGLU(torch.nn.Module):
@@ -722,10 +780,58 @@ class SloughGPTModel(torch.nn.Module, ModelInterface):
         top_p: Optional[float] = None,
         **kwargs,
     ) -> torch.Tensor:
+        """Optimized autoregressive generation.
+
+        Uses KV cache via the attention module for efficient inference.
+        """
+        self.eval()
+
+        if input_ids.dim() == 1:
+            input_ids = input_ids.unsqueeze(0)
+
+        B, T = input_ids.shape
+        device = input_ids.device
+
+        self.clear_kv_cache()
+        kv_caches: List[Optional[Tuple[torch.Tensor, torch.Tensor]]] = [None] * len(self.blocks)
+
+        for layer in self.blocks:
+            if hasattr(layer.attn, 'allocate_cache'):
+                layer.attn.allocate_cache(B, self.max_seq_len, device)
+
+        x = self.tok_emb(input_ids)
+        x = self.drop(x)
+
+        for layer_idx, block in enumerate(self.blocks):
+            block_out = block(x)
+            if isinstance(block_out, tuple):
+                x = block_out[0]
+                kv_caches[layer_idx] = block_out[1] if len(block_out) > 1 else None
+            else:
+                x = block_out
+                kv_caches[layer_idx] = None
+
+        x = self.norm(x)
+        logits = self.lm_head(x)
+        start_pos = T
+
         for _ in range(max_new_tokens):
-            idx_cond = input_ids[:, -self.block_size :]
-            logits, _ = self(idx_cond, use_cache=False)
-            logits = logits[:, -1, :] / temperature
+            idx_cond = input_ids[:, -self.block_size:]
+
+            x = self.tok_emb(idx_cond)
+            x = self.drop(x)
+
+            for layer_idx, block in enumerate(self.blocks):
+                block_out = block(x, kv_cache=kv_caches[layer_idx], use_cache=True, start_pos=start_pos)
+                if isinstance(block_out, tuple):
+                    x = block_out[0]
+                    kv_caches[layer_idx] = block_out[1]
+                else:
+                    x = block_out
+
+            x = self.norm(x)
+            logits = self.lm_head(x)[:, -1, :] / temperature
+
             logits = torch.where(torch.isfinite(logits), logits, torch.zeros_like(logits))
 
             if top_k is not None:
@@ -751,10 +857,12 @@ class SloughGPTModel(torch.nn.Module, ModelInterface):
             probs = probs / (probs_sum + 1e-10)
             idx_next = torch.multinomial(probs, num_samples=1)
             input_ids = torch.cat([input_ids, idx_next], dim=1)
+            start_pos += 1
 
-            if idx_next.item() == 0:
+            if idx_next.numel() == 1 and idx_next.item() == 0:
                 break
 
+        self.clear_kv_cache()
         return input_ids
 
     def state_dict(self) -> Dict[str, torch.Tensor]:

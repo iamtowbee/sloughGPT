@@ -24,6 +24,16 @@ from .spaced_repetition import SpacedRepetitionScheduler, LearningItem, Difficul
 from .knowledge_graph import KnowledgeGraph, KnowledgeNode, KnowledgeEdge, RelationType, Confidence
 from .metacognition_impl import Metacognition, SelfAssessment, Contradiction, ContradictionType
 
+# RAG exports (canonical location)
+from .rag import (
+    ProductionRAG,
+    BM25Indexer,
+    TextChunk,
+    RetrievalResult,
+    HybridRetriever,
+    HallucinationDetector,
+)
+
 __all__ = [
     "CognitiveDomain",
     "CognitiveProcessor",
@@ -38,8 +48,6 @@ __all__ = [
     "ThoughtProcess",
     "CreativeIdea",
     "ReasoningChain",
-    "RAGSystem",
-    "VectorStore",
     "SpacedRepetitionScheduler",
     "LearningItem",
     "Difficulty",
@@ -53,4 +61,11 @@ __all__ = [
     "SelfAssessment",
     "Contradiction",
     "ContradictionType",
+    # RAG
+    "ProductionRAG",
+    "BM25Indexer",
+    "TextChunk",
+    "RetrievalResult",
+    "HybridRetriever",
+    "HallucinationDetector",
 ]

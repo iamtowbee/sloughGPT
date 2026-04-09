@@ -21,6 +21,7 @@ import logging
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+import torch
 
 if TYPE_CHECKING:
     from domains.training.tracking import ExperimentTracker
@@ -41,6 +42,15 @@ from domains.training.lora import apply_lora_to_model, LoRAConfig
 logger = logging.getLogger("sloughgpt.trainer")
 
 
+__all__ = [
+    "TextDataset",
+    "prepare_data",
+    "TrainerConfig",
+    "SloughGPTTrainer",
+    "TrainerProtocol",
+]
+
+
 # =============================================================================
 # Data Utilities
 # =============================================================================
@@ -49,15 +59,20 @@ class TextDataset(Dataset):
     """Character-level text dataset."""
 
     def __init__(self, data, block_size):
+        if not isinstance(data, torch.Tensor):
+            data = torch.tensor(data, dtype=torch.long)
         self.data = data
         self.block_size = block_size
 
     def __len__(self):
-        return len(self.data) - self.block_size
+        return max(0, len(self.data) - self.block_size)
 
     def __getitem__(self, idx):
         x = self.data[idx : idx + self.block_size]
         y = self.data[idx + 1 : idx + self.block_size + 1]
+        if not isinstance(x, torch.Tensor):
+            x = x.clone().to(dtype=torch.long)
+            y = y.clone().to(dtype=torch.long)
         return x, y
 
 
@@ -135,6 +150,11 @@ class TrainerConfig:
 
     # Device
     device: str = "auto"
+
+    # Performance optimizations
+    use_compile: bool = False
+    compile_mode: str = "reduce-overhead"
+    use_channels_last: bool = True
 
     def __post_init__(self):
         if self.device == "auto":
@@ -384,6 +404,14 @@ class SloughGPTTrainer:
         self.scaler: Optional[torch.cuda.amp.GradScaler] = None
         self.accumulation_step = 0
 
+        # Compiled model for faster inference
+        self._compiled_model = None
+
+        # Pre-allocated batch tensors for efficiency
+        self._x_batch: Optional[torch.Tensor] = None
+        self._y_batch: Optional[torch.Tensor] = None
+        self._batch_allocated = False
+
         print(f"Using device: {self.device}")
 
         # Prepare data — prefer corpus-derived vocab unless caller sets ``vocab_size`` (legacy path)
@@ -474,6 +502,25 @@ class SloughGPTTrainer:
             lora_params = sum(p.numel() for n, p in self.model.named_parameters() if "lora_" in n)
             total = sum(p.numel() for p in self.model.parameters())
             print(f"LoRA params: {lora_params:,} ({100 * lora_params / total:.1f}%)")
+
+        # Apply channels-last memory format for GPU
+        if self.config.use_channels_last and self.device == "cuda":
+            self.model = self.model.to(memory_format=torch.channels_last)
+            print("Using channels_last memory format")
+
+        # Apply torch.compile for PyTorch 2.0+
+        if self.config.use_compile and hasattr(torch, "compile") and self.device == "cuda":
+            print(f"Compiling model with mode: {self.config.compile_mode}")
+            try:
+                self._compiled_model = torch.compile(
+                    self.model,
+                    mode=self.config.compile_mode,
+                    fullgraph=False,
+                )
+                print("Model compiled successfully")
+            except Exception as e:
+                print(f"torch.compile failed: {e}")
+                self._compiled_model = None
 
         # Setup DDP
         if self.config.use_distributed:
@@ -589,29 +636,47 @@ class SloughGPTTrainer:
         return self.ddp_model if self.ddp_model is not None else self.model
 
     def get_batch(self, split: str = "train") -> tuple:
-        """Get a batch of data."""
+        """Get a batch of data with optional pre-allocated tensors."""
         data = self.train_data if split == "train" else self.val_data
-        idx = torch.randint(0, len(data) - self.config.block_size, (self.config.batch_size,))
-        x = torch.stack([data[i : i + self.config.block_size] for i in idx])
-        y = torch.stack([data[i + 1 : i + self.config.block_size + 1] for i in idx])
-        return x.to(self.device), y.to(self.device)
+        batch_size = self.config.batch_size
+        block_size = self.config.block_size
+
+        if self.config.use_compile and self.device == "cuda":
+            if not self._batch_allocated or self._x_batch is None:
+                self._x_batch = torch.empty(batch_size, block_size, dtype=torch.long, device="cpu")
+                self._y_batch = torch.empty(batch_size, block_size, dtype=torch.long, device="cpu")
+                self._batch_allocated = True
+
+            idx = torch.randint(0, len(data) - block_size, (batch_size,))
+            for i, start_idx in enumerate(idx.tolist()):
+                self._x_batch[i].copy_(data[start_idx : start_idx + block_size])
+                self._y_batch[i].copy_(data[start_idx + 1 : start_idx + block_size + 1])
+
+            return self._x_batch.to(self.device, non_blocking=True), self._y_batch.to(self.device, non_blocking=True)
+
+        idx = torch.randint(0, len(data) - block_size, (batch_size,))
+        x = torch.stack([data[i : i + block_size] for i in idx])
+        y = torch.stack([data[i + 1 : i + block_size + 1] for i in idx])
+        return x.to(self.device, non_blocking=True), y.to(self.device, non_blocking=True)
 
     def train_step(self) -> Dict[str, float]:
-        """Execute a single training step."""
+        """Execute a single training step with optimizations."""
         model = self.training_model
         model.train()
 
         x, y = self.get_batch("train")
         scale_factor = 1.0 / self.config.gradient_accumulation_steps
 
+        forward_model = self._compiled_model if self._compiled_model else model
+
         if self.scaler is not None:
             with torch.cuda.amp.autocast(dtype=self.mixed_precision_dtype):
-                logits, loss = model(x, y)
+                logits, loss = forward_model(x, y)
                 loss = loss * scale_factor
 
             self.scaler.scale(loss).backward()
         else:
-            logits, loss = model(x, y)
+            logits, loss = forward_model(x, y)
             (loss * scale_factor).backward()
 
         self.accumulation_step += 1
@@ -642,16 +707,17 @@ class SloughGPTTrainer:
 
     @torch.no_grad()
     def evaluate(self, num_batches: int = 50) -> Dict[str, float]:
-        """Evaluate the model."""
+        """Evaluate the model with optimizations."""
         model = self.training_model
         model.eval()
 
+        eval_model = self._compiled_model if self._compiled_model else model
         total_loss = 0.0
         steps = 0
 
         for _ in range(num_batches):
             x, y = self.get_batch("val")
-            _, loss = model(x, y)
+            _, loss = eval_model(x, y)
             total_loss += loss.item()
             steps += 1
 
@@ -1012,6 +1078,9 @@ def main():
     parser.add_argument("--lora-rank", type=int, default=8)
     parser.add_argument("--lora-alpha", type=float, default=16.0)
     parser.add_argument("--dropout", type=float, default=0.1)
+    parser.add_argument("--compile", action="store_true", help="Use torch.compile (PyTorch 2.0+)")
+    parser.add_argument("--compile-mode", type=str, default="reduce-overhead", choices=["default", "reduce-overhead", "max-autotune"], help="torch.compile mode")
+    parser.add_argument("--no-channels-last", action="store_true", help="Disable channels_last memory format")
     args = parser.parse_args()
 
     if args.resume and args.resume_latest:
@@ -1039,6 +1108,9 @@ def main():
         use_lora=args.lora,
         lora_rank=args.lora_rank,
         lora_alpha=int(args.lora_alpha),
+        use_compile=args.compile,
+        compile_mode=args.compile_mode,
+        use_channels_last=not args.no_channels_last,
     )
 
     if args.resume_latest:

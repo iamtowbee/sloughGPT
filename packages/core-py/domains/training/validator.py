@@ -126,33 +126,7 @@ class DatasetVersion:
         return sorted(versions, key=lambda x: x.get("created_at", ""), reverse=True)
 
 
-class DatasetQualityScorer:
-    """Score dataset quality metrics."""
-
-    def __init__(self, dataset_path: str):
-        self.dataset_path = Path(dataset_path)
-
-    def compute_quality_score(self) -> Dict[str, float]:
-        """Compute overall quality score."""
-        score = {"completeness": 0.0, "diversity": 0.0, "balance": 0.0, "total": 0.0}
-
-        # Check completeness
-        meta_file = self.dataset_path / "meta.pkl"
-        if meta_file.exists():
-            score["completeness"] = 1.0
-
-        # Check diversity (placeholder)
-        score["diversity"] = 0.7
-
-        # Check balance (placeholder)
-        score["balance"] = 0.8
-
-        # Compute total
-        score["total"] = (
-            score["completeness"] * 0.4 + score["diversity"] * 0.3 + score["balance"] * 0.3
-        )
-
-        return score
-
+# DatasetQualityScorer is now in quality_scorer.py
+from domains.training.quality_scorer import DatasetQualityScorer
 
 __all__ = ["DatasetValidator", "DatasetVersion", "DatasetQualityScorer"]

@@ -1,12 +1,14 @@
 """
 Unified Training Module
-Provides TrainingConfig, Trainer, and DataLoader for the SloughGPT framework.
+Provides DataLoader and utilities for the SloughGPT framework.
+
+Note: For training, use SloughGPTTrainer from train_pipeline.
+TrainingConfig is deprecated - use TrainerConfig from train_pipeline.
 """
 
 import json
 import logging
-from dataclasses import dataclass
-from typing import Optional, List, Dict, Any, Iterator
+from typing import Optional, List, Dict, Any, Iterator, Callable
 from pathlib import Path
 
 import torch
@@ -17,66 +19,10 @@ from torch.utils.data import Dataset, DataLoader
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class TrainingConfig:
-    """Training configuration."""
+# Canonical imports
+from domains.training.train_pipeline import TrainerConfig, TextDataset
 
-    data_path: str = "data/text.txt"
-    model_id: str = "sloughgpt"
-
-    # Model architecture
-    vocab_size: int = 5000
-    n_embed: int = 256
-    n_layer: int = 6
-    n_head: int = 8
-    block_size: int = 128
-
-    # Training
-    epochs: int = 5
-    batch_size: int = 64
-    learning_rate: float = 1e-3
-    max_batches: Optional[int] = None
-
-    # LR Scheduler
-    scheduler: str = "cosine"
-    warmup_steps: int = 100
-    min_lr: float = 1e-6
-    max_lr: float = 1e-3
-
-    # Mixed precision
-    precision: str = "fp32"
-
-    # Gradient
-    gradient_accumulation_steps: int = 1
-    max_grad_norm: float = 1.0
-
-    # Device
-    device: str = "cuda" if torch.cuda.is_available() else "cpu"
-
-    # Other
-    save_interval: int = 1000
-    eval_interval: int = 500
-    log_interval: int = 10
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
-        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
-
-
-class TextDataset(Dataset):
-    """Character-level text dataset."""
-
-    def __init__(self, data: List[int], block_size: int):
-        self.data = data
-        self.block_size = block_size
-
-    def __len__(self):
-        return len(self.data) - self.block_size
-
-    def __getitem__(self, idx):
-        x = torch.tensor(self.data[idx : idx + self.block_size], dtype=torch.long)
-        y = torch.tensor(self.data[idx + 1 : idx + self.block_size + 1], dtype=torch.long)
-        return x, y
+TrainingConfig = TrainerConfig  # Alias for backwards compatibility
 
 
 class UniversalDataLoader:
@@ -226,180 +172,18 @@ class TorchModelWrapper(ModelWrapper):
         self.model = model.to(config.device)
 
 
-class Trainer:
-    """Trainer class for model training."""
-
-    def __init__(self, config: TrainingConfig):
-        self.config = config
-        self.model: Optional[nn.Module] = None
-        self.optimizer: Optional[torch.optim.Optimizer] = None
-        self.scheduler: Optional[Any] = None
-        self.scaler: Optional[torch.cuda.amp.GradScaler] = None
-        self.data_loader: Optional[UniversalDataLoader] = None
-
-        self.current_epoch = 0
-        self.global_step = 0
-        self.best_loss = float("inf")
-
-    def setup(self):
-        """Setup trainer components."""
-        from domains.models import SloughGPTModel
-
-        # Create model
-        self.model = SloughGPTModel(
-            vocab_size=self.config.vocab_size,
-            n_embed=self.config.n_embed,
-            n_layer=self.config.n_layer,
-            n_head=self.config.n_head,
-            block_size=self.config.block_size,
-        )
-        self.model = TorchModelWrapper(self.model, self.config)
-
-        # Create optimizer
-        self.optimizer = torch.optim.AdamW(
-            self.model.model.parameters(),
-            lr=self.config.learning_rate,
-            weight_decay=0.01,
-        )
-
-        # Create scheduler
-        self.scheduler = self._create_scheduler()
-
-        # Create scaler for mixed precision
-        if self.config.device == "cuda" and self.config.precision in ("fp16", "bf16"):
-            self.scaler = torch.cuda.amp.GradScaler()
-
-        # Create data loader
-        self.data_loader = UniversalDataLoader(
-            self.config.data_path,
-            self.config.block_size,
-        )
-
-        logger.info(f"Trainer setup complete. Device: {self.config.device}")
-
-    def _create_scheduler(self):
-        """Create learning rate scheduler."""
-        total_steps = 10000  # Will be updated during training
-
-        if self.config.scheduler == "cosine":
-
-            def lr_lambda(step):
-                if step < self.config.warmup_steps:
-                    return step / max(self.config.warmup_steps, 1)
-                progress = (step - self.config.warmup_steps) / (
-                    total_steps - self.config.warmup_steps
-                )
-                return self.config.min_lr / self.config.learning_rate + (
-                    1 - self.config.min_lr / self.config.learning_rate
-                ) * 0.5 * (1 + torch.cos(torch.tensor(progress * 3.14159)))
-
-            return torch.optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda)
-
-        elif self.config.scheduler == "warmup":
-
-            def lr_lambda(step):
-                if step < self.config.warmup_steps:
-                    return step / max(self.config.warmup_steps, 1)
-                return 1.0
-
-            return torch.optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda)
-
-        return None
-
-    def train(self):
-        """Train the model."""
-        if self.model is None:
-            raise RuntimeError("Call setup() before training")
-
-        self.model.model.train()
-
-        logger.info(f"Starting training for {self.config.epochs} epochs")
-
-    def evaluate(self):
-        """Evaluate the model."""
-        if self.model is None:
-            raise RuntimeError("Call setup() before evaluation")
-
-        self.model.model.eval()
-
-        logger.info("Evaluation complete")
-        return {"loss": 0.0}
-
-    def save(self, path: str, format: str = "safetensors"):
-        """Save model checkpoint in standard format.
-
-        Args:
-            path: Base output path (extension added automatically)
-            format: safetensors (default), safetensors_bf16, torch
-        """
-        if self.model is None:
-            raise RuntimeError("No model to save")
-
-        from .export import export_to_safetensors, export_to_torch
-
-        metadata = {
-            "config": self.config.to_dict(),
-            "epoch": self.current_epoch,
-            "global_step": self.global_step,
-            "best_loss": self.best_loss,
-        }
-
-        if format == "safetensors":
-            output_path = path + ".safetensors"
-            export_to_safetensors(self.model.model, output_path, metadata)
-        elif format == "safetensors_bf16":
-            output_path = path + "-bf16.safetensors"
-            export_to_safetensors(self.model.model, output_path, metadata, dtype="bf16")
-        elif format == "torch":
-            output_path = path + ".pt"
-            checkpoint = {
-                "model_state_dict": self.model.model.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict(),
-                "metadata": metadata,
-            }
-            if self.scheduler:
-                checkpoint["scheduler_state_dict"] = self.scheduler.state_dict()
-            torch.save(checkpoint, output_path)
-        else:
-            output_path = path + ".safetensors"
-            export_to_safetensors(self.model.model, output_path, metadata)
-
-        logger.info(f"Model saved to {output_path} ({format})")
-
-    def load(self, path: str):
-        """Load model checkpoint."""
-        checkpoint = torch.load(path, map_location=self.config.device)
-
-        if self.model is None:
-            from domains.models import SloughGPTModel
-
-            self.model = SloughGPTModel(
-                vocab_size=self.config.vocab_size,
-                n_embed=self.config.n_embed,
-                n_layer=self.config.n_layer,
-                n_head=self.config.n_head,
-                block_size=self.config.block_size,
-            )
-            self.model = TorchModelWrapper(self.model, self.config)
-
-        self.model.model.load_state_dict(checkpoint["model_state_dict"])
-
-        if self.optimizer and "optimizer_state_dict" in checkpoint:
-            self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-
-        if self.scheduler and "scheduler_state_dict" in checkpoint:
-            self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
-
-        self.current_epoch = checkpoint.get("epoch", 0)
-        self.global_step = checkpoint.get("global_step", 0)
-        self.best_loss = checkpoint.get("best_loss", float("inf"))
-
-        logger.info(f"Model loaded from {path}")
+__all__ = [
+    "TrainingConfig",
+    "TextDataset",
+    "UniversalDataLoader",
+    "ModelWrapper",
+    "TorchModelWrapper",
+]
 
 
 def train(config: TrainingConfig):
-    """Train function for quick training."""
-    trainer = Trainer(config)
-    trainer.setup()
+    """Train function for quick training using SloughGPTTrainer."""
+    from domains.training.train_pipeline import SloughGPTTrainer
+    trainer = SloughGPTTrainer(data_path=config.data_path, config=config)
     trainer.train()
     return trainer

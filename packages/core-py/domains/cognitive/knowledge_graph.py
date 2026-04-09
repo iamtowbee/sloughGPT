@@ -1,6 +1,25 @@
 """
-Knowledge Graph - Ported from recovered slo_knowledge_graph.py
+Knowledge Graph - DEPRECATED
+
+This module is deprecated. Use domains.cognitive.knowledge_graph_v2 instead.
+
+Canonical: KnowledgeGraphV2
 """
+
+import warnings
+warnings.warn(
+    "domains.cognitive.knowledge_graph is deprecated. Use domains.cognitive.knowledge_graph_v2 instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
+# Re-export v2 as the canonical implementation
+from domains.cognitive.knowledge_graph_v2 import (
+    KnowledgeGraph,
+    RelationType,
+    Entity,
+    Fact,
+)
 
 import sqlite3
 import json
@@ -10,6 +29,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 
+# Legacy types for backwards compatibility
 class RelationType(Enum):
     IS_A = "is_a"
     PART_OF = "part_of"
