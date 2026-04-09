@@ -6,6 +6,7 @@ and common functionality used across all domains.
 """
 
 from .test_framework import TestFramework, TestResult, TestSuite, BenchmarkRunner, test_decorator
+from .utils import find_available_port
 
 __all__ = [
     "TestFramework",
@@ -13,4 +14,5 @@ __all__ = [
     "TestSuite",
     "BenchmarkRunner",
     "test_decorator",
+    "find_available_port",
 ]

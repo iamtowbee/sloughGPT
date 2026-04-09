@@ -192,4 +192,32 @@ __all__ = [
     "RateLimiter",
     "validate_config",
     "get_timestamp",
+    "find_available_port",
 ]
+
+
+def find_available_port(host: str = "", start_port: int = 8000, max_attempts: int = 10) -> int:
+    """Find an available port starting from start_port.
+
+    Args:
+        host: Bind host (empty string for all interfaces)
+        start_port: Starting port number
+        max_attempts: Maximum number of ports to try
+
+    Returns:
+        Available port number
+
+    Raises:
+        RuntimeError: If no port is available in range
+    """
+    import socket
+    for port in range(start_port, start_port + max_attempts):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((host, port))
+            sock.close()
+            return port
+        except OSError:
+            continue
+    raise RuntimeError(f"Could not find available port in range {start_port}-{start_port + max_attempts}")

@@ -191,21 +191,9 @@ def _chat_uvicorn_bind_host(client_host: str) -> str:
 
 
 def _chat_find_available_port(bind_host: str, start_port: int, max_attempts: int = 10) -> int:
-    """Pick the first bindable TCP port on bind_host (same idea as ``find_available_port`` in apps/api/server/main.py)."""
-    import socket
-
-    for port in range(start_port, start_port + max_attempts):
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.bind((bind_host, port))
-            sock.close()
-            return port
-        except OSError:
-            continue
-    raise RuntimeError(
-        f"No free port on {bind_host} in range {start_port}-{start_port + max_attempts - 1}"
-    )
+    """Pick the first bindable TCP port on bind_host (DEPRECATED - use domains.shared.find_available_port)."""
+    from domains.shared import find_available_port as _find_available_port
+    return _find_available_port(host=bind_host, start_port=start_port, max_attempts=max_attempts)
 
 
 def _chat_wait_for_health(base_url: str, timeout_sec: float = 45.0) -> bool:
@@ -494,25 +482,22 @@ def cmd_quick(args):
     sys.path.insert(0, ".")
 
     from domains.models import SloughGPTModel
-    from domains.training.optimized_trainer import TrainingConfig, OptimizedTextDataset, OptimizedTrainer, Presets, get_optimal_device
+    from domains.training.train_pipeline import SloughGPTTrainer, TrainerConfig
+    from domains.training.optimized_trainer import get_optimal_device
 
     print("=" * 60)
-    print("SloughGPT Quick Start (Optimized)")
+    print("SloughGPT Quick Start")
     print("=" * 60)
-    print(f"Device: {get_optimal_device()}")
 
-    # Get device
     device = get_optimal_device()
+    print(f"Device: {device}")
 
-    # Check if optimizations disabled
     use_optimize = not getattr(args, 'no_optimize', False)
 
-    # Create config with optimizations
-    config = TrainingConfig(
+    config = TrainerConfig(
         batch_size=args.batch,
         learning_rate=args.lr,
         use_mixed_precision=use_optimize and device != "cpu",
-        use_gradient_checkpointing=use_optimize and args.batch > 16,
         use_compile=use_optimize and hasattr(torch, 'compile'),
         max_steps=args.steps if args.steps else 100,
         warmup_steps=max(10, args.steps // 10) if args.steps else 10,
@@ -520,63 +505,43 @@ def cmd_quick(args):
 
     print(f"\nOptimizations:")
     print(f"  Mixed Precision: {'✅' if config.use_mixed_precision else '❌'}")
-    print(f"  Gradient Checkpointing: {'✅' if config.use_gradient_checkpointing else '❌'}")
     print(f"  torch.compile: {'✅' if config.use_compile else '❌'}")
 
-    # Load data
-    from domains.training.train_pipeline import prepare_data
     print(f"\nLoading data from {args.dataset}...")
-    data, vocab_size, stoi, itos = prepare_data(args.dataset, block_size=args.block)
 
-    # Create model
-    print(f"\nCreating model...")
-    from domains.models import SloughGPTModel
-    model = SloughGPTModel(
-        vocab_size=vocab_size,
+    trainer = SloughGPTTrainer(
+        data_path=args.dataset,
         n_embed=args.embed,
         n_layer=args.layers,
         n_head=args.heads,
         block_size=args.block,
-    )
-    print(f"  Model: SloughGPTModel (OUR architecture)")
-    print(f"  - RoPE + SwiGLU + RMSNorm + SDPA")
-
-    # Create datasets
-    n = int(0.9 * len(data))
-    train_data = data[:n]
-    val_data = data[n:]
-
-    train_dataset = OptimizedTextDataset(train_data, block_size=args.block)
-    val_dataset = OptimizedTextDataset(val_data, block_size=args.block)
-
-    print(f"Model: {sum(p.numel() for p in model.parameters()):,} params")
-    print(f"Train: {len(train_data):,} tokens")
-
-    # Create optimized trainer
-    trainer = OptimizedTrainer(
-        model=model,
+        dropout=0.1,
+        batch_size=args.batch,
+        epochs=args.epochs,
+        lr=args.lr,
+        max_steps=args.steps if args.steps else 100,
+        soul_name=getattr(args, 'soul_name', 'SloughGPT-Quick'),
         config=config,
-        train_dataset=train_dataset,
-        val_dataset=val_dataset,
     )
 
-    # Train
+    print(f"\nModel: {trainer.model.num_parameters():,} params")
+
     print("\n" + "=" * 60)
     print("Training...")
     print("=" * 60)
     trainer.train()
 
-    # Generate
     print("\nGenerating text...")
+    model = trainer.model
     model.eval()
-    input_ids = torch.tensor([[stoi.get(c, 0) for c in args.prompt]]).to(device)
-    
+    input_ids = torch.tensor([[trainer.stoi.get(c, 0) for c in args.prompt]]).to(device)
+
     with torch.no_grad():
         output = model(input_ids)
         logits = output[0] if isinstance(output, tuple) else output
         next_token = logits[-1].argmax().item()
         generated = [next_token]
-        
+
         for _ in range(args.max_tokens - 1):
             output = model(torch.tensor([[next_token]]).to(device))
             logits = output[0] if isinstance(output, tuple) else output
@@ -585,32 +550,12 @@ def cmd_quick(args):
                 break
             generated.append(next_token)
 
-    text = ''.join([itos.get(i, '') for i in generated])
+    text = ''.join([trainer.itos.get(i, '') for i in generated])
     print(f"\nPrompt: {args.prompt}")
     print(f"Generated: {args.prompt}{text[:200]}...")
 
-    # Save
-    from domains.training.train_pipeline import SloughGPTTrainer
-    legacy_trainer = SloughGPTTrainer(
-        data_path=args.dataset,
-        n_embed=args.embed,
-        n_layer=args.layers,
-        n_head=args.heads,
-        block_size=args.block,
-        batch_size=args.batch,
-        epochs=args.epochs,
-        lr=args.lr,
-        soul_name=getattr(args, 'soul_name', 'SloughGPT-Quick'),
-    )
-    legacy_trainer.model = model
-    legacy_trainer.stoi = stoi
-    legacy_trainer.itos = itos
-    legacy_trainer._best_val_loss = 0.0
-    legacy_trainer._train_loss_at_best = 0.0
-    legacy_trainer.vocab_size = vocab_size
-
     output_base = args.output.replace(".pt", "").replace(".safetensors", "").replace(".sou", "")
-    legacy_trainer.save(output_base, format="sou")
+    trainer.save(output_base, format="sou")
     print(f"\nSoul Unit saved to {output_base}.sou")
 
 
