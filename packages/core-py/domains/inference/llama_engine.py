@@ -1,6 +1,11 @@
 """
 Llama.cpp Inference Engine
 High-performance local inference using llama.cpp with GGUF models.
+
+GPU Support:
+- Auto-detects GPU capability (Metal/CUDA)
+- Falls back to CPU when GPU is too slow or unavailable
+- Supports high-end GPU switching via SLOUGHGPT_FORCE_GPU env var
 """
 
 import os
@@ -8,7 +13,9 @@ import sys
 import time
 import threading
 import json
+import subprocess
 import requests
+import platform
 from pathlib import Path
 from typing import Optional, List, AsyncIterator, Dict, Any, Union
 from dataclasses import dataclass, field
@@ -37,18 +44,242 @@ LLAMA_CLI_AVAILABLE = Path(LLAMA_CLI_PATH).exists() if not LLAMA_CPP_PYTHON_AVAI
 
 
 @dataclass
+class GPUInfo:
+    """Information about a detected GPU."""
+
+    name: str
+    backend: str
+    vram_mb: float
+    has_tensor_ops: bool
+    recommended: bool
+    reason: str = ""
+
+
+def detect_gpu() -> Optional[GPUInfo]:
+    """
+    Detect available GPU and determine if it should be used.
+
+    Returns GPUInfo if a capable GPU is detected, None otherwise.
+
+    GPU is recommended when:
+    - Has tensor ops (Metal GPU family >= 3, or modern CUDA)
+    - Has sufficient VRAM (>2GB for small models)
+    """
+    system = platform.system()
+
+    if system == "Darwin":
+        return _detect_metal_gpu()
+    elif system == "Linux":
+        return _detect_cuda_gpu()
+
+    return None
+
+
+def _detect_metal_gpu() -> Optional[GPUInfo]:
+    """Detect Apple Metal GPU and check capabilities."""
+    try:
+        result = subprocess.run(
+            ["sysctl", "-n", "hw.memsize"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        total_ram_gb = int(result.stdout.strip()) / (1024**3)
+    except:
+        total_ram_gb = 0
+
+    machine = platform.machine()
+    has_apple_silicon = machine in ("arm64", "aarch64")
+
+    if not has_apple_silicon:
+        gpu_name = "Unknown"
+        has_amd_gpu = False
+        try:
+            result = subprocess.run(
+                ["system_profiler", "SPDisplaysDataType"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            output = result.stdout
+            if "Radeon" in output:
+                has_amd_gpu = True
+                gpu_name = "AMD Radeon GPU"
+        except:
+            pass
+
+        if has_amd_gpu:
+            return GPUInfo(
+                name=gpu_name,
+                backend="metal",
+                vram_mb=4096,
+                has_tensor_ops=True,
+                recommended=True,
+                reason="AMD GPU with Metal support for LLM inference",
+            )
+
+        return GPUInfo(
+            name="Intel Mac (Integrated GPU)",
+            backend="metal",
+            vram_mb=1536,
+            has_tensor_ops=False,
+            recommended=False,
+            reason="Intel integrated GPU too slow for LLM inference",
+        )
+
+    gpu_names = {
+        "M1": "Apple M1",
+        "M2": "Apple M2",
+        "M3": "Apple M3",
+        "M4": "Apple M4",
+        "M5": "Apple M5",
+    }
+
+    try:
+        cpubrand = subprocess.run(
+            ["sysctl", "-n", "machdep.cpu.brand_string"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        ).stdout.strip()
+    except:
+        cpubrand = "Unknown"
+
+    for chip, name in gpu_names.items():
+        if chip in cpubrand:
+            has_tensor = "M3" in cpubrand or "M4" in cpubrand or "M5" in cpubrand
+
+            recommended = has_tensor and total_ram_gb >= 8
+
+            reason = ""
+            if not has_tensor:
+                reason = "No tensor ops (M1/M2 chips slower than CPU for LLM)"
+            elif total_ram_gb < 8:
+                reason = f"Limited RAM ({total_ram_gb:.0f}GB)"
+            else:
+                reason = "Full tensor support"
+
+            return GPUInfo(
+                name=name,
+                backend="metal",
+                vram_mb=total_ram_gb * 1024,
+                has_tensor_ops=has_tensor,
+                recommended=recommended,
+                reason=reason,
+            )
+
+    return GPUInfo(
+        name="Unknown Apple Silicon",
+        backend="metal",
+        vram_mb=total_ram_gb * 1024,
+        has_tensor_ops=False,
+        recommended=False,
+        reason="Unknown chip, assuming no tensor ops",
+    )
+
+
+def _detect_cuda_gpu() -> Optional[GPUInfo]:
+    """Detect NVIDIA CUDA GPU."""
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            lines = result.stdout.strip().split("\n")
+            if lines:
+                name, mem = lines[0].split(",")
+                vram_mb = float(mem.strip().replace("MiB", "").strip())
+                compute_capable = vram_mb >= 4096
+                return GPUInfo(
+                    name=name.strip(),
+                    backend="cuda",
+                    vram_mb=vram_mb,
+                    has_tensor_ops=compute_capable,
+                    recommended=compute_capable,
+                    reason="CUDA with tensor cores"
+                    if compute_capable
+                    else f"Limited VRAM ({vram_mb:.0f}MB)",
+                )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    return None
+
+
+def auto_select_backend(model_size_gb: float = 1.5) -> int:
+    """
+    Auto-select GPU layers based on detected GPU capability.
+
+    Args:
+        model_size_gb: Size of the model in GB
+
+    Returns:
+        Number of GPU layers to use (0 = CPU only)
+    """
+    force_gpu = os.environ.get("SLOUGHGPT_FORCE_GPU", "").lower()
+    if force_gpu in ("1", "true", "yes"):
+        logger.info("Force GPU enabled via SLOUGHGPT_FORCE_GPU")
+        return 99
+
+    gpu = detect_gpu()
+
+    if gpu is None:
+        logger.info("No GPU detected, using CPU")
+        return 0
+
+    if not gpu.recommended:
+        logger.info(f"GPU detected but not recommended: {gpu.name} - {gpu.reason}. Using CPU.")
+        return 0
+
+    if gpu.has_tensor_ops:
+        logger.info(
+            f"High-end GPU detected: {gpu.name} ({gpu.vram_mb:.0f}MB) - Using GPU acceleration"
+        )
+        return 99
+
+    model_size_gb = max(1.0, model_size_gb)
+    max_layers = int(gpu.vram_mb / (model_size_gb * 2))
+    max_layers = min(max_layers, 32)
+
+    if max_layers > 0:
+        logger.info(f"Moderate GPU detected: {gpu.name} - Using {max_layers} GPU layers")
+
+    return max_layers
+
+
+@dataclass
 class LlamaInferenceConfig:
-    """Configuration for llama.cpp inference."""
+    """Configuration for llama.cpp inference.
+
+    GPU behavior:
+    - n_gpu_layers=-1: Auto-detect (recommended)
+    - n_gpu_layers=0: CPU only
+    - n_gpu_layers=99: Full GPU offload
+    - n_gpu_layers=N: Offload N layers to GPU
+    """
 
     model_path: str
     n_ctx: int = 4096
     n_threads: int = 6
-    n_gpu_layers: int = 0
+    n_gpu_layers: int = -1
     n_batch: int = 512
     repeat_penalty: float = 1.1
     rope_freq_base: float = 10000.0
     rope_freq_scale: float = 1.0
     verbose: bool = False
+
+    def __post_init__(self):
+        if self.n_gpu_layers == -1:
+            model_size_gb = 1.5
+            if Path(self.model_path).exists():
+                try:
+                    model_size_gb = Path(self.model_path).stat().st_size / (1024**3)
+                except:
+                    pass
+            self.n_gpu_layers = auto_select_backend(model_size_gb)
 
 
 class LlamaInferenceEngine:
@@ -70,6 +301,13 @@ class LlamaInferenceEngine:
         self._cli_engine: Optional[LlamaCLIInferenceEngine] = None
         self._lock = threading.Lock()
         self._model_loaded = False
+
+        gpu = detect_gpu()
+        if gpu:
+            logger.info(
+                f"GPU Info: {gpu.name}, VRAM: {gpu.vram_mb:.0f}MB, "
+                f"Tensor ops: {gpu.has_tensor_ops}, Recommended: {gpu.recommended}"
+            )
 
         if not LLAMA_CPP_PYTHON_AVAILABLE:
             if LLAMA_CLI_AVAILABLE:
@@ -326,12 +564,23 @@ class LlamaCLIInferenceEngine:
         model_path: str,
         n_ctx: int = 4096,
         n_threads: int = 6,
-        n_gpu_layers: int = 0,
+        n_gpu_layers: int = -1,
     ):
         self.model_path = model_path
         self.n_ctx = n_ctx
         self.n_threads = n_threads
-        self.n_gpu_layers = n_gpu_layers
+
+        if n_gpu_layers == -1:
+            model_size_gb = 1.5
+            if Path(model_path).exists():
+                try:
+                    model_size_gb = Path(model_path).stat().st_size / (1024**3)
+                except:
+                    pass
+            self.n_gpu_layers = auto_select_backend(model_size_gb)
+        else:
+            self.n_gpu_layers = n_gpu_layers
+
         self._process: Optional[subprocess.Popen] = None
         self._input_buffer = ""
         self._output_buffer = ""
@@ -460,9 +709,6 @@ class LlamaCLIInferenceEngine:
         return Path(self.model_path).exists()
 
 
-import subprocess
-
-
 def find_gguf_models(search_paths: Optional[List[str]] = None) -> List[Path]:
     """Find all GGUF model files in common locations."""
     if search_paths is None:
@@ -490,9 +736,30 @@ if __name__ == "__main__":
     parser.add_argument("--prompt", "-p", default="Hello world", help="Prompt")
     parser.add_argument("--tokens", "-t", type=int, default=50, help="Max tokens")
     parser.add_argument("--threads", type=int, default=6, help="CPU threads")
+    parser.add_argument(
+        "--gpu-layers",
+        "-g",
+        type=int,
+        default=-1,
+        help="GPU layers (-1=auto, 0=CPU only, N=layers)",
+    )
     parser.add_argument("--list", "-l", action="store_true", help="List available models")
+    parser.add_argument("--detect-gpu", action="store_true", help="Show GPU detection info")
 
     args = parser.parse_args()
+
+    if args.detect_gpu:
+        gpu = detect_gpu()
+        if gpu:
+            print(f"GPU: {gpu.name}")
+            print(f"Backend: {gpu.backend}")
+            print(f"VRAM: {gpu.vram_mb:.0f}MB")
+            print(f"Tensor ops: {gpu.has_tensor_ops}")
+            print(f"Recommended: {gpu.recommended}")
+            print(f"Reason: {gpu.reason}")
+        else:
+            print("No GPU detected")
+        sys.exit(0)
 
     if args.list:
         models = find_gguf_models()
@@ -514,9 +781,12 @@ if __name__ == "__main__":
     config = LlamaInferenceConfig(
         model_path=args.model,
         n_threads=args.threads,
+        n_gpu_layers=args.gpu_layers,
     )
 
     engine = LlamaInferenceEngine(config)
+
+    print(f"Using GPU layers: {config.n_gpu_layers}")
 
     print(f"Generating {args.tokens} tokens...")
     result = engine.benchmark(args.prompt, args.tokens)
