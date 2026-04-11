@@ -505,6 +505,98 @@ class LlamaInferenceEngine:
     def is_loaded(self) -> bool:
         return self._model_loaded
 
+    def profile_generate(
+        self,
+        prompt: str,
+        max_tokens: int = 100,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Profile generation with detailed timing breakdown."""
+        if self._cli_engine:
+            return self._cli_engine.benchmark(prompt, max_tokens)
+
+        if not self._model_loaded:
+            if not self.load_model():
+                return {"error": "Failed to load model"}
+
+        times = {}
+
+        t0 = time.perf_counter()
+        result = self._llama(
+            prompt,
+            max_tokens=max_tokens,
+            echo=False,
+            stream=False,
+            **kwargs,
+        )
+        t1 = time.perf_counter()
+
+        text = result["choices"][0]["text"]
+        tokens = len(text.split())
+        times["generation_ms"] = (t1 - t0) * 1000
+        times["tokens_per_second"] = tokens / (t1 - t0) if (t1 - t0) > 0 else 0
+        times["tokens_generated"] = tokens
+
+        return {
+            "prompt": prompt[:50],
+            "times": times,
+            "text_preview": text[:100],
+            "config": {
+                "max_tokens": max_tokens,
+                "n_ctx": self.config.n_ctx,
+                "n_threads": self.config.n_threads,
+                "n_gpu_layers": self.config.n_gpu_layers,
+            },
+        }
+
+
+class InferenceProfiler:
+    """Profiler for tracking inference performance."""
+
+    def __init__(self):
+        self._profiles: List[Dict[str, Any]] = []
+        self._current: Optional[Dict[str, float]] = None
+
+    def start(self, name: str = "default"):
+        """Start a profiling session."""
+        self._current = {"name": name, "start": time.perf_counter()}
+        return self
+
+    def end(self) -> float:
+        """End profiling session and return elapsed time in ms."""
+        if self._current is None:
+            return 0
+        elapsed = (time.perf_counter() - self._current["start"]) * 1000
+        self._profiles.append(
+            {
+                "name": self._current["name"],
+                "elapsed_ms": elapsed,
+            }
+        )
+        self._current = None
+        return elapsed
+
+    def get_profiles(self) -> List[Dict[str, Any]]:
+        """Get all profile results."""
+        return self._profiles
+
+    def clear(self):
+        """Clear all profiles."""
+        self._profiles.clear()
+
+    def summary(self) -> Dict[str, Any]:
+        """Get summary statistics."""
+        if not self._profiles:
+            return {}
+        total = sum(p["elapsed_ms"] for p in self._profiles)
+        return {
+            "total_profiles": len(self._profiles),
+            "total_ms": total,
+            "avg_ms": total / len(self._profiles),
+            "min_ms": min(p["elapsed_ms"] for p in self._profiles),
+            "max_ms": max(p["elapsed_ms"] for p in self._profiles),
+        }
+
 
 class OllamaInferenceEngine:
     """
@@ -781,6 +873,36 @@ def get_inference_stats() -> Dict[str, Any]:
         stats["avg_tokens_per_second"] = 0.0
     stats["cached_models"] = list(_MODEL_CACHE.keys())
     return stats
+
+
+def get_memory_usage() -> Dict[str, Any]:
+    """Get current memory usage for the process."""
+    try:
+        import psutil
+
+        process = psutil.Process()
+        mem_info = process.memory_info()
+        return {
+            "rss_mb": mem_info.rss / (1024 * 1024),
+            "vms_mb": mem_info.vms / (1024 * 1024),
+            "percent": process.memory_percent(),
+        }
+    except ImportError:
+        return {"error": "psutil not installed"}
+
+
+def profile_memory(f):
+    """Decorator to profile memory usage of a function."""
+
+    def wrapper(*args, **kwargs):
+        mem_before = get_memory_usage()
+        result = f(*args, **kwargs)
+        mem_after = get_memory_usage()
+        if "error" not in mem_before and "error" not in mem_after:
+            result["memory_delta_mb"] = mem_after["rss_mb"] - mem_before["rss_mb"]
+        return result
+
+    return wrapper
 
 
 def find_gguf_models(search_paths: Optional[List[str]] = None) -> List[Path]:
