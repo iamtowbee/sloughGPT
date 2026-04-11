@@ -1406,3 +1406,57 @@ docker compose -f infra/docker/docker-compose.yml up -d api
 ```
 
 *Always refer to this document for project status and priorities*
+
+---
+
+## Phase 29: Smart Inference Backend Selection (2026-04-11)
+
+**Removed Ollama dependency** - Uses llama.cpp directly with smart CPU/GPU selection.
+
+### Inference Engine (`packages/core-py/domains/inference/llama_engine.py`)
+| Component | Status | Description |
+|-----------|--------|-------------|
+| `detect_gpu()` | ✅ | Detects Metal/CUDA GPU capability |
+| `auto_select_backend()` | ✅ | Smart CPU/GPU selection |
+| `GPUInfo` | ✅ | GPU metadata (VRAM, tensor ops) |
+
+### GPU Detection Logic
+| GPU | Detection | Result |
+|-----|-----------|--------|
+| Apple M3/M4/M5 | Metal tensor ops | ✅ GPU |
+| AMD Radeon (Intel Mac) | No tensor ops | ❌ CPU (faster!) |
+| NVIDIA | CUDA tensor cores | ✅ GPU |
+| Intel integrated | No GPU | ❌ CPU |
+
+### Server (`apps/api/server/simple_server.py`)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check with backend info |
+| `/generate` | POST | Text generation |
+
+### Environment Variables
+```bash
+SLOUGHGPT_MODEL_PATH=~/models/model.gguf  # Required
+SLOUGHGPT_FORCE_GPU=1                     # Force GPU
+SLOUGHGPT_FORCE_CPU=1                    # Force CPU
+```
+
+### Benchmark Results (AMD Radeon 555X)
+| Setup | Prompt | Generation |
+|-------|--------|------------|
+| llama.cpp CPU | 31 tok/s | 16 tok/s |
+| llama.cpp Metal (AMD) | 25 tok/s | 5 tok/s |
+
+**Conclusion:** CPU is faster on AMD 555X - Metal lacks tensor ops.
+
+### Commands
+```bash
+# Run server
+cd apps/api/server
+SLOUGHGPT_MODEL_PATH=~/models/llama3.2-1b-q8_0.gguf python simple_server.py
+
+# Test
+curl -X POST http://localhost:8000/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"Hello","max_new_tokens":50}'
+```
