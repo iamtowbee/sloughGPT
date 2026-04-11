@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
 """
-Minimal SloughGPT Server with GPT-2
-Simple server that loads GPT-2 for text generation.
+SloughGPT Inference Server
+Fast server using Ollama for GPU-accelerated inference.
 """
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = ""  # Force CPU
-
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent))
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-import torch
+import requests
 import asyncio
 import threading
 import time
@@ -30,12 +29,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global model state
-model = None
-tokenizer = None
-model_type = "gpt2"
+# Configuration
+OLLAMA_URL = os.environ.get("SLOUGHGPT_OLLAMA_URL", "http://localhost:11434")
+DEFAULT_MODEL = os.environ.get("SLOUGHGPT_OLLAMA_MODEL", "llama3.2:1b")
+
+# Global state
+model_type = "ollama"
 model_loaded = False
 load_error = None
+
+
+def check_ollama():
+    """Check if Ollama is available."""
+    global model_loaded, load_error
+    try:
+        resp = requests.get(f"{OLLAMA_URL}/api/tags", timeout=5)
+        if resp.status_code == 200:
+            models = resp.json().get("models", [])
+            model_names = [m["name"] for m in models]
+            print(f"Ollama available with models: {model_names}")
+            if DEFAULT_MODEL in model_names:
+                model_loaded = True
+                print(f"Default model '{DEFAULT_MODEL}' ready")
+            else:
+                print(f"Warning: Default model '{DEFAULT_MODEL}' not found")
+        else:
+            load_error = f"Ollama returned status {resp.status_code}"
+            print(f"Error: {load_error}")
+    except Exception as e:
+        load_error = str(e)
+        print(f"Ollama not available: {e}")
+
+
+# Check Ollama at startup
+check_ollama()
 
 
 class GenerateRequest(BaseModel):
@@ -58,29 +85,27 @@ class ChatRequest(BaseModel):
 
 
 def load_gpt2():
-    """Load GPT-2 model."""
+    """Load GPT-2 model (fallback if Ollama unavailable)."""
     global model, tokenizer, model_loaded, load_error
-    
-    print("Loading GPT-2 from HuggingFace...")
+
+    print("Ollama not available, falling back to GPT-2...")
     try:
         from transformers import GPT2LMHeadModel, GPT2Tokenizer
-        
-        tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+
+        tokenizer = GPT2LMHeadModel.from_pretrained("gpt2")
         model = GPT2LMHeadModel.from_pretrained("gpt2")
         model.eval()
         model_loaded = True
+        model_type = "gpt2"
         print("GPT-2 loaded successfully!")
     except Exception as e:
         load_error = str(e)
         print(f"Failed to load GPT-2: {e}")
 
 
-# Load model in background thread
-def background_load():
-    time.sleep(1)  # Give server time to start
+# Fallback to GPT-2 if Ollama not available
+if not model_loaded:
     load_gpt2()
-
-threading.Thread(target=background_load, daemon=True).start()
 
 
 @app.get("/")
@@ -107,13 +132,60 @@ async def generate(request: GenerateRequest):
     """Generate text from prompt."""
     if not model_loaded:
         return {
-            "text": f"[Demo mode] {request.prompt[:50]}... (model loading...)",
+            "text": f"[Error] Ollama not available and GPT-2 failed to load: {load_error}",
             "model": model_type,
         }
-    
+
+    if model_type == "ollama":
+        return await ollama_generate(request)
+    else:
+        return await gpt2_generate(request)
+
+
+async def ollama_generate(request: GenerateRequest):
+    """Generate using Ollama API."""
+    try:
+        payload = {
+            "model": DEFAULT_MODEL,
+            "prompt": request.prompt,
+            "stream": False,
+            "options": {
+                "num_predict": request.max_new_tokens,
+                "temperature": request.temperature,
+                "top_p": request.top_p,
+                "top_k": request.top_k,
+            },
+        }
+
+        start = time.time()
+        resp = requests.post(f"{OLLAMA_URL}/api/generate", json=payload, timeout=120)
+        elapsed = time.time() - start
+
+        if resp.status_code == 200:
+            data = resp.json()
+            tokens = data.get("eval_count", 0)
+            tps = tokens / elapsed if elapsed > 0 else 0
+            return {
+                "text": data.get("response", ""),
+                "model": f"ollama/{DEFAULT_MODEL}",
+                "tokens_per_second": tps,
+                "latency_ms": int(elapsed * 1000),
+            }
+        else:
+            raise HTTPException(status_code=500, detail=resp.text)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def gpt2_generate(request: GenerateRequest):
+    """Generate using GPT-2 (fallback)."""
+    import torch
+
+    global model, tokenizer
+
     try:
         inputs = tokenizer(request.prompt, return_tensors="pt")
-        
+
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
@@ -124,10 +196,9 @@ async def generate(request: GenerateRequest):
                 do_sample=True,
                 pad_token_id=tokenizer.eos_token_id,
             )
-        
+
         text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         return {"text": text, "model": model_type}
-    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -135,7 +206,50 @@ async def generate(request: GenerateRequest):
 @app.post("/chat/completions")
 async def chat(request: ChatRequest):
     """Chat completion endpoint."""
-    # Combine messages into prompt
+    if not model_loaded:
+        return {
+            "message": {
+                "role": "assistant",
+                "content": f"[Error] Model not available: {load_error}",
+            },
+            "model": model_type,
+        }
+
+    if model_type == "ollama":
+        return await ollama_chat(request)
+    else:
+        return await gpt2_chat(request)
+
+
+async def ollama_chat(request: ChatRequest):
+    """Chat using Ollama."""
+    payload = {
+        "model": DEFAULT_MODEL,
+        "prompt": request.messages[-1].content if request.messages else "",
+        "stream": False,
+        "options": {
+            "num_predict": request.max_new_tokens,
+            "temperature": request.temperature,
+        },
+    }
+
+    resp = requests.post(f"{OLLAMA_URL}/api/generate", json=payload, timeout=120)
+    if resp.status_code == 200:
+        data = resp.json()
+        return {
+            "message": {"role": "assistant", "content": data.get("response", "")},
+            "model": f"ollama/{DEFAULT_MODEL}",
+        }
+    else:
+        raise HTTPException(status_code=500, detail=resp.text)
+
+
+async def gpt2_chat(request: ChatRequest):
+    """Chat using GPT-2."""
+    import torch
+
+    global model, tokenizer
+
     prompt = ""
     for msg in request.messages:
         role = msg.role.upper()
@@ -144,16 +258,9 @@ async def chat(request: ChatRequest):
         elif role == "ASSISTANT":
             prompt += f"Assistant: {msg.content}\n"
     prompt += "Assistant:"
-    
-    if not model_loaded:
-        return {
-            "message": {"role": "assistant", "content": f"[Demo mode] Hi! (model loading...)"},
-            "model": model_type,
-        }
-    
+
     try:
         inputs = tokenizer(prompt, return_tensors="pt")
-        
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
@@ -162,32 +269,31 @@ async def chat(request: ChatRequest):
                 do_sample=True,
                 pad_token_id=tokenizer.eos_token_id,
             )
-        
+
         text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        # Extract just the assistant response
         response = text.split("Assistant:")[-1].strip()
-        
+
         return {
             "message": {"role": "assistant", "content": response},
             "model": model_type,
         }
-    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/load")
 async def load_model():
-    """Load or reload model."""
-    global model_loaded
-    
+    """Reload/check Ollama connection."""
+    global model_loaded, load_error
+    check_ollama()
+
     if model_loaded:
-        return {"status": "already_loaded", "model": model_type}
-    
-    load_gpt2()
-    
-    if model_loaded:
-        return {"status": "loaded", "model": model_type}
+        return {
+            "status": "loaded",
+            "model": model_type,
+            "backend": "ollama",
+            "ollama_model": DEFAULT_MODEL,
+        }
     else:
         return {"status": "error", "error": load_error}
 
@@ -209,16 +315,20 @@ if __name__ == "__main__":
         raise RuntimeError(f"Could not find available port")
 
     print("=" * 50)
-    print("SloughGPT Server with GPT-2")
+    print("SloughGPT Inference Server")
+    print("=" * 50)
+    print(f"Backend: {model_type}")
+    print(f"Ollama: {OLLAMA_URL}")
+    print(f"Model: {DEFAULT_MODEL}")
+    print(f"Status: {'Ready' if model_loaded else f'Error: {load_error}'}")
     print("=" * 50)
     print("Endpoints:")
     print("  GET  /           - Server info")
     print("  GET  /health     - Health check")
     print("  POST /generate   - Text generation")
     print("  POST /chat/completions - Chat")
-    print("  POST /load       - Load/reload model")
+    print("  POST /load       - Reload model")
     print("=" * 50)
     port = find_available_port()
     print(f"Starting on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
-    uvicorn.run(app, host="0.0.0.0", port=8000)
