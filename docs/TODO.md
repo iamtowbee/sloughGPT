@@ -1428,11 +1428,13 @@ docker compose -f infra/docker/docker-compose.yml up -d api
 | NVIDIA | CUDA tensor cores | ✅ GPU |
 | Intel integrated | No GPU | ❌ CPU |
 
-### Server (`apps/api/server/simple_server.py`)
+### Server (`apps/api/server/main.py` and `simple_server.py`)
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/health` | GET | Health check with backend info |
 | `/generate` | POST | Text generation |
+| `/generate/stream` | POST | Streaming generation (SSE) |
+| `/inference/generate/stream` | POST | Production streaming endpoint |
 
 ### Environment Variables
 ```bash
@@ -1451,12 +1453,21 @@ SLOUGHGPT_FORCE_CPU=1                    # Force CPU
 
 ### Commands
 ```bash
-# Run server
+# Run main server (full-featured)
 cd apps/api/server
+SLOUGHGPT_MODEL_PATH=~/models/llama3.2-1b-q8_0.gguf python main.py
+
+# Or run simple server (lightweight)
 SLOUGHGPT_MODEL_PATH=~/models/llama3.2-1b-q8_0.gguf python simple_server.py
 
 # Test
 curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
   -d '{"prompt":"Hello","max_new_tokens":50}'
+
+# Streaming
+curl -X POST http://localhost:8000/generate/stream \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"Hello","max_new_tokens":50}'
+```
 ```
