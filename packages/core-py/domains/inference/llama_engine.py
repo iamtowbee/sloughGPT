@@ -94,6 +94,8 @@ def _detect_metal_gpu() -> Optional[GPUInfo]:
     if not has_apple_silicon:
         gpu_name = "Unknown"
         has_amd_gpu = False
+        vram_mb = 1536
+
         try:
             result = subprocess.run(
                 ["system_profiler", "SPDisplaysDataType"],
@@ -104,7 +106,14 @@ def _detect_metal_gpu() -> Optional[GPUInfo]:
             output = result.stdout
             if "Radeon" in output:
                 has_amd_gpu = True
-                gpu_name = "AMD Radeon GPU"
+                if "Pro 5" in output:
+                    gpu_name = "AMD Radeon Pro 555X/560X"
+                else:
+                    gpu_name = "AMD Radeon GPU"
+                if "4 GB" in output:
+                    vram_mb = 4096
+                elif "x8" in output:
+                    vram_mb = 4096
         except:
             pass
 
@@ -112,10 +121,10 @@ def _detect_metal_gpu() -> Optional[GPUInfo]:
             return GPUInfo(
                 name=gpu_name,
                 backend="metal",
-                vram_mb=4096,
-                has_tensor_ops=True,
-                recommended=True,
-                reason="AMD GPU with Metal support for LLM inference",
+                vram_mb=vram_mb,
+                has_tensor_ops=False,
+                recommended=False,
+                reason="AMD GPU on Intel Mac lacks Metal tensor ops (simdgroup_mm) - CPU is faster",
             )
 
         return GPUInfo(
@@ -213,6 +222,10 @@ def auto_select_backend(model_size_gb: float = 1.5) -> int:
     """
     Auto-select GPU layers based on detected GPU capability.
 
+    Returns 0 (CPU) by default for safety. GPU only if:
+    - has_tensor_ops is True
+    - GPU has sufficient VRAM (>2GB for model)
+
     Args:
         model_size_gb: Size of the model in GB
 
@@ -224,30 +237,30 @@ def auto_select_backend(model_size_gb: float = 1.5) -> int:
         logger.info("Force GPU enabled via SLOUGHGPT_FORCE_GPU")
         return 99
 
+    force_cpu = os.environ.get("SLOUGHGPT_FORCE_CPU", "").lower()
+    if force_cpu in ("1", "true", "yes"):
+        logger.info("Force CPU enabled via SLOUGHGPT_FORCE_CPU")
+        return 0
+
     gpu = detect_gpu()
 
     if gpu is None:
         logger.info("No GPU detected, using CPU")
         return 0
 
-    if not gpu.recommended:
-        logger.info(f"GPU detected but not recommended: {gpu.name} - {gpu.reason}. Using CPU.")
+    if not gpu.has_tensor_ops:
+        logger.info(f"GPU {gpu.name} lacks tensor ops - using CPU instead ({gpu.reason})")
         return 0
 
-    if gpu.has_tensor_ops:
+    model_size_gb = max(0.5, model_size_gb)
+    if gpu.vram_mb < model_size_gb * 1024 * 1.5:
         logger.info(
-            f"High-end GPU detected: {gpu.name} ({gpu.vram_mb:.0f}MB) - Using GPU acceleration"
+            f"GPU VRAM ({gpu.vram_mb:.0f}MB) too small for model ({model_size_gb:.1f}GB) - using CPU"
         )
-        return 99
+        return 0
 
-    model_size_gb = max(1.0, model_size_gb)
-    max_layers = int(gpu.vram_mb / (model_size_gb * 2))
-    max_layers = min(max_layers, 32)
-
-    if max_layers > 0:
-        logger.info(f"Moderate GPU detected: {gpu.name} - Using {max_layers} GPU layers")
-
-    return max_layers
+    logger.info(f"GPU {gpu.name} with tensor ops - using GPU acceleration")
+    return 99
 
 
 @dataclass
