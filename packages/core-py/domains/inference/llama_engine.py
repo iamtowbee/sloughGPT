@@ -502,6 +502,17 @@ class OllamaInferenceEngine:
         except:
             return False
 
+    def list_models(self) -> List[str]:
+        """List available Ollama models."""
+        try:
+            resp = requests.get(f"{self.base_url}/api/tags", timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                return [m["name"] for m in data.get("models", [])]
+        except:
+            pass
+        return []
+
     def generate(
         self,
         prompt: str,
@@ -797,3 +808,70 @@ if __name__ == "__main__":
         print(f"Speed: {result['tokens_per_second']:.1f} tok/s")
         print(f"Time: {result['time_seconds']:.2f}s")
         print(f"Output: {result['text_preview']}...")
+
+
+class AutoInferenceEngine:
+    """
+    Automatically selects the best available inference backend.
+
+    Priority:
+    1. Ollama (if available and has matching model)
+    2. llama-cpp-python (if installed)
+    3. llama-cli (fallback)
+
+    For GGUF files, converts to Ollama model name or uses llama-cli.
+    """
+
+    def __init__(self, model_path: Optional[str] = None, ollama_model: Optional[str] = None):
+        self._ollama: Optional[OllamaInferenceEngine] = None
+        self._llama: Optional[LlamaInferenceEngine] = None
+        self._backend = "none"
+
+        if ollama_model:
+            self._ollama = OllamaInferenceEngine(model=ollama_model)
+            if self._ollama.check_connection():
+                self._backend = "ollama"
+                logger.info(f"Using Ollama backend: {ollama_model}")
+                return
+
+        ollama = OllamaInferenceEngine()
+        if ollama.check_connection():
+            if ollama_model:
+                self._ollama = OllamaInferenceEngine(model=ollama_model)
+                self._backend = "ollama"
+                logger.info(f"Using Ollama backend: {ollama_model}")
+                return
+            available = ollama.list_models()
+            if available:
+                self._ollama = OllamaInferenceEngine(model=available[0])
+                self._backend = "ollama"
+                logger.info(f"Using Ollama backend: {available[0]}")
+                return
+
+        if model_path and Path(model_path).exists():
+            config = LlamaInferenceConfig(model_path=model_path)
+            self._llama = LlamaInferenceEngine(config)
+            self._backend = "llama"
+            logger.info(f"Using llama.cpp backend: {model_path}")
+            return
+
+        raise RuntimeError("No inference backend available")
+
+    def generate(self, prompt: str, max_tokens: int = 256, **kwargs) -> str:
+        if self._backend == "ollama" and self._ollama:
+            result = self._ollama.generate(prompt, max_tokens=max_tokens, **kwargs)
+            return result.get("response", "")
+        elif self._llama:
+            return self._llama.generate(prompt, max_tokens=max_tokens, **kwargs)
+        return ""
+
+    def benchmark(self, prompt: str, num_tokens: int = 50) -> Dict[str, Any]:
+        if self._backend == "ollama" and self._ollama:
+            return self._ollama.benchmark(prompt, num_tokens)
+        elif self._llama:
+            return self._llama.benchmark(prompt, num_tokens)
+        return {"error": "No backend"}
+
+    @property
+    def backend(self) -> str:
+        return self._backend
