@@ -230,7 +230,8 @@ from typing import Optional, Dict, Any
 - [x] Consolidate find_available_port (3 copies → shared utils)
 - [x] Remove unused files: benchmark.py, model_loader.py, wandb_integration.py, mlflow_integration.py, external_integrations.py, knowledge_graph_engine.py
 - [x] Remove unused deployment_utils.py (331 lines)
-- [x] Add Ollama backend support with Metal GPU (via env vars)
+- [x] Add smart GPU auto-detection (Metal/CUDA)
+- [x] Use llama.cpp with CPU/GPU selection (no Ollama dependency)
 
 ## Performance Notes (2026-04-11)
 
@@ -238,10 +239,9 @@ from typing import Optional, Dict, Any
 
 | Hardware | Configuration | Prompt | Generation |
 |----------|---------------|--------|------------|
-| Intel MacBook Pro 15,1 | AMD Radeon 555X + Intel UHD 630 | - | - |
-| llama.cpp (BLAS) | llama3.2-1b Q8_0 | ~33 tok/s | ~13 tok/s |
-| Ollama (Metal) | llama3.2:1b | ~178 tok/s | ~18 tok/s |
-| Ollama (Metal) | llama3.2:1b (real) | - | ~9 tok/s |
+| Intel MacBook Pro 15,1 | AMD Radeon 555X (CPU faster!) | ~31 tok/s | ~16 tok/s |
+| llama.cpp CPU | llama3.2-1b Q8_0 | ~31 tok/s | ~16 tok/s |
+| llama.cpp Metal (AMD) | llama3.2-1b Q8_0 | ~25 tok/s | ~5 tok/s |
 
 ### Benchmark (llama3.2-1b Q8_0, 1.22GB)
 ```
@@ -255,57 +255,65 @@ llama-bench -m ~/models/llama3.2-1b-q8_0.gguf -t 8 -ngl 0
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     API Layer (main.py)                          │
-│  POST /generate → get_inference_engine() → engine.generate()   │
+│                  API Layer (simple_server.py)                     │
+│                  POST /generate → backend.generate()              │
 └─────────────────────────────────────────────────────────────────┘
-                                │
-        ┌───────────────────────┼───────────────────────┐
-        ▼                       ▼                       ▼
-┌───────────────┐   ┌───────────────────┐   ┌─────────────────────┐
-│ Ollama Backend│   │ PyTorch Backend   │   │ Rust Core (future) │
-│ (env var)    │   │ (InferenceEngine) │   │ (sloughgpt-inf)    │
-└───────────────┘   └───────────────────┘   └─────────────────────┘
+                                    │
+        ┌───────────────────────────┼───────────────────────────┐
+        ▼                           ▼                           ▼
+┌───────────────────┐   ┌───────────────────┐   ┌─────────────────────┐
+│   llama.cpp-CPU   │   │  llama.cpp-GPU   │   │   PyTorch GPT-2     │
+│  (auto-detected)  │   │ (M3/M4 with Metal │   │    (fallback)       │
+│   ~16 tok/s       │   │    tensor ops)    │   │                     │
+└───────────────────┘   └───────────────────┘   └─────────────────────┘
 ```
 
-### Ollama Backend (Metal GPU)
+### llama.cpp Inference Engine
 
-Enabled via environment variables:
-```bash
-SLOUGHGPT_OLLAMA_BACKEND=llama3.2:1b  # Ollama model name
-SLOUGHGPT_OLLAMA_URL=http://localhost:11434  # Optional
-```
-
-**Supported endpoints:**
-- `POST /generate` - Non-streaming generation
-- `POST /generate/stream` - SSE streaming
-- `POST /inference/generate` - Inference API
-- `POST /inference/generate/stream` - Inference streaming
-
-**Performance:**
-- llama3.2:1b on Metal: ~4-17 tok/s
-- Uses all available Metal GPU
-
-### Inference with llama.cpp
-
-GGUF models are handled by llama.cpp via:
-- **llama-cpp-python**: Primary (fastest for Python integration)
-- **llama-cli**: Fallback subprocess (direct llama.cpp access)
+GGUF models handled by llama.cpp:
+- **llama-cpp-python**: Primary (if installed)
+- **llama-cli**: Subprocess fallback
 
 Located at `packages/core-py/domains/inference/llama_engine.py`:
-- `LlamaInferenceEngine`: Main engine with llama-cpp-python
-- `LlamaCLIInferenceEngine`: Subprocess fallback
-- `OllamaInferenceEngine`: Ollama API wrapper
-- `detect_gpu()`: Auto-detect GPU capability
+- `LlamaInferenceEngine`: Main engine
+- `LlamaCLIInferenceEngine`: CLI subprocess
+- `detect_gpu()`: Detect Metal/CUDA GPU
+- `auto_select_backend()`: Smart CPU/GPU selection
 
-**GPU Auto-Detection:**
-- Automatically detects Metal/CUDA GPU capability
-- Smart fallback to CPU when GPU is too slow
-- High-end GPUs (M3/M4/M5, AMD Radeon) get full acceleration
-- Environment variable `SLOUGHGPT_FORCE_GPU=1` for manual override
+### GPU Auto-Detection
 
-**Status:**
+| GPU | Detection | Result |
+|-----|-----------|--------|
+| Apple M3/M4/M5 | Metal tensor ops | ✅ GPU |
+| AMD Radeon (Intel Mac) | No tensor ops | ❌ CPU (faster) |
+| Intel integrated | No GPU | ❌ CPU |
+| NVIDIA (Linux) | CUDA tensor cores | ✅ GPU |
+
+**Environment Variables:**
+```bash
+SLOUGHGPT_MODEL_PATH=~/models/model.gguf  # Required
+SLOUGHGPT_FORCE_GPU=1                      # Force GPU
+SLOUGHGPT_FORCE_CPU=1                      # Force CPU
+```
+
+### Server Usage
+
+```bash
+# Start server
+cd apps/api/server
+SLOUGHGPT_MODEL_PATH=~/models/llama3.2-1b-q8_0.gguf python simple_server.py
+
+# Generate
+curl -X POST http://localhost:8000/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"Hello","max_new_tokens":50}'
+```
+
+### Status
 - ✅ GGUF model loading
-- ✅ Streaming generation
-- ✅ KV cache support
+- ✅ Smart CPU/GPU selection
+- ✅ llama-cli fallback
+- ✅ PyTorch GPT-2 fallback
+- ✅ No external dependencies (Ollama removed)
 - ✅ llama-cli fallback when llama-cpp-python unavailable
 - ✅ GPU auto-detection and smart backend selection
