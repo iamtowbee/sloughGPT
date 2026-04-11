@@ -232,16 +232,24 @@ from typing import Optional, Dict, Any
 - [x] Remove unused deployment_utils.py (331 lines)
 - [x] Add Ollama backend support with Metal GPU (via env vars)
 
-## Performance Notes (2026-04-06)
+## Performance Notes (2026-04-11)
 
 ### Hardware Analysis
 
-| Hardware | Configuration | Speed |
-|----------|---------------|-------|
-| Intel MacBook Pro 15,1 | Intel i7-9750H + AMD Radeon 555X | - |
-| PyTorch + CPU | GPT-2 (124M) | ~12 tok/s |
-| Ollama (Metal) | llama3.2:1b (1.2B) | ~17 tok/s |
-| **Rust Core** | Tiny transformer baseline | **~2,858 tok/s** |
+| Hardware | Configuration | Prompt | Generation |
+|----------|---------------|--------|------------|
+| Intel MacBook Pro 15,1 | AMD Radeon 555X + Intel UHD 630 | - | - |
+| llama.cpp (BLAS) | llama3.2-1b Q8_0 | ~33 tok/s | ~13 tok/s |
+| Ollama (Metal) | llama3.2:1b | ~178 tok/s | ~18 tok/s |
+| Ollama (Metal) | llama3.2:1b (real) | - | ~9 tok/s |
+
+### Benchmark (llama3.2-1b Q8_0, 1.22GB)
+```
+llama-bench -m ~/models/llama3.2-1b-q8_0.gguf -t 8 -ngl 0
+| model    | pp32 | tg32 |
+|----------|-------|------|
+| Q8_0     | 33 t/s| 12 t/s|
+```
 
 ### Inference Engine Architecture
 
@@ -287,9 +295,17 @@ Located at `packages/core-py/domains/inference/llama_engine.py`:
 - `LlamaInferenceEngine`: Main engine with llama-cpp-python
 - `LlamaCLIInferenceEngine`: Subprocess fallback
 - `OllamaInferenceEngine`: Ollama API wrapper
+- `detect_gpu()`: Auto-detect GPU capability
+
+**GPU Auto-Detection:**
+- Automatically detects Metal/CUDA GPU capability
+- Smart fallback to CPU when GPU is too slow
+- High-end GPUs (M3/M4/M5, AMD Radeon) get full acceleration
+- Environment variable `SLOUGHGPT_FORCE_GPU=1` for manual override
 
 **Status:**
 - ✅ GGUF model loading
 - ✅ Streaming generation
 - ✅ KV cache support
 - ✅ llama-cli fallback when llama-cpp-python unavailable
+- ✅ GPU auto-detection and smart backend selection
