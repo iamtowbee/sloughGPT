@@ -433,48 +433,6 @@ def _generate_core(request: GenerateRequest, client_ip: str) -> Dict[str, Any]:
         except Exception as e:
             logger.error(f"SoulEngine generation failed: {e}")
 
-    # Check for Ollama backend
-    ollama_enabled = os.environ.get("SLOUGHGPT_OLLAMA_BACKEND", "").strip()
-    if ollama_enabled:
-        try:
-            import requests as ollama_requests
-
-            ollama_url = os.environ.get("SLOUGHGPT_OLLAMA_URL", "http://localhost:11434")
-            ollama_model = ollama_enabled
-
-            payload = {
-                "model": ollama_model,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "num_predict": max_tokens,
-                    "temperature": temperature,
-                    "top_p": top_p,
-                    "top_k": top_k,
-                },
-            }
-
-            start_time = time.perf_counter()
-            resp = ollama_requests.post(f"{ollama_url}/api/generate", json=payload, timeout=60)
-            elapsed = time.perf_counter() - start_time
-
-            if resp.status_code == 200:
-                data = resp.json()
-                text = data.get("response", "")
-                tokens = data.get("eval_count", len(text.split()))
-                tps = tokens / elapsed if elapsed > 0 else 0
-
-                logger.info(f"Ollama backend: {tokens} tokens in {elapsed:.2f}s = {tps:.1f} tok/s")
-
-            return {
-                "text": text,
-                "model": f"ollama/{ollama_model}",
-                "tokens_per_second": tps,
-                "backend": "ollama",
-            }
-        except Exception as e:
-            logger.error(f"Ollama backend failed: {e}")
-
     # Check for llama.cpp backend (GGUF models)
     llama_model_path = os.environ.get("SLOUGHGPT_MODEL_PATH", "").strip()
     if llama_model_path:
@@ -1850,54 +1808,6 @@ async def generate_stream(request: GenerateRequest):
     top_p_val = max(0.0, min(1.0, float(request.top_p if request.top_p is not None else 0.9)))
 
     async def generate_stream_tokens():
-        # Check for Ollama backend first
-        ollama_enabled = os.environ.get("SLOUGHGPT_OLLAMA_BACKEND", "").strip()
-        if ollama_enabled:
-            try:
-                import requests as ollama_requests
-
-                ollama_url = os.environ.get("SLOUGHGPT_OLLAMA_URL", "http://localhost:11434")
-                ollama_model = ollama_enabled
-
-                payload = {
-                    "model": ollama_model,
-                    "prompt": request.prompt,
-                    "stream": True,
-                    "options": {
-                        "num_predict": max_gen,
-                        "temperature": temperature,
-                        "top_p": top_p_val,
-                        "top_k": request.top_k or 40,
-                    },
-                }
-
-                start_time = time.perf_counter()
-                tokens_count = 0
-
-                with ollama_requests.post(
-                    f"{ollama_url}/api/generate", json=payload, stream=True, timeout=60
-                ) as resp:
-                    for line in resp.iter_lines():
-                        if line:
-                            data = json.loads(line)
-                            token = data.get("response", "")
-                            done = data.get("done", False)
-                            if data.get("eval_count"):
-                                tokens_count = data["eval_count"]
-
-                            yield f"data: {json.dumps({'token': token, 'done': done})}\n\n"
-
-                            if done:
-                                elapsed = time.perf_counter() - start_time
-                                tps = tokens_count / elapsed if elapsed > 0 else 0
-                                logger.info(
-                                    f"Ollama streaming: {tokens_count} tokens in {elapsed:.2f}s = {tps:.1f} tok/s"
-                                )
-                                break
-                return
-            except Exception as e:
-                logger.error(f"Ollama streaming failed: {e}")
-
         # llama.cpp streaming
         llama_model_path = os.environ.get("SLOUGHGPT_MODEL_PATH", "").strip()
         if llama_model_path:
@@ -2733,66 +2643,41 @@ async def inference_generate(gr: GenerateRequest, req: Request):
 
 @app.post("/inference/generate/stream", tags=["inference"])
 async def inference_generate_stream(request: GenerateRequest):
-    """Streaming generation using the production inference engine or Ollama."""
+    """Streaming generation using llama.cpp or PyTorch."""
     require_non_empty_prompt(input_validator.validate_prompt(request.prompt))
 
-    # Check for Ollama first
-    ollama_enabled = os.environ.get("SLOUGHGPT_OLLAMA_BACKEND", "").strip()
-    if ollama_enabled:
-        ollama_url = os.environ.get("SLOUGHGPT_OLLAMA_URL", "http://localhost:11434")
-        ollama_model = ollama_enabled
+    # Check for llama.cpp first
+    llama_model_path = os.environ.get("SLOUGHGPT_MODEL_PATH", "").strip()
+    if llama_model_path:
+        try:
+            from domains.inference.llama_engine import (
+                detect_gpu,
+                auto_select_backend,
+                LlamaInferenceConfig,
+                LlamaInferenceEngine,
+            )
 
-        max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
-        temperature = input_validator.validate_temperature(
-            request.temperature if request.temperature is not None else 0.8
-        )
-        top_p_val = max(0.0, min(1.0, float(request.top_p if request.top_p is not None else 0.9)))
-        top_k = request.top_k if request.top_k is not None else 40
+            gpu = detect_gpu()
+            n_gpu_layers = auto_select_backend(1.5)
+            config = LlamaInferenceConfig(model_path=llama_model_path, n_gpu_layers=n_gpu_layers)
+            engine = LlamaInferenceEngine(config)
 
-        async def ollama_stream():
-            try:
-                import requests as ollama_requests
+            max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
+            start_time = time.perf_counter()
 
-                payload = {
-                    "model": ollama_model,
-                    "prompt": request.prompt,
-                    "stream": True,
-                    "options": {
-                        "num_predict": max_tokens,
-                        "temperature": temperature,
-                        "top_p": top_p_val,
-                        "top_k": top_k,
-                    },
-                }
+            async def llama_stream():
+                try:
+                    for token in engine.generate_stream(request.prompt, max_tokens=max_tokens):
+                        yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
+                    elapsed = time.perf_counter() - start_time
+                    yield f"data: {json.dumps({'token': '', 'done': True, 'elapsed': elapsed})}\n\n"
+                except Exception as e:
+                    logger.error(f"llama.cpp stream failed: {e}")
+                    yield f"data: {json.dumps({'error': str(e), 'token': '', 'done': True})}\n\n"
 
-                start_time = time.perf_counter()
-                tokens_count = 0
-
-                with ollama_requests.post(
-                    f"{ollama_url}/api/generate", json=payload, stream=True, timeout=60
-                ) as resp:
-                    for line in resp.iter_lines():
-                        if line:
-                            data = json.loads(line)
-                            token = data.get("response", "")
-                            done = data.get("done", False)
-                            if data.get("eval_count"):
-                                tokens_count = data["eval_count"]
-
-                            yield f"data: {json.dumps({'token': token, 'done': done})}\n\n"
-
-                            if done:
-                                elapsed = time.perf_counter() - start_time
-                                tps = tokens_count / elapsed if elapsed > 0 else 0
-                                logger.info(
-                                    f"Ollama inference stream: {tokens_count} tokens in {elapsed:.2f}s = {tps:.1f} tok/s"
-                                )
-                                break
-            except Exception as e:
-                logger.error(f"Ollama stream failed: {e}")
-                yield f"data: {json.dumps({'error': str(e), 'token': '', 'done': True})}\n\n"
-
-        return StreamingResponse(ollama_stream(), media_type="text/event-stream")
+            return StreamingResponse(llama_stream(), media_type="text/event-stream")
+        except Exception as e:
+            logger.error(f"llama.cpp failed: {e}")
 
     engine = get_inference_engine()
     max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
