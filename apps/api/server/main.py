@@ -466,14 +466,51 @@ def _generate_core(request: GenerateRequest, client_ip: str) -> Dict[str, Any]:
 
                 logger.info(f"Ollama backend: {tokens} tokens in {elapsed:.2f}s = {tps:.1f} tok/s")
 
-                return {
-                    "text": text,
-                    "model": f"ollama/{ollama_model}",
-                    "tokens_per_second": tps,
-                    "backend": "ollama",
-                }
+            return {
+                "text": text,
+                "model": f"ollama/{ollama_model}",
+                "tokens_per_second": tps,
+                "backend": "ollama",
+            }
         except Exception as e:
             logger.error(f"Ollama backend failed: {e}")
+
+    # Check for llama.cpp backend (GGUF models)
+    llama_model_path = os.environ.get("SLOUGHGPT_MODEL_PATH", "").strip()
+    if llama_model_path:
+        try:
+            from domains.inference.llama_engine import (
+                detect_gpu,
+                auto_select_backend,
+                LlamaInferenceConfig,
+                LlamaInferenceEngine,
+            )
+
+            gpu = detect_gpu()
+            if gpu:
+                logger.info(f"GPU: {gpu.name} - {gpu.reason}")
+
+            n_gpu_layers = auto_select_backend(1.5)
+            config = LlamaInferenceConfig(model_path=llama_model_path, n_gpu_layers=n_gpu_layers)
+            engine = LlamaInferenceEngine(config)
+
+            start_time = time.perf_counter()
+            result = engine.benchmark(prompt, max_tokens)
+            elapsed = time.perf_counter() - start_time
+
+            backend_name = "llama.cpp-gpu" if n_gpu_layers > 0 else "llama.cpp-cpu"
+            tps = result.get("tokens_per_second", 0)
+            logger.info(f"llama.cpp backend ({backend_name}): {tps:.1f} tok/s")
+
+            return {
+                "text": result.get("text_preview", ""),
+                "model": backend_name,
+                "tokens_per_second": tps,
+                "backend": backend_name,
+                "gpu_layers": n_gpu_layers,
+            }
+        except Exception as e:
+            logger.error(f"llama.cpp backend failed: {e}")
 
     if model is None:
         audit_logger.log(
@@ -1860,6 +1897,34 @@ async def generate_stream(request: GenerateRequest):
                 return
             except Exception as e:
                 logger.error(f"Ollama streaming failed: {e}")
+
+        # llama.cpp streaming
+        llama_model_path = os.environ.get("SLOUGHGPT_MODEL_PATH", "").strip()
+        if llama_model_path:
+            try:
+                from domains.inference.llama_engine import (
+                    detect_gpu,
+                    auto_select_backend,
+                    LlamaInferenceConfig,
+                    LlamaInferenceEngine,
+                )
+
+                gpu = detect_gpu()
+                n_gpu_layers = auto_select_backend(1.5)
+                config = LlamaInferenceConfig(
+                    model_path=llama_model_path, n_gpu_layers=n_gpu_layers
+                )
+
+                start_time = time.perf_counter()
+
+                for token in engine.generate_stream(request.prompt, max_tokens=max_gen):
+                    yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
+
+                elapsed = time.perf_counter() - start_time
+                yield f"data: {json.dumps({'token': '', 'done': True, 'elapsed': elapsed})}\n\n"
+                return
+            except Exception as e:
+                logger.error(f"llama.cpp streaming failed: {e}")
 
         if model is None:
             demo = f"Demo streaming response to: {request.prompt}..."
