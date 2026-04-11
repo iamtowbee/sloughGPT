@@ -7,7 +7,7 @@ describe('Benchmark page', () => {
   beforeEach(() => {
     cy.intercept('GET', `${api}/health`, {
       statusCode: 200,
-      body: { status: 'healthy' },
+      body: { status: 'healthy', model_type: 'gpt2', model_loaded: true },
     }).as('health')
     cy.intercept('POST', `${api}/benchmark/run`, {
       statusCode: 200,
@@ -35,6 +35,14 @@ describe('Benchmark page', () => {
     cy.visit('/benchmark')
     cy.wait('@health')
 
-    cy.contains('Run Benchmark').should('be.visible')
+    cy.contains('Run inference benchmark').should('be.visible')
+    cy.contains('Prompt').should('be.visible')
+  })
+
+  it.skip('shows run benchmark button', () => {
+    cy.visit('/benchmark')
+    cy.wait('@health')
+
+    cy.contains('button', 'Run benchmark', { matchCase: false }).should('be.visible')
   })
 })

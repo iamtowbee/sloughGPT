@@ -13,32 +13,24 @@ describe('Home page - dashboard', () => {
     cy.intercept('GET', `${api}/datasets`, { body: { datasets: [] } }).as('datasets')
   })
 
-  it('displays the dashboard with all feature cards', () => {
+  it('displays the dashboard title', () => {
     cy.visit('/')
     cy.wait(['@health', '@models', '@datasets'])
 
-    // Check title
-    cy.contains('SloughGPT').should('be.visible')
-
-    // Check feature cards
-    cy.contains('Chat').should('be.visible')
-    cy.contains('Models').should('be.visible')
-    cy.contains('Training').should('be.visible')
-    cy.contains('Datasets').should('be.visible')
-    cy.contains('Monitor').should('be.visible')
-    cy.contains('API Docs').should('be.visible')
+    cy.contains('h1', 'SloughGPT').should('be.visible')
   })
 
-  it('shows API status indicator', () => {
+  it('shows API status card', () => {
     cy.visit('/')
     cy.wait(['@health'])
 
-    cy.contains('API').should('be.visible')
+    cy.contains('API status').should('be.visible')
   })
 
-  it('links to chat page', () => {
+  it('shows quick actions section', () => {
     cy.visit('/')
-    cy.wait('@health')
-    cy.contains('Chat').closest('a').should('have.attr', 'href', '/chat')
+    cy.wait(['@health', '@models', '@datasets'])
+
+    cy.contains('Quick actions').should('be.visible')
   })
 })

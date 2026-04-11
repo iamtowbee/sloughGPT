@@ -1,5 +1,5 @@
 /**
- * API Docs page - Swagger/OpenAPI documentation
+ * API Docs page - endpoint documentation
  */
 describe('API Docs page', () => {
   const api = 'http://localhost:8000'
@@ -9,21 +9,20 @@ describe('API Docs page', () => {
       statusCode: 200,
       body: { status: 'healthy' },
     }).as('health')
-    cy.intercept('GET', `${api}/openapi.json`, {
-      statusCode: 200,
-      body: {
-        openapi: '3.0.0',
-        info: { title: 'SloughGPT API' },
-        paths: {},
-      },
-    }).as('openapi')
   })
 
   it('loads the API docs page', () => {
     cy.visit('/api-docs')
     cy.wait('@health')
 
-    cy.contains('API').should('be.visible')
-    cy.contains('Docs').should('be.visible')
+    cy.contains('h1', 'API documentation').should('be.visible')
+    cy.contains('Base URL').should('be.visible')
+  })
+
+  it('shows endpoint documentation', () => {
+    cy.visit('/api-docs')
+    cy.wait('@health')
+
+    cy.contains('Quick examples').should('be.visible')
   })
 })
