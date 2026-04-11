@@ -42,6 +42,16 @@ except ImportError as e:
 LLAMA_CLI_PATH = "/usr/local/bin/llama-cli"
 LLAMA_CLI_AVAILABLE = Path(LLAMA_CLI_PATH).exists() if not LLAMA_CPP_PYTHON_AVAILABLE else False
 
+_MODEL_CACHE: Dict[str, "LlamaInferenceEngine"] = {}
+_CACHE_LOCK = threading.Lock()
+
+_INFERENCE_STATS = {
+    "total_requests": 0,
+    "total_tokens": 0,
+    "total_time": 0.0,
+    "cache_hits": 0,
+}
+
 
 @dataclass
 class GPUInfo:
@@ -388,6 +398,7 @@ class LlamaInferenceEngine:
 
         with self._lock:
             try:
+                start = time.perf_counter()
                 result = self._llama(
                     prompt,
                     max_tokens=max_tokens,
@@ -398,7 +409,12 @@ class LlamaInferenceEngine:
                     stop=stop or [],
                     echo=False,
                 )
-                return result["choices"][0]["text"]
+                elapsed = time.perf_counter() - start
+                text = result["choices"][0]["text"]
+                _INFERENCE_STATS["total_requests"] += 1
+                _INFERENCE_STATS["total_tokens"] += len(text.split())
+                _INFERENCE_STATS["total_time"] += elapsed
+                return text
             except Exception as e:
                 logger.error(f"Generation failed: {e}")
                 return ""
@@ -731,6 +747,40 @@ class LlamaCLIInferenceEngine:
     @property
     def is_loaded(self) -> bool:
         return Path(self.model_path).exists()
+
+
+def get_cached_engine(model_path: str, **kwargs) -> LlamaInferenceEngine:
+    """Get or create a cached inference engine for the model."""
+    global _MODEL_CACHE
+
+    with _CACHE_LOCK:
+        if model_path not in _MODEL_CACHE:
+            config = LlamaInferenceConfig(model_path=model_path, **kwargs)
+            _MODEL_CACHE[model_path] = LlamaInferenceEngine(config)
+            _MODEL_CACHE[model_path].load_model()
+        else:
+            _INFERENCE_STATS["cache_hits"] += 1
+        return _MODEL_CACHE[model_path]
+
+
+def clear_model_cache():
+    """Clear the model cache and free memory."""
+    global _MODEL_CACHE
+    with _CACHE_LOCK:
+        for engine in _MODEL_CACHE.values():
+            engine.unload()
+        _MODEL_CACHE.clear()
+
+
+def get_inference_stats() -> Dict[str, Any]:
+    """Get inference statistics."""
+    stats = dict(_INFERENCE_STATS)
+    if stats["total_time"] > 0:
+        stats["avg_tokens_per_second"] = stats["total_tokens"] / stats["total_time"]
+    else:
+        stats["avg_tokens_per_second"] = 0.0
+    stats["cached_models"] = list(_MODEL_CACHE.keys())
+    return stats
 
 
 def find_gguf_models(search_paths: Optional[List[str]] = None) -> List[Path]:
