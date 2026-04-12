@@ -310,6 +310,43 @@ curl -X POST http://localhost:8000/generate \
   -d '{"prompt": "Hello", "use_soul": true}'
 ```
 
+### Datasets
+
+Multi-source dataset import, export, and management:
+
+```bash
+# List datasets
+curl http://localhost:8000/datasets
+
+# Import from various sources
+curl -X POST http://localhost:8000/datasets/import/github \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://github.com/user/repo", "name": "my-dataset"}'
+
+curl -X POST http://localhost:8000/datasets/import/huggingface \
+  -H "Content-Type: application/json" \
+  -d '{"dataset_id": "username/dataset"}'
+
+curl -X POST http://localhost:8000/datasets/import/kaggle \
+  -H "Content-Type: application/json" \
+  -d '{"dataset": "username/dataset-name"}'
+
+# Export datasets
+curl -X POST http://localhost:8000/datasets/my-dataset/export \
+  -H "Content-Type: application/json" \
+  -d '{"format": "json"}'
+
+# Combine datasets
+curl -X POST http://localhost:8000/datasets/combine \
+  -H "Content-Type: application/json" \
+  -d '{"dataset_ids": ["ds1", "ds2"], "name": "combined"}'
+
+# Preview dataset
+curl http://localhost:8000/datasets/my-dataset/preview
+```
+
+**Web UI**: http://localhost:3000/datasets - Import, combine, export datasets with UI.
+
 ## Architecture
 
 ```
