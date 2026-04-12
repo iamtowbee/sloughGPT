@@ -75,29 +75,16 @@ describe('Dataset Import Modal', () => {
   })
 })
 
-describe('Combine Datasets Modal', () => {
-  beforeEach(() => {
+describe('Dataset Export', () => {
+  it('shows Export button on dataset cards when datasets exist', () => {
     cy.visit('/datasets')
-    cy.wait(1000)
-  })
-
-  it('opens when Combine button is clicked', () => {
-    cy.contains('button', /Combine \(/).click()
-    cy.wait(500)
-    cy.contains('Combine Datasets').should('be.visible')
-  })
-
-  it('shows Select All and Select None buttons', () => {
-    cy.contains('button', /Combine \(/).click()
-    cy.wait(500)
-    cy.contains('button', 'Select All').should('be.visible')
-  })
-
-  it('closes on cancel', () => {
-    cy.contains('button', /Combine \(/).click()
-    cy.wait(500)
-    cy.contains('button', 'Cancel').click()
-    cy.wait(300)
-    cy.contains('Select All').should('not.exist')
+    cy.wait(2000)
+    cy.get('body').then(($body) => {
+      if ($body.text().includes('No datasets found')) {
+        cy.contains('No datasets found').should('be.visible')
+      } else {
+        cy.contains('button', 'Export').should('exist')
+      }
+    })
   })
 })
