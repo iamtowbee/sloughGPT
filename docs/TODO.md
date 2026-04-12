@@ -1470,4 +1470,37 @@ curl -X POST http://localhost:8000/generate/stream \
   -H "Content-Type: application/json" \
   -d '{"prompt":"Hello","max_new_tokens":50}'
 ```
+
+---
+
+## Phase 30: Performance Optimization & Testing (2026-04-12)
+
+### Performance Profiling Features
+
+| Feature | Description |
+|---------|-------------|
+| `InferenceProfiler` | Track timing of inference operations |
+| `profile_generate()` | Detailed timing breakdown |
+| `get_memory_usage()` | Track RSS/VMS memory |
+| `@profile_memory` | Decorator for memory tracking |
+
+### Model Caching
+
+| Function | Description |
+|----------|-------------|
+| `get_cached_engine()` | Get or create cached inference engine |
+| `clear_model_cache()` | Free memory by unloading cached models |
+| `get_inference_stats()` | Track requests, tokens, timing, cache hits |
+
+### Tests Added
+
+- `tests/test_llama_engine.py` - 12 new tests for llama engine features
+- Tests for GPU detection, profiling, memory tracking, and config
+
+### Test Results
+| Suite | Result |
+|-------|--------|
+| Python | 463 passed |
+| Web unit | 43 passed |
+| E2E | 11 passed |
 ```
