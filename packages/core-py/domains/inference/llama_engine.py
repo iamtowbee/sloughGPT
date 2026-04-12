@@ -984,6 +984,35 @@ def get_latency_histogram() -> Dict[str, Any]:
     }
 
 
+def get_metrics_summary() -> Dict[str, Any]:
+    """Get a comprehensive summary of all inference metrics."""
+    stats = get_inference_stats()
+    latency = get_latency_histogram()
+    memory = get_memory_usage()
+
+    return {
+        "requests": {
+            "total": stats.get("total_requests", 0),
+            "streaming": stats.get("streaming_requests", 0),
+            "errors": stats.get("total_errors", 0),
+            "tokens": stats.get("total_tokens", 0),
+        },
+        "performance": {
+            "avg_tokens_per_second": round(stats.get("avg_tokens_per_second", 0), 2),
+            "total_time_seconds": round(stats.get("total_time", 0), 2),
+            "latency_p50_ms": round(latency.get("p50", 0), 2),
+            "latency_p90_ms": round(latency.get("p90", 0), 2),
+            "latency_p99_ms": round(latency.get("p99", 0), 2),
+        },
+        "memory": {
+            "rss_mb": round(memory.get("rss_mb", 0), 1) if "error" not in memory else None,
+            "cache_hits": stats.get("cache_hits", 0),
+            "cached_models": stats.get("cached_models", []),
+        },
+        "last_error": stats.get("last_error"),
+    }
+
+
 def get_memory_usage() -> Dict[str, Any]:
     """Get current memory usage for the process."""
     try:

@@ -221,3 +221,19 @@ class TestResetStats:
         assert stats["total_requests"] == 0
         assert stats["total_tokens"] == 0
         assert stats["total_errors"] == 0
+
+
+class TestMetricsSummary:
+    """Tests for metrics summary."""
+
+    def test_get_metrics_summary(self):
+        """Test get_metrics_summary function."""
+        from domains.inference.llama_engine import get_metrics_summary
+
+        summary = get_metrics_summary()
+        assert "requests" in summary
+        assert "performance" in summary
+        assert "memory" in summary
+        assert "last_error" in summary
+        assert "total" in summary["requests"]
+        assert "latency_p50_ms" in summary["performance"]
