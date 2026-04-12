@@ -2667,7 +2667,16 @@ async def import_from_kaggle(request: KaggleImportRequest):
         # Try using kaggle CLI if available
         try:
             result = subprocess.run(
-                ["kaggle", "datasets", "download", "-d", request.dataset, "-p", str(output_dir), "--unzip"],
+                [
+                    "kaggle",
+                    "datasets",
+                    "download",
+                    "-d",
+                    request.dataset,
+                    "-p",
+                    str(output_dir),
+                    "--unzip",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=300,
@@ -2675,12 +2684,12 @@ async def import_from_kaggle(request: KaggleImportRequest):
             if result.returncode != 0:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Kaggle import failed: {result.stderr}. Make sure 'kaggle' CLI is installed and authenticated."
+                    detail=f"Kaggle import failed: {result.stderr}. Make sure 'kaggle' CLI is installed and authenticated.",
                 )
         except FileNotFoundError:
             raise HTTPException(
                 status_code=400,
-                detail="Kaggle CLI not found. Install with: pip install kaggle && mkdir -p ~/.kaggle && cp kaggle.json ~/.kaggle/"
+                detail="Kaggle CLI not found. Install with: pip install kaggle && mkdir -p ~/.kaggle && cp kaggle.json ~/.kaggle/",
             )
 
         # Move files from subdirectory if needed
@@ -2698,6 +2707,72 @@ async def import_from_kaggle(request: KaggleImportRequest):
             "success": True,
             "dataset_id": name,
             "message": f"Downloaded {file_count} files ({total_size / 1024 / 1024:.1f} MB) from Kaggle",
+            "output_path": str(output_dir),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class CSVImportRequest(BaseModel):
+    url: str  # URL to CSV file
+    name: str
+    delimiter: Optional[str] = ","
+    encoding: Optional[str] = "utf-8"
+
+
+@app.post("/datasets/import/csv", tags=["datasets"])
+async def import_from_csv(request: CSVImportRequest):
+    """Import dataset from CSV URL."""
+    import csv
+    import urllib.request
+
+    try:
+        name = request.name
+        output_dir = DATA_DIR / "datasets" / name
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Download CSV
+        req = urllib.request.Request(request.url, headers={"User-Agent": "SloughGPT"})
+        with urllib.request.urlopen(req, timeout=30) as response:
+            content = response.read().decode(request.encoding or "utf-8")
+
+        # Parse CSV
+        lines = content.strip().split("\n")
+        if not lines:
+            raise HTTPException(status_code=400, detail="CSV file is empty")
+
+        dialect = csv.Sniffer().sniff(lines[0][:1000], delimiters=",;\t")
+        reader = csv.reader(lines, dialect=dialect)
+        headers = next(reader)
+        rows = list(reader)
+
+        # Save as JSONL (each row is a JSON object)
+        jsonl_path = output_dir / f"{name}.jsonl"
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            for row in rows:
+                obj = {headers[i]: row[i] if i < len(row) else "" for i in range(len(headers))}
+                f.write(json.dumps(obj) + "\n")
+
+        # Save metadata
+        meta_path = output_dir / "metadata.json"
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "source": request.url,
+                    "columns": headers,
+                    "rows": len(rows),
+                    "delimiter": request.delimiter,
+                },
+                f,
+                indent=2,
+            )
+
+        return {
+            "success": True,
+            "dataset_id": name,
+            "message": f"Imported CSV with {len(rows)} rows, {len(headers)} columns",
             "output_path": str(output_dir),
         }
     except HTTPException:

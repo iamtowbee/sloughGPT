@@ -99,7 +99,7 @@ export interface Dataset {
   path?: string
 }
 
-export type ImportSource = 'github' | 'huggingface' | 'url' | 'local' | 'kaggle'
+export type ImportSource = 'github' | 'huggingface' | 'url' | 'local' | 'kaggle' | 'csv'
 
 export interface DatasetPreview {
   dataset_id: string
@@ -142,6 +142,13 @@ export interface LocalImportRequest {
 export interface KaggleImportRequest {
   dataset: string
   name?: string
+}
+
+export interface CSVImportRequest {
+  url: string
+  name: string
+  delimiter?: string
+  encoding?: string
 }
 
 export interface ImportResponse {
@@ -940,6 +947,19 @@ export const api = {
 
   async importFromKaggle(request: KaggleImportRequest): Promise<ImportResponse> {
     const res = await fetchWithAuth(`${API_URL}/datasets/import/kaggle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    })
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Import failed' }))
+      throw new Error(error.detail || `Import failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async importFromCSV(request: CSVImportRequest): Promise<ImportResponse> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/import/csv`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),

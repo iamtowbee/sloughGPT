@@ -32,6 +32,7 @@ const SOURCE_OPTIONS: SourceOption[] = [
   { value: 'github', label: 'GitHub', description: 'Clone a repository' },
   { value: 'huggingface', label: 'HuggingFace', description: 'Download from HF Hub' },
   { value: 'kaggle', label: 'Kaggle', description: 'Download from Kaggle' },
+  { value: 'csv', label: 'CSV', description: 'Import CSV from URL' },
   { value: 'url', label: 'URL', description: 'Download from a URL' },
   { value: 'local', label: 'Local', description: 'Import from local files' },
 ]
@@ -153,6 +154,19 @@ export function DatasetImportModal({
           result = await api.importFromKaggle({
             dataset: kaggleDataset.trim(),
             name: name.trim() || undefined,
+          })
+          break
+
+        case 'csv':
+          if (!url.trim()) {
+            throw new Error('CSV URL is required')
+          }
+          if (!name.trim()) {
+            throw new Error('Dataset name is required')
+          }
+          result = await api.importFromCSV({
+            url: url.trim(),
+            name: name.trim(),
           })
           break
       }
@@ -280,6 +294,24 @@ export function DatasetImportModal({
               </div>
               <p className="text-xs text-muted-foreground">
                 Requires Kaggle CLI installed and authenticated
+              </p>
+            </div>
+          )}
+
+          {source === 'csv' && (
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="csv-url">CSV File URL</Label>
+                <Input
+                  id="csv-url"
+                  placeholder="https://example.com/data.csv"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Import CSV file from URL - will be converted to JSONL format
               </p>
             </div>
           )}
