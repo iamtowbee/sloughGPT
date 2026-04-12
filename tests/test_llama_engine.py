@@ -284,3 +284,17 @@ class TestCacheManagement:
 
         results = preload_models([])
         assert isinstance(results, dict)
+
+    def test_is_model_cached(self):
+        """Test is_model_cached function."""
+        from domains.inference.llama_engine import is_model_cached
+
+        result = is_model_cached("/nonexistent.gguf")
+        assert result is False
+
+    def test_unload_model(self):
+        """Test unload_model function."""
+        from domains.inference.llama_engine import unload_model
+
+        result = unload_model("/nonexistent.gguf")
+        assert result is False

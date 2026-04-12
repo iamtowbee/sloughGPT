@@ -1065,6 +1065,24 @@ def preload_models(model_paths: List[str]) -> Dict[str, bool]:
     return results
 
 
+def is_model_cached(model_path: str) -> bool:
+    """Check if a model is currently cached."""
+    with _CACHE_LOCK:
+        return model_path in _MODEL_CACHE
+
+
+def unload_model(model_path: str) -> bool:
+    """Unload a specific model from cache."""
+    global _MODEL_CACHE
+    with _CACHE_LOCK:
+        if model_path in _MODEL_CACHE:
+            _MODEL_CACHE[model_path].unload()
+            del _MODEL_CACHE[model_path]
+            logger.info(f"Unloaded model: {model_path}")
+            return True
+        return False
+
+
 def get_memory_usage() -> Dict[str, Any]:
     """Get current memory usage for the process."""
     try:
