@@ -1102,6 +1102,20 @@ def unload_model(model_path: str) -> bool:
         return False
 
 
+def get_cache_stats() -> Dict[str, Any]:
+    """Get detailed cache statistics."""
+    with _CACHE_LOCK:
+        models = list(_MODEL_CACHE.keys())
+        loaded = [m for m in models if _MODEL_CACHE[m].is_loaded]
+
+        return {
+            "total_cached": len(models),
+            "loaded": len(loaded),
+            "unloaded": len(models) - len(loaded),
+            "models": models,
+        }
+
+
 def get_memory_usage() -> Dict[str, Any]:
     """Get current memory usage for the process."""
     try:

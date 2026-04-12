@@ -300,6 +300,16 @@ class TestCacheManagement:
         result = unload_model("/nonexistent.gguf")
         assert result is False
 
+    def test_get_cache_stats(self):
+        """Test get_cache_stats function."""
+        from domains.inference.llama_engine import get_cache_stats
+
+        stats = get_cache_stats()
+        assert "total_cached" in stats
+        assert "loaded" in stats
+        assert "unloaded" in stats
+        assert "models" in stats
+
 
 class TestInferenceHealth:
     """Tests for inference health check."""
