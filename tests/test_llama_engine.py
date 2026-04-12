@@ -193,6 +193,7 @@ class TestBatchGenerate:
 
         assert hasattr(LlamaInferenceEngine, "batch_generate")
         assert hasattr(LlamaInferenceEngine, "warmup")
+        assert hasattr(LlamaInferenceEngine, "batch_stream_generate")
 
 
 class TestLatencyHistogram:

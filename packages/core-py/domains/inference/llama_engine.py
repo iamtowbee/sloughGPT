@@ -563,6 +563,25 @@ class LlamaInferenceEngine:
             results.append(text)
         return results
 
+    def batch_stream_generate(
+        self,
+        prompts: List[str],
+        max_tokens: int = 100,
+        temperature: float = 0.7,
+        **kwargs,
+    ) -> List[AsyncIterator[str]]:
+        """Generate streaming text for multiple prompts."""
+        streams = []
+        for prompt in prompts:
+            stream = self.generate_stream(
+                prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                **kwargs,
+            )
+            streams.append(stream)
+        return streams
+
     def unload(self):
         """Unload model from memory."""
         with self._lock:
