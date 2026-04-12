@@ -384,16 +384,13 @@ def _format_chat_messages_for_standard(messages: List[ChatMessage]) -> str:
     for msg in messages:
         role = msg.role
         content = msg.content
-        if role == "user":
-            formatted += f"User: {content}\n"
+        if role == "system":
+            formatted += f"{content}\n\n"
+        elif role == "user":
+            formatted += f"User: {content}\n\n"
         elif role == "assistant":
-            formatted += f"Assistant: {content}\n"
-        elif role == "system":
-            formatted += f"System: {content}\n"
-        else:
-            formatted += f"{role}: {content}\n"
-    formatted += "Assistant:"
-    return formatted
+            formatted += f"{content}\n\n"
+    return formatted.strip() + "\n\n"
 
 
 def _strip_assistant_prefix(text: str) -> str:
