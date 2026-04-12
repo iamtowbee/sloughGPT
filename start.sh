@@ -34,10 +34,10 @@ send_log() {
         -d "{\"source\":\"$source\",\"level\":\"$level\",\"message\":\"$message\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\"}" > /dev/null 2>&1
 }
 
-# Start API server with model path
+# Start API server with model path (use main.py for full API)
 echo "Starting API server..."
 send_log "api" "INFO" "🚀 Starting API server on port 8000..."
-nohup /bin/bash -c "export SLOUGHGPT_MODEL_PATH='$SLOUGHGPT_MODEL_PATH'; /usr/bin/python3 apps/api/server/simple_server.py" > >(while IFS= read -r line; do send_log "api" "INFO" "$line"; done) 2>&1 &
+nohup /bin/bash -c "export SLOUGHGPT_MODEL_PATH='$SLOUGHGPT_MODEL_PATH'; cd /Users/mac/sloughGPT && /usr/bin/python3 apps/api/server/main.py" > >(while IFS= read -r line; do send_log "api" "INFO" "$line"; done) 2>&1 &
 API_PID=$!
 echo "API PID: $API_PID"
 
