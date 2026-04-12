@@ -1046,6 +1046,25 @@ def get_model_info(model_path: str) -> Dict[str, Any]:
         return {"error": str(e)}
 
 
+def list_cached_models() -> List[str]:
+    """List all currently cached model paths."""
+    with _CACHE_LOCK:
+        return list(_MODEL_CACHE.keys())
+
+
+def preload_models(model_paths: List[str]) -> Dict[str, bool]:
+    """Preload multiple models into cache."""
+    results = {}
+    for path in model_paths:
+        try:
+            engine = get_cached_engine(path)
+            results[path] = engine is not None
+        except Exception as e:
+            logger.error(f"Failed to preload {path}: {e}")
+            results[path] = False
+    return results
+
+
 def get_memory_usage() -> Dict[str, Any]:
     """Get current memory usage for the process."""
     try:

@@ -266,3 +266,21 @@ class TestModelInfo:
         assert info["size_bytes"] > 0
         assert "size_mb" in info
         assert "size_gb" in info
+
+
+class TestCacheManagement:
+    """Tests for cache management."""
+
+    def test_list_cached_models(self):
+        """Test list_cached_models function."""
+        from domains.inference.llama_engine import list_cached_models
+
+        models = list_cached_models()
+        assert isinstance(models, list)
+
+    def test_preload_models(self):
+        """Test preload_models function."""
+        from domains.inference.llama_engine import preload_models
+
+        results = preload_models([])
+        assert isinstance(results, dict)
