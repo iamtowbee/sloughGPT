@@ -582,7 +582,38 @@ export default function ChatPage() {
             </div>
           }
           right={
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    title="Select model"
+                    aria-label="Select model"
+                  >
+                    <ChevronDownIcon className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto min-w-[180px]">
+                  {modelsCatalogLoading && (
+                    <div className="px-2 py-2 text-sm text-muted-foreground">Loading...</div>
+                  )}
+                  {!modelsCatalogLoading && modelsCatalogError && (
+                    <div className="px-2 py-2 text-sm text-destructive">Error loading</div>
+                  )}
+                  {!modelsCatalogLoading && !modelsCatalogError && availableModels.map((model) => (
+                    <DropdownMenuItem
+                      key={model.id}
+                      onClick={() => updateActiveSession((s) => ({ ...s, selectedModel: model.id }))}
+                      className={selectedModel === model.id ? 'bg-primary/10' : ''}
+                    >
+                      {model.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <InferenceRuntimeToolbar health={apiHealth} onRefresh={refreshHealth} />
               <Button
                 type="button"
