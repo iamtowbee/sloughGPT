@@ -1653,9 +1653,33 @@ POST /datasets/import/kaggle
 
 ## What's Next?
 
+### Chat Screen (UI Fixes Needed)
+| Priority | Task | Status |
+|----------|------|--------|
+| HIGH | Fix chat header layout | ⏳ In progress |
+| HIGH | Fix model response echoing "Assistant:" | ⏳ In progress |
+| MEDIUM | Improve response parsing (remove ">" artifacts) | ⏳ In progress |
+| MEDIUM | Add model selector back to chat | ⏳ In progress |
+
+### New Features
 | Priority | Task |
 |----------|------|
+| HIGH | Dataset versioning |
+| MEDIUM | Dataset metadata editing |
+| MEDIUM | Batch import |
+| LOW | Dataset sharing |
+| LOW | Dataset search/filter improvements |
+
+### Testing
+| Priority | Task |
+|----------|------|
+| HIGH | Test chat with fixed prompt format |
 | HIGH | Test datasets UI at http://localhost:3000/datasets |
 | MEDIUM | Run full E2E test suite |
-| LOW | Add CSV file import UI |
+
+### Documentation
+| Priority | Task |
+|----------|------|
+| LOW | Update API docs |
+| LOW | Add usage examples |
 ```

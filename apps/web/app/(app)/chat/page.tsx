@@ -582,50 +582,17 @@ export default function ChatPage() {
             </div>
           }
           right={
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 gap-1 px-2 text-xs"
-                    title="Select model"
-                    aria-label="Select model"
-                  >
-                    <ChevronDownIcon className="h-3 w-3 opacity-60" />
-                    <span className="truncate max-w-[60px]">{selectedModelLabel}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto min-w-[180px]">
-                  {modelsCatalogLoading && (
-                    <div className="px-2 py-2 text-sm text-muted-foreground">Loading...</div>
-                  )}
-                  {!modelsCatalogLoading && modelsCatalogError && (
-                    <div className="px-2 py-2 text-sm text-destructive">Error loading</div>
-                  )}
-                  {!modelsCatalogLoading && !modelsCatalogError && availableModels.map((model) => (
-                    <DropdownMenuItem
-                      key={model.id}
-                      onClick={() => updateActiveSession((s) => ({ ...s, selectedModel: model.id }))}
-                      className={selectedModel === model.id ? 'bg-primary/10' : ''}
-                    >
-                      {model.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <InferenceRuntimeToolbar health={apiHealth} onRefresh={refreshHealth} />
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>{activeSession?.title ?? 'New Chat'}</span>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-6 w-6"
                 onClick={() => setShowSettings(true)}
                 title="Settings"
-                aria-label="Settings"
               >
-                <GearIcon className="h-4 w-4" />
+                <GearIcon className="h-3.5 w-3.5" />
               </Button>
             </div>
           }
