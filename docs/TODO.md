@@ -1506,6 +1506,8 @@ curl -X POST http://localhost:8000/generate/stream \
 | `get_latency_histogram()` | Latency percentiles (p50, p90, p99) |
 | Inference metrics in `/metrics` | Total requests, tokens, latency histogram |
 | Request ID tracking | `_generate_request_id()` for tracing |
+| Streaming tracking | Track streaming requests and latency |
+| Error tracking | Track total_errors and last_error |
 
 ### Test Results
 | Suite | Result |
