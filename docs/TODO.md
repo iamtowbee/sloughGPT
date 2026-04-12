@@ -1508,11 +1508,12 @@ curl -X POST http://localhost:8000/generate/stream \
 | Request ID tracking | `_generate_request_id()` for tracing |
 | Streaming tracking | Track streaming requests and latency |
 | Error tracking | Track total_errors and last_error |
+| Reset functions | `reset_inference_stats()` to clear stats |
 
 ### Test Results
 | Suite | Result |
 |-------|--------|
-| Python | 465 passed |
+| Python | 466 passed |
 | Web unit | 43 passed |
 | E2E | 11 passed |
 ```

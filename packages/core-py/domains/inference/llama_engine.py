@@ -949,6 +949,22 @@ def get_inference_stats() -> Dict[str, Any]:
     return stats
 
 
+def reset_inference_stats() -> None:
+    """Reset inference statistics to initial state."""
+    global _INFERENCE_STATS
+    _INFERENCE_STATS = {
+        "total_requests": 0,
+        "total_tokens": 0,
+        "total_time": 0.0,
+        "cache_hits": 0,
+        "latencies_ms": [],
+        "request_ids": [],
+        "total_errors": 0,
+        "last_error": None,
+        "streaming_requests": 0,
+    }
+
+
 def get_latency_histogram() -> Dict[str, Any]:
     """Get latency histogram for recent requests."""
     latencies = _INFERENCE_STATS.get("latencies_ms", [])

@@ -207,3 +207,17 @@ class TestLatencyHistogram:
         assert "p50" in histogram
         assert "p90" in histogram
         assert "p99" in histogram
+
+
+class TestResetStats:
+    """Tests for reset functions."""
+
+    def test_reset_inference_stats(self):
+        """Test reset inference stats function."""
+        from domains.inference.llama_engine import reset_inference_stats, get_inference_stats
+
+        reset_inference_stats()
+        stats = get_inference_stats()
+        assert stats["total_requests"] == 0
+        assert stats["total_tokens"] == 0
+        assert stats["total_errors"] == 0
