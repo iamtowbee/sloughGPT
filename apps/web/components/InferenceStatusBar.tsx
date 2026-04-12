@@ -163,8 +163,9 @@ function RefreshIcon({ className }: { className?: string }) {
 
 /** Icon-first API runtime cluster for route headers (pair with `AppRouteHeader` right slot). */
 export function InferenceRuntimeToolbar({ health, onRefresh }: ToolbarProps) {
+  const tooltip = health && health !== 'offline' && 'model_type' in health ? `${health.model_type} loaded` : 'API status'
   return (
-    <div className="flex items-center justify-end gap-1.5 text-muted-foreground" title={health?.model_type ? `${health.model_type} loaded` : 'API status'}>
+    <div className="flex items-center justify-end gap-1.5 text-muted-foreground" title={tooltip}>
       {health === null ? (
         <span className="flex items-center gap-1 text-xs" role="status" aria-label="Checking API status">
           <DotsPulseIcon className="h-3 w-3 shrink-0" />
