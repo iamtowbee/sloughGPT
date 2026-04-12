@@ -896,17 +896,35 @@ class LlamaCLIInferenceEngine:
             )
 
             output = result.stdout
-            for line in output.split("\n"):
-                if "[ Prompt:" in line:
-                    continue
-                if "[ Generation:" in line:
-                    continue
-                if line.startswith("> ") or line.startswith("llama"):
-                    continue
-                if line.strip():
-                    return line.strip()
+            lines = output.split("\n")
 
-            return output.split(">")[-1].strip() if ">" in output else output.strip()
+            # Find the generation section (after "[ Generation: ... ]" or "> prompt")
+            generation_started = False
+            generated_lines = []
+
+            for line in lines:
+                # Skip metadata lines
+                if "[ Prompt:" in line or "[ Generation:" in line:
+                    generation_started = True
+                    continue
+                if line.startswith("llama_") or "memory breakdown" in line:
+                    continue
+
+                # Skip the echoed prompt (lines starting with >)
+                if line.startswith("> ") and not generation_started:
+                    continue
+                if line.strip() == ">":
+                    continue
+
+                # Collect generated text
+                if generation_started or line.strip():
+                    generated_lines.append(line.strip())
+
+            # Return the generated text, joining all non-empty lines
+            generated_text = " ".join(
+                line for line in generated_lines if line and not line.startswith(">")
+            )
+            return generated_text.strip() if generated_text else output.strip()
 
         except subprocess.TimeoutExpired:
             logger.error("Generation timed out")
