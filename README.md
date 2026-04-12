@@ -331,6 +331,10 @@ curl -X POST http://localhost:8000/datasets/import/kaggle \
   -H "Content-Type: application/json" \
   -d '{"dataset": "username/dataset-name"}'
 
+curl -X POST http://localhost:8000/datasets/import/csv \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/data.csv", "name": "my-csv-data"}'
+
 # Export datasets
 curl -X POST http://localhost:8000/datasets/my-dataset/export \
   -H "Content-Type: application/json" \
