@@ -10,14 +10,19 @@ pkill -f "python3 apps/api/server/main.py" 2>/dev/null
 pkill -f "next dev" 2>/dev/null
 sleep 2
 
-# Start API server
+# Start API server (use simple_server for detailed startup output)
 echo "Starting API server on port 8000..."
-nohup python3 apps/api/server/main.py > /tmp/sloughgpt-api.log 2>&1 &
+nohup /usr/bin/python3 apps/api/server/simple_server.py > /tmp/sloughgpt-api.log 2>&1 &
 API_PID=$!
 echo "API PID: $API_PID"
 
 # Wait for API to start
-sleep 5
+for i in {1..10}; do
+    if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+        break
+    fi
+    sleep 1
+done
 
 # Check if API is running
 if curl -s http://localhost:8000/health > /dev/null 2>&1; then
