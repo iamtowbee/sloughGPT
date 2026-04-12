@@ -237,3 +237,32 @@ class TestMetricsSummary:
         assert "last_error" in summary
         assert "total" in summary["requests"]
         assert "latency_p50_ms" in summary["performance"]
+
+
+class TestModelInfo:
+    """Tests for model info."""
+
+    def test_get_model_info_missing(self):
+        """Test get_model_info with missing file."""
+        from domains.inference.llama_engine import get_model_info
+
+        info = get_model_info("/nonexistent/model.gguf")
+        assert "error" in info
+
+    def test_get_model_info_exists(self):
+        """Test get_model_info with existing file."""
+        from domains.inference.llama_engine import get_model_info
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as f:
+            f.write(b"test model data" * 1000)
+            temp_path = f.name
+
+        info = get_model_info(temp_path)
+        os.unlink(temp_path)
+
+        assert "error" not in info
+        assert info["exists"] is True
+        assert info["size_bytes"] > 0
+        assert "size_mb" in info
+        assert "size_gb" in info

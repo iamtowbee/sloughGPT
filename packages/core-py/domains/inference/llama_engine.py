@@ -1023,6 +1023,29 @@ def get_metrics_summary() -> Dict[str, Any]:
     }
 
 
+def get_model_info(model_path: str) -> Dict[str, Any]:
+    """Get information about a GGUF model file."""
+    path = Path(model_path)
+    if not path.exists():
+        return {"error": f"Model not found: {model_path}"}
+
+    try:
+        size_bytes = path.stat().st_size
+        size_mb = size_bytes / (1024 * 1024)
+        size_gb = size_bytes / (1024**3)
+
+        return {
+            "path": str(path),
+            "name": path.name,
+            "size_bytes": size_bytes,
+            "size_mb": round(size_mb, 2),
+            "size_gb": round(size_gb, 2),
+            "exists": True,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 def get_memory_usage() -> Dict[str, Any]:
     """Get current memory usage for the process."""
     try:
