@@ -6,6 +6,17 @@ import Link from 'next/link'
 import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import { api, type Dataset } from '@/lib/api'
@@ -18,6 +29,7 @@ export default function DatasetsPage() {
   const [loading, setLoading] = useState(true)
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [selectedDataset, setSelectedDataset] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const { state: health, refresh: refreshHealth } = useApiHealth()
 
   const apiHealthLabel = useMemo(() => inferenceHealthLabel(health), [health])
@@ -52,6 +64,22 @@ export default function DatasetsPage() {
 
   const handleViewDataset = (datasetId: string) => {
     setSelectedDataset(datasetId)
+  }
+
+  const handleDeleteDataset = async (datasetId: string) => {
+    setDeletingId(datasetId)
+    try {
+      await api.deleteDataset(datasetId)
+      setDatasets((prev) => prev.filter((d) => d.id !== datasetId))
+      if (selectedDataset === datasetId) {
+        setSelectedDataset(null)
+      }
+    } catch (err) {
+      devDebug('Failed to delete dataset:', err)
+      alert('Failed to delete dataset. Please try again.')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   return (
@@ -140,9 +168,36 @@ export default function DatasetsPage() {
                   </CardContent>
                   <CardFooter className="flex justify-between border-t border-border pt-4">
                     <span className="text-sm font-medium text-chart-3">{dataset.size}</span>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => handleViewDataset(dataset.id)}>
-                      View
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => handleViewDataset(dataset.id)}>
+                        View
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                            Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete dataset?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete &quot;{dataset.name}&quot;. This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => void handleDeleteDataset(dataset.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              disabled={deletingId === dataset.id}
+                            >
+                              {deletingId === dataset.id ? 'Deleting…' : 'Delete'}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </CardFooter>
                 </Card>
               ))}
