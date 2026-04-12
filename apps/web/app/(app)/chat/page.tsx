@@ -1,811 +1,185 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-
+import { useEffect, useState, useRef } from 'react'
 import { useApiHealth } from '@/hooks/useApiHealth'
 import { api } from '@/lib/api'
-import { revealTypingSequence } from '@/lib/chat-reveal'
-import { devDebug } from '@/lib/dev-log'
 import { AppRouteHeader } from '@/components/AppRouteHeader'
-import { InferenceRuntimeToolbar, InferenceStatusBar } from '@/components/InferenceStatusBar'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { cn } from '@/lib/cn'
-import { ChatThread, MessageBubble, PromptComposer, TypingIndicator } from '@sloughgpt/strui'
+import { InferenceRuntimeToolbar } from '@/components/InferenceStatusBar'
 
 interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
-  timestamp: Date
-}
-
-interface ChatSettings {
-  temperature: number
-  maxNewTokens: number
-  topP: number
-  topK: number
-}
-
-interface ChatSession {
-  id: string
-  title: string
-  messages: Message[]
-  selectedModel: string
-  settings: ChatSettings
-  updatedAt: string
-}
-
-const CHAT_SESSIONS_KEY = 'sloughgpt_chat_sessions_v1'
-const ACTIVE_CHAT_KEY = 'sloughgpt_active_chat_v1'
-const CHAT_RAIL_EXPANDED_KEY = 'sloughgpt_chat_rail_expanded_v1'
-
-const defaultSettings: ChatSettings = {
-  temperature: 0.8,
-  maxNewTokens: 200,
-  topP: 0.9,
-  topK: 50,
-}
-
-const createSession = (): ChatSession => {
-  const id = Date.now().toString()
-  return {
-    id,
-    title: 'New chat',
-    messages: [],
-    selectedModel: 'gpt2',
-    settings: defaultSettings,
-    updatedAt: new Date().toISOString(),
-  }
-}
-
-function ChevronDownIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-    </svg>
-  )
-}
-
-/** Collapsed rail — open full conversation list (desktop). */
-function ConversationsRailIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-      />
-    </svg>
-  )
-}
-
-function ChevronLeftIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-    </svg>
-  )
-}
-
-/** Leading control in composer (reference: chat apps use + for attachments / actions). */
-function PlusIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14M5 12h14" />
-    </svg>
-  )
-}
-
-/** Generation / sampling controls — icon-only in header (dialog still has full labels). */
-function GearIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  )
 }
 
 export default function ChatPage() {
-  const [sessions, setSessions] = useState<ChatSession[]>([])
-  const [activeSessionId, setActiveSessionId] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
-  const [mobileSessionsOpen, setMobileSessionsOpen] = useState(false)
-  const [chatRailExpanded, setChatRailExpanded] = useState(false)
-  const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string; source?: string }>>([])
-  const { state: apiHealth, refresh: refreshHealth } = useApiHealth()
-  const [modelsCatalogError, setModelsCatalogError] = useState(false)
-  const [modelsCatalogLoading, setModelsCatalogLoading] = useState(true)
+  const [model, setModel] = useState('gpt2')
+  const [temp, setTemp] = useState(0.8)
+  const [maxTokens, setMaxTokens] = useState(200)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
-
-  const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null
-  const messages = useMemo(
-    () => activeSession?.messages ?? [],
-    [activeSession],
-  )
-  const selectedModel = activeSession?.selectedModel ?? 'gpt2'
-  const settings = activeSession?.settings ?? defaultSettings
-
-  const canInfer = useMemo(() => {
-    if (apiHealth === null) return false
-    if (apiHealth === 'offline') return false
-    return apiHealth.model_loaded
-  }, [apiHealth])
-
-  const sendBlockedReason =
-    apiHealth === null
-      ? 'Waiting for API status…'
-      : apiHealth === 'offline'
-        ? 'Cannot reach the API'
-        : !apiHealth.model_loaded
-          ? 'Load weights in the API (Models page or autoload)'
-          : undefined
-
-  const updateActiveSession = (updater: (session: ChatSession) => ChatSession) => {
-    if (!activeSessionId) return
-    setSessions((prev) =>
-      prev.map((session) =>
-        session.id === activeSessionId
-          ? { ...updater(session), updatedAt: new Date().toISOString() }
-          : session,
-      ),
-    )
-  }
-
-  const upsertSessionTitle = (prompt: string) => {
-    updateActiveSession((session) => {
-      if (session.title !== 'New chat') return session
-      return { ...session, title: prompt.slice(0, 40) || 'New chat' }
-    })
-  }
-
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(CHAT_RAIL_EXPANDED_KEY) === '1') {
-        setChatRailExpanded(true)
-      }
-    } catch {
-      /* ignore */
-    }
-  }, [])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(CHAT_RAIL_EXPANDED_KEY, chatRailExpanded ? '1' : '0')
-    } catch {
-      /* ignore */
-    }
-  }, [chatRailExpanded])
-
-  useEffect(() => {
-    const rawSessions = localStorage.getItem(CHAT_SESSIONS_KEY)
-    const rawActive = localStorage.getItem(ACTIVE_CHAT_KEY)
-    if (rawSessions) {
-      try {
-        const parsed = JSON.parse(rawSessions) as Array<
-          Omit<ChatSession, 'messages'> & {
-            messages: Array<Omit<Message, 'timestamp'> & { timestamp: string }>
-          }
-        >
-        const hydrated = parsed.map((session) => ({
-          ...session,
-          settings: session.settings ?? defaultSettings,
-          messages: session.messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) })),
-        }))
-        if (hydrated.length > 0) {
-          setSessions(hydrated)
-          if (rawActive && hydrated.some((s) => s.id === rawActive)) {
-            setActiveSessionId(rawActive)
-          } else {
-            setActiveSessionId(hydrated[0].id)
-          }
-          return
-        }
-      } catch {
-        // malformed storage
-      }
-    }
-    const session = createSession()
-    setSessions([session])
-    setActiveSessionId(session.id)
-  }, [])
-
-  useEffect(() => {
-    ;(async () => {
-      setModelsCatalogLoading(true)
-      setModelsCatalogError(false)
-      try {
-        const models = await api.getModels()
-        setAvailableModels(models.map((m) => ({ id: m.id, name: m.name, source: m.type })))
-      } catch {
-        setAvailableModels([])
-        setModelsCatalogError(true)
-      } finally {
-        setModelsCatalogLoading(false)
-      }
-    })()
-  }, [])
+  const { state: health } = useApiHealth()
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  useEffect(() => {
-    if (sessions.length === 0) return
-    localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(sessions))
-  }, [sessions])
-
-  useEffect(() => {
-    if (!activeSessionId) return
-    localStorage.setItem(ACTIVE_CHAT_KEY, activeSessionId)
-  }, [activeSessionId])
-
-  const startNewConversation = () => {
-    const session = createSession()
-    setSessions((prev) => [session, ...prev])
-    setActiveSessionId(session.id)
-    setMobileSessionsOpen(false)
-  }
-
-  const deleteSession = (id: string) => {
-    setSessions((prev) => {
-      const next = prev.filter((s) => s.id !== id)
-      if (next.length === 0) {
-        const fresh = createSession()
-        setActiveSessionId(fresh.id)
-        return [fresh]
-      }
-      if (id === activeSessionId) {
-        setActiveSessionId(next[0].id)
-      }
-      return next
-    })
-  }
-
-  const generateForPrompt = async (
-    prompt: string,
-    options?: {
-      skipUserAppend?: boolean
-      chatMessagesOverride?: Array<{ role: string; content: string }>
-    },
-  ) => {
-    if (!activeSession) return
-    const skipUserAppend = options?.skipUserAppend ?? false
-
-    const chatMessages: Array<{ role: string; content: string }> =
-      options?.chatMessagesOverride ??
-      (skipUserAppend
-        ? activeSession.messages.map((m) => ({ role: m.role, content: m.content }))
-        : [...activeSession.messages.map((m) => ({ role: m.role, content: m.content })), { role: 'user', content: prompt }])
-
-    if (!skipUserAppend) {
-      const userMessage: Message = {
-        id: Date.now().toString(),
-        role: 'user',
-        content: prompt,
-        timestamp: new Date(),
-      }
-      updateActiveSession((session) => ({ ...session, messages: [...session.messages, userMessage] }))
-      upsertSessionTitle(prompt)
-      setInput('')
-    }
-
-    setIsLoading(true)
-
-    const assistantId = (Date.now() + 1).toString()
-    const assistantMessage: Message = {
-      id: assistantId,
-      role: 'assistant',
-      content: '',
-      timestamp: new Date(),
-    }
-    updateActiveSession((session) => ({ ...session, messages: [...session.messages, assistantMessage] }))
-
-    const appendAssistantToken = (token: string) => {
-      updateActiveSession((session) => ({
-        ...session,
-        messages: session.messages.map((m) => (m.id === assistantId ? { ...m, content: m.content + token } : m)),
-      }))
-    }
-
-    const revealAssistantText = async (fullContent: string, delayMs: number) => {
-      for (const partial of revealTypingSequence(fullContent, 5)) {
-        updateActiveSession((session) => ({
-          ...session,
-          messages: session.messages.map((m) =>
-            m.id === assistantId ? { ...m, content: partial } : m,
-          ),
-        }))
-        await new Promise((r) => setTimeout(r, delayMs))
-      }
-    }
-
-    const streamViaChat = (): Promise<boolean> =>
-      new Promise((resolve) => {
-        let gotToken = false
-        api.chatStream(
-          {
-            messages: chatMessages,
-            model: selectedModel,
-            max_new_tokens: settings.maxNewTokens,
-            temperature: settings.temperature,
-            top_p: settings.topP,
-            top_k: settings.topK,
-          },
-          (token) => {
-            gotToken = true
-            appendAssistantToken(token)
-          },
-          () => resolve(gotToken),
-        )
-      })
-
-    try {
-      if (await streamViaChat()) {
-        setIsLoading(false)
-        return
-      }
-    } catch (err) {
-      devDebug('Chat streaming failed, falling back to non-stream generation:', err)
-    }
-
-    try {
-      const data = await api.chat({
-        messages: chatMessages,
-        model: selectedModel,
-        max_new_tokens: settings.maxNewTokens,
-        temperature: settings.temperature,
-        top_p: settings.topP,
-        top_k: settings.topK,
-      })
-      const fullContent = data.text || ''
-      await revealAssistantText(fullContent, 2)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Generation failed'
-      const fullContent = `Could not generate a reply. ${message}\n\nIf the API is running, load a model (Models page or POST /models/load) or ensure the server finished startup autoload (SLOUGHGPT_AUTOLOAD_MODEL, default gpt2).`
-      await revealAssistantText(fullContent, 2)
-    }
-
-    setIsLoading(false)
-  }
-
   const sendMessage = async () => {
-    if (!input.trim() || isLoading || !canInfer) return
-    await generateForPrompt(input.trim())
+    if (!input.trim() || loading) return
+    
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input.trim(),
+    }
+    
+    setMessages(prev => [...prev, userMessage])
+    setInput('')
+    setLoading(true)
+
+    try {
+      const response = await api.chat({
+        messages: [...messages, userMessage].map(m => ({ role: m.role, content: m.content })),
+        model,
+        max_new_tokens: maxTokens,
+        temperature: temp,
+      })
+      
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response.text || 'No response',
+      }
+      setMessages(prev => [...prev, assistantMessage])
+    } catch (err) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      }
+      setMessages(prev => [...prev, errorMessage])
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const retryAssistantMessage = async (assistantMessageId: string) => {
-    if (!activeSession || isLoading || !canInfer) return
-    const idx = activeSession.messages.findIndex((m) => m.id === assistantMessageId && m.role === 'assistant')
-    if (idx <= 0) return
-    const prompt = [...activeSession.messages]
-      .slice(0, idx)
-      .reverse()
-      .find((m) => m.role === 'user')?.content
-    if (!prompt) return
-    const historyForApi = activeSession.messages
-      .slice(0, idx)
-      .map((m) => ({ role: m.role, content: m.content }))
-    updateActiveSession((session) => ({ ...session, messages: session.messages.slice(0, idx) }))
-    await generateForPrompt(prompt, { skipUserAppend: true, chatMessagesOverride: historyForApi })
-  }
-
-  const editFromUserMessage = (userMessageId: string) => {
-    if (!activeSession || isLoading) return
-    const idx = activeSession.messages.findIndex((m) => m.id === userMessageId && m.role === 'user')
-    if (idx < 0) return
-    const msg = activeSession.messages[idx]
-    setInput(msg.content)
-    updateActiveSession((session) => ({ ...session, messages: session.messages.slice(0, idx) }))
-    inputRef.current?.focus()
-  }
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
-
-  const filteredSessions = sessions.filter((s) =>
-    s.title.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
-
-  const selectedModelLabel = availableModels.find((m) => m.id === selectedModel)?.name || selectedModel
-
-  const pickSession = (id: string) => {
-    setActiveSessionId(id)
-    setMobileSessionsOpen(false)
-  }
-
-  const sessionRowClass = (active: boolean) =>
-    cn(
-      'group relative flex w-full min-h-[2.25rem] cursor-pointer items-center gap-2 border-0 px-3 py-2 text-left text-sm transition-colors duration-200 ease-smooth',
-      active
-        ? 'bg-primary/[0.11] font-medium text-primary shadow-[inset_3px_0_0_0] shadow-primary dark:bg-primary/[0.09]'
-        : 'text-foreground/78 hover:bg-secondary/70 hover:text-foreground dark:text-muted-foreground',
-    )
-
-  const renderSessionsPanel = (opts?: { hideTitle?: boolean }) => (
-    <nav className="flex min-h-0 flex-1 flex-col" aria-label="Chat history">
-      {!opts?.hideTitle && (
-        <p className="mb-2 px-3 font-mono text-[10px] uppercase tracking-wider text-foreground/48 dark:text-muted-foreground">
-          Conversations
-        </p>
-      )}
-      <button
-        type="button"
-        onClick={startNewConversation}
-        className="mb-2 w-full text-left text-sm text-primary underline-offset-2 transition-colors hover:text-primary/90 hover:underline"
-      >
-        + New chat
-      </button>
-      <label className="sr-only" htmlFor="chat-session-search">
-        Search chats
-      </label>
-      <input
-        id="chat-session-search"
-        type="search"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        placeholder="Search…"
-        className="mb-2 w-full border-0 border-b border-border/25 bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/75 outline-none ring-0 transition-colors focus:border-primary/35"
-      />
-      <ul className="flex min-h-0 flex-1 flex-col divide-y divide-border/10 overflow-y-auto overscroll-contain dark:divide-border/15">
-        {filteredSessions.length === 0 ? (
-          <li className="list-none px-3 py-6 text-xs leading-relaxed text-muted-foreground">
-            {searchQuery.trim()
-              ? 'No chats match this search.'
-              : 'No conversations yet — use + New chat above.'}
-          </li>
-        ) : (
-          filteredSessions.map((session) => {
-          const active = session.id === activeSessionId
-          return (
-            <li key={session.id} className="group">
-              <div className="flex min-h-[2.25rem] items-stretch">
-                <button
-                  type="button"
-                  className={cn('min-w-0 flex-1 truncate text-left', sessionRowClass(active))}
-                  onClick={() => pickSession(session.id)}
-                >
-                  {session.title}
-                </button>
-                <button
-                  type="button"
-                  className="flex shrink-0 items-center px-2 font-mono text-base leading-none text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                  title="Remove chat"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    deleteSession(session.id)
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            </li>
-          )
-        })
-        )}
-      </ul>
-    </nav>
-  )
-
-  const sessionsPanel = renderSessionsPanel()
+  const clearChat = () => setMessages([])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
-      {/* Desktop: minified by default; expand for full conversation list */}
-      <aside
-        className={cn(
-          'sl-chat-rail hidden min-h-0 shrink-0 flex-col overflow-hidden border-r border-border/30 md:flex',
-          chatRailExpanded ? 'w-[var(--sidebar-width)] p-2' : 'w-11 items-stretch p-1',
-        )}
-        aria-label="Conversations"
-      >
-        {chatRailExpanded ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div className="mb-1 flex shrink-0 items-center justify-between gap-2 px-1">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-foreground/48">
-                Conversations
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                aria-label="Minimize conversation list"
-                title="Minimize"
-                onClick={() => setChatRailExpanded(false)}
-              >
-                <ChevronLeftIcon className="h-4 w-4" />
-              </Button>
-            </div>
-            {renderSessionsPanel({ hideTitle: true })}
+    <div className="flex h-full flex-col">
+      <AppRouteHeader
+        left={
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm">Chat</span>
           </div>
-        ) : (
-          <div className="flex min-h-0 flex-1 flex-col items-center pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 shrink-0 text-foreground/70 hover:text-foreground"
-              aria-label="Open conversation list"
-              title="Conversations"
-              onClick={() => setChatRailExpanded(true)}
-            >
-              <ConversationsRailIcon className="h-5 w-5" />
+        }
+        right={
+          <div className="flex items-center gap-2">
+            <InferenceRuntimeToolbar health={health} onRefresh={() => {}} />
+            <Button variant="ghost" size="sm" onClick={() => setShowSettings(!showSettings)}>
+              Settings
             </Button>
           </div>
+        }
+      />
+
+      {showSettings && (
+        <div className="border-b border-border/50 px-4 py-3 bg-muted/30">
+          <div className="flex flex-wrap gap-4 items-center text-sm">
+            <label className="flex items-center gap-2">
+              <span className="text-muted-foreground">Model:</span>
+              <select
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className="rounded border bg-background px-2 py-1 text-xs"
+              >
+                <option value="gpt2">gpt2</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2">
+              <span className="text-muted-foreground">Temp:</span>
+              <input
+                type="number"
+                value={temp}
+                onChange={(e) => setTemp(Number(e.target.value))}
+                step="0.1"
+                min="0"
+                max="2"
+                className="w-16 rounded border bg-background px-2 py-1 text-xs"
+              />
+            </label>
+            <label className="flex items-center gap-2">
+              <span className="text-muted-foreground">Max:</span>
+              <input
+                type="number"
+                value={maxTokens}
+                onChange={(e) => setMaxTokens(Number(e.target.value))}
+                min="1"
+                max="1000"
+                className="w-16 rounded border bg-background px-2 py-1 text-xs"
+              />
+            </label>
+            <Button variant="ghost" size="sm" onClick={clearChat}>
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {messages.length === 0 && (
+          <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+            Start a conversation
+          </div>
         )}
-      </aside>
-
-      {/* Main column: toolbar, status, thread, and composer share one max-width column */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="mx-auto flex min-h-0 w-full max-w-[var(--chat-thread-max)] flex-1 flex-col overflow-hidden px-3 sm:px-4 md:px-6">
-        <AppRouteHeader
-          className="shrink-0"
-          left={
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="shrink-0 md:hidden"
-                onClick={() => setMobileSessionsOpen(true)}
-              >
-                <ConversationsRailIcon className="h-4 w-4" />
-              </Button>
-              <span className="truncate font-medium text-sm">{activeSession?.title ?? 'New Chat'}</span>
-            </div>
-          }
-          right={
-            <div className="flex items-center gap-1">
-              <InferenceRuntimeToolbar health={apiHealth} onRefresh={refreshHealth} />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setShowSettings(true)}
-                title="Settings"
-              >
-                <GearIcon className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          }
-        />
-
-        <Dialog open={mobileSessionsOpen} onOpenChange={setMobileSessionsOpen}>
-          <DialogContent className="flex max-h-[min(90dvh,32rem)] flex-col gap-0 overflow-hidden border-border/80 p-0 sm:max-w-md">
-            <DialogHeader className="shrink-0 border-b border-border/70 px-4 py-3 text-left">
-              <DialogTitle className="font-mono text-[10px] uppercase tracking-wider text-foreground/55">
-                Conversations
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                Search, switch, or start a new chat.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-2 py-3">
-              {sessionsPanel}
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={showSettings} onOpenChange={setShowSettings}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Settings</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="chat-model">Model</Label>
-                <select
-                  id="chat-model"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={selectedModel}
-                  onChange={(e) => updateActiveSession((s) => ({ ...s, selectedModel: e.target.value }))}
-                >
-                  {availableModels.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="chat-temp" className="text-xs">Temperature</Label>
-                  <Input
-                    id="chat-temp"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="2"
-                    value={settings.temperature}
-                    onChange={(e) =>
-                      updateActiveSession((session) => ({
-                        ...session,
-                        settings: {
-                          ...session.settings,
-                          temperature: Number(e.target.value) || defaultSettings.temperature,
-                        },
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="chat-max" className="text-xs">Max tokens</Label>
-                  <Input
-                    id="chat-max"
-                    type="number"
-                    min="1"
-                    value={settings.maxNewTokens}
-                    onChange={(e) =>
-                      updateActiveSession((session) => ({
-                        ...session,
-                        settings: {
-                          ...session.settings,
-                          maxNewTokens: Number(e.target.value) || defaultSettings.maxNewTokens,
-                        },
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="chat-topp" className="text-xs">Top P</Label>
-                  <Input
-                    id="chat-topp"
-                    type="number"
-                    step="0.05"
-                    min="0"
-                    max="1"
-                    value={settings.topP}
-                    onChange={(e) =>
-                      updateActiveSession((session) => ({
-                        ...session,
-                        settings: {
-                          ...session.settings,
-                          topP: Number(e.target.value) || defaultSettings.topP,
-                        },
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="chat-topk" className="text-xs">Top K</Label>
-                  <Input
-                    id="chat-topk"
-                    type="number"
-                    min="1"
-                    value={settings.topK}
-                    onChange={(e) =>
-                      updateActiveSession((session) => ({
-                        ...session,
-                        settings: {
-                          ...session.settings,
-                          topK: Number(e.target.value) || defaultSettings.topK,
-                        },
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" onClick={() => setShowSettings(false)}>
-                Done
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <ChatThread
-          className="min-h-0 flex-1 overscroll-contain gap-0 px-3 py-0 pt-3 pb-4 sm:px-5 sm:pt-4"
-          live
-        >
-          {messages.length === 0 && (
-            <div className="flex min-h-[min(50dvh,28rem)] flex-col items-center justify-center px-2 py-8 text-center sm:py-16">
-              <div className="mb-5 flex aspect-square w-[4.5rem] shrink-0 items-center justify-center border border-primary/35 bg-gradient-to-br from-primary/12 to-accent/20 font-mono text-2xl font-semibold text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] dark:shadow-none">
-                S
-              </div>
-              <h2 className="mb-1.5 text-xl font-semibold tracking-tight text-foreground">SloughGPT</h2>
-              <p className="mb-8 max-w-sm text-sm leading-relaxed text-muted-foreground">
-                Start a conversation — prompts use the loaded model shown in the status bar.
-              </p>
-              <div className="flex max-w-lg flex-wrap justify-center gap-2">
-                {['Explain quantum', 'Write code', 'What is ML?', 'Help me create'].map((example, i) => (
-                  <Button
-                    type="button"
-                    key={i}
-                    variant="secondary"
-                    size="sm"
-                    className="text-xs"
-                    disabled={!canInfer}
-                    title={!canInfer ? sendBlockedReason : undefined}
-                    onClick={() => setInput(example)}
-                  >
-                    {example}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-          {messages.map((msg) =>
-            msg.role === 'assistant' ? (
-              <div key={msg.id} className="mb-4 flex w-full justify-start">
-                <div className="max-w-[85%] rounded-2xl bg-muted/50 px-4 py-3 text-sm leading-relaxed text-foreground">
-                  <div className="whitespace-pre-wrap break-words">{msg.content}</div>
-                </div>
-              </div>
-            ) : (
-              <div key={msg.id} className="mb-4 flex w-full justify-end">
-                <div className="max-w-[85%] rounded-2xl bg-primary px-4 py-3 text-sm leading-relaxed text-primary-foreground">
-                  <div className="whitespace-pre-wrap break-words">{msg.content}</div>
-                </div>
-              </div>
-            ),
-          )}
-          {isLoading && (
-            <div className="mb-4 flex w-full justify-start sm:mb-5" aria-busy>
-              <TypingIndicator />
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </ChatThread>
-
-          <div className="shrink-0 border-t border-border/80 bg-background/90 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
-            {/* strui PromptComposer inside pill shell (lead action + shared design system) */}
-            <div className="rounded-2xl border border-border/90 bg-card/95 p-2 shadow-sm ring-1 ring-border/15 dark:bg-card/90 dark:ring-border/25">
-              <div className="flex min-w-0 items-end gap-1.5 sm:gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-11 w-11 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
-                  aria-label="Composer actions"
-                  title="Attachments and shortcuts — coming soon"
-                  disabled
-                >
-                  <PlusIcon className="h-5 w-5" />
-                </Button>
-                <PromptComposer
-                  className="min-w-0 flex-1 border-0 bg-transparent p-0 shadow-none"
-                  value={input}
-                  onValueChange={setInput}
-                  onSubmit={sendMessage}
-                  busy={isLoading}
-                  disabled={!canInfer}
-                  safeAreaBottom={false}
-                  placeholder="Message…"
-                  sendLabel="Send"
-                  textareaRef={inputRef}
-                  textAreaProps={{
-                    'data-testid': 'chat-message-input',
-                    title: !canInfer ? sendBlockedReason : undefined,
-                  }}
-                  sendButtonProps={{ 'data-testid': 'chat-send-button', 'aria-label': 'Send message' }}
-                />
-              </div>
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`mb-4 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
+                msg.role === 'user'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-foreground'
+              }`}
+            >
+              {msg.content}
             </div>
           </div>
+        ))}
+        {loading && (
+          <div className="mb-4 flex justify-start">
+            <div className="rounded-2xl bg-muted px-4 py-2.5 text-sm text-muted-foreground">
+              Thinking...
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="border-t border-border/50 px-4 py-3">
+        <div className="flex gap-2">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                sendMessage()
+              }
+            }}
+            placeholder="Type a message..."
+            className="flex-1 resize-none rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            rows={1}
+          />
+          <Button onClick={sendMessage} disabled={loading || !input.trim()}>
+            Send
+          </Button>
         </div>
       </div>
     </div>
