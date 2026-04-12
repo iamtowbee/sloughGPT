@@ -1503,11 +1503,14 @@ curl -X POST http://localhost:8000/generate/stream \
 |---------|-------------|
 | `batch_generate()` | Process multiple prompts in sequence |
 | `warmup()` | Pre-heat model after loading |
+| `get_latency_histogram()` | Latency percentiles (p50, p90, p99) |
+| Inference metrics in `/metrics` | Total requests, tokens, latency histogram |
+| Request ID tracking | `_generate_request_id()` for tracing |
 
 ### Test Results
 | Suite | Result |
 |-------|--------|
-| Python | 464 passed |
+| Python | 465 passed |
 | Web unit | 43 passed |
 | E2E | 11 passed |
 ```
