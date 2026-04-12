@@ -2460,6 +2460,60 @@ async def delete_dataset(dataset_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class CombineDatasetsRequest(BaseModel):
+    source_ids: List[str]
+    name: str
+
+
+@app.post("/datasets/combine", tags=["datasets"])
+async def combine_datasets(request: CombineDatasetsRequest):
+    """Combine multiple datasets into one."""
+    import json
+
+    if len(request.source_ids) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 datasets required")
+
+    output_path = Path(f"datasets/{request.name}")
+    output_path.mkdir(parents=True, exist_ok=True)
+    corpus_file = output_path / "corpus.jsonl"
+
+    total_files = 0
+    total_chars = 0
+
+    with open(corpus_file, "w", encoding="utf-8") as out:
+        for source_id in request.source_ids:
+            source_path = Path(f"datasets/{source_id}")
+            if not source_path.exists():
+                raise HTTPException(status_code=404, detail=f"Dataset not found: {source_id}")
+
+            corpus = source_path / "corpus.jsonl"
+            if corpus.exists():
+                with open(corpus, "r", encoding="utf-8") as f:
+                    for line in f:
+                        out.write(line)
+                        total_files += 1
+                        try:
+                            record = json.loads(line)
+                            total_chars += record.get("size", len(record.get("content", "")))
+                        except:
+                            pass
+            else:
+                input_file = source_path / "input.txt"
+                if input_file.exists():
+                    content = input_file.read_text()
+                    record = {"content": content, "source": source_id}
+                    out.write(json.dumps(record, ensure_ascii=False) + "\n")
+                    total_files += 1
+                    total_chars += len(content)
+
+    return {
+        "success": True,
+        "dataset_id": request.name,
+        "message": f"Combined {len(request.source_ids)} datasets: {total_files} files, {total_chars} chars",
+        "output_path": str(corpus_file),
+    }
+
+
 class GitHubImportRequest(BaseModel):
     url: str
     name: str

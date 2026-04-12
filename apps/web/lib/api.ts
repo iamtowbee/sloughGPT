@@ -965,6 +965,19 @@ export const api = {
     return res.json()
   },
 
+  async combineDatasets(sourceIds: string[], name: string): Promise<ImportResponse> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/combine`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source_ids: sourceIds, name }),
+    })
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Combine failed' }))
+      throw new Error(error.detail || `Combine failed (${res.status})`)
+    }
+    return res.json()
+  },
+
   async getExperiments(): Promise<Experiment[]> {
     const res = await fetchWithAuth(`${API_URL}/experiments`)
     return res.json()
