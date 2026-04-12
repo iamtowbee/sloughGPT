@@ -4,7 +4,12 @@
 
 cd /Users/mac/sloughGPT
 
+# Default model path (use absolute path)
+DEFAULT_MODEL="/Users/mac/models/llama3.2-1b-q8_0.gguf"
+export SLOUGHGPT_MODEL_PATH="${SLOUGHGPT_MODEL_PATH:-$DEFAULT_MODEL}"
+
 echo "=== Starting SloughGPT ==="
+echo "Model: $SLOUGHGPT_MODEL_PATH"
 
 # Kill existing servers
 pkill -f "unified-log-server" 2>/dev/null
@@ -29,10 +34,10 @@ send_log() {
         -d "{\"source\":\"$source\",\"level\":\"$level\",\"message\":\"$message\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\"}" > /dev/null 2>&1
 }
 
-# Start API server
+# Start API server with model path
 echo "Starting API server..."
 send_log "api" "INFO" "🚀 Starting API server on port 8000..."
-nohup /usr/bin/python3 apps/api/server/simple_server.py > >(while IFS= read -r line; do send_log "api" "INFO" "$line"; done) 2>&1 &
+nohup /bin/bash -c "export SLOUGHGPT_MODEL_PATH='$SLOUGHGPT_MODEL_PATH'; /usr/bin/python3 apps/api/server/simple_server.py" > >(while IFS= read -r line; do send_log "api" "INFO" "$line"; done) 2>&1 &
 API_PID=$!
 echo "API PID: $API_PID"
 
