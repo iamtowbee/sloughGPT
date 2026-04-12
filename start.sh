@@ -1,60 +1,94 @@
 #!/bin/bash
-# Start both SloughGPT API and Web servers
+# Start SloughGPT with unified logging
+# Shows API, Web, and Core Engine logs in one terminal
 
 cd /Users/mac/sloughGPT
 
 echo "=== Starting SloughGPT ==="
 
 # Kill existing servers
-pkill -f "python3 apps/api/server/main.py" 2>/dev/null
+pkill -f "unified-log-server" 2>/dev/null
+pkill -f "python3 apps/api/server" 2>/dev/null
 pkill -f "next dev" 2>/dev/null
-sleep 2
+sleep 1
 
-# Start API server (use simple_server for detailed startup output)
-echo "Starting API server on port 8000..."
-nohup /usr/bin/python3 apps/api/server/simple_server.py > /tmp/sloughgpt-api.log 2>&1 &
+# Start unified log server
+echo "Starting unified log server on port 9999..."
+nohup /usr/bin/python3 scripts/unified-log-server.py > /tmp/sloughgpt-log-server.log 2>&1 &
+LOG_PID=$!
+sleep 1
+
+# Function to send logs to unified server
+send_log() {
+    local source=$1
+    local level=$2
+    shift 2
+    local message="$@"
+    curl -s -X POST http://localhost:9999/log \
+        -H "Content-Type: application/json" \
+        -d "{\"source\":\"$source\",\"level\":\"$level\",\"message\":\"$message\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\"}" > /dev/null 2>&1
+}
+
+# Start API server
+echo "Starting API server..."
+send_log "api" "INFO" "🚀 Starting API server on port 8000..."
+nohup /usr/bin/python3 apps/api/server/simple_server.py > >(while IFS= read -r line; do send_log "api" "INFO" "$line"; done) 2>&1 &
 API_PID=$!
 echo "API PID: $API_PID"
 
-# Wait for API to start
-for i in {1..10}; do
+# Wait for API
+for i in {1..15}; do
     if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+        send_log "api" "INFO" "✅ API server ready on port 8000"
         break
     fi
     sleep 1
 done
 
-# Check if API is running
-if curl -s http://localhost:8000/health > /dev/null 2>&1; then
-    echo "API server: OK"
-else
-    echo "API server: FAILED"
-    tail -20 /tmp/sloughgpt-api.log
-fi
-
 # Start Web server
-echo "Starting Web server on port 3000..."
+echo "Starting Web server..."
+send_log "web" "INFO" "🚀 Starting Web server on port 3000..."
 cd apps/web
-nohup npm run dev > /tmp/sloughgpt-web.log 2>&1 &
+nohup npm run dev > >(while IFS= read -r line; do send_log "web" "INFO" "$line"; done) 2>&1 &
 WEB_PID=$!
+cd ..
 echo "Web PID: $WEB_PID"
 
-sleep 5
+# Wait for Web
+for i in {1..15}; do
+    if curl -s http://localhost:3000 > /dev/null 2>&1; then
+        send_log "web" "INFO" "✅ Web server ready on port 3000"
+        break
+    fi
+    sleep 1
+done
 
-# Check if Web is running
-if curl -s http://localhost:3000 > /dev/null 2>&1; then
-    echo "Web server: OK"
-else
-    echo "Web server: FAILED"
-    tail -20 /tmp/sloughgpt-web.log
-fi
+send_log "system" "INFO" "🎉 SloughGPT is running!"
+send_log "system" "INFO" "   API:  http://localhost:8000"
+send_log "system" "INFO" "   Web:  http://localhost:3000"
+send_log "system" "INFO" "   Logs: http://localhost:9999 (unified)"
 
 echo ""
 echo "=== SloughGPT is running ==="
 echo "API:  http://localhost:8000"
 echo "Web:  http://localhost:3000"
-echo "Docs: http://localhost:3000/api-docs"
+echo "Logs: http://localhost:9999"
 echo ""
-echo "Logs:"
-echo "  API: tail -f /tmp/sloughgpt-api.log"
-echo "  Web: tail -f /tmp/sloughgpt-web.log"
+echo "Unified log stream:"
+echo "────────────────────────────────────────"
+tail -f /tmp/sloughgpt-unified.log &
+TAIL_PID=$!
+echo ""
+
+# Cleanup function
+cleanup() {
+    send_log "system" "INFO" "🛑 Shutting down SloughGPT..."
+    kill $TAIL_PID 2>/dev/null
+    pkill -f "unified-log-server" 2>/dev/null
+    pkill -f "python3 apps/api/server" 2>/dev/null
+    pkill -f "next dev" 2>/dev/null
+    echo "Servers stopped"
+}
+
+trap cleanup EXIT INT TERM
+wait
