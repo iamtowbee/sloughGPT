@@ -164,39 +164,26 @@ function RefreshIcon({ className }: { className?: string }) {
 /** Icon-first API runtime cluster for route headers (pair with `AppRouteHeader` right slot). */
 export function InferenceRuntimeToolbar({ health, onRefresh }: ToolbarProps) {
   return (
-    <div className="flex items-center justify-end gap-1">
+    <div className="flex items-center justify-end gap-2 text-muted-foreground" title={health?.model_type ? `${health.model_type} loaded` : 'API status'}>
       {health === null ? (
-        <span
-          className="flex h-5 w-5 items-center justify-center rounded-full bg-muted/50 text-muted-foreground opacity-50"
-          title="Checking API status…"
-          role="status"
-          aria-label="Checking API status"
-        >
-          <DotsPulseIcon className="h-2.5 w-2.5" />
+        <span className="flex items-center gap-1 text-xs" role="status" aria-label="Checking API status">
+          <DotsPulseIcon className="h-3 w-3" />
+          <span>Checking...</span>
         </span>
       ) : health === 'offline' ? (
-        <span
-          className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive/20 text-destructive/70"
-          title="Cannot reach the API"
-          aria-label="API disconnected"
-        >
-          <OfflineIcon className="h-2.5 w-2.5" />
+        <span className="flex items-center gap-1 text-xs text-destructive" role="status" aria-label="API disconnected">
+          <OfflineIcon className="h-3 w-3" />
+          <span>Offline</span>
         </span>
       ) : health.model_loaded ? (
-        <span
-          className="flex h-5 w-5 items-center justify-center rounded-full bg-success/20 text-success/70"
-          title={`${health.model_type} loaded`}
-          aria-label="Model loaded"
-        >
-          <CheckCircleIcon className="h-2.5 w-2.5" />
+        <span className="flex items-center gap-1 text-xs text-success" role="status" aria-label="Model loaded">
+          <CheckCircleIcon className="h-3 w-3" />
+          <span>{health.model_type}</span>
         </span>
       ) : (
-        <span
-          className="flex h-5 w-5 items-center justify-center rounded-full bg-warning/20 text-warning/70"
-          title="No model loaded"
-          aria-label="No model loaded"
-        >
-          <AlertTriangleIcon className="h-2.5 w-2.5" />
+        <span className="flex items-center gap-1 text-xs text-warning" role="status" aria-label="No model loaded">
+          <AlertTriangleIcon className="h-3 w-3" />
+          <span>No model</span>
         </span>
       )}
     </div>
