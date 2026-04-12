@@ -1550,4 +1550,58 @@ curl -X POST http://localhost:8000/generate/stream \
 | Python | 476 passed |
 | Web unit | 43 passed |
 | E2E | 11 passed |
+
+---
+
+## Phase 32: Dataset UI & Unified Logging (2026-04-12)
+
+### Dataset UI Features
+
+| Feature | File | Description |
+|---------|------|-------------|
+| Delete with confirmation | `datasets/page.tsx` | AlertDialog confirmation before delete |
+| Combine modal | `DatasetCombineModal.tsx` | Merge multiple datasets with checkboxes |
+| Import progress | `ImportProgressModal.tsx` | Track async imports with progress bars |
+| Checkbox component | `ui/checkbox.tsx` | Custom checkbox for dataset selection |
+| Progress component | `ui/progress.tsx` | Progress bar for import tracking |
+
+### Unified Logging System
+
+| Component | Description |
+|-----------|-------------|
+| `scripts/unified-log-server.py` | HTTP log receiver on port 9999 |
+| Color-coded sources | `[api]` blue, `[web]` magenta, `[system]` green |
+| Single terminal view | All logs combined via `./start.sh` |
+| Persistent log | `/tmp/sloughgpt-unified.log` |
+
+### Startup Scripts
+
+| Script | Description |
+|--------|-------------|
+| `./start.sh` | Start API + Web + unified logging |
+| `./start-api.sh` | Start API server only with logging |
+| `python3 scripts/unified-log-server.py` | Run log server standalone |
+
+### E2E Tests
+
+| Test File | Coverage |
+|-----------|----------|
+| `datasets-page.cy.ts` | Import modal, combine modal, page elements (12 passing) |
+
+### Commands
+```bash
+./start.sh              # Start all with unified logging
+tail -f /tmp/sloughgpt-unified.log  # View logs
+```
+
+---
+
+## What's Next?
+
+| Priority | Task |
+|----------|------|
+| HIGH | Test datasets UI at http://localhost:3000/datasets |
+| MEDIUM | Run full E2E test suite |
+| MEDIUM | Add dataset export functionality |
+| LOW | Add more import source options (Kaggle, CSV, etc.) |
 ```
