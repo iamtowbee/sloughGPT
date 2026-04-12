@@ -1113,6 +1113,26 @@ def profile_memory(f):
     return wrapper
 
 
+def get_inference_health() -> Dict[str, Any]:
+    """Get health status of the inference system."""
+    gpu = detect_gpu()
+    memory = get_memory_usage()
+    stats = get_inference_stats()
+
+    return {
+        "status": "healthy",
+        "gpu_available": gpu is not None,
+        "gpu_name": gpu.name if gpu else None,
+        "gpu_recommended": gpu.recommended if gpu else None,
+        "llama_cpp_available": LLAMA_CPP_PYTHON_AVAILABLE,
+        "llama_cli_available": LLAMA_CLI_AVAILABLE,
+        "cached_models": len(list_cached_models()),
+        "memory_rss_mb": round(memory.get("rss_mb", 0), 1) if "error" not in memory else None,
+        "total_requests": stats.get("total_requests", 0),
+        "total_errors": stats.get("total_errors", 0),
+    }
+
+
 def find_gguf_models(search_paths: Optional[List[str]] = None) -> List[Path]:
     """Find all GGUF model files in common locations."""
     if search_paths is None:

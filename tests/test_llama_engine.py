@@ -298,3 +298,18 @@ class TestCacheManagement:
 
         result = unload_model("/nonexistent.gguf")
         assert result is False
+
+
+class TestInferenceHealth:
+    """Tests for inference health check."""
+
+    def test_get_inference_health(self):
+        """Test get_inference_health function."""
+        from domains.inference.llama_engine import get_inference_health
+
+        health = get_inference_health()
+        assert "status" in health
+        assert "gpu_available" in health
+        assert "cached_models" in health
+        assert "total_requests" in health
+        assert health["status"] == "healthy"
