@@ -2296,6 +2296,236 @@ async def get_dataset_stats(dataset_id: str):
     }
 
 
+@app.get("/datasets/{dataset_id}/preview", tags=["datasets"])
+async def preview_dataset(dataset_id: str, limit: int = 10):
+    """Preview dataset content and stats."""
+    from pathlib import Path
+    import json
+
+    dataset_path = Path(f"datasets/{dataset_id}")
+
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    corpus_file = dataset_path / "corpus.jsonl"
+    input_file = dataset_path / "input.txt"
+
+    samples = []
+    total_chars = 0
+    languages = {}
+
+    if corpus_file.exists():
+        with open(corpus_file, "r", encoding="utf-8") as f:
+            for i, line in enumerate(f):
+                if i >= limit:
+                    break
+                try:
+                    record = json.loads(line)
+                    samples.append(
+                        {
+                            "path": record.get("path", ""),
+                            "language": record.get("language", "text"),
+                            "content": record.get("content", "")[:500],
+                            "size": record.get("size", 0),
+                        }
+                    )
+                    total_chars += record.get("size", 0)
+                    lang = record.get("language", "text")
+                    languages[lang] = languages.get(lang, 0) + 1
+                except json.JSONDecodeError:
+                    continue
+    elif input_file.exists():
+        with open(input_file, "r", encoding="utf-8") as f:
+            lines_content = f.readlines()[:limit]
+            for i, line in enumerate(lines_content):
+                samples.append(
+                    {
+                        "path": f"line_{i}",
+                        "language": "text",
+                        "content": line.strip()[:500],
+                        "size": len(line),
+                    }
+                )
+                total_chars += len(line)
+    else:
+        raise HTTPException(status_code=404, detail="No corpus or input file found")
+
+    return {
+        "dataset_id": dataset_id,
+        "samples": samples,
+        "total_samples": len(samples),
+        "total_chars": total_chars,
+        "languages": languages,
+    }
+
+
+class GitHubImportRequest(BaseModel):
+    url: str
+    name: str
+    extensions: Optional[List[str]] = None
+    max_files: Optional[int] = None
+
+
+class HuggingFaceImportRequest(BaseModel):
+    dataset_id: str
+    name: Optional[str] = None
+
+
+class URLImportRequest(BaseModel):
+    url: str
+    name: str
+
+
+class LocalImportRequest(BaseModel):
+    path: str
+    name: str
+    extensions: Optional[List[str]] = None
+
+
+@app.post("/datasets/import/github", tags=["datasets"])
+async def import_from_github(request: GitHubImportRequest):
+    """Import dataset from GitHub repository."""
+    try:
+        from domains.training.data_import import RepoImporter
+        from pathlib import Path
+
+        repo = RepoImporter()
+        extensions = request.extensions or [".py", ".js", ".ts", ".md", ".txt", ".json", ".yaml"]
+
+        result = repo.import_from_github(
+            url=request.url,
+            dataset_name=request.name,
+            extensions=extensions,
+            max_files=request.max_files,
+        )
+
+        if result.success:
+            return {
+                "success": True,
+                "dataset_id": result.name,
+                "message": f"Imported {result.files_imported} files ({result.total_chars} chars)",
+                "output_path": result.output_path,
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.error or "Import failed")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/datasets/import/huggingface", tags=["datasets"])
+async def import_from_huggingface(request: HuggingFaceImportRequest):
+    """Import dataset from HuggingFace Hub."""
+    try:
+        from domains.training.data_import import HuggingFaceImporter
+
+        hf = HuggingFaceImporter()
+        name = request.name or request.dataset_id.split("/")[-1]
+
+        result = hf.download_dataset(
+            dataset_id=request.dataset_id,
+            name=name,
+        )
+
+        if result.success:
+            return {
+                "success": True,
+                "dataset_id": name,
+                "message": f"Downloaded {result.files_imported} splits ({result.total_chars} chars)",
+                "output_path": result.output_path,
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.error or "Download failed")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/datasets/import/url", tags=["datasets"])
+async def import_from_url(request: URLImportRequest):
+    """Import dataset from URL."""
+    try:
+        from domains.training.data_import import URLImporter
+
+        url_importer = URLImporter()
+        result = url_importer.import_from_url(
+            url=request.url,
+            dataset_name=request.name,
+        )
+
+        if result.success:
+            return {
+                "success": True,
+                "dataset_id": request.name,
+                "message": f"Downloaded {result.total_chars} chars",
+                "output_path": result.output_path,
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.error or "Download failed")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/datasets/import/local", tags=["datasets"])
+async def import_from_local(request: LocalImportRequest):
+    """Import dataset from local file or directory."""
+    try:
+        from domains.training.data_import import DataImporter
+
+        importer = DataImporter()
+        extensions = request.extensions or [".py", ".js", ".ts", ".md", ".txt", ".json"]
+
+        result = importer.import_from_local(
+            path=request.path,
+            name=request.name,
+            extensions=extensions,
+        )
+
+        if result.success:
+            return {
+                "success": True,
+                "dataset_id": request.name,
+                "message": f"Imported {result.files_imported} files ({result.total_chars} chars)",
+                "output_path": result.output_path,
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.error or "Import failed")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/datasets/search/github", tags=["datasets"])
+async def search_github_repos(query: str, limit: int = 10):
+    """Search GitHub repositories (uses basic API, no auth)."""
+    import urllib.request
+    import urllib.parse
+    import json
+
+    try:
+        encoded_query = urllib.parse.quote(query)
+        url = f"https://api.github.com/search/repositories?q={encoded_query}&sort=stars&order=desc&per_page={limit}"
+
+        req = urllib.request.Request(url, headers={"User-Agent": "SloughGPT"})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode())
+
+        repos = []
+        for item in data.get("items", [])[:limit]:
+            repos.append(
+                {
+                    "id": item.get("full_name"),
+                    "name": item.get("name"),
+                    "full_name": item.get("full_name"),
+                    "description": item.get("description"),
+                    "stars": item.get("stargazers_count", 0),
+                    "url": item.get("html_url"),
+                    "language": item.get("language"),
+                }
+            )
+
+        return {"repos": repos}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/models")
 async def list_models():
     """List available models (local + HuggingFace)."""

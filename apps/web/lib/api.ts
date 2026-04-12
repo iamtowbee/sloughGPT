@@ -99,6 +99,63 @@ export interface Dataset {
   path?: string
 }
 
+export type ImportSource = 'github' | 'huggingface' | 'url' | 'local'
+
+export interface DatasetPreview {
+  dataset_id: string
+  samples: DatasetSample[]
+  total_samples: number
+  total_chars: number
+  languages: Record<string, number>
+}
+
+export interface DatasetSample {
+  path: string
+  language: string
+  content: string
+  size: number
+}
+
+export interface GitHubImportRequest {
+  url: string
+  name: string
+  extensions?: string[]
+  max_files?: number
+}
+
+export interface HuggingFaceImportRequest {
+  dataset_id: string
+  name?: string
+}
+
+export interface URLImportRequest {
+  url: string
+  name: string
+}
+
+export interface LocalImportRequest {
+  path: string
+  name: string
+  extensions?: string[]
+}
+
+export interface ImportResponse {
+  success: boolean
+  dataset_id: string
+  message: string
+  output_path: string
+}
+
+export interface GitHubRepo {
+  id: string
+  name: string
+  full_name: string
+  description: string | null
+  stars: number
+  url: string
+  language: string | null
+}
+
 export interface GenerateRequest {
   prompt: string
   model?: string
@@ -813,6 +870,74 @@ export const api = {
     const res = await fetchWithAuth(`${API_URL}/datasets/${datasetId}/download`, {
       method: 'POST',
     })
+    return res.json()
+  },
+
+  async previewDataset(datasetId: string, limit = 10): Promise<DatasetPreview> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/${datasetId}/preview?limit=${limit}`)
+    if (!res.ok) {
+      throw new Error(`GET /datasets/${datasetId}/preview failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async importFromGitHub(request: GitHubImportRequest): Promise<ImportResponse> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/import/github`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    })
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Import failed' }))
+      throw new Error(error.detail || `Import failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async importFromHuggingFace(request: HuggingFaceImportRequest): Promise<ImportResponse> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/import/huggingface`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    })
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Import failed' }))
+      throw new Error(error.detail || `Import failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async importFromURL(request: URLImportRequest): Promise<ImportResponse> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/import/url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    })
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Import failed' }))
+      throw new Error(error.detail || `Import failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async importFromLocal(request: LocalImportRequest): Promise<ImportResponse> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/import/local`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    })
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Import failed' }))
+      throw new Error(error.detail || `Import failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async searchGitHubRepos(query: string, limit = 10): Promise<{ repos: GitHubRepo[] }> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/search/github?query=${encodeURIComponent(query)}&limit=${limit}`)
+    if (!res.ok) {
+      throw new Error(`GitHub search failed (${res.status})`)
+    }
     return res.json()
   },
 

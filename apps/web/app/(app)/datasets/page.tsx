@@ -6,13 +6,18 @@ import Link from 'next/link'
 import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import { api, type Dataset } from '@/lib/api'
 import { devDebug } from '@/lib/dev-log'
+import { DatasetImportModal } from '@/components/DatasetImportModal'
+import { DatasetPreview } from '@/components/DatasetPreview'
 
 export default function DatasetsPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [loading, setLoading] = useState(true)
+  const [importModalOpen, setImportModalOpen] = useState(false)
+  const [selectedDataset, setSelectedDataset] = useState<string | null>(null)
   const { state: health, refresh: refreshHealth } = useApiHealth()
 
   const apiHealthLabel = useMemo(() => inferenceHealthLabel(health), [health])
@@ -41,6 +46,14 @@ export default function DatasetsPage() {
     }
   }
 
+  const handleImportComplete = () => {
+    void fetchDatasets()
+  }
+
+  const handleViewDataset = (datasetId: string) => {
+    setSelectedDataset(datasetId)
+  }
+
   return (
     <div className="sl-page mx-auto max-w-6xl">
       <AppRouteHeader
@@ -62,6 +75,13 @@ export default function DatasetsPage() {
           <div className="flex flex-wrap justify-end gap-2">
             <Button
               type="button"
+              size="sm"
+              onClick={() => setImportModalOpen(true)}
+            >
+              Import Dataset
+            </Button>
+            <Button
+              type="button"
               variant="secondary"
               size="sm"
               onClick={() => {
@@ -78,45 +98,78 @@ export default function DatasetsPage() {
         }
       />
 
-      {loading ? (
-        <div className="py-12 text-center text-muted-foreground">Loading datasets…</div>
-      ) : datasets.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="py-12 text-center text-muted-foreground">
-            No datasets found. Run the API from the repo root so <span className="font-mono">datasets/</span> is
-            visible.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {datasets.map((dataset) => (
-            <Card
-              key={dataset.id}
-              className="transition-colors duration-200 ease-smooth hover:border-primary/25"
-            >
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-base">{dataset.name}</CardTitle>
-                  <span className="shrink-0 border border-border bg-muted/50 px-2 py-0.5 font-mono text-xs text-muted-foreground">
-                    {dataset.type}
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {dataset.path && (
-                  <p className="truncate font-mono text-xs text-muted-foreground">{dataset.path}</p>
-                )}
-              </CardContent>
-              <CardFooter className="flex justify-between border-t border-border pt-4">
-                <span className="text-sm font-medium text-chart-3">{dataset.size}</span>
-                <Button type="button" variant="ghost" size="sm">
-                  View
+      <Tabs value={selectedDataset ? 'preview' : 'list'} onValueChange={(v) => v === 'list' && setSelectedDataset(null)}>
+        <TabsList className="mb-4 w-full justify-start">
+          <TabsTrigger value="list">All Datasets</TabsTrigger>
+          {selectedDataset && (
+            <TabsTrigger value="preview">{selectedDataset} Preview</TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="list">
+          {loading ? (
+            <div className="py-12 text-center text-muted-foreground">Loading datasets…</div>
+          ) : datasets.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <p className="mb-4">No datasets found.</p>
+                <Button type="button" onClick={() => setImportModalOpen(true)}>
+                  Import your first dataset
                 </Button>
-              </CardFooter>
+              </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {datasets.map((dataset) => (
+                <Card
+                  key={dataset.id}
+                  className="transition-colors duration-200 ease-smooth hover:border-primary/25"
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-base">{dataset.name}</CardTitle>
+                      <span className="shrink-0 border border-border bg-muted/50 px-2 py-0.5 font-mono text-xs text-muted-foreground">
+                        {dataset.type}
+                      </span>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {dataset.path && (
+                      <p className="truncate font-mono text-xs text-muted-foreground">{dataset.path}</p>
+                    )}
+                  </CardContent>
+                  <CardFooter className="flex justify-between border-t border-border pt-4">
+                    <span className="text-sm font-medium text-chart-3">{dataset.size}</span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => handleViewDataset(dataset.id)}>
+                      View
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {selectedDataset && (
+          <TabsContent value="preview">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedDataset(null)}
+              className="mb-4"
+            >
+              ← Back to datasets
+            </Button>
+            <DatasetPreview
+              datasetId={selectedDataset}
+              onUseForTraining={() => {
+                window.location.href = `/training?dataset=${encodeURIComponent(selectedDataset)}`
+              }}
+            />
+          </TabsContent>
+        )}
+      </Tabs>
 
       <Card className="mt-8">
         <CardHeader>
@@ -128,6 +181,12 @@ export default function DatasetsPage() {
           <p>python3 cli.py data split datasets/my_data/ --train 0.9</p>
         </CardContent>
       </Card>
+
+      <DatasetImportModal
+        open={importModalOpen}
+        onOpenChange={setImportModalOpen}
+        onImportComplete={handleImportComplete}
+      />
     </div>
   )
 }
