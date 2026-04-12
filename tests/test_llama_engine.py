@@ -182,3 +182,14 @@ class TestGPUInfo:
         assert info.has_tensor_ops is True
         assert info.recommended is True
         assert info.reason == "Test GPU"
+
+
+class TestBatchGenerate:
+    """Tests for batch generation."""
+
+    def test_batch_generate_is_method(self):
+        """Test that batch_generate exists on LlamaInferenceEngine."""
+        from domains.inference.llama_engine import LlamaInferenceEngine, LlamaInferenceConfig
+
+        assert hasattr(LlamaInferenceEngine, "batch_generate")
+        assert hasattr(LlamaInferenceEngine, "warmup")

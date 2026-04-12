@@ -489,6 +489,47 @@ class LlamaInferenceEngine:
             "backend": "llama-cpp-python",
         }
 
+    def warmup(self, num_tokens: int = 10) -> bool:
+        """Warmup the model with a dummy inference."""
+        if self._cli_engine:
+            return True
+
+        if not self._model_loaded:
+            if not self.load_model():
+                return False
+
+        try:
+            self._llama(
+                "warmup",
+                max_tokens=num_tokens,
+                temperature=0,
+                echo=False,
+            )
+            logger.info("Model warmup complete")
+            return True
+        except Exception as e:
+            logger.error(f"Warmup failed: {e}")
+            return False
+
+    def batch_generate(
+        self,
+        prompts: List[str],
+        max_tokens: int = 100,
+        temperature: float = 0.7,
+        **kwargs,
+    ) -> List[str]:
+        """Generate text for multiple prompts in sequence."""
+        results = []
+        for prompt in prompts:
+            text = self.generate(
+                prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                **kwargs,
+            )
+            results.append(text)
+        return results
+
     def unload(self):
         """Unload model from memory."""
         with self._lock:
