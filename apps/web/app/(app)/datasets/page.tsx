@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import { api, type Dataset } from '@/lib/api'
@@ -32,6 +33,7 @@ export default function DatasetsPage() {
   const [combineModalOpen, setCombineModalOpen] = useState(false)
   const [selectedDataset, setSelectedDataset] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
   const { state: health, refresh: refreshHealth } = useApiHealth()
 
   const apiHealthLabel = useMemo(() => inferenceHealthLabel(health), [health])
@@ -47,10 +49,10 @@ export default function DatasetsPage() {
     fetchDatasets()
   }, [])
 
-  const fetchDatasets = async () => {
+  const fetchDatasets = async (query = '') => {
     setLoading(true)
     try {
-      const rows = await api.getDatasets()
+      const rows = await api.getDatasets(query)
       setDatasets(rows)
     } catch (err) {
       devDebug('Failed to fetch datasets:', err)
@@ -58,6 +60,11 @@ export default function DatasetsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    void fetchDatasets(searchQuery)
   }
 
   const handleImportComplete = () => {
@@ -162,6 +169,32 @@ export default function DatasetsPage() {
             <TabsTrigger value="preview">{selectedDataset} Preview</TabsTrigger>
           )}
         </TabsList>
+
+        <form onSubmit={handleSearch} className="mb-4 flex gap-2">
+          <Input
+            type="search"
+            placeholder="Search datasets..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="max-w-xs"
+          />
+          <Button type="submit" variant="outline" size="sm">
+            Search
+          </Button>
+          {searchQuery && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchQuery('')
+                void fetchDatasets()
+              }}
+            >
+              Clear
+            </Button>
+          )}
+        </form>
 
         <TabsContent value="list">
           {loading ? (

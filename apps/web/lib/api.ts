@@ -845,8 +845,9 @@ export const api = {
     return res.json()
   },
 
-  async getDatasets(): Promise<Dataset[]> {
-    const res = await fetch(`${API_URL}/datasets`)
+  async getDatasets(query = ''): Promise<Dataset[]> {
+    const url = query ? `${API_URL}/datasets?q=${encodeURIComponent(query)}` : `${API_URL}/datasets`
+    const res = await fetch(url)
     if (!res.ok) {
       throw new Error(`GET /datasets failed (${res.status})`)
     }
@@ -1030,6 +1031,24 @@ export const api = {
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'Combine failed' }))
       throw new Error(error.detail || `Combine failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async searchDatasets(query: string): Promise<{
+    results: Array<{
+      id: string
+      name: string
+      match_type: string
+      match_highlight?: string
+      file?: string
+    }>
+    count: number
+    query: string
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/search?q=${encodeURIComponent(query)}`)
+    if (!res.ok) {
+      throw new Error(`Search failed (${res.status})`)
     }
     return res.json()
   },

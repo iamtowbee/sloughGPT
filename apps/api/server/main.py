@@ -2209,8 +2209,8 @@ async def list_personalities():
 
 
 @app.get("/datasets", tags=["datasets"])
-async def list_datasets():
-    """List available datasets."""
+async def list_datasets(q: Optional[str] = None, type: Optional[str] = None):
+    """List available datasets with optional search and filter."""
     import os
     from pathlib import Path
 
@@ -2233,19 +2233,28 @@ async def list_datasets():
                 elif input_file.exists():
                     size = input_file.stat().st_size
 
-                datasets.append(
-                    {
-                        "id": d.name,
-                        "name": d.name.replace("_", " ").title(),
-                        "path": str(d),
-                        "size_bytes": size,
-                        "size_formatted": f"{size / 1024:.1f} KB" if size > 0 else "Empty",
-                        "type": "corpus" if has_corpus else "text",
-                        "num_samples": num_samples,
-                    }
-                )
+                dataset = {
+                    "id": d.name,
+                    "name": d.name.replace("_", " ").title(),
+                    "path": str(d),
+                    "size_bytes": size,
+                    "size_formatted": f"{size / 1024:.1f} KB" if size > 0 else "Empty",
+                    "type": "corpus" if has_corpus else "text",
+                    "num_samples": num_samples,
+                }
 
-    return {"datasets": datasets}
+                # Apply filters
+                if q:
+                    q_lower = q.lower()
+                    if q_lower not in d.name.lower() and q_lower not in dataset["name"].lower():
+                        continue
+
+                if type and dataset["type"] != type:
+                    continue
+
+                datasets.append(dataset)
+
+    return {"datasets": datasets, "count": len(datasets)}
 
 
 @app.get("/datasets/{dataset_id}", tags=["datasets"])
@@ -2779,6 +2788,62 @@ async def import_from_csv(request: CSVImportRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/datasets/search", tags=["datasets"])
+async def search_datasets(q: str, limit: int = 20):
+    """Search datasets by name or content."""
+    from pathlib import Path
+    import re
+
+    datasets_dir = Path("datasets")
+    results = []
+
+    if not datasets_dir.exists():
+        return {"results": [], "count": 0}
+
+    q_lower = q.lower()
+    pattern = re.compile(re.escape(q), re.IGNORECASE)
+
+    for d in datasets_dir.iterdir():
+        if not d.is_dir():
+            continue
+
+        # Match by name
+        name_match = pattern.search(d.name)
+        if name_match:
+            results.append(
+                {
+                    "id": d.name,
+                    "name": d.name.replace("_", " ").title(),
+                    "match_type": "name",
+                    "match_highlight": name_match.group(0),
+                }
+            )
+            continue
+
+        # Search in content
+        for file_path in d.rglob("*.txt"):
+            try:
+                content = file_path.read_text(encoding="utf-8", errors="ignore")[:10000]
+                match = pattern.search(content)
+                if match:
+                    results.append(
+                        {
+                            "id": d.name,
+                            "name": d.name.replace("_", " ").title(),
+                            "match_type": "content",
+                            "match_highlight": content[
+                                max(0, match.start() - 30) : match.end() + 30
+                            ],
+                            "file": str(file_path.relative_to(d)),
+                        }
+                    )
+                    break
+            except Exception:
+                continue
+
+    return {"results": results[:limit], "count": len(results), "query": q}
 
 
 @app.get("/datasets/search/github", tags=["datasets"])
