@@ -1604,7 +1604,27 @@ async def get_metrics():
             "memory_percent": psutil.virtual_memory().percent,
             "memory_available_mb": psutil.virtual_memory().available // (1024 * 1024),
         },
+        "inference": _get_inference_metrics(),
     }
+
+
+def _get_inference_metrics():
+    """Get inference-specific metrics from llama engine."""
+    try:
+        from domains.inference.llama_engine import get_inference_stats, get_memory_usage
+
+        stats = get_inference_stats()
+        memory = get_memory_usage()
+        return {
+            "total_requests": stats.get("total_requests", 0),
+            "total_tokens": stats.get("total_tokens", 0),
+            "avg_tokens_per_second": round(stats.get("avg_tokens_per_second", 0), 2),
+            "cache_hits": stats.get("cache_hits", 0),
+            "cached_models": stats.get("cached_models", []),
+            "memory_rss_mb": round(memory.get("rss_mb", 0), 1) if "error" not in memory else None,
+        }
+    except Exception:
+        return {"error": "inference metrics unavailable"}
 
 
 @app.get("/metrics/prometheus", tags=["metrics"])
