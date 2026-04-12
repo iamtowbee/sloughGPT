@@ -1513,7 +1513,7 @@ curl -X POST http://localhost:8000/generate/stream \
 ### Test Results
 | Suite | Result |
 |-------|--------|
-| Python | 467 passed |
+| Python | 474 passed |
 | Web unit | 43 passed |
 | E2E | 11 passed |
 ```
