@@ -164,26 +164,26 @@ function RefreshIcon({ className }: { className?: string }) {
 /** Icon-first API runtime cluster for route headers (pair with `AppRouteHeader` right slot). */
 export function InferenceRuntimeToolbar({ health, onRefresh }: ToolbarProps) {
   return (
-    <div className="flex items-center justify-end gap-2 text-muted-foreground" title={health?.model_type ? `${health.model_type} loaded` : 'API status'}>
+    <div className="flex items-center justify-end gap-1.5 text-muted-foreground" title={health?.model_type ? `${health.model_type} loaded` : 'API status'}>
       {health === null ? (
-        <span className="flex items-center gap-1 text-xs" role="status" aria-label="Checking API status">
+        <span className="inline-flex items-center gap-1 text-xs" role="status" aria-label="Checking API status">
           <DotsPulseIcon className="h-3 w-3" />
-          <span>Checking...</span>
+          <span className="leading-3">Checking...</span>
         </span>
       ) : health === 'offline' ? (
-        <span className="flex items-center gap-1 text-xs text-destructive" role="status" aria-label="API disconnected">
+        <span className="inline-flex items-center gap-1 text-xs text-destructive" role="status" aria-label="API disconnected">
           <OfflineIcon className="h-3 w-3" />
-          <span>Offline</span>
+          <span className="leading-3">Offline</span>
         </span>
       ) : health.model_loaded ? (
-        <span className="flex items-center gap-1 text-xs text-success" role="status" aria-label="Model loaded">
+        <span className="inline-flex items-center gap-1 text-xs text-success" role="status" aria-label="Model loaded">
           <CheckCircleIcon className="h-3 w-3" />
-          <span>{health.model_type}</span>
+          <span className="leading-3">{health.model_type}</span>
         </span>
       ) : (
-        <span className="flex items-center gap-1 text-xs text-warning" role="status" aria-label="No model loaded">
+        <span className="inline-flex items-center gap-1 text-xs text-warning" role="status" aria-label="No model loaded">
           <AlertTriangleIcon className="h-3 w-3" />
-          <span>No model</span>
+          <span className="leading-3">No model</span>
         </span>
       )}
     </div>
