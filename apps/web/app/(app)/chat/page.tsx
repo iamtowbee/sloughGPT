@@ -130,7 +130,8 @@ export default function ChatPage() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col justify-end">
+      <div className="flex-1 overflow-y-auto flex flex-col justify-end">
+        <div className="mx-auto w-full max-w-2xl px-4 py-4">
         {messages.length === 0 && (
           <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
             Start a conversation
@@ -160,6 +161,7 @@ export default function ChatPage() {
           </div>
         )}
         <div ref={messagesEndRef} />
+        </div>
       </div>
 
       <div className="border-t border-border/50 px-4 py-3">
