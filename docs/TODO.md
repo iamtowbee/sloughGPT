@@ -1516,4 +1516,38 @@ curl -X POST http://localhost:8000/generate/stream \
 | Python | 474 passed |
 | Web unit | 43 passed |
 | E2E | 11 passed |
+
+---
+
+## Phase 31: Multi-Source Dataset Builder (2026-04-12)
+
+### Dataset Import API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `GET /datasets` | List | List all datasets with samples count |
+| `GET /datasets/{id}` | Get | Get dataset details |
+| `DELETE /datasets/{id}` | Delete | Delete a dataset |
+| `GET /datasets/{id}/preview` | Preview | Preview samples and stats |
+| `POST /datasets/{id}/validate` | Validate | Check dataset compatibility |
+| `POST /datasets/import/github` | Import | Clone GitHub repo |
+| `POST /datasets/import/huggingface` | Import | Download from HF Hub |
+| `POST /datasets/import/url` | Import | Download from URL |
+| `POST /datasets/import/local` | Import | Import local files |
+| `POST /datasets/combine` | Merge | Combine multiple datasets |
+| `GET /datasets/search/github` | Search | Search GitHub repos |
+
+### Frontend Components
+
+| Component | Description |
+|-----------|-------------|
+| `DatasetImportModal` | Source selection UI (GitHub/HF/URL/Local) |
+| `DatasetPreview` | Sample preview with validation and stats |
+
+### Test Results
+| Suite | Result |
+|-------|--------|
+| Python | 476 passed |
+| Web unit | 43 passed |
+| E2E | 11 passed |
 ```
