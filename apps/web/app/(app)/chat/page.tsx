@@ -612,89 +612,101 @@ export default function ChatPage() {
         </Dialog>
 
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-sm">
             <DialogHeader>
-              <DialogTitle>Generation settings</DialogTitle>
-              <DialogDescription>
-                Applied to this chat only. Generation calls the API; the loaded weights are those reported on the chat header (not only this dropdown).
-              </DialogDescription>
+              <DialogTitle>Settings</DialogTitle>
             </DialogHeader>
-            <div className="grid grid-cols-2 gap-4 py-2">
+            <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label htmlFor="chat-temp">Temperature</Label>
-                <Input
-                  id="chat-temp"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="2"
-                  value={settings.temperature}
-                  onChange={(e) =>
-                    updateActiveSession((session) => ({
-                      ...session,
-                      settings: {
-                        ...session.settings,
-                        temperature: Number(e.target.value) || defaultSettings.temperature,
-                      },
-                    }))
-                  }
-                />
+                <Label htmlFor="chat-model">Model</Label>
+                <select
+                  id="chat-model"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={selectedModel}
+                  onChange={(e) => updateActiveSession((s) => ({ ...s, selectedModel: e.target.value }))}
+                >
+                  {availableModels.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="chat-max">Max tokens</Label>
-                <Input
-                  id="chat-max"
-                  type="number"
-                  min="1"
-                  value={settings.maxNewTokens}
-                  onChange={(e) =>
-                    updateActiveSession((session) => ({
-                      ...session,
-                      settings: {
-                        ...session.settings,
-                        maxNewTokens: Number(e.target.value) || defaultSettings.maxNewTokens,
-                      },
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="chat-topp">Top P</Label>
-                <Input
-                  id="chat-topp"
-                  type="number"
-                  step="0.05"
-                  min="0"
-                  max="1"
-                  value={settings.topP}
-                  onChange={(e) =>
-                    updateActiveSession((session) => ({
-                      ...session,
-                      settings: {
-                        ...session.settings,
-                        topP: Number(e.target.value) || defaultSettings.topP,
-                      },
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="chat-topk">Top K</Label>
-                <Input
-                  id="chat-topk"
-                  type="number"
-                  min="1"
-                  value={settings.topK}
-                  onChange={(e) =>
-                    updateActiveSession((session) => ({
-                      ...session,
-                      settings: {
-                        ...session.settings,
-                        topK: Number(e.target.value) || defaultSettings.topK,
-                      },
-                    }))
-                  }
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="chat-temp" className="text-xs">Temperature</Label>
+                  <Input
+                    id="chat-temp"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="2"
+                    value={settings.temperature}
+                    onChange={(e) =>
+                      updateActiveSession((session) => ({
+                        ...session,
+                        settings: {
+                          ...session.settings,
+                          temperature: Number(e.target.value) || defaultSettings.temperature,
+                        },
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="chat-max" className="text-xs">Max tokens</Label>
+                  <Input
+                    id="chat-max"
+                    type="number"
+                    min="1"
+                    value={settings.maxNewTokens}
+                    onChange={(e) =>
+                      updateActiveSession((session) => ({
+                        ...session,
+                        settings: {
+                          ...session.settings,
+                          maxNewTokens: Number(e.target.value) || defaultSettings.maxNewTokens,
+                        },
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="chat-topp" className="text-xs">Top P</Label>
+                  <Input
+                    id="chat-topp"
+                    type="number"
+                    step="0.05"
+                    min="0"
+                    max="1"
+                    value={settings.topP}
+                    onChange={(e) =>
+                      updateActiveSession((session) => ({
+                        ...session,
+                        settings: {
+                          ...session.settings,
+                          topP: Number(e.target.value) || defaultSettings.topP,
+                        },
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="chat-topk" className="text-xs">Top K</Label>
+                  <Input
+                    id="chat-topk"
+                    type="number"
+                    min="1"
+                    value={settings.topK}
+                    onChange={(e) =>
+                      updateActiveSession((session) => ({
+                        ...session,
+                        settings: {
+                          ...session.settings,
+                          topK: Number(e.target.value) || defaultSettings.topK,
+                        },
+                      }))
+                    }
+                  />
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -738,40 +750,15 @@ export default function ChatPage() {
           )}
           {messages.map((msg) =>
             msg.role === 'assistant' ? (
-              <div key={msg.id} className="mb-4 flex w-full justify-start sm:mb-5">
-                <MessageBubble role="assistant" variant="transcript" className="group">
+              <div key={msg.id} className="mb-4 flex w-full justify-start">
+                <div className="max-w-[85%] rounded-2xl bg-muted/50 px-4 py-3 text-sm leading-relaxed text-foreground">
                   <div className="whitespace-pre-wrap break-words">{msg.content}</div>
-                  <div className="mt-2 flex gap-3 border-t border-border/60 pt-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(msg.content)}
-                      className="text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      Copy
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => retryAssistantMessage(msg.id)}
-                      className="text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      Retry
-                    </button>
-                  </div>
-                </MessageBubble>
+                </div>
               </div>
             ) : (
-              <div key={msg.id} className="mb-4 flex w-full justify-end sm:mb-5">
-                <div className="group max-w-[min(100%,var(--chat-thread-max))] border border-primary/35 bg-primary px-4 py-2.5 text-primary-foreground shadow-sm transition-colors duration-200 ease-smooth">
-                  <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">{msg.content}</div>
-                  <div className="mt-1.5 flex gap-3 border-t border-primary-foreground/25 pt-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                    <button
-                      type="button"
-                      onClick={() => editFromUserMessage(msg.id)}
-                      className="text-xs text-primary-foreground/90 hover:text-primary-foreground"
-                    >
-                      Edit & resend
-                    </button>
-                  </div>
+              <div key={msg.id} className="mb-4 flex w-full justify-end">
+                <div className="max-w-[85%] rounded-2xl bg-primary px-4 py-3 text-sm leading-relaxed text-primary-foreground">
+                  <div className="whitespace-pre-wrap break-words">{msg.content}</div>
                 </div>
               </div>
             ),
@@ -818,9 +805,6 @@ export default function ChatPage() {
                 />
               </div>
             </div>
-            <p className="mt-2.5 text-center text-[11px] leading-relaxed text-muted-foreground/85">
-              SloughGPT calls your API; outputs may be wrong. Verify important answers.
-            </p>
           </div>
         </div>
       </div>
