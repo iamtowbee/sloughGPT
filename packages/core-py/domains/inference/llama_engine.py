@@ -50,7 +50,20 @@ _INFERENCE_STATS = {
     "total_tokens": 0,
     "total_time": 0.0,
     "cache_hits": 0,
+    "latencies_ms": [],  # Last 100 latencies for histogram
+    "request_ids": [],  # Track recent request IDs
 }
+
+_REQUEST_COUNTER = 0
+_COUNTER_LOCK = threading.Lock()
+
+
+def _generate_request_id() -> str:
+    """Generate a unique request ID."""
+    global _REQUEST_COUNTER
+    with _COUNTER_LOCK:
+        _REQUEST_COUNTER += 1
+        return f"req_{_REQUEST_COUNTER}_{int(time.time() * 1000)}"
 
 
 @dataclass
@@ -414,6 +427,9 @@ class LlamaInferenceEngine:
                 _INFERENCE_STATS["total_requests"] += 1
                 _INFERENCE_STATS["total_tokens"] += len(text.split())
                 _INFERENCE_STATS["total_time"] += elapsed
+                _INFERENCE_STATS["latencies_ms"].append(elapsed * 1000)
+                if len(_INFERENCE_STATS["latencies_ms"]) > 100:
+                    _INFERENCE_STATS["latencies_ms"] = _INFERENCE_STATS["latencies_ms"][-100:]
                 return text
             except Exception as e:
                 logger.error(f"Generation failed: {e}")
@@ -914,6 +930,25 @@ def get_inference_stats() -> Dict[str, Any]:
         stats["avg_tokens_per_second"] = 0.0
     stats["cached_models"] = list(_MODEL_CACHE.keys())
     return stats
+
+
+def get_latency_histogram() -> Dict[str, Any]:
+    """Get latency histogram for recent requests."""
+    latencies = _INFERENCE_STATS.get("latencies_ms", [])
+    if not latencies:
+        return {"count": 0, "p50": 0, "p90": 0, "p99": 0}
+
+    sorted_latencies = sorted(latencies)
+    n = len(sorted_latencies)
+    return {
+        "count": n,
+        "p50": sorted_latencies[int(n * 0.5)] if n > 0 else 0,
+        "p90": sorted_latencies[int(n * 0.9)] if n > 0 else 0,
+        "p99": sorted_latencies[int(n * 0.99)] if n > 0 else 0,
+        "min": min(latencies),
+        "max": max(latencies),
+        "avg": sum(latencies) / n,
+    }
 
 
 def get_memory_usage() -> Dict[str, Any]:

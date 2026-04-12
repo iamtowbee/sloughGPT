@@ -193,3 +193,17 @@ class TestBatchGenerate:
 
         assert hasattr(LlamaInferenceEngine, "batch_generate")
         assert hasattr(LlamaInferenceEngine, "warmup")
+
+
+class TestLatencyHistogram:
+    """Tests for latency histogram."""
+
+    def test_get_latency_histogram(self):
+        """Test latency histogram function."""
+        from domains.inference.llama_engine import get_latency_histogram
+
+        histogram = get_latency_histogram()
+        assert "count" in histogram
+        assert "p50" in histogram
+        assert "p90" in histogram
+        assert "p99" in histogram
