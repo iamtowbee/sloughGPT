@@ -579,6 +579,16 @@ class LlamaInferenceEngine:
     def is_loaded(self) -> bool:
         return self._model_loaded
 
+    def __enter__(self):
+        """Context manager entry."""
+        self.load_model()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.unload()
+        return False
+
     def profile_generate(
         self,
         prompt: str,
