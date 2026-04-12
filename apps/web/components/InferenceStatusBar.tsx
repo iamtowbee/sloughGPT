@@ -166,24 +166,24 @@ export function InferenceRuntimeToolbar({ health, onRefresh }: ToolbarProps) {
   return (
     <div className="flex items-center justify-end gap-1.5 text-muted-foreground" title={health?.model_type ? `${health.model_type} loaded` : 'API status'}>
       {health === null ? (
-        <span className="inline-flex items-center gap-1 text-xs" role="status" aria-label="Checking API status">
-          <DotsPulseIcon className="h-3 w-3" />
-          <span className="leading-3">Checking...</span>
+        <span className="flex items-center gap-1 text-xs" role="status" aria-label="Checking API status">
+          <DotsPulseIcon className="h-3 w-3 shrink-0" />
+          <span className="shrink-0">Checking...</span>
         </span>
       ) : health === 'offline' ? (
-        <span className="inline-flex items-center gap-1 text-xs text-destructive" role="status" aria-label="API disconnected">
-          <OfflineIcon className="h-3 w-3" />
-          <span className="leading-3">Offline</span>
+        <span className="flex items-center gap-1 text-xs text-destructive" role="status" aria-label="API disconnected">
+          <OfflineIcon className="h-3 w-3 shrink-0" />
+          <span className="shrink-0">Offline</span>
         </span>
       ) : health.model_loaded ? (
-        <span className="inline-flex items-center gap-1 text-xs text-success" role="status" aria-label="Model loaded">
-          <CheckCircleIcon className="h-3 w-3" />
-          <span className="leading-3">{health.model_type}</span>
+        <span className="flex items-center gap-1 text-xs text-success" role="status" aria-label="Model loaded">
+          <CheckCircleIcon className="h-3 w-3 shrink-0" />
+          <span className="shrink-0">{health.model_type}</span>
         </span>
       ) : (
-        <span className="inline-flex items-center gap-1 text-xs text-warning" role="status" aria-label="No model loaded">
-          <AlertTriangleIcon className="h-3 w-3" />
-          <span className="leading-3">No model</span>
+        <span className="flex items-center gap-1 text-xs text-warning" role="status" aria-label="No model loaded">
+          <AlertTriangleIcon className="h-3 w-3 shrink-0" />
+          <span className="shrink-0">No model</span>
         </span>
       )}
     </div>
