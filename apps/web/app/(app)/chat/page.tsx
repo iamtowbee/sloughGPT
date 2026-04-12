@@ -582,19 +582,19 @@ export default function ChatPage() {
             </div>
           }
           right={
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-8 gap-1 text-xs"
+                    className="h-7 gap-1 px-2 text-xs"
                     title="Select model"
                     aria-label="Select model"
                   >
-                    <ChevronDownIcon className="h-3 w-3" />
-                    <span className="truncate max-w-[80px]">{selectedModelLabel}</span>
+                    <ChevronDownIcon className="h-3 w-3 opacity-60" />
+                    <span className="truncate max-w-[60px]">{selectedModelLabel}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto min-w-[180px]">
@@ -620,12 +620,12 @@ export default function ChatPage() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 shrink-0"
-                  onClick={() => setShowSettings(true)}
-                  title="Settings"
-                  aria-label="Settings"
-                >
-                  <GearIcon className="h-4 w-4" />
+                className="h-7 w-7"
+                onClick={() => setShowSettings(true)}
+                title="Settings"
+                aria-label="Settings"
+              >
+                <GearIcon className="h-4 w-4" />
               </Button>
             </div>
           }
