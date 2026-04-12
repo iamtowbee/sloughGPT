@@ -631,10 +631,6 @@ export default function ChatPage() {
           right={<InferenceRuntimeToolbar health={apiHealth} onRefresh={refreshHealth} />}
         />
 
-        <div className="shrink-0 pb-2">
-          <InferenceStatusBar health={apiHealth} selectedCatalogId={selectedModel} />
-        </div>
-
         <Dialog open={mobileSessionsOpen} onOpenChange={setMobileSessionsOpen}>
           <DialogContent className="flex max-h-[min(90dvh,32rem)] flex-col gap-0 overflow-hidden border-border/80 p-0 sm:max-w-md">
             <DialogHeader className="shrink-0 border-b border-border/70 px-4 py-3 text-left">

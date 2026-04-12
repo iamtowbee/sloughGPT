@@ -167,60 +167,38 @@ export function InferenceRuntimeToolbar({ health, onRefresh }: ToolbarProps) {
     <div className="flex items-center justify-end gap-1">
       {health === null ? (
         <span
-          className="inline-flex h-8 w-8 items-center justify-center rounded-none border border-border/70 bg-muted/25 text-muted-foreground"
+          className="flex h-6 w-6 items-center justify-center rounded-full border border-border/70 bg-muted/25 text-muted-foreground"
           title="Checking API status…"
           role="status"
           aria-label="Checking API status"
         >
-          <DotsPulseIcon className="h-4 w-4" />
+          <DotsPulseIcon className="h-3 w-3" />
         </span>
       ) : health === 'offline' ? (
         <span
-          className="inline-flex h-8 w-8 items-center justify-center rounded-none border border-destructive/35 bg-destructive/10 text-destructive"
+          className="flex h-6 w-6 items-center justify-center rounded-full border border-destructive/35 bg-destructive/10 text-destructive"
           title="Cannot reach the API"
           aria-label="API disconnected"
         >
-          <OfflineIcon className="h-4 w-4" />
+          <OfflineIcon className="h-3 w-3" />
+        </span>
+      ) : health.model_loaded ? (
+        <span
+          className="flex h-6 w-6 items-center justify-center rounded-full border border-success/40 bg-success/10 text-success"
+          title={`${health.model_type} loaded`}
+          aria-label="Model loaded"
+        >
+          <CheckCircleIcon className="h-3 w-3" />
         </span>
       ) : (
-        <>
-          <span
-            className={cn(
-              'inline-flex h-8 w-8 items-center justify-center rounded-none border',
-              health.model_loaded
-                ? 'border-success/40 bg-success/10 text-success'
-                : 'border-warning/45 bg-warning/10 text-warning',
-            )}
-            title={health.model_loaded ? 'Weights loaded in API' : 'No weights in API process'}
-            aria-label={health.model_loaded ? 'Weights loaded' : 'No weights loaded'}
-          >
-            {health.model_loaded ? (
-              <CheckCircleIcon className="h-4 w-4" />
-            ) : (
-              <AlertTriangleIcon className="h-4 w-4" />
-            )}
-          </span>
-          <span
-            className="inline-flex h-8 max-w-[min(100%,10rem)] items-center justify-center gap-1 rounded-none border border-border/75 bg-background/90 px-2 font-mono text-[10px] text-muted-foreground"
-            title={`API runtime: ${health.model_type}`}
-            aria-label={`API runtime model ${health.model_type}`}
-          >
-            <CpuIcon className="h-3.5 w-3.5 shrink-0 opacity-80" />
-            <span className="truncate">{health.model_type}</span>
-          </span>
-        </>
+        <span
+          className="flex h-6 w-6 items-center justify-center rounded-full border border-warning/45 bg-warning/10 text-warning"
+          title="No model loaded"
+          aria-label="No model loaded"
+        >
+          <AlertTriangleIcon className="h-3 w-3" />
+        </span>
       )}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 shrink-0"
-        onClick={() => void onRefresh()}
-        title="Refresh API status"
-        aria-label="Refresh API status"
-      >
-        <RefreshIcon className="h-4 w-4" />
-      </Button>
     </div>
   )
 }
