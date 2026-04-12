@@ -1596,12 +1596,36 @@ tail -f /tmp/sloughgpt-unified.log  # View logs
 
 ---
 
+## Phase 33: Dataset Export (2026-04-12)
+
+### Export API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/datasets/{id}/export` | POST | Export dataset to format |
+| `/datasets/{id}/download` | GET | Download dataset as file |
+
+### Export Formats
+
+| Format | Description |
+|--------|-------------|
+| JSON | Full metadata with paths and content |
+| JSONL | One JSON object per line |
+| CSV | Tabular format with columns |
+| TXT | Plain text with separators |
+
+### UI
+
+- Export dropdown on each dataset card
+- Downloads file directly to browser
+
+---
+
 ## What's Next?
 
 | Priority | Task |
 |----------|------|
 | HIGH | Test datasets UI at http://localhost:3000/datasets |
 | MEDIUM | Run full E2E test suite |
-| MEDIUM | Add dataset export functionality |
 | LOW | Add more import source options (Kaggle, CSV, etc.) |
 ```
