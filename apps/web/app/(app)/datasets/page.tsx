@@ -22,12 +22,14 @@ import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import { api, type Dataset } from '@/lib/api'
 import { devDebug } from '@/lib/dev-log'
 import { DatasetImportModal } from '@/components/DatasetImportModal'
+import { DatasetCombineModal } from '@/components/DatasetCombineModal'
 import { DatasetPreview } from '@/components/DatasetPreview'
 
 export default function DatasetsPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [loading, setLoading] = useState(true)
   const [importModalOpen, setImportModalOpen] = useState(false)
+  const [combineModalOpen, setCombineModalOpen] = useState(false)
   const [selectedDataset, setSelectedDataset] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const { state: health, refresh: refreshHealth } = useApiHealth()
@@ -107,6 +109,15 @@ export default function DatasetsPage() {
               onClick={() => setImportModalOpen(true)}
             >
               Import Dataset
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setCombineModalOpen(true)}
+              disabled={datasets.length < 2}
+            >
+              Combine ({datasets.length})
             </Button>
             <Button
               type="button"
@@ -241,6 +252,12 @@ export default function DatasetsPage() {
         open={importModalOpen}
         onOpenChange={setImportModalOpen}
         onImportComplete={handleImportComplete}
+      />
+      <DatasetCombineModal
+        open={combineModalOpen}
+        onOpenChange={setCombineModalOpen}
+        datasets={datasets}
+        onCombineComplete={handleImportComplete}
       />
     </div>
   )
