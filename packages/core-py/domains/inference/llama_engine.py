@@ -52,6 +52,8 @@ _INFERENCE_STATS = {
     "cache_hits": 0,
     "latencies_ms": [],  # Last 100 latencies for histogram
     "request_ids": [],  # Track recent request IDs
+    "total_errors": 0,
+    "last_error": None,
 }
 
 _REQUEST_COUNTER = 0
@@ -433,6 +435,8 @@ class LlamaInferenceEngine:
                 return text
             except Exception as e:
                 logger.error(f"Generation failed: {e}")
+                _INFERENCE_STATS["total_errors"] += 1
+                _INFERENCE_STATS["last_error"] = str(e)
                 return ""
 
     def generate_stream(
