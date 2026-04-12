@@ -1621,11 +1621,41 @@ tail -f /tmp/sloughgpt-unified.log  # View logs
 
 ---
 
+## Phase 34: Kaggle Import (2026-04-12)
+
+### Kaggle Import
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/datasets/import/kaggle` | POST | Import from Kaggle |
+
+### Requirements
+
+- Kaggle CLI installed: `pip install kaggle`
+- Authenticated: `mkdir -p ~/.kaggle && cp kaggle.json ~/.kaggle/`
+
+### Usage
+
+```bash
+# Install Kaggle CLI
+pip install kaggle
+
+# Authenticate
+mkdir -p ~/.kaggle
+cp kaggle.json ~/.kaggle/
+
+# Import dataset
+POST /datasets/import/kaggle
+{"dataset": "zillow/zecon", "name": "housing-data"}
+```
+
+---
+
 ## What's Next?
 
 | Priority | Task |
 |----------|------|
 | HIGH | Test datasets UI at http://localhost:3000/datasets |
 | MEDIUM | Run full E2E test suite |
-| LOW | Add more import source options (Kaggle, CSV, etc.) |
+| LOW | Add CSV file import UI |
 ```
