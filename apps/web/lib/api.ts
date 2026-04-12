@@ -933,6 +933,16 @@ export const api = {
     return res.json()
   },
 
+  async deleteDataset(datasetId: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/${datasetId}`, {
+      method: 'DELETE',
+    })
+    if (!res.ok) {
+      throw new Error(`Delete failed (${res.status})`)
+    }
+    return res.json()
+  },
+
   async searchGitHubRepos(query: string, limit = 10): Promise<{ repos: GitHubRepo[] }> {
     const res = await fetchWithAuth(`${API_URL}/datasets/search/github?query=${encodeURIComponent(query)}&limit=${limit}`)
     if (!res.ok) {

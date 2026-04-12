@@ -2443,6 +2443,23 @@ async def validate_dataset(dataset_id: str):
     return validation
 
 
+@app.delete("/datasets/{dataset_id}", tags=["datasets"])
+async def delete_dataset(dataset_id: str):
+    """Delete a dataset."""
+    import shutil
+
+    dataset_path = Path(f"datasets/{dataset_id}")
+
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    try:
+        shutil.rmtree(dataset_path)
+        return {"success": True, "message": f"Dataset '{dataset_id}' deleted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 class GitHubImportRequest(BaseModel):
     url: str
     name: str
