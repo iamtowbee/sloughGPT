@@ -309,6 +309,19 @@ class TestCacheManagement:
         assert "loaded" in stats
         assert "unloaded" in stats
         assert "models" in stats
+        assert "max_size" in stats
+
+    def test_set_max_cache_size(self):
+        """Test set_max_cache_size function."""
+        from domains.inference.llama_engine import set_max_cache_size, get_cache_stats
+
+        set_max_cache_size(5)
+        stats = get_cache_stats()
+        assert stats["max_size"] == 5
+
+        set_max_cache_size(10)
+        stats = get_cache_stats()
+        assert stats["max_size"] == 10
 
 
 class TestInferenceHealth:

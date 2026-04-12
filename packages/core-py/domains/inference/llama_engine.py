@@ -44,6 +44,7 @@ LLAMA_CLI_AVAILABLE = Path(LLAMA_CLI_PATH).exists() if not LLAMA_CPP_PYTHON_AVAI
 
 _MODEL_CACHE: Dict[str, "LlamaInferenceEngine"] = {}
 _CACHE_LOCK = threading.Lock()
+_MAX_CACHE_SIZE = 10  # Default max cached models
 
 _INFERENCE_STATS = {
     "total_requests": 0,
@@ -1113,7 +1114,15 @@ def get_cache_stats() -> Dict[str, Any]:
             "loaded": len(loaded),
             "unloaded": len(models) - len(loaded),
             "models": models,
+            "max_size": _MAX_CACHE_SIZE,
         }
+
+
+def set_max_cache_size(size: int) -> None:
+    """Set maximum number of models to cache."""
+    global _MAX_CACHE_SIZE
+    _MAX_CACHE_SIZE = max(1, size)
+    logger.info(f"Max cache size set to {_MAX_CACHE_SIZE}")
 
 
 def get_memory_usage() -> Dict[str, Any]:
