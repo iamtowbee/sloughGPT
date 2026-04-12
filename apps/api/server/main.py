@@ -2221,8 +2221,16 @@ async def list_datasets():
         for d in datasets_dir.iterdir():
             if d.is_dir():
                 input_file = d / "input.txt"
+                corpus_file = d / "corpus.jsonl"
                 size = 0
-                if input_file.exists():
+                num_samples = 0
+                has_corpus = corpus_file.exists()
+
+                if has_corpus:
+                    size = corpus_file.stat().st_size
+                    with open(corpus_file, "r", encoding="utf-8") as f:
+                        num_samples = sum(1 for _ in f)
+                elif input_file.exists():
                     size = input_file.stat().st_size
 
                 datasets.append(
@@ -2232,7 +2240,8 @@ async def list_datasets():
                         "path": str(d),
                         "size_bytes": size,
                         "size_formatted": f"{size / 1024:.1f} KB" if size > 0 else "Empty",
-                        "type": "text",
+                        "type": "corpus" if has_corpus else "text",
+                        "num_samples": num_samples,
                     }
                 )
 
@@ -2357,6 +2366,81 @@ async def preview_dataset(dataset_id: str, limit: int = 10):
         "total_chars": total_chars,
         "languages": languages,
     }
+
+
+@app.post("/datasets/{dataset_id}/validate", tags=["datasets"])
+async def validate_dataset(dataset_id: str):
+    """Validate a dataset for training compatibility."""
+    from pathlib import Path
+    import json
+
+    dataset_path = Path(f"datasets/{dataset_id}")
+    corpus_file = dataset_path / "corpus.jsonl"
+    input_file = dataset_path / "input.txt"
+
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    validation = {
+        "dataset_id": dataset_id,
+        "valid": True,
+        "issues": [],
+        "warnings": [],
+        "stats": {},
+    }
+
+    corpus_exists = corpus_file.exists()
+    input_exists = input_file.exists()
+
+    if not corpus_exists and not input_exists:
+        validation["valid"] = False
+        validation["issues"].append("No corpus.jsonl or input.txt found")
+        return validation
+
+    file_path = corpus_file if corpus_exists else input_file
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        lines = content.split("\n")
+        non_empty_lines = [l for l in lines if l.strip()]
+
+        stats = {
+            "total_lines": len(lines),
+            "non_empty_lines": len(non_empty_lines),
+            "total_chars": len(content),
+            "avg_line_length": len(content) / len(lines) if lines else 0,
+        }
+
+        if corpus_exists:
+            stats["num_records"] = sum(1 for _ in open(corpus_file))
+
+            languages = {}
+            for line in open(corpus_file):
+                try:
+                    record = json.loads(line)
+                    lang = record.get("language", "unknown")
+                    languages[lang] = languages.get(lang, 0) + 1
+                except:
+                    pass
+            stats["languages"] = languages
+
+        validation["stats"] = stats
+
+        if len(non_empty_lines) < 10:
+            validation["warnings"].append(
+                f"Very small dataset: only {len(non_empty_lines)} non-empty lines"
+            )
+
+        if stats["avg_line_length"] < 5:
+            validation["warnings"].append("Many very short lines detected")
+
+    except Exception as e:
+        validation["valid"] = False
+        validation["issues"].append(f"Failed to read dataset: {str(e)}")
+
+    return validation
 
 
 class GitHubImportRequest(BaseModel):

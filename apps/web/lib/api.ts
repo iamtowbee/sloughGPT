@@ -941,6 +941,20 @@ export const api = {
     return res.json()
   },
 
+  async validateDataset(datasetId: string): Promise<{
+    dataset_id: string
+    valid: boolean
+    issues: string[]
+    warnings: string[]
+    stats: Record<string, unknown>
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/${datasetId}/validate`, { method: 'POST' })
+    if (!res.ok) {
+      throw new Error(`Validation failed (${res.status})`)
+    }
+    return res.json()
+  },
+
   async getExperiments(): Promise<Experiment[]> {
     const res = await fetchWithAuth(`${API_URL}/experiments`)
     return res.json()

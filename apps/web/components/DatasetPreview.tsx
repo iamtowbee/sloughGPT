@@ -6,6 +6,14 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
+interface DatasetValidation {
+  dataset_id: string
+  valid: boolean
+  issues: string[]
+  warnings: string[]
+  stats: Record<string, unknown>
+}
+
 interface DatasetPreviewProps {
   datasetId: string
   onUseForTraining?: () => void
@@ -13,18 +21,23 @@ interface DatasetPreviewProps {
 
 export function DatasetPreview({ datasetId, onUseForTraining }: DatasetPreviewProps) {
   const [preview, setPreview] = useState<DatasetPreviewType | null>(null)
+  const [validation, setValidation] = useState<DatasetValidation | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!datasetId) return
 
-    const fetchPreview = async () => {
+    const fetchData = async () => {
       setLoading(true)
       setError(null)
       try {
-        const data = await api.previewDataset(datasetId)
-        setPreview(data)
+        const [previewData, validationData] = await Promise.all([
+          api.previewDataset(datasetId),
+          api.validateDataset(datasetId).catch(() => null),
+        ])
+        setPreview(previewData)
+        setValidation(validationData)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load preview')
       } finally {
@@ -32,7 +45,7 @@ export function DatasetPreview({ datasetId, onUseForTraining }: DatasetPreviewPr
       }
     }
 
-    fetchPreview()
+    fetchData()
   }, [datasetId])
 
   if (loading) {
@@ -63,9 +76,14 @@ export function DatasetPreview({ datasetId, onUseForTraining }: DatasetPreviewPr
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">Preview: {datasetId}</CardTitle>
-          {onUseForTraining && (
+          <div className="flex items-center gap-2">
+            {validation && (
+              <Badge variant={validation.valid ? 'default' : 'destructive'}>
+                {validation.valid ? 'Valid' : 'Invalid'}
+              </Badge>
+            )}
             <Badge variant="secondary">{totalFiles} files</Badge>
-          )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -91,6 +109,17 @@ export function DatasetPreview({ datasetId, onUseForTraining }: DatasetPreviewPr
             <div className="text-xs text-muted-foreground">Top Language</div>
           </div>
         </div>
+
+        {validation && validation.warnings.length > 0 && (
+          <div className="rounded-md bg-yellow-500/10 p-3">
+            <div className="text-sm font-medium text-yellow-600">Warnings</div>
+            <ul className="mt-1 space-y-1 text-xs text-yellow-700">
+              {validation.warnings.map((warning, i) => (
+                <li key={i}>• {warning}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {languageEntries.length > 1 && (
           <div className="space-y-1">
@@ -162,7 +191,8 @@ export function DatasetPreview({ datasetId, onUseForTraining }: DatasetPreviewPr
             <button
               type="button"
               onClick={onUseForTraining}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              disabled={validation ? !validation.valid : false}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Use for Training
             </button>
