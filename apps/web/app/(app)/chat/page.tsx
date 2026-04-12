@@ -565,70 +565,38 @@ export default function ChatPage() {
         <AppRouteHeader
           className="shrink-0 pt-3 pb-1"
           left={
-            <>
+            <div className="flex items-center gap-3">
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 className="shrink-0 md:hidden"
                 onClick={() => setMobileSessionsOpen(true)}
                 aria-expanded={mobileSessionsOpen}
               >
-                Chats
+                <ConversationsRailIcon className="h-4 w-4" />
               </Button>
-              <h1 className="min-w-0 max-w-[min(100%,14rem)] truncate text-base font-semibold tracking-tight text-foreground sm:max-w-[min(100%,18rem)]">
+              <h1 className="truncate text-base font-semibold tracking-tight text-foreground">
                 {activeSession?.title ?? 'Chat'}
               </h1>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="max-w-[min(100%,18ch)] gap-1.5 font-normal"
-                    title="Catalog model for this chat (inference uses API runtime on the right)"
-                  >
-                    <span className="truncate">{selectedModelLabel}</span>
-                    <ChevronDownIcon className="h-3 w-3 shrink-0 opacity-70" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
-                  {modelsCatalogLoading && (
-                    <div className="px-2 py-2 text-sm text-muted-foreground">Loading catalog…</div>
-                  )}
-                  {!modelsCatalogLoading && modelsCatalogError && (
-                    <div className="px-2 py-2 text-sm text-destructive">Could not list models (API error).</div>
-                  )}
-                  {!modelsCatalogLoading && !modelsCatalogError && availableModels.length === 0 && (
-                    <div className="px-2 py-2 text-sm text-muted-foreground">No models in catalog.</div>
-                  )}
-                  {availableModels.map((model) => (
-                    <DropdownMenuItem
-                      key={model.id}
-                      onClick={() => updateActiveSession((s) => ({ ...s, selectedModel: model.id }))}
-                      className={selectedModel === model.id ? 'bg-primary/10' : ''}
-                    >
-                      <div>
-                        <div className="font-medium">{model.name}</div>
-                        <div className="text-xs text-muted-foreground">{model.source || 'local'}</div>
-                      </div>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+            </div>
+          }
+          right={
+            <div className="flex items-center gap-2">
+              <InferenceRuntimeToolbar health={apiHealth} onRefresh={refreshHealth} />
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="icon"
                 className="h-8 w-8 shrink-0"
                 onClick={() => setShowSettings(true)}
-                title="Generation settings"
-                aria-label="Generation settings"
+                title="Settings"
+                aria-label="Settings"
               >
                 <SlidersIcon className="h-4 w-4" />
               </Button>
-            </>
+            </div>
           }
-          right={<InferenceRuntimeToolbar health={apiHealth} onRefresh={refreshHealth} />}
         />
 
         <Dialog open={mobileSessionsOpen} onOpenChange={setMobileSessionsOpen}>
