@@ -396,6 +396,15 @@ def _format_chat_messages_for_standard(messages: List[ChatMessage]) -> str:
     return formatted
 
 
+def _strip_assistant_prefix(text: str) -> str:
+    """Strip 'Assistant:' prefix from generated text."""
+    prefixes = ["Assistant:", "Assistant: ", "\nAssistant:", "\nAssistant: "]
+    for prefix in prefixes:
+        if text.startswith(prefix):
+            return text[len(prefix) :]
+    return text.lstrip()
+
+
 def _generate_core(request: GenerateRequest, client_ip: str) -> Dict[str, Any]:
     """Shared generation logic for /generate and /v1/infer."""
     prompt = require_non_empty_prompt(input_validator.validate_prompt(request.prompt))
@@ -1958,6 +1967,7 @@ async def chat_completion(request: ChatRequest, req: Request):
             top_k=top_k,
             repetition_penalty=1.0,
         )
+        text = _strip_assistant_prefix(text)
         audit_logger.log("chat", client_ip, resource="/chat", action="inference", status="success")
         return {
             "text": text,
@@ -1994,6 +2004,8 @@ async def chat_stream(request: ChatRequest):
         if engine is None:
             yield f"data: {json.dumps({'error': 'Model not loaded', 'token': '', 'done': True})}\n\n"
             return
+        prefix_stripped = False
+        accumulated = ""
         async for token in engine.generate_stream(
             prompt=prompt,
             max_new_tokens=max_gen,
@@ -2001,7 +2013,20 @@ async def chat_stream(request: ChatRequest):
             top_p=top_p_val,
             top_k=top_k,
         ):
-            yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
+            if not prefix_stripped:
+                accumulated += token
+                if accumulated.startswith("Assistant:"):
+                    accumulated = accumulated[len("Assistant:") :].lstrip()
+                    prefix_stripped = True
+                    if accumulated:
+                        yield f"data: {json.dumps({'token': accumulated, 'done': False})}\n\n"
+                elif accumulated.startswith("Assistant: "):
+                    accumulated = accumulated[len("Assistant: ") :]
+                    prefix_stripped = True
+                    if accumulated:
+                        yield f"data: {json.dumps({'token': accumulated, 'done': False})}\n\n"
+            else:
+                yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
         yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
 
     return StreamingResponse(token_stream(), media_type="text/event-stream")
