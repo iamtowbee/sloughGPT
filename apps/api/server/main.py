@@ -2647,6 +2647,65 @@ async def import_from_local(request: LocalImportRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class KaggleImportRequest(BaseModel):
+    dataset: str  # e.g., "zillow/zecon"
+    name: Optional[str] = None
+
+
+@app.post("/datasets/import/kaggle", tags=["datasets"])
+async def import_from_kaggle(request: KaggleImportRequest):
+    """Import dataset from Kaggle."""
+    try:
+        import subprocess
+        import zipfile
+        import shutil
+
+        name = request.name or request.dataset.replace("/", "_")
+        output_dir = DATA_DIR / "datasets" / name
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Try using kaggle CLI if available
+        try:
+            result = subprocess.run(
+                ["kaggle", "datasets", "download", "-d", request.dataset, "-p", str(output_dir), "--unzip"],
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if result.returncode != 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Kaggle import failed: {result.stderr}. Make sure 'kaggle' CLI is installed and authenticated."
+                )
+        except FileNotFoundError:
+            raise HTTPException(
+                status_code=400,
+                detail="Kaggle CLI not found. Install with: pip install kaggle && mkdir -p ~/.kaggle && cp kaggle.json ~/.kaggle/"
+            )
+
+        # Move files from subdirectory if needed
+        temp_dir = output_dir / request.dataset.replace("/", "_")
+        if temp_dir.exists():
+            for item in temp_dir.iterdir():
+                shutil.move(str(item), str(output_dir / item.name))
+            temp_dir.rmdir()
+
+        # Count files and estimate size
+        file_count = sum(1 for _ in output_dir.rglob("*") if _.is_file())
+        total_size = sum(f.stat().st_size for f in output_dir.rglob("*") if f.is_file())
+
+        return {
+            "success": True,
+            "dataset_id": name,
+            "message": f"Downloaded {file_count} files ({total_size / 1024 / 1024:.1f} MB) from Kaggle",
+            "output_path": str(output_dir),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/datasets/search/github", tags=["datasets"])
 async def search_github_repos(query: str, limit: int = 10):
     """Search GitHub repositories (uses basic API, no auth)."""

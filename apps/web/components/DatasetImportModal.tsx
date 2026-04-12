@@ -31,6 +31,7 @@ type SourceOption = {
 const SOURCE_OPTIONS: SourceOption[] = [
   { value: 'github', label: 'GitHub', description: 'Clone a repository' },
   { value: 'huggingface', label: 'HuggingFace', description: 'Download from HF Hub' },
+  { value: 'kaggle', label: 'Kaggle', description: 'Download from Kaggle' },
   { value: 'url', label: 'URL', description: 'Download from a URL' },
   { value: 'local', label: 'Local', description: 'Import from local files' },
 ]
@@ -46,6 +47,7 @@ export function DatasetImportModal({
   const [url, setUrl] = useState('')
   const [name, setName] = useState('')
   const [datasetId, setDatasetId] = useState('')
+  const [kaggleDataset, setKaggleDataset] = useState('')
   const [path, setPath] = useState('')
   const [extensions, setExtensions] = useState<string[]>(DEFAULT_EXTENSIONS)
   const [loading, setLoading] = useState(false)
@@ -141,6 +143,16 @@ export function DatasetImportModal({
             path: path.trim(),
             name: name.trim(),
             extensions,
+          })
+          break
+
+        case 'kaggle':
+          if (!kaggleDataset.trim()) {
+            throw new Error('Kaggle dataset ID is required (e.g., zillow/zecon)')
+          }
+          result = await api.importFromKaggle({
+            dataset: kaggleDataset.trim(),
+            name: name.trim() || undefined,
           })
           break
       }
@@ -251,6 +263,24 @@ export function DatasetImportModal({
                   className="mt-1"
                 />
               </div>
+            </div>
+          )}
+
+          {source === 'kaggle' && (
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="kaggle-id">Kaggle Dataset ID</Label>
+                <Input
+                  id="kaggle-id"
+                  placeholder="username/dataset-name"
+                  value={kaggleDataset}
+                  onChange={(e) => setKaggleDataset(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Requires Kaggle CLI installed and authenticated
+              </p>
             </div>
           )}
 
