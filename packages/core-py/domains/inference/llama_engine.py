@@ -54,6 +54,7 @@ _INFERENCE_STATS = {
     "request_ids": [],  # Track recent request IDs
     "total_errors": 0,
     "last_error": None,
+    "streaming_requests": 0,  # Streaming request count
 }
 
 _REQUEST_COUNTER = 0
@@ -465,6 +466,9 @@ class LlamaInferenceEngine:
         def _stream():
             with self._lock:
                 try:
+                    _INFERENCE_STATS["streaming_requests"] += 1
+                    start = time.perf_counter()
+                    tokens_yielded = 0
                     for chunk in self._llama(
                         prompt,
                         max_tokens=max_tokens,
@@ -477,9 +481,18 @@ class LlamaInferenceEngine:
                         stream=True,
                     ):
                         token = chunk["choices"][0]["text"]
+                        tokens_yielded += 1
                         yield token
+                    elapsed = time.perf_counter() - start
+                    _INFERENCE_STATS["total_requests"] += 1
+                    _INFERENCE_STATS["total_tokens"] += tokens_yielded
+                    _INFERENCE_STATS["latencies_ms"].append(elapsed * 1000)
+                    if len(_INFERENCE_STATS["latencies_ms"]) > 100:
+                        _INFERENCE_STATS["latencies_ms"] = _INFERENCE_STATS["latencies_ms"][-100:]
                 except Exception as e:
                     logger.error(f"Streaming failed: {e}")
+                    _INFERENCE_STATS["total_errors"] += 1
+                    _INFERENCE_STATS["last_error"] = str(e)
 
         return _stream()
 
