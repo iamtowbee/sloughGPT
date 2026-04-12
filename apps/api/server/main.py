@@ -2681,6 +2681,107 @@ async def search_github_repos(query: str, limit: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class DatasetExportFormat(str):
+    JSON = "json"
+    JSONL = "jsonl"
+    CSV = "csv"
+    TXT = "txt"
+
+
+class DatasetExportRequest(BaseModel):
+    format: DatasetExportFormat = DatasetExportFormat.JSON
+    include_metadata: bool = True
+
+
+@app.post("/datasets/{dataset_id}/export", tags=["datasets"])
+async def export_dataset(dataset_id: str, request: DatasetExportRequest):
+    """Export a dataset to various formats."""
+    import csv
+    import io
+
+    # Find the dataset
+    dataset_dir = DATA_DIR / "datasets" / dataset_id
+    if not dataset_dir.exists():
+        raise HTTPException(status_code=404, detail=f"Dataset not found: {dataset_id}")
+
+    # Collect all text files
+    samples = []
+    for file_path in dataset_dir.rglob("*"):
+        if file_path.is_file() and file_path.suffix in {
+            ".txt",
+            ".md",
+            ".py",
+            ".js",
+            ".ts",
+            ".json",
+        }:
+            try:
+                content = file_path.read_text(encoding="utf-8", errors="ignore")
+                samples.append(
+                    {
+                        "path": str(file_path.relative_to(dataset_dir)),
+                        "content": content[:10000],  # Limit content size
+                        "size": file_path.stat().st_size,
+                    }
+                )
+            except Exception:
+                continue
+
+    if not samples:
+        raise HTTPException(status_code=404, detail="No samples found in dataset")
+
+    # Format output based on requested format
+    if request.format == DatasetExportFormat.JSON:
+        output = json.dumps(
+            {
+                "dataset_id": dataset_id,
+                "total_samples": len(samples),
+                "samples": samples if request.include_metadata else [s["content"] for s in samples],
+            },
+            indent=2,
+        )
+
+    elif request.format == DatasetExportFormat.JSONL:
+        lines = []
+        for sample in samples:
+            if request.include_metadata:
+                lines.append(json.dumps(sample))
+            else:
+                lines.append(json.dumps({"content": sample["content"]}))
+        output = "\n".join(lines)
+
+    elif request.format == DatasetExportFormat.CSV:
+        output_buffer = io.StringIO()
+        if request.include_metadata:
+            writer = csv.DictWriter(output_buffer, fieldnames=["path", "content", "size"])
+            writer.writeheader()
+            writer.writerows(samples)
+        else:
+            writer = csv.writer(output_buffer)
+            writer.writerow(["content"])
+            for sample in samples:
+                writer.writerow([sample["content"]])
+        output = output_buffer.getvalue()
+
+    else:  # TXT
+        output = "\n\n---\n\n".join(s["content"] for s in samples)
+
+    return {
+        "dataset_id": dataset_id,
+        "format": request.format,
+        "total_samples": len(samples),
+        "content": output,
+        "size_bytes": len(output.encode("utf-8")),
+    }
+
+
+@app.get("/datasets/{dataset_id}/download", tags=["datasets"])
+async def download_dataset(dataset_id: str, format: str = "json"):
+    """Download a dataset as a file."""
+    export_req = DatasetExportRequest(format=format)
+    return await export_dataset(dataset_id, export_req)
+
+
 @app.get("/models")
 async def list_models():
     """List available models (local + HuggingFace)."""

@@ -943,6 +943,24 @@ export const api = {
     return res.json()
   },
 
+  async exportDataset(datasetId: string, format = 'json'): Promise<{
+    dataset_id: string
+    format: string
+    total_samples: number
+    content: string
+    size_bytes: number
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/${datasetId}/export`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ format }),
+    })
+    if (!res.ok) {
+      throw new Error(`Export failed (${res.status})`)
+    }
+    return res.json()
+  },
+
   async searchGitHubRepos(query: string, limit = 10): Promise<{ repos: GitHubRepo[] }> {
     const res = await fetchWithAuth(`${API_URL}/datasets/search/github?query=${encodeURIComponent(query)}&limit=${limit}`)
     if (!res.ok) {

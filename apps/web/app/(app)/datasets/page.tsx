@@ -84,6 +84,24 @@ export default function DatasetsPage() {
     }
   }
 
+  const handleExportDataset = async (datasetId: string, format: string) => {
+    try {
+      const result = await api.exportDataset(datasetId, format)
+      const blob = new Blob([result.content], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${datasetId}.${format}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      devDebug('Failed to export dataset:', err)
+      alert('Failed to export dataset. Please try again.')
+    }
+  }
+
   return (
     <div className="sl-page mx-auto max-w-6xl">
       <AppRouteHeader
@@ -183,6 +201,41 @@ export default function DatasetsPage() {
                       <Button type="button" variant="ghost" size="sm" onClick={() => handleViewDataset(dataset.id)}>
                         View
                       </Button>
+                      <div className="relative group">
+                        <Button type="button" variant="ghost" size="sm">
+                          Export
+                        </Button>
+                        <div className="absolute right-0 top-full z-10 hidden min-w-[120px] rounded-md border bg-background py-1 shadow-lg group-hover:block">
+                          <button
+                            type="button"
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-muted"
+                            onClick={() => handleExportDataset(dataset.id, 'json')}
+                          >
+                            JSON
+                          </button>
+                          <button
+                            type="button"
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-muted"
+                            onClick={() => handleExportDataset(dataset.id, 'jsonl')}
+                          >
+                            JSONL
+                          </button>
+                          <button
+                            type="button"
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-muted"
+                            onClick={() => handleExportDataset(dataset.id, 'csv')}
+                          >
+                            CSV
+                          </button>
+                          <button
+                            type="button"
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-muted"
+                            onClick={() => handleExportDataset(dataset.id, 'txt')}
+                          >
+                            TXT
+                          </button>
+                        </div>
+                      </div>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive">
