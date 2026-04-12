@@ -563,32 +563,29 @@ export default function ChatPage() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="mx-auto flex min-h-0 w-full max-w-[var(--chat-thread-max)] flex-1 flex-col overflow-hidden px-3 sm:px-4 md:px-6">
         <AppRouteHeader
-          className="shrink-0 pt-3 pb-1"
+          className="shrink-0"
           left={
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 className="shrink-0 md:hidden"
                 onClick={() => setMobileSessionsOpen(true)}
-                aria-expanded={mobileSessionsOpen}
               >
                 <ConversationsRailIcon className="h-4 w-4" />
               </Button>
-              <h1 className="truncate text-base font-semibold tracking-tight text-foreground">
-                {activeSession?.title ?? 'Chat'}
-              </h1>
+              <span className="truncate font-medium text-sm">{activeSession?.title ?? 'New Chat'}</span>
             </div>
           }
           right={
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>{activeSession?.title ?? 'New Chat'}</span>
+            <div className="flex items-center gap-1">
+              <InferenceRuntimeToolbar health={apiHealth} onRefresh={refreshHealth} />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6"
+                className="h-7 w-7"
                 onClick={() => setShowSettings(true)}
                 title="Settings"
               >

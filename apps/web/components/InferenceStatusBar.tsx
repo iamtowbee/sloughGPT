@@ -161,32 +161,10 @@ function RefreshIcon({ className }: { className?: string }) {
   )
 }
 
-/** Icon-first API runtime cluster for route headers (pair with `AppRouteHeader` right slot). */
+/** Simple status indicator for chat header. */
 export function InferenceRuntimeToolbar({ health, onRefresh }: ToolbarProps) {
-  const tooltip = health && health !== 'offline' && 'model_type' in health ? `${health.model_type} loaded` : 'API status'
-  return (
-    <div className="flex items-center justify-end gap-1.5 text-muted-foreground" title={tooltip}>
-      {health === null ? (
-        <span className="flex items-center gap-1 text-xs" role="status" aria-label="Checking API status">
-          <DotsPulseIcon className="h-3 w-3 shrink-0" />
-          <span className="shrink-0">Checking...</span>
-        </span>
-      ) : health === 'offline' ? (
-        <span className="flex items-center gap-1 text-xs text-destructive" role="status" aria-label="API disconnected">
-          <OfflineIcon className="h-3 w-3 shrink-0" />
-          <span className="shrink-0">Offline</span>
-        </span>
-      ) : health.model_loaded ? (
-        <span className="flex items-center gap-1 text-xs text-success" role="status" aria-label="Model loaded">
-          <CheckCircleIcon className="h-3 w-3 shrink-0" />
-          <span className="shrink-0">{health.model_type}</span>
-        </span>
-      ) : (
-        <span className="flex items-center gap-1 text-xs text-warning" role="status" aria-label="No model loaded">
-          <AlertTriangleIcon className="h-3 w-3 shrink-0" />
-          <span className="shrink-0">No model</span>
-        </span>
-      )}
-    </div>
-  )
+  if (health === null) return <span className="text-xs text-muted-foreground/50">...</span>
+  if (health === 'offline') return <span className="text-xs text-destructive">Offline</span>
+  if (health.model_loaded) return <span className="text-xs text-success/70">{health.model_type}</span>
+  return <span className="text-xs text-warning/70">No model</span>
 }
