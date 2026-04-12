@@ -1494,13 +1494,20 @@ curl -X POST http://localhost:8000/generate/stream \
 
 ### Tests Added
 
-- `tests/test_llama_engine.py` - 12 new tests for llama engine features
-- Tests for GPU detection, profiling, memory tracking, and config
+- `tests/test_llama_engine.py` - 13 new tests for llama engine features
+- Tests for GPU detection, profiling, memory tracking, batch, and warmup
+
+### Additional Features
+
+| Feature | Description |
+|---------|-------------|
+| `batch_generate()` | Process multiple prompts in sequence |
+| `warmup()` | Pre-heat model after loading |
 
 ### Test Results
 | Suite | Result |
 |-------|--------|
-| Python | 463 passed |
+| Python | 464 passed |
 | Web unit | 43 passed |
 | E2E | 11 passed |
 ```
