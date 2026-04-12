@@ -2880,15 +2880,8 @@ async def search_github_repos(query: str, limit: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-class DatasetExportFormat(str):
-    JSON = "json"
-    JSONL = "jsonl"
-    CSV = "csv"
-    TXT = "txt"
-
-
 class DatasetExportRequest(BaseModel):
-    format: DatasetExportFormat = DatasetExportFormat.JSON
+    format: str = "json"
     include_metadata: bool = True
 
 
