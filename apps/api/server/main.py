@@ -5096,20 +5096,6 @@ def _autoload_hf_model_at_startup() -> None:
         )
 
 
-if __name__ == "__main__":
-    import uvicorn
-
-    raw_port = os.environ.get("SLOUGHGPT_API_PORT", "").strip()
-    if raw_port:
-        port = int(raw_port)
-    else:
-        port = find_available_port(8000)
-
-    _start_feedback_workflow()
-    print(f"Starting SloughGPT server on port {port}...")
-    uvicorn.run(app, host="0.0.0.0", port=port)
-
-
 def _start_feedback_workflow() -> None:
     """Start the automated feedback workflow at server startup."""
     try:
@@ -5126,3 +5112,17 @@ def _start_feedback_workflow() -> None:
             logger.info("Feedback workflow started automatically")
     except Exception as e:
         logger.warning("Failed to start feedback workflow: %s", e)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    raw_port = os.environ.get("SLOUGHGPT_API_PORT", "").strip()
+    if raw_port:
+        port = int(raw_port)
+    else:
+        port = find_available_port(8000)
+
+    _start_feedback_workflow()
+    print(f"Starting SloughGPT server on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port)

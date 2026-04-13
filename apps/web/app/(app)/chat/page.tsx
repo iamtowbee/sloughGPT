@@ -55,6 +55,7 @@ export default function ChatPage() {
   const [currentError, setCurrentError] = useState<ReturnType<typeof getErrorInfo> | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [images, setImages] = useState<ImageAttachment[]>([])
+  const [sessionSaved, setSessionSaved] = useState(false)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const sessionIdRef = useRef<string>('')
@@ -64,8 +65,18 @@ export default function ChatPage() {
   // Feedback store
   const { recordFeedback, fetchStats, fetchAdapterStats, stats, adapterStats } = useFeedbackStore()
 
+  // Generate hash ID for session
+  const generateSessionId = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    let hash = ''
+    for (let i = 0; i < 8; i++) {
+      hash += chars[Math.floor(Math.random() * chars.length)]
+    }
+    return `chat_${hash}`
+  }
+
   useEffect(() => {
-    sessionIdRef.current = localStorage.getItem(CURRENT_SESSION_KEY) || `session-${Date.now()}`
+    sessionIdRef.current = localStorage.getItem(CURRENT_SESSION_KEY) || generateSessionId()
     userIdRef.current = getOrCreateUserId()
     // Fetch initial feedback stats
     fetchStats()
@@ -113,19 +124,19 @@ export default function ChatPage() {
     if (session) {
       setMessages(session.messages)
       localStorage.setItem(CURRENT_SESSION_KEY, sessionId)
+      setSessionSaved(true)
       showToast(`Loaded: ${session.name}`)
     }
   }, [showToast])
 
   const newChat = useCallback(() => {
-    const currentId = localStorage.getItem(CURRENT_SESSION_KEY)
-    if (currentId && messages.length > 0) {
-      saveSession()
-    }
     setMessages([])
-    localStorage.setItem(CURRENT_SESSION_KEY, `session-${Date.now()}`)
+    setSessionSaved(false)
+    const newId = generateSessionId()
+    sessionIdRef.current = newId
+    localStorage.setItem(CURRENT_SESSION_KEY, newId)
     showToast('New chat started')
-  }, [messages, saveSession, showToast])
+  }, [showToast])
 
   const deleteSession = useCallback((sessionId: string) => {
     const sessions = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as ChatSession[]
@@ -133,17 +144,19 @@ export default function ChatPage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
     if (localStorage.getItem(CURRENT_SESSION_KEY) === sessionId) {
       setMessages([])
+      setSessionSaved(false)
       localStorage.removeItem(CURRENT_SESSION_KEY)
     }
     showToast('Session deleted')
   }, [showToast])
 
+  // Only auto-save if session has received a successful response
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 && sessionSaved) {
       const timeout = setTimeout(saveSession, 1000)
       return () => clearTimeout(timeout)
     }
-  }, [messages, saveSession])
+  }, [messages, saveSession, sessionSaved])
 
   useEffect(() => {
     const currentId = localStorage.getItem(CURRENT_SESSION_KEY)
@@ -403,6 +416,8 @@ export default function ChatPage() {
             : msg
         ))
       }
+      // Mark session as saved after successful response
+      setSessionSaved(true)
     } catch (err) {
       setCurrentError(getErrorInfo(0, err instanceof Error ? err.message : 'Network error'))
       setMessages(prev => prev.filter(msg => msg.id !== assistantId))
