@@ -145,47 +145,45 @@ class InferenceEngine:
         self._lora_adapter = adapter
 
     def _apply_lora_to_logits(self, logits: torch.Tensor) -> torch.Tensor:
-        """Apply LoRA adapter adjustment to logits.
-
-        Uses a simplified but effective approach:
-        - Compute delta = W_b @ W_a (dim, dim) and take its diagonal
-        - The diagonal captures per-dimension importance
-        - Scale by (alpha / rank) * feedback_strength
-        """
+        """Apply LoRA adapter adjustment to logits (if compatible)."""
         if self._lora_adapter is None:
             return logits
 
         try:
             import numpy as np
 
-            if hasattr(self._lora_adapter, "W_b") and hasattr(self._lora_adapter, "W_a"):
-                W_a = self._lora_adapter.W_a
-                W_b = self._lora_adapter.W_b
-                alpha = getattr(self._lora_adapter, "alpha", 16)
-                rank = getattr(self._lora_adapter, "rank", 8)
-                feedback_count = getattr(self._lora_adapter, "feedback_count", 1)
+            if not (hasattr(self._lora_adapter, "W_b") and hasattr(self._lora_adapter, "W_a")):
+                return logits
 
-                # Convert to torch tensors if numpy
-                if isinstance(W_a, np.ndarray):
-                    W_a = torch.from_numpy(W_a).to(logits.device, dtype=logits.dtype)
-                if isinstance(W_b, np.ndarray):
-                    W_b = torch.from_numpy(W_b).to(logits.device, dtype=logits.dtype)
+            W_a = self._lora_adapter.W_a
+            W_b = self._lora_adapter.W_b
+            alpha = getattr(self._lora_adapter, "alpha", 16)
+            rank = getattr(self._lora_adapter, "rank", 8)
+            feedback_count = getattr(self._lora_adapter, "feedback_count", 1)
 
-                # LoRA update: W_b @ W_a @ x ≈ (W_b @ W_a) @ x
-                # For a quick bias, compute mean of each output dimension
-                lora_matrix = torch.matmul(W_b, W_a)  # (dim, dim)
-                
-                # Take diagonal elements for per-dimension adjustment
-                # Diagonal captures self-attention importance
-                dim = min(lora_matrix.shape[0], logits.shape[-1])
-                lora_bias = lora_matrix[:dim, :dim].diagonal()  # (dim,)
-                
-                # Scale based on alpha/rank and feedback confidence
-                base_scale = alpha / rank
-                feedback_scale = min(1.0, feedback_count / 10.0)  # Saturate at 10 feedback
-                scale = base_scale * feedback_scale * 0.1
-                
-                logits[:dim] = logits[:dim] + lora_bias * scale
+            # Convert to torch tensors if numpy
+            if isinstance(W_a, np.ndarray):
+                W_a = torch.from_numpy(W_a).to(logits.device, dtype=logits.dtype)
+            if isinstance(W_b, np.ndarray):
+                W_b = torch.from_numpy(W_b).to(logits.device, dtype=logits.dtype)
+
+            # Check dimension compatibility
+            lora_dim = W_b.shape[0]  # Should be model hidden dim
+            logits_dim = logits.shape[-1]
+
+            if lora_dim != logits_dim:
+                # Dimensions don't match - skip LoRA for this generation
+                return logits
+
+            # Compute LoRA bias as mean of W_b @ W_a
+            lora_matrix = torch.matmul(W_b, W_a)  # (dim, dim)
+            lora_bias = lora_matrix.mean(dim=1)  # (dim,)
+
+            # Scale based on alpha/rank and feedback confidence
+            scale = (alpha / rank) * min(1.0, feedback_count / 10.0) * 0.05
+
+            # Apply bias
+            logits = logits + lora_bias * scale
 
         except Exception:
             pass
