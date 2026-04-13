@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
-import { FoldSection, JobStatus, ProgressBar } from '@/components/strui'
+import { FoldSection, JobStatus, ProgressBar, StatCard, KpiGrid } from '@/components/strui'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
@@ -295,39 +295,21 @@ export default function TrainingPage() {
 
       {/* Feedback Training Data Section */}
       {trainingStats && (
-        <Card className="mb-6">
-          <CardHeader className="py-4">
-            <CardTitle className="text-base">Feedback Training Data</CardTitle>
-            <CardDescription>
-              Export training data from user feedback for fine-tuning
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                <div className="text-2xl font-bold">{trainingStats.total_conversations}</div>
-                <div className="text-xs text-muted-foreground">Conversations</div>
-              </div>
-              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">{trainingStats.thumbs_up}</div>
-                <div className="text-xs text-muted-foreground">Thumbs Up</div>
-              </div>
-              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                <div className="text-2xl font-bold text-red-600">{trainingStats.thumbs_down}</div>
-                <div className="text-xs text-muted-foreground">Thumbs Down</div>
-              </div>
-              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">{trainingStats.available_dpo_pairs}</div>
-                <div className="text-xs text-muted-foreground">DPO Pairs</div>
-              </div>
-            </div>
-            
+        <FoldSection heading="Feedback Training Data">
+          <div className="space-y-4">
+            <KpiGrid>
+              <StatCard label="Conversations" value={trainingStats.total_conversations} />
+              <StatCard label="Thumbs Up" value={trainingStats.thumbs_up} hint="Positive feedback" />
+              <StatCard label="Thumbs Down" value={trainingStats.thumbs_down} hint="Negative feedback" />
+              <StatCard label="DPO Pairs" value={trainingStats.available_dpo_pairs} />
+            </KpiGrid>
+
             {exportResult && (
-              <div className="mb-4 p-2 text-sm bg-muted rounded-md font-mono break-all">
+              <div className="p-2 text-sm bg-muted rounded-md font-mono break-all">
                 {exportResult}
               </div>
             )}
-            
+
             <div className="flex gap-2">
               <Button
                 size="sm"
@@ -345,55 +327,33 @@ export default function TrainingPage() {
                 {exporting === 'sft' ? 'Exporting...' : 'Export SFT'}
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </FoldSection>
       )}
 
       {/* Workflow & Adapters Management Section */}
       {(workflowStatus || adapterStats) && (
-        <Card className="mb-6">
-          <CardHeader className="py-4">
-            <CardTitle className="text-base">LLM Adaptation System</CardTitle>
-            <CardDescription>
-              Per-user LoRA adapters and automated feedback pipeline
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-4 mb-4">
+        <FoldSection heading="LLM Adaptation System">
+          <div className="space-y-4">
+            <KpiGrid>
               {adapterStats && (
                 <>
-                  <div className="text-center p-3 bg-muted/50 rounded-lg">
-                    <div className="text-2xl font-bold">{adapterStats.total_users}</div>
-                    <div className="text-xs text-muted-foreground">User Adapters</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {adapterStats.total_size_mb.toFixed(2)} MB
-                    </div>
-                  </div>
-                  {adapterStats.auto_management && (
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <div className="text-2xl font-bold text-green-600">
-                        {adapterStats.auto_management.quality_adapters_count as number}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Quality Adapters</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Threshold: {adapterStats.auto_management.aggregate_threshold as number}
-                      </div>
-                    </div>
-                  )}
+                  <StatCard label="User Adapters" value={adapterStats.total_users} hint={`${adapterStats.total_size_mb.toFixed(2)} MB`} />
+                  <StatCard 
+                    label="Quality Adapters" 
+                    value={adapterStats.auto_management?.quality_adapters_count ?? 0} 
+                    hint={`Threshold: ${adapterStats.auto_management?.aggregate_threshold ?? 50}`} 
+                  />
                 </>
               )}
               {workflowStatus && (
-                <div className="text-center p-3 bg-muted/50 rounded-lg">
-                  <div className={`text-2xl font-bold ${workflowStatus.running ? 'text-green-600' : 'text-gray-500'}`}>
-                    {workflowStatus.running ? 'Active' : 'Stopped'}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Workflow</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Aggregations: {workflowStatus.stats.aggregations_performed as number}
-                  </div>
-                </div>
+                <StatCard 
+                  label="Workflow" 
+                  value={workflowStatus.running ? 'Active' : 'Stopped'} 
+                  hint={`Aggregations: ${workflowStatus.stats.aggregations_performed}`}
+                />
               )}
-            </div>
+            </KpiGrid>
 
             <div className="flex flex-wrap gap-2">
               {workflowStatus && (
@@ -425,8 +385,8 @@ export default function TrainingPage() {
                 {adminAction === 'prune' ? 'Pruning...' : 'Prune Low Quality'}
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </FoldSection>
       )}
 
       {loading ? (
