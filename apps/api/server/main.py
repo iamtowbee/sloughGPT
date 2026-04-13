@@ -2971,7 +2971,7 @@ async def start_workflow(request: WorkflowStartRequest, req: Request):
         workflow = get_feedback_workflow(config=config)
         workflow.start()
 
-        return {"status": "started", "config": request.dict()}
+        return {"status": "started", "config": request.model_dump()}
     except ImportError:
         raise HTTPException(status_code=503, detail="Workflow not available")
 
