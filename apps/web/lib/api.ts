@@ -1163,4 +1163,241 @@ export const api = {
     
     return () => eventSource.close()
   },
+
+  // ===== FEEDBACK SYSTEM =====
+
+  async recordFeedback(params: {
+    userMessage: string
+    assistantResponse: string
+    rating: 'thumbs_up' | 'thumbs_down'
+    conversationId?: string
+    qualityScore?: number
+    userId?: string
+  }): Promise<{ status: string; feedback_id: string; stats: FeedbackStats }> {
+    const res = await fetchWithAuth(`${API_URL}/feedback/record`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_message: params.userMessage,
+        assistant_response: params.assistantResponse,
+        rating: params.rating,
+        conversation_id: params.conversationId,
+        quality_score: params.qualityScore,
+        user_id: params.userId,
+      }),
+    })
+    return res.json()
+  },
+
+  async recordFeedbackWorkflow(params: {
+    userMessage: string
+    assistantResponse: string
+    rating: 'thumbs_up' | 'thumbs_down'
+    conversationId?: string
+    qualityScore?: number
+    userId?: string
+  }): Promise<{ status: string; feedback_id: string; workflow_active: boolean }> {
+    const res = await fetchWithAuth(`${API_URL}/feedback/workflow-record`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_message: params.userMessage,
+        assistant_response: params.assistantResponse,
+        rating: params.rating,
+        conversation_id: params.conversationId,
+        quality_score: params.qualityScore,
+        user_id: params.userId,
+      }),
+    })
+    return res.json()
+  },
+
+  async getFeedbackStats(): Promise<FeedbackStats & { quality_trend: { thumbs_up_ratio: number } }> {
+    const res = await fetchWithAuth(`${API_URL}/meta-weights/stats`)
+    return res.json()
+  },
+
+  async getConversations(limit = 50): Promise<{ conversations: Conversation[] }> {
+    const res = await fetchWithAuth(`${API_URL}/feedback/conversations?limit=${limit}`)
+    return res.json()
+  },
+
+  async exportFeedback(format: 'jsonl' | 'dpo' = 'jsonl', rating?: 'thumbs_up' | 'thumbs_down'): Promise<{ status: string; filepath: string }> {
+    const body: Record<string, unknown> = { format }
+    if (rating) body.rating = rating
+    const res = await fetchWithAuth(`${API_URL}/feedback/export`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return res.json()
+  },
+
+  // ===== USER ADAPTERS =====
+
+  async getUserAdapters(): Promise<UserAdapterStats> {
+    const res = await fetchWithAuth(`${API_URL}/user-adapters`)
+    return res.json()
+  },
+
+  async getUserAdapter(userId: string): Promise<UserAdapterInfo> {
+    const res = await fetchWithAuth(`${API_URL}/user-adapters/${encodeURIComponent(userId)}`)
+    return res.json()
+  },
+
+  async getQualityAdapters(minFeedbackCount = 3, maxAgeDays?: number): Promise<{ count: number; adapters: UserAdapterInfo[] }> {
+    let url = `${API_URL}/user-adapters/quality?min_feedback_count=${minFeedbackCount}`
+    if (maxAgeDays) url += `&max_age_days=${maxAgeDays}`
+    const res = await fetchWithAuth(url)
+    return res.json()
+  },
+
+  async aggregateBestAdapters(params: { top_k?: number; min_feedback_count?: number; output_name?: string } = {}): Promise<{ status: string; user_count?: number; output_path?: string }> {
+    const res = await fetchWithAuth(`${API_URL}/user-adapters/aggregate-best`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        top_k: params.top_k ?? 10,
+        min_feedback_count: params.min_feedback_count ?? 5,
+        output_name: params.output_name ?? 'best_aggregated',
+      }),
+    })
+    return res.json()
+  },
+
+  async pruneAdapters(params: { min_feedback_count?: number; max_age_days?: number } = {}): Promise<{ status: string; deleted_count: number; deleted_users: string[] }> {
+    const res = await fetchWithAuth(`${API_URL}/user-adapters/prune`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        min_feedback_count: params.min_feedback_count ?? 1,
+        max_age_days: params.max_age_days ?? 30,
+      }),
+    })
+    return res.json()
+  },
+
+  async resetUserAdapter(userId: string): Promise<{ status: string; user_id: string; feedback_count: number }> {
+    const res = await fetchWithAuth(`${API_URL}/user-adapters/${encodeURIComponent(userId)}/reset`, {
+      method: 'POST',
+    })
+    return res.json()
+  },
+
+  // ===== WORKFLOW =====
+
+  async getWorkflowStatus(): Promise<WorkflowStatus> {
+    const res = await fetchWithAuth(`${API_URL}/workflow/status`)
+    return res.json()
+  },
+
+  async startWorkflow(config?: Partial<WorkflowConfig>): Promise<{ status: string }> {
+    const res = await fetchWithAuth(`${API_URL}/workflow/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config ?? {}),
+    })
+    return res.json()
+  },
+
+  async stopWorkflow(): Promise<{ status: string }> {
+    const res = await fetchWithAuth(`${API_URL}/workflow/stop`, {
+      method: 'POST',
+    })
+    return res.json()
+  },
+
+  async triggerWorkflowAction(action: 'aggregate' | 'prune' | 'export'): Promise<{ status: string; timestamp: number }> {
+    const res = await fetchWithAuth(`${API_URL}/workflow/trigger/${action}`, {
+      method: 'POST',
+    })
+    return res.json()
+  },
+}
+
+// ===== TYPE DEFINITIONS =====
+
+export interface FeedbackStats {
+  db_stats: {
+    conversations: number
+    messages: number
+    feedback_total: number
+    thumbs_up: number
+    thumbs_down: number
+    ratio: number
+  }
+  current_weights: {
+    temperature: number
+    repetition_penalty: number
+  }
+  history_length: number
+}
+
+export interface Conversation {
+  id: string
+  user_id: string
+  created_at: string
+  updated_at: string
+  message_count: number
+  feedback_count: number
+}
+
+export interface UserAdapterStats {
+  total_users: number
+  total_size_bytes: number
+  total_size_mb: number
+  adapter_rank: number
+  model_dim: number
+  avg_size_per_user_kb: number
+  auto_management?: {
+    aggregate_threshold: number
+    prune_threshold: number
+    min_feedback_for_aggregation: number
+    quality_adapters_count: number
+  }
+}
+
+export interface UserAdapterInfo {
+  user_id: string
+  rank: number
+  alpha: number
+  model_dim: number
+  created_at: string
+  updated_at: string
+  feedback_count: number
+}
+
+export interface WorkflowConfig {
+  aggregate_interval_minutes: number
+  prune_interval_minutes: number
+  export_interval_hours: number
+  health_check_interval_seconds: number
+  auto_aggregate_threshold: number
+  auto_prune_threshold: number
+  min_feedback_for_aggregation: number
+}
+
+export interface WorkflowStatus {
+  running: boolean
+  stats: {
+    workflow_runs: number
+    aggregations_performed: number
+    prunes_performed: number
+    exports_performed: number
+    feedback_recorded: number
+    start_time: number | null
+  }
+  config: WorkflowConfig
+  last_runs: {
+    aggregate: number
+    prune: number
+    export: number
+    health_check: number
+  }
+  systems: {
+    feedback_db: Record<string, unknown>
+    meta_weights: Record<string, unknown>
+    lora_store: UserAdapterStats
+    lora_updater: Record<string, unknown>
+  }
 }

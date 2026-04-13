@@ -14,7 +14,7 @@ import numpy as np
 import threading
 import time
 from pathlib import Path
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 from dataclasses import dataclass
 
 
@@ -41,6 +41,7 @@ class PerUserLoRAStore:
     - Create/load adapters per user
     - Merge adapters into base model
     - Export for aggregation
+    - Auto-aggregation and pruning
     """
 
     def __init__(
@@ -49,12 +50,22 @@ class PerUserLoRAStore:
         adapter_rank: int = 8,
         adapter_alpha: int = 16,
         model_dim: int = 768,
+        auto_aggregate_threshold: int = 50,
+        auto_prune_threshold: int = 100,
+        min_feedback_for_aggregation: int = 3,
     ):
         self.store_path = Path(store_path)
         self.store_path.mkdir(parents=True, exist_ok=True)
         self.adapter_rank = adapter_rank
         self.adapter_alpha = adapter_alpha
         self.model_dim = model_dim
+
+        # Auto-management settings
+        self.auto_aggregate_threshold = auto_aggregate_threshold
+        self.auto_prune_threshold = auto_prune_threshold
+        self.min_feedback_for_aggregation = min_feedback_for_aggregation
+        self._last_aggregate_count = 0
+        self._last_prune_count = 0
 
         # In-memory cache
         self._cache: Dict[str, UserAdapter] = {}
@@ -204,7 +215,46 @@ class PerUserLoRAStore:
         with self._cache_lock:
             self._cache[user_id] = adapter
 
+        # Auto-management: check if we need to aggregate or prune
+        self._auto_manage()
+
         return adapter
+
+    def _auto_manage(self):
+        """Automatically aggregate or prune based on thresholds."""
+        try:
+            adapters = self.get_all_adapters()
+            total_users = len(adapters)
+
+            # Auto-prune: if too many users, prune low-quality ones
+            if total_users >= self.auto_prune_threshold:
+                if total_users > self._last_prune_count:
+                    deleted = self.prune_low_quality(
+                        min_feedback_count=1,
+                        max_age_days=7,
+                    )
+                    self._last_prune_count = total_users - len(deleted)
+                    print(f"[PerUserLoRA] Auto-pruned {len(deleted)} low-quality adapters")
+
+            # Auto-aggregate: if we have enough quality adapters
+            quality_adapters = self.get_quality_adapters(
+                min_feedback_count=self.min_feedback_for_aggregation
+            )
+            if len(quality_adapters) >= self.auto_aggregate_threshold:
+                if len(quality_adapters) > self._last_aggregate_count:
+                    result = self.aggregate_best_adapters(
+                        top_k=min(20, len(quality_adapters)),
+                        min_feedback_count=self.min_feedback_for_aggregation,
+                        output_name=f"auto_aggregated_{int(time.time())}",
+                    )
+                    if "error" not in result:
+                        self._last_aggregate_count = len(quality_adapters)
+                        print(
+                            f"[PerUserLoRA] Auto-aggregated {result.get('user_count', 0)} adapters"
+                        )
+
+        except Exception as e:
+            print(f"[PerUserLoRA] Auto-manage error: {e}")
 
     def _save_adapter(self, adapter: UserAdapter):
         """Save adapter weights to disk."""
@@ -337,26 +387,182 @@ class PerUserLoRAStore:
             "adapter_rank": self.adapter_rank,
             "model_dim": self.model_dim,
             "avg_size_per_user_kb": (total_size / max(len(adapters), 1)) / 1024,
+            "auto_management": {
+                "aggregate_threshold": self.auto_aggregate_threshold,
+                "prune_threshold": self.auto_prune_threshold,
+                "min_feedback_for_aggregation": self.min_feedback_for_aggregation,
+                "quality_adapters_count": len(
+                    self.get_quality_adapters(min_feedback_count=self.min_feedback_for_aggregation)
+                ),
+            },
         }
 
     def delete_adapter(self, user_id: str):
         """Delete a user's adapter."""
-        # Remove from cache
         with self._cache_lock:
             if user_id in self._cache:
                 del self._cache[user_id]
 
-        # Remove from disk
         path = self._get_adapter_path(user_id)
         if path.exists():
             path.unlink()
 
-        # Remove from DB
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute("DELETE FROM user_adapters WHERE user_id = ?", (user_id,))
         conn.commit()
         conn.close()
+
+    def get_quality_adapters(
+        self,
+        min_feedback_count: int = 3,
+        max_age_days: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get adapters filtered by quality metrics.
+
+        Args:
+            min_feedback_count: Minimum feedback count to be considered
+            max_age_days: Optional max age in days (uses updated_at)
+
+        Returns:
+            List of adapter metadata with quality scores
+        """
+        adapters = self.get_all_adapters()
+        quality_adapters = []
+        now = time.time()
+        max_age_seconds = max_age_days * 86400 if max_age_days else None
+
+        for adapter in adapters:
+            if adapter["feedback_count"] < min_feedback_count:
+                continue
+
+            if max_age_seconds:
+                updated = float(adapter["updated_at"])
+                if now - updated > max_age_seconds:
+                    continue
+
+            quality_adapters.append(adapter)
+
+        return quality_adapters
+
+    def aggregate_best_adapters(
+        self,
+        top_k: int = 10,
+        min_feedback_count: int = 5,
+        output_name: str = "best_aggregated",
+    ) -> Dict[str, Any]:
+        """
+        Aggregate top-k best-performing user adapters.
+
+        This creates a merged adapter from the best users that can
+        be applied to improve overall model quality.
+
+        Args:
+            top_k: Number of top adapters to merge
+            min_feedback_count: Minimum feedback count required
+            output_name: Name for the aggregated adapter file
+
+        Returns:
+            Dictionary with aggregated weights and metadata
+        """
+        adapters = self.get_quality_adapters(min_feedback_count=min_feedback_count)
+
+        if not adapters:
+            return {"error": "No adapters meet quality criteria", "count": 0}
+
+        adapters.sort(key=lambda x: x["feedback_count"], reverse=True)
+        top_adapters = adapters[:top_k]
+
+        merged_W_a = np.zeros((self.adapter_rank, self.model_dim), dtype=np.float32)
+        merged_W_b = np.zeros((self.model_dim, self.adapter_rank), dtype=np.float32)
+
+        total_weight = 0.0
+        for adapter_meta in top_adapters:
+            adapter = self.get_adapter(adapter_meta["user_id"])
+            if adapter:
+                weight = np.log1p(adapter.feedback_count)
+                merged_W_a += adapter.W_a * weight
+                merged_W_b += adapter.W_b * weight
+                total_weight += weight
+
+        if total_weight > 0:
+            merged_W_a /= total_weight
+            merged_W_b /= total_weight
+
+        output_path = self.store_path / f"{output_name}.npz"
+        np.savez(
+            output_path,
+            W_a=merged_W_a,
+            W_b=merged_W_b,
+            rank=self.adapter_rank,
+            alpha=self.adapter_alpha,
+            user_count=len(top_adapters),
+            source_users=[a["user_id"] for a in top_adapters],
+            aggregated_at=str(time.time()),
+        )
+
+        return {
+            "output_path": str(output_path),
+            "user_count": len(top_adapters),
+            "total_feedback": sum(a["feedback_count"] for a in top_adapters),
+            "source_users": [a["user_id"] for a in top_adapters],
+            "weights": {
+                "W_a": merged_W_a,
+                "W_b": merged_W_b,
+            },
+        }
+
+    def prune_low_quality(
+        self,
+        min_feedback_count: int = 1,
+        max_age_days: int = 30,
+    ) -> List[str]:
+        """
+        Remove adapters that haven't been updated or have too few feedback.
+
+        Args:
+            min_feedback_count: Minimum feedback count to keep
+            max_age_days: Max days since last update before deletion
+
+        Returns:
+            List of deleted user IDs
+        """
+        adapters = self.get_all_adapters()
+        deleted = []
+        now = time.time()
+        max_age_seconds = max_age_days * 86400
+
+        for adapter in adapters:
+            should_delete = False
+
+            if adapter["feedback_count"] < min_feedback_count:
+                should_delete = True
+            else:
+                updated = float(adapter["updated_at"])
+                if now - updated > max_age_seconds:
+                    should_delete = True
+
+            if should_delete:
+                self.delete_adapter(adapter["user_id"])
+                deleted.append(adapter["user_id"])
+
+        return deleted
+
+    def reset_user_adapter(self, user_id: str):
+        """Reset a user's adapter to initial state."""
+        adapter = self.create_adapter(user_id)
+        adapter.W_a = np.random.randn(self.adapter_rank, self.model_dim).astype(np.float32) * 0.01
+        adapter.W_b = np.zeros((self.model_dim, self.adapter_rank), dtype=np.float32)
+        adapter.feedback_count = 0
+        adapter.updated_at = str(time.time())
+        self._save_adapter(adapter)
+        self._update_metadata(adapter)
+
+        with self._cache_lock:
+            self._cache[user_id] = adapter
+
+        return adapter
 
 
 # Global instance

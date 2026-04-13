@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useApiHealth } from '@/hooks/useApiHealth'
 import { API_CHAT_ENDPOINT } from '@/lib/config'
+import { api } from '@/lib/api'
+import { useFeedbackStore } from '@/lib/feedback-store'
 import {
   ChatHeader,
   ChatSettings,
@@ -19,8 +21,18 @@ import {
 
 const STORAGE_KEY = 'sloughgpt_chat_sessions'
 const CURRENT_SESSION_KEY = 'sloughgpt_current_session'
-const API_FEEDBACK_ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/feedback`
+const USER_ID_KEY = 'sloughgpt_user_id'
 const API_SESSION_CONTEXT_ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/session`
+
+function getOrCreateUserId(): string {
+  if (typeof window === 'undefined') return 'default'
+  let userId = localStorage.getItem(USER_ID_KEY)
+  if (!userId) {
+    userId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    localStorage.setItem(USER_ID_KEY, userId)
+  }
+  return userId
+}
 
 interface ChatSession {
   id: string
@@ -46,10 +58,18 @@ export default function ChatPage() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const sessionIdRef = useRef<string>('')
+  const userIdRef = useRef<string>('default')
   const { state: health, refresh: refreshHealth } = useApiHealth()
+  
+  // Feedback store
+  const { recordFeedback, fetchStats, fetchAdapterStats, stats, adapterStats } = useFeedbackStore()
 
   useEffect(() => {
     sessionIdRef.current = localStorage.getItem(CURRENT_SESSION_KEY) || `session-${Date.now()}`
+    userIdRef.current = getOrCreateUserId()
+    // Fetch initial feedback stats
+    fetchStats()
+    fetchAdapterStats()
   }, [])
 
   const showToast = useCallback((message: string, type: Toast['type'] = 'success') => {
@@ -205,78 +225,42 @@ export default function ChatPage() {
   }
 
   const handleThumbsUp = useCallback(async (messageId: string) => {
-    try {
-      // Find the assistant message and preceding user message
-      const msgIdx = messages.findIndex(m => m.id === messageId)
-      const assistantMsg = messages[msgIdx]
-      const userMsg = msgIdx > 0 ? messages[msgIdx - 1] : null
+    const msgIdx = messages.findIndex(m => m.id === messageId)
+    const assistantMsg = messages[msgIdx]
+    const userMsg = msgIdx > 0 ? messages[msgIdx - 1] : null
 
-      // Use the full context endpoint
-      await fetch(`${API_FEEDBACK_ENDPOINT}/record`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_message: userMsg?.content || '',
-          assistant_response: assistantMsg?.content || '',
-          rating: 'thumbs_up',
-          conversation_id: sessionIdRef.current,
-        }),
-      })
+    const success = await recordFeedback({
+      userMessage: userMsg?.content || '',
+      assistantResponse: assistantMsg?.content || '',
+      rating: 'thumbs_up',
+      conversationId: sessionIdRef.current,
+      userId: userIdRef.current,
+    })
+    
+    if (success) {
       showToast('Thanks for the feedback!')
-    } catch {
-      // Fallback to simple feedback
-      try {
-        await fetch(API_FEEDBACK_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message_id: messageId,
-            rating: 'thumbs_up',
-            session_id: sessionIdRef.current,
-          }),
-        })
-        showToast('Thanks for the feedback!')
-      } catch {
-        showToast('Failed to submit feedback', 'error')
-      }
+    } else {
+      showToast('Failed to submit feedback', 'error')
     }
   }, [showToast, messages])
 
   const handleThumbsDown = useCallback(async (messageId: string) => {
-    try {
-      // Find the assistant message and preceding user message
-      const msgIdx = messages.findIndex(m => m.id === messageId)
-      const assistantMsg = messages[msgIdx]
-      const userMsg = msgIdx > 0 ? messages[msgIdx - 1] : null
+    const msgIdx = messages.findIndex(m => m.id === messageId)
+    const assistantMsg = messages[msgIdx]
+    const userMsg = msgIdx > 0 ? messages[msgIdx - 1] : null
 
-      // Use the full context endpoint
-      await fetch(`${API_FEEDBACK_ENDPOINT}/record`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_message: userMsg?.content || '',
-          assistant_response: assistantMsg?.content || '',
-          rating: 'thumbs_down',
-          conversation_id: sessionIdRef.current,
-        }),
-      })
+    const success = await recordFeedback({
+      userMessage: userMsg?.content || '',
+      assistantResponse: assistantMsg?.content || '',
+      rating: 'thumbs_down',
+      conversationId: sessionIdRef.current,
+      userId: userIdRef.current,
+    })
+    
+    if (success) {
       showToast('Thanks for the feedback!')
-    } catch {
-      // Fallback to simple feedback
-      try {
-        await fetch(API_FEEDBACK_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message_id: messageId,
-            rating: 'thumbs_down',
-            session_id: sessionIdRef.current,
-          }),
-        })
-        showToast('Thanks for the feedback!')
-      } catch {
-        showToast('Failed to submit feedback', 'error')
-      }
+    } else {
+      showToast('Failed to submit feedback', 'error')
     }
   }, [showToast, messages])
 
@@ -360,6 +344,7 @@ export default function ChatPage() {
           model,
           max_new_tokens: maxTokens,
           temperature,
+          user_id: userIdRef.current,
         }),
       })
 

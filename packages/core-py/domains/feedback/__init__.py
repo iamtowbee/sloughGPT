@@ -10,6 +10,7 @@ from .meta_weights import MetaWeightManager, MetaWeights, get_meta_weight_manage
 from .training import FeedbackTrainer, TrainingExample, DPOPair, create_training_pipeline
 from .online_train import OnlineLoRAUpdater, LoRAConfig, get_online_lora_updater
 from .per_user_lora import PerUserLoRAStore, UserAdapter, get_per_user_lora
+from .workflow import FeedbackWorkflowManager, WorkflowConfig, get_feedback_workflow
 
 __all__ = [
     "FeedbackDB",
@@ -30,4 +31,7 @@ __all__ = [
     "PerUserLoRAStore",
     "UserAdapter",
     "get_per_user_lora",
+    "FeedbackWorkflowManager",
+    "WorkflowConfig",
+    "get_feedback_workflow",
 ]

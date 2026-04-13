@@ -2251,6 +2251,13 @@ async def chat_stream(request: ChatRequest, req: Request):
 
     engine = get_inference_engine()
 
+    # Apply per-user LoRA adapter if available
+    if engine and user_lora_adapter:
+        try:
+            engine.set_lora_adapter(user_lora_adapter)
+        except Exception:
+            pass
+
     async def token_stream():
         if engine is None:
             yield f"data: {json.dumps({'error': 'Model not loaded', 'token': '', 'done': True})}\n\n"
@@ -2756,6 +2763,229 @@ async def merge_user_adapters(req: Request):
         }
     except ImportError:
         raise HTTPException(status_code=503, detail="Per-user LoRA not available")
+
+
+class AggregateBestRequest(BaseModel):
+    top_k: int = 10
+    min_feedback_count: int = 5
+    output_name: str = "best_aggregated"
+
+
+@app.post("/user-adapters/aggregate-best", tags=["user-adapters"])
+async def aggregate_best_adapters(request: AggregateBestRequest, req: Request):
+    """
+    Aggregate top-k best-performing user adapters into a single merged adapter.
+
+    Useful for:
+    - Improving base model with learned patterns
+    - Creating organization-wide adapters
+    - Batch consolidation of good feedback
+    """
+    try:
+        from domains.feedback import get_per_user_lora
+
+        store = get_per_user_lora()
+        result = store.aggregate_best_adapters(
+            top_k=request.top_k,
+            min_feedback_count=request.min_feedback_count,
+            output_name=request.output_name,
+        )
+
+        if "error" in result:
+            return {"status": "skipped", **result}
+
+        return {
+            "status": "aggregated",
+            "output_path": result["output_path"],
+            "user_count": result["user_count"],
+            "total_feedback": result["total_feedback"],
+            "source_users": result["source_users"][:5],
+        }
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Per-user LoRA not available")
+
+
+class PruneAdaptersRequest(BaseModel):
+    min_feedback_count: int = 1
+    max_age_days: int = 30
+
+
+@app.post("/user-adapters/prune", tags=["user-adapters"])
+async def prune_low_quality_adapters(request: PruneAdaptersRequest, req: Request):
+    """
+    Remove adapters that haven't been updated or have too few feedback.
+
+    This helps keep the adapter store clean and reduces storage.
+    """
+    try:
+        from domains.feedback import get_per_user_lora
+
+        store = get_per_user_lora()
+        deleted = store.prune_low_quality(
+            min_feedback_count=request.min_feedback_count,
+            max_age_days=request.max_age_days,
+        )
+
+        return {
+            "status": "pruned",
+            "deleted_count": len(deleted),
+            "deleted_users": deleted,
+        }
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Per-user LoRA not available")
+
+
+@app.get("/user-adapters/quality", tags=["user-adapters"])
+async def get_quality_adapters(req: Request):
+    """
+    Get adapters filtered by quality metrics.
+
+    Shows only adapters with meaningful feedback history.
+    """
+    min_count = int(req.query_params.get("min_feedback_count", 3))
+    max_age = int(req.query_params.get("max_age_days", 0)) or None
+
+    try:
+        from domains.feedback import get_per_user_lora
+
+        store = get_per_user_lora()
+        adapters = store.get_quality_adapters(
+            min_feedback_count=min_count,
+            max_age_days=max_age,
+        )
+
+        return {
+            "count": len(adapters),
+            "adapters": adapters,
+        }
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Per-user LoRA not available")
+
+
+@app.post("/user-adapters/{user_id}/reset", tags=["user-adapters"])
+async def reset_user_adapter(user_id: str, req: Request):
+    """Reset a user's adapter to initial state."""
+    try:
+        from domains.feedback import get_per_user_lora
+
+        store = get_per_user_lora()
+        adapter = store.reset_user_adapter(user_id)
+
+        return {
+            "status": "reset",
+            "user_id": user_id,
+            "feedback_count": adapter.feedback_count,
+        }
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Per-user LoRA not available")
+
+
+# Feedback Workflow Endpoints
+@app.get("/workflow/status", tags=["workflow"])
+async def get_workflow_status(req: Request):
+    """Get the current status of the automated feedback workflow."""
+    try:
+        from domains.feedback import get_feedback_workflow
+
+        workflow = get_feedback_workflow()
+        return workflow.get_status()
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Workflow not available")
+
+
+class WorkflowStartRequest(BaseModel):
+    aggregate_interval_minutes: int = 60
+    prune_interval_minutes: int = 120
+    export_interval_hours: int = 24
+    health_check_interval_seconds: int = 30
+
+
+@app.post("/workflow/start", tags=["workflow"])
+async def start_workflow(request: WorkflowStartRequest, req: Request):
+    """Start the automated feedback workflow."""
+    try:
+        from domains.feedback import get_feedback_workflow, WorkflowConfig
+
+        config = WorkflowConfig(
+            aggregate_interval_minutes=request.aggregate_interval_minutes,
+            prune_interval_minutes=request.prune_interval_minutes,
+            export_interval_hours=request.export_interval_hours,
+            health_check_interval_seconds=request.health_check_interval_seconds,
+        )
+        workflow = get_feedback_workflow(config=config)
+        workflow.start()
+
+        return {"status": "started", "config": request.dict()}
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Workflow not available")
+
+
+@app.post("/workflow/stop", tags=["workflow"])
+async def stop_workflow(req: Request):
+    """Stop the automated feedback workflow."""
+    try:
+        from domains.feedback import get_feedback_workflow
+
+        workflow = get_feedback_workflow()
+        workflow.stop()
+
+        return {"status": "stopped"}
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Workflow not available")
+
+
+@app.post("/workflow/trigger/{action}", tags=["workflow"])
+async def trigger_workflow_action(action: str, req: Request):
+    """Manually trigger a workflow action (aggregate, prune, export)."""
+    try:
+        from domains.feedback import get_feedback_workflow
+
+        workflow = get_feedback_workflow()
+
+        if action == "aggregate":
+            return workflow.trigger_aggregate()
+        elif action == "prune":
+            return workflow.trigger_prune()
+        elif action == "export":
+            return workflow.trigger_export()
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Workflow not available")
+
+
+@app.post("/feedback/workflow-record", tags=["meta-weights"])
+async def record_feedback_via_workflow(request: RecordFeedbackRequest, req: Request):
+    """
+    Record feedback through the workflow manager for full automation.
+
+    This records feedback and triggers all automated updates:
+    - Meta-weights
+    - Per-user LoRA
+    - Online LoRA updater
+    - Auto-aggregation/pruning
+    """
+    try:
+        from domains.feedback import get_feedback_workflow
+
+        workflow = get_feedback_workflow()
+
+        feedback_id = workflow.record_feedback(
+            user_message=request.user_message,
+            assistant_response=request.assistant_response,
+            rating=request.rating,
+            conversation_id=request.conversation_id,
+            quality_score=request.quality_score,
+            user_id=request.user_id or "default",
+        )
+
+        return {
+            "status": "recorded",
+            "feedback_id": feedback_id,
+            "workflow_active": workflow._running,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.websocket("/ws/generate")
@@ -4818,5 +5048,25 @@ if __name__ == "__main__":
         port = int(raw_port)
     else:
         port = find_available_port(8000)
+
+    _start_feedback_workflow()
     print(f"Starting SloughGPT server on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+
+def _start_feedback_workflow() -> None:
+    """Start the automated feedback workflow at server startup."""
+    try:
+        from domains.feedback import get_feedback_workflow, WorkflowConfig
+
+        auto_start = os.environ.get("SLOUGHGPT_AUTO_WORKFLOW", "true").lower() == "true"
+        if not auto_start:
+            logger.info("SLOUGHGPT_AUTO_WORKFLOW is false; skipping workflow startup")
+            return
+
+        workflow = get_feedback_workflow()
+        if not workflow._running:
+            workflow.start()
+            logger.info("Feedback workflow started automatically")
+    except Exception as e:
+        logger.warning("Failed to start feedback workflow: %s", e)
