@@ -64,8 +64,9 @@ export default function SettingsPage() {
 
   const clearChat = () => {
     localStorage.removeItem('sloughgpt_messages')
-    localStorage.removeItem('sloughgpt_chat_sessions_v1')
-    localStorage.removeItem('sloughgpt_active_chat_v1')
+    localStorage.removeItem('sloughgpt_chat_sessions')
+    localStorage.removeItem('sloughgpt_current_session')
+    alert('Chat history cleared!')
   }
 
   return (

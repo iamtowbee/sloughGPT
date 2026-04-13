@@ -76,6 +76,18 @@ export default function TrainingPage() {
   }, [fetchJobs])
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'r' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        void fetchJobs()
+        void refreshHealth()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [fetchJobs, refreshHealth])
+
+  useEffect(() => {
     const running = jobs.some((j) => j.status === 'running')
     const ms = running ? 2000 : 8000
     const id = setInterval(() => void fetchJobs(), ms)

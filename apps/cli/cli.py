@@ -143,7 +143,7 @@ More: python3 cli.py --help  ·  docs/STRUCTURE.md  ·  QUICKSTART.md
 def _train_export_stem_slug(part: str, fallback: str) -> str:
     """Single path segment for export filenames (no slashes)."""
     s = re.sub(r"[^a-zA-Z0-9._-]+", "-", (part or "").strip()).strip("-")
-    return (s[:64] or fallback)
+    return s[:64] or fallback
 
 
 def _train_export_default_stem(model_name: str, dataset_label: str) -> str:
@@ -193,6 +193,7 @@ def _chat_uvicorn_bind_host(client_host: str) -> str:
 def _chat_find_available_port(bind_host: str, start_port: int, max_attempts: int = 10) -> int:
     """Pick the first bindable TCP port on bind_host (DEPRECATED - use domains.shared.find_available_port)."""
     from domains.shared import find_available_port as _find_available_port
+
     return _find_available_port(host=bind_host, start_port=start_port, max_attempts=max_attempts)
 
 
@@ -264,16 +265,22 @@ def cmd_chat(args):
         if getattr(args, "no_serve", False):
             print("Cannot connect to the API and --no-serve was set.")
             print("Start the server manually, for example:")
-            print("  python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000")
+            print(
+                "  python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000"
+            )
             print()
             return
 
         repo = _chat_repository_root()
         marker = repo / "apps" / "api" / "server" / "main.py"
         if not marker.is_file():
-            print("Cannot auto-start the API: not inside the SloughGPT repo (missing apps/api/server/main.py).")
+            print(
+                "Cannot auto-start the API: not inside the SloughGPT repo (missing apps/api/server/main.py)."
+            )
             print("Start the server from the repository root, for example:")
-            print("  python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000")
+            print(
+                "  python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000"
+            )
             print()
             return
 
@@ -357,9 +364,7 @@ def cmd_chat(args):
         auto_model = getattr(args, "auto_model", None)
         legacy_model = getattr(args, "model", None)
         if auto_model and legacy_model:
-            print(
-                "Note: both --auto-model and legacy --model were provided; using --auto-model."
-            )
+            print("Note: both --auto-model and legacy --model were provided; using --auto-model.")
         model_to_autoload = auto_model or legacy_model
         if model_to_autoload:
             print(f"Auto-loading model: {model_to_autoload}")
@@ -424,13 +429,13 @@ def cmd_models(args):
     """List available models - local version."""
     import os
     from pathlib import Path
-    
+
     print("=" * 60)
     print("Available Models")
     print("=" * 60)
-    
+
     models_dir = Path("models")
-    
+
     # Trained models
     print("\n📁 TRAINED MODELS:")
     if models_dir.exists():
@@ -449,7 +454,7 @@ def cmd_models(args):
             print(f"  {model_file.name}: {size_mb:.1f} MB")
     else:
         print("  (No trained models found in models/)")
-    
+
     # Available architectures
     print("\n🏗️ AVAILABLE ARCHITECTURES:")
     print("  nanogpt: NanoGPT - Custom GPT model")
@@ -458,7 +463,7 @@ def cmd_models(args):
     print("  gpt2-large: GPT-2 Large (774M params)")
     print("  llama: LLaMA - Meta model")
     print("  phi: Phi - Microsoft model")
-    
+
     # HuggingFace models
     print("\n🤗 HUGGINGFACE MODELS:")
     print("  facebook/opt-125m: OPT 125M")
@@ -466,7 +471,7 @@ def cmd_models(args):
     print("  microsoft/phi-2: Phi-2 2.7B")
     print("  mistralai/Mistral-7B-v0.1: Mistral 7B")
     print("  meta-llama/Llama-2-7b-hf: LLaMA-2 7B")
-    
+
     # Usage
     print("\n💡 USAGE:")
     print("  python3 cli.py quick                  # Train custom NanoGPT")
@@ -492,13 +497,13 @@ def cmd_quick(args):
     device = get_optimal_device()
     print(f"Device: {device}")
 
-    use_optimize = not getattr(args, 'no_optimize', False)
+    use_optimize = not getattr(args, "no_optimize", False)
 
     config = TrainerConfig(
         batch_size=args.batch,
         learning_rate=args.lr,
         use_mixed_precision=use_optimize and device != "cpu",
-        use_compile=use_optimize and hasattr(torch, 'compile'),
+        use_compile=use_optimize and hasattr(torch, "compile"),
         max_steps=args.steps if args.steps else 100,
         warmup_steps=max(10, args.steps // 10) if args.steps else 10,
     )
@@ -520,7 +525,7 @@ def cmd_quick(args):
         epochs=args.epochs,
         lr=args.lr,
         max_steps=args.steps if args.steps else 100,
-        soul_name=getattr(args, 'soul_name', 'SloughGPT-Quick'),
+        soul_name=getattr(args, "soul_name", "SloughGPT-Quick"),
         config=config,
     )
 
@@ -550,7 +555,7 @@ def cmd_quick(args):
                 break
             generated.append(next_token)
 
-    text = ''.join([trainer.itos.get(i, '') for i in generated])
+    text = "".join([trainer.itos.get(i, "") for i in generated])
     print(f"\nPrompt: {args.prompt}")
     print(f"Generated: {args.prompt}{text[:200]}...")
 
@@ -562,24 +567,25 @@ def cmd_quick(args):
 def cmd_demo(args):
     """Run system demos."""
     import sys
+
     sys.path.insert(0, ".")
-    
+
     from domains.cognitive.rag import ProductionRAG
     from domains.cognitive.knowledge_graph_v2 import KnowledgeGraph
     from domains.training.ewc import EwcContinualLearner
     from domains.inference.optimizer import KVCache
-    
+
     print("=" * 60)
     print("SLOUGHGPT DEMO")
     print("=" * 60)
-    
+
     if args.component in ["all", "rag"]:
         print("\n1. RAG - Document Retrieval")
         rag = ProductionRAG()
         rag.add_document("Python is a programming language created by Guido van Rossum in 1991.")
         results = rag.query("What is Python?")
         print(f"   Retrieved {len(results)} documents")
-    
+
     if args.component in ["all", "kg"]:
         print("\n2. Knowledge Graph - Fact Verification")
         kg = KnowledgeGraph()
@@ -587,20 +593,21 @@ def cmd_demo(args):
         kg.add_fact("python", "created_by", "guido_van_rossum")
         facts = kg.query(subject="python")
         print(f"   {len(facts)} facts about python")
-    
+
     if args.component in ["all", "ewc"]:
         print("\n3. EWC - Catastrophic Forgetting Prevention")
         from domains.models import SloughGPTModel
+
         ewc_model = SloughGPTModel(vocab_size=50, n_embed=32, n_layer=2, n_head=2, block_size=16)
         ewc = EwcContinualLearner(ewc_model)
         print(f"   Fisher matrix size: {len(ewc.fisher_estimator.fisher_accum)} params")
         print("   EWC ready for continual learning")
-    
+
     if args.component in ["all", "inference"]:
         print("\n4. Inference - KV Cache")
         cache = KVCache(num_layers=2, num_heads=2, head_dim=64, max_length=100)
         print(f"   KV Cache created: {cache.max_length} max tokens")
-    
+
     print("\n" + "=" * 60)
     print("Demo complete!")
 
@@ -610,23 +617,30 @@ def cmd_rlhf_demo(args):
     import sys
     import torch
     import torch.nn as nn
+
     sys.path.insert(0, ".")
-    
+
     from domains.training.rlhf import RLHFConfig
     from domains.models import SloughGPTModel
-    
+
     print("=" * 60)
     print("RLHF (REINFORCEMENT LEARNING FROM HUMAN FEEDBACK)")
     print("=" * 60)
-    
-    device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+
+    device = (
+        "cuda"
+        if torch.cuda.is_available()
+        else "mps"
+        if torch.backends.mps.is_available()
+        else "cpu"
+    )
     print(f"\nDevice: {device}")
-    
+
     vocab_size = 100
     n_embed = 64
     n_layer = 2
     n_head = 4
-    
+
     print("\n1. Creating models...")
     model = SloughGPTModel(
         vocab_size=vocab_size,
@@ -636,9 +650,9 @@ def cmd_rlhf_demo(args):
         block_size=32,
         dropout=0.0,
     ).to(device)
-    
+
     print(f"   Model: {model.num_parameters():,} parameters")
-    
+
     print("\n2. RLHF Configuration...")
     config = RLHFConfig(
         ppo_epochs=2,
@@ -651,32 +665,32 @@ def cmd_rlhf_demo(args):
     print(f"   Clip epsilon: {config.clip_epsilon}")
     print(f"   GAE lambda: {config.lam}")
     print(f"   Gamma (discount): {config.gamma}")
-    
+
     print("\n3. Reward Model (simulated)...")
     print("   - Takes prompt-response pairs")
     print("   - Outputs scalar reward")
     print("   - Trained on human preferences")
-    
+
     print("\n4. PPO Training Loop...")
     print(f"   Running {args.steps} steps...")
     print("-" * 40)
-    
+
     batch_size = 4
     seq_len = 16
-    
+
     for step in range(args.steps):
         input_ids = torch.randint(0, vocab_size, (batch_size, seq_len)).to(device)
-        
+
         with torch.no_grad():
             logits, _ = model(input_ids)
-        
+
         logits = torch.where(torch.isfinite(logits), logits, torch.zeros_like(logits))
         probs = torch.nn.functional.softmax(logits[:, -1, :], dim=-1)
         reward = probs.max(dim=-1).values.mean()
-        
+
         if step % 5 == 0 or step == args.steps - 1:
             print(f"   Step {step:3d}: reward={reward.item():.3f}")
-    
+
     print("\n" + "=" * 60)
     print("RLHF Components Available:")
     print("  - PPOTrainer: PPO optimization")
@@ -690,25 +704,193 @@ def cmd_rlhf_demo(args):
     print("=" * 60)
 
 
+def cmd_user_adapters(args):
+    """Manage per-user LoRA adapters."""
+    import sys
+
+    sys.path.insert(0, ".")
+
+    print("=" * 60)
+    print("Per-User LoRA Adapters")
+    print("=" * 60)
+
+    try:
+        from domains.feedback import get_per_user_lora
+
+        store = get_per_user_lora()
+
+        if args.action == "list":
+            adapters = store.get_all_adapters()
+            stats = store.get_stats()
+
+            print(f"\nTotal users: {stats['total_users']}")
+            print(f"Total size: {stats['total_size_mb']:.2f} MB")
+            print(f"Avg per user: {stats['avg_size_per_user_kb']:.1f} KB")
+
+            if adapters:
+                print(f"\n{'User ID':<30} {'Feedback':<12} {'Updated':<20}")
+                print("-" * 62)
+                for a in adapters[:20]:
+                    print(f"{a['user_id']:<30} {a['feedback_count']:<12} {a['updated_at']:<20}")
+
+        elif args.action == "info":
+            adapter = store.get_adapter(args.user)
+            if adapter is None:
+                print(f"No adapter found for user: {args.user}")
+            else:
+                print(f"\nAdapter for: {adapter.user_id}")
+                print(f"  Feedback count: {adapter.feedback_count}")
+                print(f"  Created: {adapter.created_at}")
+                print(f"  Updated: {adapter.updated_at}")
+                print(f"  W_a shape: {adapter.W_a.shape}")
+                print(f"  W_b shape: {adapter.W_b.shape}")
+
+        elif args.action == "delete":
+            store.delete_adapter(args.user)
+            print(f"Deleted adapter for user: {args.user}")
+
+        elif args.action == "merge":
+            user_ids = args.users.split(",") if args.users else []
+            if len(user_ids) < 2:
+                print("Need at least 2 user IDs to merge (--users user1,user2,user3)")
+                return
+            merged = store.merge_adapters(user_ids)
+            print(f"\nMerged {merged['user_count']} adapters")
+            print(f"Result shape: W_a={merged['W_a'].shape}, W_b={merged['W_b'].shape}")
+
+    except ImportError as e:
+        print(f"Error: Could not import feedback module: {e}")
+    except Exception as e:
+        print(f"Error: {e}")
+
+
+def cmd_feedback_train(args):
+    """Prepare training data from feedback."""
+    import sys
+
+    sys.path.insert(0, ".")
+
+    print("=" * 60)
+    print("Feedback Training Pipeline")
+    print("=" * 60)
+
+    try:
+        from domains.feedback import create_training_pipeline
+
+        trainer = create_training_pipeline()
+
+        # Get stats
+        stats = trainer.get_training_stats()
+        print("\nTraining Data Available:")
+        print(f"  Total conversations: {stats['total_conversations']}")
+        print(f"  Total responses: {stats['total_responses']}")
+        print(f"  Thumbs up: {stats['thumbs_up']}")
+        print(f"  Thumbs down: {stats['thumbs_down']}")
+        print(f"  DPO pairs: {stats['available_dpo_pairs']}")
+        print(f"  SFT examples: {stats['available_sft_examples']}")
+
+        if args.stats_only:
+            return
+
+        # Determine formats
+        formats = []
+        if args.format == "all":
+            formats = ["dpo", "sft", "reward"]
+        else:
+            formats = [args.format]
+
+        # Export
+        output_dir = args.output or "data/training"
+        results = trainer.export_for_alignment(output_dir=output_dir, formats=formats)
+
+        print("\nExported files:")
+        for fmt, path in results.items():
+            print(f"  {fmt}: {path}")
+
+        print("\nNext steps:")
+        print(
+            f"  1. Fine-tune with DPO: python3 cli.py train --dataset {output_dir}/dpo_training.jsonl"
+        )
+        print("  2. Or use SFT: python3 cli.py train --dataset data/training/sft_training.jsonl")
+
+    except ImportError as e:
+        print(f"Error: Could not import feedback module: {e}")
+    except Exception as e:
+        print(f"Error: {e}")
+
+
+def cmd_feedback_export(args):
+    """Export feedback data for training."""
+    import sys
+
+    sys.path.insert(0, ".")
+
+    print("=" * 60)
+    print("Feedback Export")
+    print("=" * 60)
+
+    try:
+        from domains.feedback import get_meta_weight_manager
+
+        manager = get_meta_weight_manager()
+        if manager is None:
+            print("Error: Meta-weight system not available")
+            print("Make sure domains.feedback is properly installed")
+            return
+
+        output_path = args.output
+        fmt = args.format
+
+        print(f"\nExporting to: {output_path}")
+        print(f"Format: {fmt}")
+
+        # Get stats before export
+        stats = manager.get_stats()
+        print(f"\nCurrent stats:")
+        print(f"  Total feedback: {stats['db_stats']['feedback_total']}")
+        print(f"  Thumbs up: {stats['db_stats']['thumbs_up']}")
+        print(f"  Thumbs down: {stats['db_stats']['thumbs_down']}")
+
+        # Export
+        manager.export_training_data(filepath=output_path, format=fmt)
+
+        # Count exported records
+        import os
+
+        if os.path.exists(output_path):
+            with open(output_path) as f:
+                lines = sum(1 for _ in f)
+            print(f"\n✓ Exported {lines} records to {output_path}")
+        else:
+            print(f"\nWarning: File not created at {output_path}")
+
+    except ImportError as e:
+        print(f"Error: Could not import feedback module: {e}")
+        print("Make sure the domains.feedback module is available")
+    except Exception as e:
+        print(f"Error: {e}")
+
+
 def cmd_cloud_setup(args):
     """Setup Pinecone vector store."""
     import sys
     import asyncio
+
     sys.path.insert(0, ".")
-    
+
     from domains.inference.vector_store import PineconeVectorStore, VectorEntry, simple_embed
-    
+
     async def setup():
         api_key = args.api_key or os.getenv("PINECONE_API_KEY")
         if not api_key:
             print("Error: Pinecone API key required (--api-key or PINECONE_API_KEY)")
             print("\nGet your API key at: https://app.pinecone.io")
             return
-        
+
         print(f"Setting up Pinecone index: {args.index}")
         print(f"Dimension: {args.dimension}")
         print(f"Environment: {args.environment}")
-        
+
         try:
             store = PineconeVectorStore(
                 api_key=api_key,
@@ -717,7 +899,7 @@ def cmd_cloud_setup(args):
                 environment=args.environment,
             )
             await store.connect()
-            
+
             entries = [
                 VectorEntry(
                     id="test",
@@ -729,11 +911,11 @@ def cmd_cloud_setup(args):
             await store.upsert(entries)
             count = await store.count()
             print(f"   ✓ Pinecone: {count} documents indexed")
-            
+
             await store.disconnect()
         except Exception as e:
             print(f"   ✗ Pinecone: {e}")
-    
+
     asyncio.run(setup())
 
 
@@ -807,10 +989,7 @@ def cmd_train(args):
             f"Scheduler: {config.training.scheduler} "
             f"(warmup_steps={config.training.warmup_steps}, weight_decay={config.training.weight_decay})"
         )
-        print(
-            f"LoRA: {config.lora.enabled} "
-            f"(rank={config.lora.rank}, alpha={config.lora.alpha})"
-        )
+        print(f"LoRA: {config.lora.enabled} (rank={config.lora.rank}, alpha={config.lora.alpha})")
         print(f"Model dropout: {config.model.dropout}")
         print(f"Tracking: {config.tracking.enabled}")
         print(f"Device: {train_device} (config device.type={config.device.type!r})")
@@ -819,9 +998,7 @@ def cmd_train(args):
         if getattr(args, "save_stem", None):
             save_stem = _train_export_stem_slug(args.save_stem, "export")
         else:
-            save_stem = _train_export_default_stem(
-                str(config.model.name), str(config.data.dataset)
-            )
+            save_stem = _train_export_default_stem(str(config.model.name), str(config.data.dataset))
         save_path = f"{config.checkpoint.save_dir}/{save_stem}"
         print(f"Export file stem: {save_stem} (under {config.checkpoint.save_dir}/)")
 
@@ -866,9 +1043,7 @@ def cmd_train(args):
             f"  Mixed Precision: {config.training.use_mixed_precision} "
             f"({config.training.mixed_precision_dtype})"
         )
-        print(
-            f"  Gradient Accumulation: {config.training.gradient_accumulation_steps}"
-        )
+        print(f"  Gradient Accumulation: {config.training.gradient_accumulation_steps}")
         print(f"  Max Grad Norm: {config.training.gradient_clip}")
         print(f"  Min LR (schedule floor): {config.training.min_lr}")
         print(f"  Distributed: {args.distributed}")
@@ -885,9 +1060,7 @@ def cmd_train(args):
             )
             sys.exit(2)
         if getattr(args, "resume_latest", False):
-            print(
-                f"Resuming from latest step_*.pt under {config.checkpoint.trainer_dir!r}"
-            )
+            print(f"Resuming from latest step_*.pt under {config.checkpoint.trainer_dir!r}")
             trainer.train(resume=True, resume_path=None)
         elif args.resume:
             print(f"Resuming from checkpoint: {args.resume}")
@@ -922,9 +1095,7 @@ def cmd_train(args):
         )
     base_url = f"http://{args.host}:{args.port}".rstrip("/")
 
-    display_name = (
-        (config.model.soul_name or "").strip() or str(config.model.name)
-    )
+    display_name = (config.model.soul_name or "").strip() or str(config.model.name)
     payload = {
         "name": display_name[:200],
         "model": str(config.model.name),
@@ -1247,6 +1418,7 @@ def cmd_soul(args):
 
     if args.info:
         from domains.inference.sou_format import SouParser
+
         try:
             soul = SouParser.load(args.info)
             print("=" * 50)
@@ -1317,6 +1489,7 @@ def cmd_soul(args):
             print(f"Soul Unit created: {args.create}")
         else:
             from domains.inference.sou_format import SouParser
+
             SouParser.save(soul, args.create)
             print(f"Soul profile created: {args.create}")
 
@@ -1355,9 +1528,9 @@ def cmd_datasets(args):
                 print(f"  📄 {ds.name}: {size_mb:.1f} MB")
             else:
                 print(f"  📄 {ds.name}: {size_kb:.1f} KB")
-    
-    print(f"\nTotal: {total_size / (1024*1024):.1f} MB")
-    
+
+    print(f"\nTotal: {total_size / (1024 * 1024):.1f} MB")
+
     print("\n💡 USAGE:")
     print("  python3 cli.py data stats <path>   # Get dataset statistics")
     print("  python3 cli.py data validate <path>  # Validate dataset")
@@ -1367,11 +1540,11 @@ def cmd_stats(args):
     """Show training and model statistics."""
     from pathlib import Path
     import json
-    
+
     print("=" * 60)
     print("SloughGPT Statistics")
     print("=" * 60)
-    
+
     # Models
     print("\n📊 MODELS:")
     models_dir = Path("models")
@@ -1385,8 +1558,8 @@ def cmd_stats(args):
             model_count += 1
             total_size += f.stat().st_size
     print(f"  Trained models: {model_count}")
-    print(f"  Total size: {total_size / (1024*1024):.1f} MB")
-    
+    print(f"  Total size: {total_size / (1024 * 1024):.1f} MB")
+
     # Datasets
     print("\n📚 DATASETS:")
     datasets_dir = Path("datasets")
@@ -1398,8 +1571,8 @@ def cmd_stats(args):
                 ds_count += 1
                 ds_size += f.stat().st_size
     print(f"  Files: {ds_count}")
-    print(f"  Total size: {ds_size / (1024*1024):.1f} MB")
-    
+    print(f"  Total size: {ds_size / (1024 * 1024):.1f} MB")
+
     # Checkpoints
     print("\n💾 CHECKPOINTS:")
     ckpt_dir = Path("checkpoints")
@@ -1407,7 +1580,7 @@ def cmd_stats(args):
     if ckpt_dir.exists():
         ckpt_count = len(list(ckpt_dir.glob("*.pt")))
     print(f"  Saved checkpoints: {ckpt_count}")
-    
+
     # Experiments
     print("\n🔬 EXPERIMENTS:")
     exp_file = Path("data/experiments/experiments.json")
@@ -1519,20 +1692,25 @@ def cmd_optimize(args):
 
     print(f"\nPyTorch Version: {torch.__version__}")
     print(f"Device: {get_optimal_device()}")
-    
+
     # Check optimizations
     print("\n--- Available Optimizations ---")
-    print(f"  torch.compile:       {'✅ Yes' if hasattr(torch, 'compile') else '❌ No (upgrade to PyTorch 2.0+)'}")
+    print(
+        f"  torch.compile:       {'✅ Yes' if hasattr(torch, 'compile') else '❌ No (upgrade to PyTorch 2.0+)'}"
+    )
     print(f"  CUDA:                {'✅ Yes' if torch.cuda.is_available() else '❌ No'}")
     print(f"  MPS (Apple Silicon): {'✅ Yes' if torch.backends.mps.is_available() else '❌ No'}")
-    
+
     if torch.cuda.is_available():
         print(f"  CUDA Compute:        {torch.cuda.get_device_capability()}")
-        print(f"  BF16 Support:        {'✅ Yes' if torch.cuda.get_device_capability()[0] >= 8 else '❌ No (use FP16)'}")
-    
+        print(
+            f"  BF16 Support:        {'✅ Yes' if torch.cuda.get_device_capability()[0] >= 8 else '❌ No (use FP16)'}"
+        )
+
     # Flash Attention
     try:
         from flash_attn import flash_attn_func
+
         print(f"  Flash Attention:     ✅ Yes")
     except:
         print(f"  Flash Attention:     ❌ No (pip install flash-attn)")
@@ -1551,7 +1729,7 @@ def cmd_optimize(args):
     print("  Batch Generation:               Parallel processing")
 
     print("\n--- Recommended Configurations ---")
-    
+
     if torch.cuda.is_available():
         cap = torch.cuda.get_device_capability()
         if cap[0] >= 8:
@@ -1572,7 +1750,6 @@ def cmd_optimize(args):
         torch.set_num_threads(min(8, torch.get_num_threads()))
         print("  ✅ Thread count optimized")
         print("  ✅ Memory format set to channels_last (where applicable)")
-
 
     print()
 
@@ -1610,9 +1787,7 @@ def cmd_eval(args):
 
         if "model" in checkpoint and isinstance(checkpoint["model"], dict):
             _param_stats(checkpoint["model"])
-        elif "model_state_dict" in checkpoint and isinstance(
-            checkpoint["model_state_dict"], dict
-        ):
+        elif "model_state_dict" in checkpoint and isinstance(checkpoint["model_state_dict"], dict):
             _param_stats(checkpoint["model_state_dict"])
 
         data_path = getattr(args, "data", None) or "datasets/shakespeare/input.txt"
@@ -1777,7 +1952,7 @@ def cmd_export_cli(args):
         metadata=meta_with_name,
         seq_len=args.seq_len,
         opset_version=args.opset,
-        n_ctx=args.n_ctx if hasattr(args, 'n_ctx') else 2048,
+        n_ctx=args.n_ctx if hasattr(args, "n_ctx") else 2048,
     )
 
     print(f"\nExport configuration:")
@@ -1797,7 +1972,7 @@ def cmd_export_cli(args):
         for fmt, path in results.items():
             file_size = Path(path).stat().st_size if Path(path).exists() else 0
             if file_size > 1024 * 1024:
-                size_str = f"{file_size / (1024*1024):.2f} MB"
+                size_str = f"{file_size / (1024 * 1024):.2f} MB"
             elif file_size > 1024:
                 size_str = f"{file_size / 1024:.2f} KB"
             else:
@@ -1811,11 +1986,11 @@ def cmd_compare(args):
     """Compare benchmark results or models."""
     import json
     from pathlib import Path
-    
+
     print("=" * 60)
     print("SloughGPT Model & Benchmark Comparison")
     print("=" * 60)
-    
+
     # Compare benchmark results
     benchmarks_dir = Path("data/experiments/benchmarks")
     if benchmarks_dir.exists():
@@ -1823,35 +1998,35 @@ def cmd_compare(args):
         if benchmarks:
             print(f"\n📊 BENCHMARK RESULTS ({len(benchmarks)} files)")
             print("-" * 60)
-            
+
             all_results = []
             for bf in sorted(benchmarks)[:5]:
                 with open(bf) as f:
                     data = json.load(f)
                     all_results.append(data)
-            
+
             if all_results:
                 # Table header
                 print(f"{'Model':<20} {'Tokens/sec':<15} {'Latency':<12} {'Memory':<12}")
                 print("-" * 60)
-                
+
                 for r in all_results:
-                    model = r.get('model', 'unknown')[:18]
-                    tps = r.get('tokens_per_second', 0)
-                    latency = r.get('latency_ms', 0)
-                    memory = r.get('memory_mb', 0)
+                    model = r.get("model", "unknown")[:18]
+                    tps = r.get("tokens_per_second", 0)
+                    latency = r.get("latency_ms", 0)
+                    memory = r.get("memory_mb", 0)
                     print(f"{model:<20} {tps:<15.2f} {latency:<12.1f} {memory:<12.1f}")
         else:
             print("\n(No benchmark results found)")
     else:
         print("\n(No benchmarks directory found)")
-    
+
     # Compare models
     print("\n🤖 MODEL COMPARISON")
     print("-" * 60)
     print(f"{'Model':<25} {'Params':<12} {'Size':<12} {'Speed':<10}")
     print("-" * 60)
-    
+
     models = [
         ("gpt2", "124M", "~250MB", "Fast"),
         ("gpt2-medium", "355M", "~700MB", "Medium"),
@@ -1860,10 +2035,10 @@ def cmd_compare(args):
         ("mistral-7b", "7.3B", "~14GB", "Slow"),
         ("llama-2-7b", "7B", "~13GB", "Slow"),
     ]
-    
+
     for name, params, size, speed in models:
         print(f"{name:<25} {params:<12} {size:<12} {speed:<10}")
-    
+
     print("\n💡 Run benchmarks with:")
     print("  python3 cli.py benchmark --model gpt2")
 
@@ -1959,7 +2134,7 @@ def cmd_benchmark(args):
     import time
     import statistics
     from transformers import AutoModelForCausalLM, AutoTokenizer
-    
+
     # Auto-detect device
     if args.device == "auto":
         if torch.cuda.is_available():
@@ -1968,12 +2143,12 @@ def cmd_benchmark(args):
             args.device = "mps"
         else:
             args.device = "cpu"
-    
+
     print("=" * 60)
     print(f"SloughGPT Benchmark - {args.model}")
     print(f"Device: {args.device}")
     print("=" * 60)
-    
+
     # Check device availability
     if args.device == "mps" and not torch.backends.mps.is_available():
         print("Warning: MPS not available, falling back to CPU")
@@ -1981,14 +2156,14 @@ def cmd_benchmark(args):
     if args.device == "cuda" and not torch.cuda.is_available():
         print("Warning: CUDA not available, falling back to CPU")
         args.device = "cpu"
-    
+
     # Load tokenizer
     print("\nLoading tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     print(f"Tokenizer loaded")
-    
+
     # Load model
     print(f"Loading model...")
     start_time = time.time()
@@ -1996,87 +2171,87 @@ def cmd_benchmark(args):
     model = model.to(args.device)
     model.eval()
     load_time = time.time() - start_time
-    
+
     # Count parameters
     params = sum(p.numel() for p in model.parameters())
     print(f"Model loaded in {load_time:.1f}s")
-    print(f"Parameters: {params:,} ({params/1e9:.2f}B)")
-    
+    print(f"Parameters: {params:,} ({params / 1e9:.2f}B)")
+
     # Memory info
     if args.device == "mps":
         print(f"Device: Apple Silicon MPS")
     elif args.device == "cuda":
         memory_allocated = torch.cuda.memory_allocated() / 1e9
         print(f"GPU Memory: {memory_allocated:.2f}GB allocated")
-    
+
     print("\n" + "=" * 60)
     print("Running benchmarks...")
     print("=" * 60)
-    
+
     # Tokenize prompt
     input_ids = tokenizer.encode(args.prompt, return_tensors="pt").to(args.device)
     prompt_length = input_ids.shape[1]
-    
+
     # Warmup
     print("\nWarming up...")
     with torch.no_grad():
         _ = model.generate(input_ids, max_new_tokens=10, do_sample=False)
     if args.device == "mps":
         torch.mps.synchronize()
-    
+
     # Latency test
     if args.test in ["all", "latency"]:
         print("\n--- Latency Test ---")
         latencies = []
-        
+
         for i in range(args.runs):
             torch.mps.synchronize() if args.device == "mps" else None
             torch.cuda.synchronize() if args.device == "cuda" else None
             start = time.perf_counter()
-            
+
             with torch.no_grad():
                 _ = model.generate(input_ids, max_new_tokens=args.tokens, do_sample=False)
-            
+
             torch.mps.synchronize() if args.device == "mps" else None
             torch.cuda.synchronize() if args.device == "cuda" else None
             elapsed = (time.perf_counter() - start) * 1000
             latencies.append(elapsed)
-        
+
         latencies.sort()
         p50 = latencies[int(len(latencies) * 0.50)]
         p95 = latencies[int(len(latencies) * 0.95)]
         p99 = latencies[int(len(latencies) * 0.99)]
         avg = statistics.mean(latencies)
-        
+
         print(f"Prompt: {prompt_length} tokens")
         print(f"Generated: {args.tokens} tokens")
         print(f"Latency - Mean: {avg:.1f}ms, P50: {p50:.1f}ms, P95: {p95:.1f}ms, P99: {p99:.1f}ms")
-    
+
     # Throughput test
     if args.test in ["all", "throughput"]:
         print("\n--- Throughput Test ---")
         throughputs = []
-        
+
         for i in range(min(args.runs, 5)):
             torch.mps.synchronize() if args.device == "mps" else None
             torch.cuda.synchronize() if args.device == "cuda" else None
             start = time.perf_counter()
-            
+
             with torch.no_grad():
                 output = model.generate(input_ids, max_new_tokens=args.tokens, do_sample=False)
-            
+
             torch.mps.synchronize() if args.device == "mps" else None
             torch.cuda.synchronize() if args.device == "cuda" else None
             elapsed = time.perf_counter() - start
-            
+
             tokens = output.shape[1]
             tps = tokens / elapsed
             throughputs.append(tps)
-            print(f"Run {i+1}: {tps:.1f} tokens/sec")
-        
+            print(f"Run {i + 1}: {tps:.1f} tokens/sec")
+
         if throughputs:
             print(f"Average: {statistics.mean(throughputs):.1f} tokens/sec")
-    
+
     # Batch test
     if args.test in ["all", "batch"]:
         print("\n--- Batch Inference Test ---")
@@ -2086,31 +2261,37 @@ def cmd_benchmark(args):
             "Tell me a joke.",
             "Explain machine learning.",
         ]
-        
+
         for batch_size in [1, 2, 4]:
             if batch_size > len(batch_prompts):
                 continue
-            
+
             inputs = tokenizer(
                 batch_prompts[:batch_size],
                 return_tensors="pt",
                 padding=True,
             ).to(args.device)
-            
+
             torch.mps.synchronize() if args.device == "mps" else None
             torch.cuda.synchronize() if args.device == "cuda" else None
             start = time.perf_counter()
-            
+
             with torch.no_grad():
-                _ = model.generate(inputs.input_ids, attention_mask=inputs.attention_mask, 
-                                   max_new_tokens=20, do_sample=False)
-            
+                _ = model.generate(
+                    inputs.input_ids,
+                    attention_mask=inputs.attention_mask,
+                    max_new_tokens=20,
+                    do_sample=False,
+                )
+
             torch.mps.synchronize() if args.device == "mps" else None
             torch.cuda.synchronize() if args.device == "cuda" else None
             elapsed = time.perf_counter() - start
-            
-            print(f"Batch {batch_size}: {elapsed*1000:.1f}ms total, {batch_size/elapsed:.1f} seq/sec")
-    
+
+            print(
+                f"Batch {batch_size}: {elapsed * 1000:.1f}ms total, {batch_size / elapsed:.1f} seq/sec"
+            )
+
     print("\n" + "=" * 60)
     print("Benchmark complete!")
     print("=" * 60)
@@ -2120,64 +2301,75 @@ def cmd_setup(args):
     """Setup SloughGPT environment."""
     import subprocess
     import sys
-    
+
     print("=" * 50)
     print("SloughGPT Setup")
     print("=" * 50)
-    
+
     # Check if we're in the right directory
     if not os.path.exists("cli.py"):
         print("Error: Run this from the SloughGPT root directory")
         return
-    
+
     # Create directories
     print("\nCreating directories...")
     dirs = ["models", "datasets", "data", "checkpoints", "experiments", "logs", "cache"]
     for d in dirs:
         os.makedirs(d, exist_ok=True)
         print(f"  ✓ {d}/")
-    
+
     # Create .env if needed
     if not os.path.exists(".env") and os.path.exists(".env.example"):
         print("\nCreating .env from .env.example...")
         subprocess.run(["cp", ".env.example", ".env"])
         print("  ✓ .env created")
-    
+
     # Check Python version
     print(f"\nPython: {sys.version}")
     if sys.version_info < (3, 9):
         print("Warning: Python 3.9+ recommended")
-    
+
     # Check CUDA
     import torch
+
     print(f"\nPyTorch: {torch.__version__}")
     print(f"CUDA available: {torch.cuda.is_available()}")
     print(f"MPS available: {torch.backends.mps.is_available()}")
-    
+
     if args.gpu:
         if torch.cuda.is_available():
             print(f"CUDA devices: {torch.cuda.device_count()}")
         elif torch.backends.mps.is_available():
             print("GPU: Apple Silicon MPS")
-    
+
     # Create venv
     venv_dir = args.venv
     if not args.docker_only:
         print(f"\nSetting up virtual environment at {venv_dir}/...")
-        
+
         if not os.path.exists(venv_dir):
             subprocess.run([sys.executable, "-m", "venv", venv_dir])
             print(f"  ✓ Created {venv_dir}/")
-        
+
         pip_exe = os.path.join(venv_dir, "bin", "pip")
         print("  Installing dependencies...")
         subprocess.run([pip_exe, "install", "--upgrade", "pip"])
-        subprocess.run([pip_exe, "install", 
-                       "torch", "transformers", "accelerate",
-                       "fastapi", "uvicorn", "pydantic",
-                       "pytest", "ruff"])
+        subprocess.run(
+            [
+                pip_exe,
+                "install",
+                "torch",
+                "transformers",
+                "accelerate",
+                "fastapi",
+                "uvicorn",
+                "pydantic",
+                "pytest",
+                "ruff",
+            ]
+        )
         print("  ✓ Dependencies installed")
-    
+
     # Docker setup
     if not args.local_only:
         print("\nDocker setup:")
@@ -2189,7 +2381,7 @@ def cmd_setup(args):
         if cf.is_file():
             print(f"  ✓ {cf.relative_to(repo)} found")
         print("  Run: docker compose -f infra/docker/docker-compose.yml up -d")
-    
+
     print("\n" + "=" * 50)
     print("Setup complete!")
     print("=" * 50)
@@ -2334,39 +2526,39 @@ def cmd_api_status(args):
     import time
 
     base_url = f"http://{args.host}:{args.port}"
-    
+
     print("=" * 50)
     print("SloughGPT API Status")
     print("=" * 50)
-    
+
     # Health check
     try:
         r = requests.get(f"{base_url}/health", timeout=5)
         print(f"\n[{'OK' if r.status_code == 200 else 'FAIL'}] Health: {r.json()}")
     except Exception as e:
         print(f"\n[FAIL] Health: {e}")
-    
+
     # Detailed health
     try:
         r = requests.get(f"{base_url}/health/detailed", timeout=5)
         print(f"[{'OK' if r.status_code == 200 else 'FAIL'}] Detailed Health: {r.json()}")
     except Exception as e:
         print(f"[FAIL] Detailed Health: {e}")
-    
+
     # Rate limit status
     try:
         r = requests.get(f"{base_url}/rate-limit/status", timeout=5)
         print(f"[{'OK' if r.status_code == 200 else 'FAIL'}] Rate Limit: {r.json()}")
     except Exception as e:
         print(f"[FAIL] Rate Limit: {e}")
-    
+
     # Cache stats
     try:
         r = requests.get(f"{base_url}/cache/stats", timeout=5)
         print(f"[{'OK' if r.status_code == 200 else 'FAIL'}] Cache: {r.json()}")
     except Exception as e:
         print(f"[FAIL] Cache: {e}")
-    
+
     # Metrics
     try:
         r = requests.get(f"{base_url}/metrics", timeout=5)
@@ -2381,14 +2573,14 @@ def cmd_api_status(args):
             print(f"\n[FAIL] Metrics: {r.status_code}")
     except Exception as e:
         print(f"\n[FAIL] Metrics: {e}")
-    
+
     # Security config
     try:
         r = requests.get(f"{base_url}/security/keys", timeout=5)
         print(f"[{'OK' if r.status_code == 200 else 'FAIL'}] Security: {r.json()}")
     except Exception as e:
         print(f"[FAIL] Security: {e}")
-    
+
     print()
 
 
@@ -2398,19 +2590,17 @@ def cmd_api_test(args):
     import time
 
     base_url = f"http://{args.host}:{args.port}"
-    
+
     print("=" * 50)
     print("SloughGPT API Test")
     print("=" * 50)
-    
+
     # Test generation
     print("\n[TEST] Generation endpoint...")
     try:
         start = time.time()
         r = requests.post(
-            f"{base_url}/generate",
-            json={"prompt": "Hello world", "max_new_tokens": 10},
-            timeout=30
+            f"{base_url}/generate", json={"prompt": "Hello world", "max_new_tokens": 10}, timeout=30
         )
         elapsed = time.time() - start
         if r.status_code == 200:
@@ -2419,36 +2609,32 @@ def cmd_api_test(args):
             print(f"[FAIL] Generation: {r.status_code} - {r.text}")
     except Exception as e:
         print(f"[FAIL] Generation: {e}")
-    
+
     # Test rate limiting
     print("\n[TEST] Rate limiting...")
     try:
         for i in range(5):
             r = requests.get(f"{base_url}/health", timeout=5)
-            if 'X-RateLimit-Remaining' in r.headers:
-                print(f"  Request {i+1}: Remaining={r.headers['X-RateLimit-Remaining']}")
+            if "X-RateLimit-Remaining" in r.headers:
+                print(f"  Request {i + 1}: Remaining={r.headers['X-RateLimit-Remaining']}")
     except Exception as e:
         print(f"[FAIL] Rate limiting: {e}")
-    
+
     # Test caching
     print("\n[TEST] Caching...")
     try:
         prompt = f"Test prompt {time.time()}"
         r1 = requests.post(
-            f"{base_url}/generate",
-            json={"prompt": prompt, "max_new_tokens": 10},
-            timeout=30
+            f"{base_url}/generate", json={"prompt": prompt, "max_new_tokens": 10}, timeout=30
         )
         r2 = requests.post(
-            f"{base_url}/generate",
-            json={"prompt": prompt, "max_new_tokens": 10},
-            timeout=30
+            f"{base_url}/generate", json={"prompt": prompt, "max_new_tokens": 10}, timeout=30
         )
         cache_stats = requests.get(f"{base_url}/cache/stats", timeout=5).json()
         print(f"[PASS] Cache hit rate: {cache_stats.get('hit_rate', 0):.2%}")
     except Exception as e:
         print(f"[FAIL] Caching: {e}")
-    
+
     # Test batch
     print("\n[TEST] Batch processing...")
     try:
@@ -2456,7 +2642,7 @@ def cmd_api_test(args):
         r = requests.post(
             f"{base_url}/inference/batch",
             json={"prompts": prompts, "max_new_tokens": 5},
-            timeout=30
+            timeout=30,
         )
         if r.status_code == 200:
             data = r.json()
@@ -2465,7 +2651,7 @@ def cmd_api_test(args):
             print(f"[FAIL] Batch: {r.status_code}")
     except Exception as e:
         print(f"[FAIL] Batch: {e}")
-    
+
     print()
 
 
@@ -2474,31 +2660,25 @@ def cmd_api_auth(args):
     import requests
 
     base_url = f"http://{args.host}:{args.port}"
-    
+
     print("=" * 50)
     print("SloughGPT API Authentication Test")
     print("=" * 50)
-    
+
     # Test without auth
     print("\n[TEST] Generate without auth...")
     try:
         r = requests.post(
-            f"{base_url}/generate",
-            json={"prompt": "Hello", "max_new_tokens": 5},
-            timeout=10
+            f"{base_url}/generate", json={"prompt": "Hello", "max_new_tokens": 5}, timeout=10
         )
         print(f"[{'PASS' if r.status_code == 200 else 'NEEDS AUTH'}] Status: {r.status_code}")
     except Exception as e:
         print(f"[FAIL] {e}")
-    
+
     # Test auth token endpoint
     print("\n[TEST] Auth token endpoint...")
     try:
-        r = requests.post(
-            f"{base_url}/auth/token",
-            json={"api_key": "test-key"},
-            timeout=10
-        )
+        r = requests.post(f"{base_url}/auth/token", json={"api_key": "test-key"}, timeout=10)
         if r.status_code == 401:
             print("[PASS] Auth rejected invalid key (401)")
         elif r.status_code == 200:
@@ -2508,19 +2688,17 @@ def cmd_api_auth(args):
             print(f"[INFO] Auth status: {r.status_code}")
     except Exception as e:
         print(f"[INFO] Auth endpoint: {e}")
-    
+
     # Test verify endpoint
     print("\n[TEST] Verify endpoint...")
     try:
         r = requests.post(
-            f"{base_url}/auth/verify",
-            headers={"Authorization": "Bearer invalid-token"},
-            timeout=10
+            f"{base_url}/auth/verify", headers={"Authorization": "Bearer invalid-token"}, timeout=10
         )
         print(f"[PASS] Verify rejected invalid token: {r.status_code}")
     except Exception as e:
         print(f"[INFO] Verify: {e}")
-    
+
     print()
 
 
@@ -2528,74 +2706,74 @@ def cmd_config_validate(args):
     """Validate environment configuration."""
     import os
     import secrets
-    
+
     print("=" * 50)
     print("SloughGPT Configuration Validator")
     print("=" * 50)
-    
+
     env_file = args.env
     issues = []
     warnings = []
-    
+
     # Check if .env exists
     if not os.path.exists(env_file):
         print(f"\n[WARN] {env_file} not found")
         return
-    
+
     # Load and validate .env
-    with open(env_file, 'r') as f:
+    with open(env_file, "r") as f:
         content = f.read()
-    
-    required_vars = ['SLOUGHGPT_API_KEY', 'SLOUGHGPT_JWT_SECRET']
-    optional_vars = ['DATABASE_URL', 'REDIS_URL', 'MODEL_PATH']
-    security_vars = ['SLOUGHGPT_API_KEY', 'SLOUGHGPT_JWT_SECRET', 'JWT_SECRET_KEY']
-    
+
+    required_vars = ["SLOUGHGPT_API_KEY", "SLOUGHGPT_JWT_SECRET"]
+    optional_vars = ["DATABASE_URL", "REDIS_URL", "MODEL_PATH"]
+    security_vars = ["SLOUGHGPT_API_KEY", "SLOUGHGPT_JWT_SECRET", "JWT_SECRET_KEY"]
+
     print(f"\n[CHECK] Validating {env_file}...")
-    
+
     # Check for required vars
     for var in required_vars:
         if var not in content:
             issues.append(f"Missing required: {var}")
         else:
             # Check if using default/weak values
-            val = content.split(f"{var}=")[1].split('\n')[0] if f"{var}=" in content else ""
-            if 'hash21' in val.lower() or 'change' in val.lower() or len(val) < 32:
+            val = content.split(f"{var}=")[1].split("\n")[0] if f"{var}=" in content else ""
+            if "hash21" in val.lower() or "change" in val.lower() or len(val) < 32:
                 warnings.append(f"Weak {var}: should be >32 random chars")
-    
+
     # Check for default values
     for var in security_vars:
         if var in content:
-            val = content.split(f"{var}=")[1].split('\n')[0] if f"{var}=" in content else ""
-            if 'change-this' in val.lower() or 'your-' in val.lower():
+            val = content.split(f"{var}=")[1].split("\n")[0] if f"{var}=" in content else ""
+            if "change-this" in val.lower() or "your-" in val.lower():
                 warnings.append(f"Default {var}: change to secure value")
-    
+
     # Check for missing optional vars
     for var in optional_vars:
         if var not in content:
             warnings.append(f"Optional not set: {var}")
-    
+
     # Check SSL
-    if 'SSL_ENABLED=true' in content and 'SSL_CERT_PATH' not in content:
+    if "SSL_ENABLED=true" in content and "SSL_CERT_PATH" not in content:
         issues.append("SSL enabled but no cert path")
-    
+
     # Print results
     print("\n" + "=" * 50)
     print("Results")
     print("=" * 50)
-    
+
     if issues:
         print("\n[ERRORS]:")
         for issue in issues:
             print(f"  - {issue}")
-    
+
     if warnings:
         print("\n[WARNINGS]:")
         for warn in warnings:
             print(f"  - {warn}")
-    
+
     if not issues and not warnings:
         print("\n[PASS] Configuration looks good!")
-    
+
     # Summary
     print(f"\n[INFO] {len(issues)} issues, {len(warnings)} warnings")
 
@@ -2603,25 +2781,25 @@ def cmd_config_validate(args):
 def cmd_config_generate(args):
     """Generate new secrets for configuration."""
     import secrets
-    
+
     print("=" * 50)
     print("SloughGPT Secret Generator")
     print("=" * 50)
-    
+
     print("\n[SUGGESTED VALUES FOR .env]:\n")
-    
+
     if args.type in ["api-key", "all"]:
         api_key = secrets.token_urlsafe(32)
         print(f"SLOUGHGPT_API_KEY={api_key}")
-    
+
     if args.type in ["jwt-secret", "all"]:
         jwt_secret = secrets.token_urlsafe(64)
         print(f"SLOUGHGPT_JWT_SECRET={jwt_secret}")
-    
+
     if args.type == "all":
         encryption_key = secrets.token_hex(32)
         print(f"ENCRYPTION_KEY={encryption_key}")
-    
+
     print("\n[INFO] Copy these to your .env file and restart the server")
 
 
@@ -2629,76 +2807,83 @@ def cmd_config_check(args):
     """Check environment setup."""
     import os
     import platform
-    
+
     print("=" * 50)
     print("SloughGPT Environment Check")
     print("=" * 50)
-    
+
     checks = []
-    
+
     # Python version
     import sys
+
     py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
     checks.append(("Python >= 3.8", int(py_version.replace(".", "")) >= 38))
-    
+
     # PyTorch
     try:
         import torch
+
         checks.append(("PyTorch installed", True))
         checks.append((f"PyTorch {torch.__version__}", True))
     except ImportError:
         checks.append(("PyTorch installed", False))
-    
+
     # CUDA
     try:
         import torch
+
         cuda = torch.cuda.is_available()
         checks.append(("CUDA available", cuda))
     except:
         checks.append(("CUDA available", False))
-    
+
     # MPS (Apple Silicon)
     try:
         import torch
+
         mps = torch.backends.mps.is_available()
         checks.append(("MPS available", mps))
     except:
         checks.append(("MPS available", False))
-    
+
     # FastAPI
     try:
         import fastapi
+
         checks.append((f"FastAPI {fastapi.__version__}", True))
     except ImportError:
         checks.append(("FastAPI installed", False))
-    
+
     # Directory checks
     checks.append(("models/ directory", os.path.isdir("models")))
     checks.append(("datasets/ directory", os.path.isdir("datasets")))
     checks.append((".env file exists", os.path.exists(".env")))
-    
+
     # Docker
     try:
         import subprocess
+
         result = subprocess.run(["docker", "--version"], capture_output=True, text=True)
         checks.append(("Docker installed", result.returncode == 0))
     except:
         checks.append(("Docker installed", False))
-    
+
     # Kubernetes
     try:
         import subprocess
+
         result = subprocess.run(["kubectl", "version", "--client"], capture_output=True, text=True)
         checks.append(("kubectl installed", result.returncode == 0))
     except:
         checks.append(("kubectl installed", False))
-    
+
     # Print results
     print()
     for name, passed in checks:
         status = "[OK]" if passed else "[X]"
         print(f"{status} {name}")
-    
+
     # Summary
     passed = sum(1 for _, p in checks if p)
     total = len(checks)
@@ -2840,8 +3025,12 @@ def main():
         epilog=_TRAIN_HELP_EPILOG,
     )
     tr_basic = train_parser.add_argument_group("Basics")
-    tr_basic.add_argument("--dataset", default="shakespeare", help="Dataset folder name under datasets/")
-    tr_basic.add_argument("--epochs", type=int, default=3, help="Epochs (combined with --max-steps; see trainer)")
+    tr_basic.add_argument(
+        "--dataset", default="shakespeare", help="Dataset folder name under datasets/"
+    )
+    tr_basic.add_argument(
+        "--epochs", type=int, default=3, help="Epochs (combined with --max-steps; see trainer)"
+    )
     tr_basic.add_argument("--batch-size", type=int, default=32, help="Batch size")
     tr_basic.add_argument("--lr", type=float, default=0.01, help="Learning rate")
     tr_basic.add_argument(
@@ -2865,7 +3054,10 @@ def main():
 
     tr_loop = train_parser.add_argument_group("Training loop")
     tr_loop.add_argument(
-        "--max-steps", type=int, default=None, help="Max training steps (caps the epoch-based budget)"
+        "--max-steps",
+        type=int,
+        default=None,
+        help="Max training steps (caps the epoch-based budget)",
     )
     tr_loop.add_argument(
         "--gradient-accumulation-steps",
@@ -3103,29 +3295,27 @@ Examples:
         "model",
         nargs="?",
         default="models/sloughgpt.pt",
-        help="Path to input model file (.pt, .safetensors, .pth)"
+        help="Path to input model file (.pt, .safetensors, .pth)",
     )
+    export_parser.add_argument("--output", "-o", help="Output path (extension added automatically)")
     export_parser.add_argument(
-        "--output", "-o",
-        help="Output path (extension added automatically)"
-    )
-    export_parser.add_argument(
-        "--format", "-f",
+        "--format",
+        "-f",
         default="safetensors",
         choices=[
-            "safetensors",       # Recommended default (safe, fast)
-            "safetensors_bf16", # Full precision storage
-            "onnx",             # Cross-platform (server, web, TF.js)
-            "gguf_q4_k_m",      # Recommended for mobile (llama.rn)
-            "gguf_fp16",        # For separate quantization
-            "gguf_q5_k_m",      # Better quality mobile
-            "gguf_q8_0",        # High quality
-            "torch",            # Training checkpoint
-            "torchscript",      # PyTorch C++ inference
-            "sou",              # SloughGPT soul + personality
-            "all",              # Export all formats
+            "safetensors",  # Recommended default (safe, fast)
+            "safetensors_bf16",  # Full precision storage
+            "onnx",  # Cross-platform (server, web, TF.js)
+            "gguf_q4_k_m",  # Recommended for mobile (llama.rn)
+            "gguf_fp16",  # For separate quantization
+            "gguf_q5_k_m",  # Better quality mobile
+            "gguf_q8_0",  # High quality
+            "torch",  # Training checkpoint
+            "torchscript",  # PyTorch C++ inference
+            "sou",  # SloughGPT soul + personality
+            "all",  # Export all formats
         ],
-        help="Export format (default: safetensors)"
+        help="Export format (default: safetensors)",
     )
     export_parser.add_argument(
         "--quantize",
@@ -3138,38 +3328,32 @@ Examples:
             Q8_0:   8-bit (high quality, largest)
             F16:    16-bit float (full precision, no quantization)
             F32:    32-bit float (full precision, largest)
-        """
+        """,
     )
     export_parser.add_argument(
         "--seq-len",
         type=int,
         default=128,
-        help="Maximum sequence length for ONNX export (default: 128)"
+        help="Maximum sequence length for ONNX export (default: 128)",
     )
     export_parser.add_argument(
-        "--opset",
-        type=int,
-        default=17,
-        help="ONNX opset version (default: 17, latest)"
+        "--opset", type=int, default=17, help="ONNX opset version (default: 17, latest)"
     )
     export_parser.add_argument(
         "--ctx",
         type=int,
         dest="n_ctx",
         default=2048,
-        help="Context length for GGUF export (default: 2048)"
+        help="Context length for GGUF export (default: 2048)",
     )
     export_parser.add_argument(
-        "--soul-name",
-        type=str,
-        default=None,
-        help="Name for the soul profile (used with -f sou)"
+        "--soul-name", type=str, default=None, help="Name for the soul profile (used with -f sou)"
     )
     export_parser.add_argument(
         "--include-tokenizer/--no-tokenizer",
         dest="include_tokenizer",
         default=True,
-        help="Include tokenizer files in export (default: True)"
+        help="Include tokenizer files in export (default: True)",
     )
     export_parser.add_argument(
         "--metadata",
@@ -3180,7 +3364,7 @@ Examples:
             Metadata key-value pairs for model tagging.
             Format: KEY=VALUE KEY2=VALUE2
             Example: --metadata model_type=sloughgpt training_dataset=custom
-        """
+        """,
     )
     export_parser.set_defaults(func=cmd_export_cli)
 
@@ -3201,12 +3385,22 @@ Examples:
         metavar="PATH",
         help="Print Soul JSON metadata from disk (no HTTP)",
     )
-    soul_parser.add_argument("--create", "-c", metavar="PATH", help="Package a checkpoint into a new .sou path")
-    soul_parser.add_argument("--model", "-m", metavar="PATH", help="Weights/checkpoint for --create")
+    soul_parser.add_argument(
+        "--create", "-c", metavar="PATH", help="Package a checkpoint into a new .sou path"
+    )
+    soul_parser.add_argument(
+        "--model", "-m", metavar="PATH", help="Weights/checkpoint for --create"
+    )
     soul_parser.add_argument("--name", "-n", metavar="NAME", help="Soul display name for --create")
-    soul_parser.add_argument("--dataset", "-d", metavar="PATH", help="Optional dataset citation for --create")
-    soul_parser.add_argument("--epochs", "-e", type=int, default=0, help="Epoch counter stored in --create metadata")
-    soul_parser.add_argument("--lineage", default="nanogpt", help="Architecture label recorded in --create")
+    soul_parser.add_argument(
+        "--dataset", "-d", metavar="PATH", help="Optional dataset citation for --create"
+    )
+    soul_parser.add_argument(
+        "--epochs", "-e", type=int, default=0, help="Epoch counter stored in --create metadata"
+    )
+    soul_parser.add_argument(
+        "--lineage", default="nanogpt", help="Architecture label recorded in --create"
+    )
     soul_parser.add_argument("--tags", default="", help="Comma-separated tags for --create")
     soul_parser.set_defaults(func=cmd_soul)
 
@@ -3221,7 +3415,9 @@ Examples:
         default="datasets/shakespeare/input.txt",
         help="Corpus file for the micro run",
     )
-    quick_parser.add_argument("--prompt", default="The king", help="Prompt used after the micro-run")
+    quick_parser.add_argument(
+        "--prompt", default="The king", help="Prompt used after the micro-run"
+    )
     quick_parser.add_argument("--epochs", type=int, default=1, help="Passes over the corpus")
     quick_parser.add_argument("--steps", type=int, default=100, help="Hard cap on optimizer steps")
     quick_parser.add_argument("--embed", type=int, default=128, help="Embedding width")
@@ -3230,14 +3426,18 @@ Examples:
     quick_parser.add_argument("--block", type=int, default=128, help="Context length")
     quick_parser.add_argument("--batch", type=int, default=16, help="Minibatch size")
     quick_parser.add_argument("--lr", type=float, default=1e-3, help="Adam learning rate")
-    quick_parser.add_argument("--max-tokens", type=int, default=100, help="Tokens to sample after training")
+    quick_parser.add_argument(
+        "--max-tokens", type=int, default=100, help="Tokens to sample after training"
+    )
     quick_parser.add_argument(
         "--temperature",
         type=float,
         default=0.8,
         help="Sampling temperature for the demo completion",
     )
-    quick_parser.add_argument("--output", default="models/quick.pt", help="Where to write the toy checkpoint")
+    quick_parser.add_argument(
+        "--output", default="models/quick.pt", help="Where to write the toy checkpoint"
+    )
     quick_parser.add_argument(
         "--no-optimize",
         action="store_true",
@@ -3280,8 +3480,12 @@ Examples:
     )
     cloud_parser.add_argument("--api-key", help="Pinecone API key")
     cloud_parser.add_argument("--index", default="sloughgpt", help="Logical index name to target")
-    cloud_parser.add_argument("--dimension", type=int, default=768, help="Vector width Pinecone should expect")
-    cloud_parser.add_argument("--environment", default="us-east-1", help="Pinecone environment / region string")
+    cloud_parser.add_argument(
+        "--dimension", type=int, default=768, help="Vector width Pinecone should expect"
+    )
+    cloud_parser.add_argument(
+        "--environment", default="us-east-1", help="Pinecone environment / region string"
+    )
     cloud_parser.set_defaults(func=cmd_cloud_setup)
 
     # HTTP inference server (separate from apps/api FastAPI app; see cmd_serve)
@@ -3426,7 +3630,9 @@ Examples:
     data_stats_parser.add_argument("path", help="File or directory to inspect")
     data_stats_parser.set_defaults(func=lambda a: cmd_data_tool(a, "stats"))
 
-    validate_parser = data_sub.add_parser("validate", help="Lightweight structure check for a dataset path")
+    validate_parser = data_sub.add_parser(
+        "validate", help="Lightweight structure check for a dataset path"
+    )
     validate_parser.add_argument("path", help="Dataset path")
     validate_parser.set_defaults(func=lambda a: cmd_data_tool(a, "validate"))
 
@@ -3438,7 +3644,9 @@ Examples:
         "docs/policies/CONTRIBUTING.md (Checkpoint vocabulary).",
     )
     eval_parser.add_argument("--checkpoint", default="models/sloughgpt.pt", help="Model checkpoint")
-    eval_parser.add_argument("--data", default="datasets/shakespeare/input.txt", help="Eval text (UTF-8)")
+    eval_parser.add_argument(
+        "--data", default="datasets/shakespeare/input.txt", help="Eval text (UTF-8)"
+    )
     eval_parser.add_argument(
         "--device",
         default="cpu",
@@ -3509,15 +3717,25 @@ Examples:
         help="Micro-benchmark HuggingFace-sized models (latency/throughput sweeps)",
     )
     bench_parser.add_argument("--model", "-m", default="gpt2", help="Model to benchmark")
-    bench_parser.add_argument("--device", "-d", default="auto", 
-                              choices=["auto", "cpu", "cuda", "mps"], help="Device to use")
-    bench_parser.add_argument("--test", "-t", default="all",
-                              choices=["all", "latency", "throughput", "batch", "quantization"],
-                              help="Test type")
+    bench_parser.add_argument(
+        "--device",
+        "-d",
+        default="auto",
+        choices=["auto", "cpu", "cuda", "mps"],
+        help="Device to use",
+    )
+    bench_parser.add_argument(
+        "--test",
+        "-t",
+        default="all",
+        choices=["all", "latency", "throughput", "batch", "quantization"],
+        help="Test type",
+    )
     bench_parser.add_argument("--runs", "-r", type=int, default=10, help="Number of runs")
     bench_parser.add_argument("--tokens", "-k", type=int, default=50, help="Max new tokens")
-    bench_parser.add_argument("--prompt", "-p", default="The quick brown fox jumps over the lazy dog",
-                             help="Test prompt")
+    bench_parser.add_argument(
+        "--prompt", "-p", default="The quick brown fox jumps over the lazy dog", help="Test prompt"
+    )
     bench_parser.set_defaults(func=cmd_benchmark)
 
     # Compare command
@@ -3525,8 +3743,9 @@ Examples:
         "compare",
         help="Run the same prompt across several HF checkpoints for quick A/B",
     )
-    compare_parser.add_argument("--models", "-m", default="gpt2,distilgpt2",
-                              help="Comma-separated model names to compare")
+    compare_parser.add_argument(
+        "--models", "-m", default="gpt2,distilgpt2", help="Comma-separated model names to compare"
+    )
     compare_parser.set_defaults(func=cmd_compare)
 
     # Setup command
@@ -3556,24 +3775,78 @@ Examples:
     docker_start.add_argument("--gpu", action="store_true", help="Use GPU")
     docker_start.add_argument("--dev", action="store_true", help="Development mode")
     docker_start.set_defaults(func=lambda a: cmd_docker_start(a))
-    
+
     docker_stop = docker_sub.add_parser("stop", help="Stop Docker services")
     docker_stop.set_defaults(func=lambda a: cmd_docker_stop(a))
-    
+
     docker_status = docker_sub.add_parser("status", help="Show Docker status")
     docker_status.set_defaults(func=lambda a: cmd_docker_status(a))
-    
+
     docker_logs = docker_sub.add_parser("logs", help="Show Docker logs")
     docker_logs.add_argument("service", nargs="?", help="Service name")
     docker_logs.set_defaults(func=lambda a: cmd_docker_logs(a))
-    
+
     docker_build = docker_sub.add_parser("build", help="Build Docker images")
     docker_build.add_argument("--no-cache", action="store_true", help="Build without cache")
     docker_build.set_defaults(func=lambda a: cmd_docker_build(a))
-    
+
     docker_shell = docker_sub.add_parser("shell", help="Shell into container")
     docker_shell.add_argument("service", default="api", help="Service name")
     docker_shell.set_defaults(func=lambda a: cmd_docker_shell(a))
+
+    # Feedback export command
+    feedback_parser = subparsers.add_parser(
+        "feedback-export",
+        help="Export feedback data for training",
+    )
+    feedback_parser.add_argument(
+        "--format",
+        "-f",
+        choices=["jsonl", "dpo"],
+        default="jsonl",
+        help="Export format: jsonl (one record per line) or dpo (chosen/rejected pairs)",
+    )
+    feedback_parser.add_argument(
+        "--output", "-o", default="data/training_feedback.jsonl", help="Output file path"
+    )
+    feedback_parser.add_argument(
+        "--rating", choices=["thumbs_up", "thumbs_down"], help="Filter by rating (default: all)"
+    )
+    feedback_parser.set_defaults(func=cmd_feedback_export)
+
+    # Feedback training pipeline command
+    feedback_train_parser = subparsers.add_parser(
+        "feedback-train",
+        help="Prepare training data from feedback (DPO, SFT, reward)",
+    )
+    feedback_train_parser.add_argument(
+        "--format",
+        "-f",
+        choices=["all", "dpo", "sft", "reward"],
+        default="all",
+        help="Training format: all, dpo (preference pairs), sft (supervised), reward",
+    )
+    feedback_train_parser.add_argument(
+        "--output", "-o", help="Output directory (default: data/training)"
+    )
+    feedback_train_parser.add_argument(
+        "--stats-only", "-s", action="store_true", help="Show stats only, don't export"
+    )
+    feedback_train_parser.set_defaults(func=cmd_feedback_train)
+
+    # User adapters command
+    adapters_parser = subparsers.add_parser(
+        "user-adapters",
+        help="Manage per-user LoRA adapters",
+    )
+    adapters_parser.add_argument(
+        "action", choices=["list", "info", "delete", "merge"], help="Action to perform"
+    )
+    adapters_parser.add_argument("user", nargs="?", help="User ID (for info/delete actions)")
+    adapters_parser.add_argument(
+        "--users", "-u", help="Comma-separated user IDs (for merge action)"
+    )
+    adapters_parser.set_defaults(func=cmd_user_adapters)
 
     args = parser.parse_args()
 

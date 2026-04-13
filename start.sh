@@ -11,11 +11,26 @@ export SLOUGHGPT_MODEL_PATH="${SLOUGHGPT_MODEL_PATH:-$DEFAULT_MODEL}"
 echo "=== Starting SloughGPT ==="
 echo "Model: $SLOUGHGPT_MODEL_PATH"
 
-# Kill existing servers
-pkill -f "unified-log-server" 2>/dev/null
-pkill -f "python3 apps/api/server" 2>/dev/null
-pkill -f "next dev" 2>/dev/null
-sleep 1
+# Function to kill processes on ports
+kill_port() {
+    local port=$1
+    local pid=$(lsof -ti:$port 2>/dev/null)
+    if [ -n "$pid" ]; then
+        echo "Killing process on port $port (PID: $pid)"
+        kill -9 $pid 2>/dev/null
+    fi
+}
+
+# Kill existing servers forcefully
+echo "Stopping existing servers..."
+kill_port 9999
+kill_port 8000
+kill_port 3000
+pkill -9 -f "unified-log-server" 2>/dev/null
+pkill -9 -f "python.*api.*server" 2>/dev/null
+pkill -9 -f "next" 2>/dev/null
+pkill -9 -f "node.*next" 2>/dev/null
+sleep 2
 
 # Start unified log server
 echo "Starting unified log server on port 9999..."
@@ -89,10 +104,15 @@ echo ""
 cleanup() {
     send_log "system" "INFO" "🛑 Shutting down SloughGPT..."
     kill $TAIL_PID 2>/dev/null
-    pkill -f "unified-log-server" 2>/dev/null
-    pkill -f "python3 apps/api/server" 2>/dev/null
-    pkill -f "next dev" 2>/dev/null
-    echo "Servers stopped"
+    kill_port 9999
+    kill_port 8000
+    kill_port 3000
+    pkill -9 -f "unified-log-server" 2>/dev/null
+    pkill -9 -f "python.*api.*server" 2>/dev/null
+    pkill -9 -f "next" 2>/dev/null
+    echo ""
+    echo "=== Servers stopped ==="
+    exit 0
 }
 
 trap cleanup EXIT INT TERM

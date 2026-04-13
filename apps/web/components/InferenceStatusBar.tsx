@@ -168,3 +168,48 @@ export function InferenceRuntimeToolbar({ health, onRefresh }: ToolbarProps) {
   if (health.model_loaded) return <span className="text-xs text-success/70">{health.model_type}</span>
   return <span className="text-xs text-warning/70">No model</span>
 }
+
+/** Compact model status bar for navbar/header */
+export function ModelStatusBar({ health }: { health: ApiHealthSnapshot }) {
+  if (health === null) {
+    return (
+      <div className="flex items-center gap-1.5 rounded-full bg-muted/60 px-2.5 py-1">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-muted-foreground/40" />
+        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+          Checking
+        </span>
+      </div>
+    )
+  }
+
+  if (health === 'offline') {
+    return (
+      <div className="flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1">
+        <span className="h-2 w-2 rounded-full bg-red-500" />
+        <span className="text-[10px] font-medium uppercase tracking-wide text-red-600 dark:text-red-400">
+          Offline
+        </span>
+      </div>
+    )
+  }
+
+  if (health.model_loaded) {
+    return (
+      <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+        <span className="font-mono text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+          {health.model_type}
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 rounded-full bg-yellow-500/10 px-2.5 py-1">
+      <span className="h-2 w-2 rounded-full bg-yellow-500" />
+      <span className="text-[10px] font-medium uppercase tracking-wide text-yellow-600 dark:text-yellow-400">
+        No Model
+      </span>
+    </div>
+  )
+}

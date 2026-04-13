@@ -1,189 +1,505 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useApiHealth } from '@/hooks/useApiHealth'
-import { api } from '@/lib/api'
-import { AppRouteHeader } from '@/components/AppRouteHeader'
-import { Button } from '@/components/ui/button'
-import { InferenceRuntimeToolbar } from '@/components/InferenceStatusBar'
+import { API_CHAT_ENDPOINT } from '@/lib/config'
+import {
+  ChatHeader,
+  ChatSettings,
+  ChatMessages,
+  ChatInput,
+  ToastContainer,
+  ErrorBanner,
+  SessionSidebar,
+  getErrorInfo,
+  type ChatMessage,
+  type Toast,
+  type ImageAttachment,
+} from '@/components/chat'
 
-interface Message {
+const STORAGE_KEY = 'sloughgpt_chat_sessions'
+const CURRENT_SESSION_KEY = 'sloughgpt_current_session'
+const API_FEEDBACK_ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/feedback`
+const API_SESSION_CONTEXT_ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/session`
+
+interface ChatSession {
   id: string
-  role: 'user' | 'assistant'
-  content: string
+  name: string
+  messages: ChatMessage[]
+  createdAt: string
+  updatedAt: string
 }
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isStreaming, setIsStreaming] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showSidebar, setShowSidebar] = useState(false)
   const [model, setModel] = useState('gpt2')
-  const [temp, setTemp] = useState(0.8)
+  const [temperature, setTemperature] = useState(0.8)
   const [maxTokens, setMaxTokens] = useState(200)
+  const [currentError, setCurrentError] = useState<ReturnType<typeof getErrorInfo> | null>(null)
+  const [toasts, setToasts] = useState<Toast[]>([])
+  const [images, setImages] = useState<ImageAttachment[]>([])
+  
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const { state: health } = useApiHealth()
+  const sessionIdRef = useRef<string>('')
+  const { state: health, refresh: refreshHealth } = useApiHealth()
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    sessionIdRef.current = localStorage.getItem(CURRENT_SESSION_KEY) || `session-${Date.now()}`
+  }, [])
+
+  const showToast = useCallback((message: string, type: Toast['type'] = 'success') => {
+    const id = Date.now().toString()
+    setToasts(prev => [...prev, { id, message, type }])
+  }, [])
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id))
+  }, [])
+
+  const saveSession = useCallback(() => {
+    if (messages.length === 0) return
+    const sessionId = localStorage.getItem(CURRENT_SESSION_KEY) || `session-${Date.now()}`
+    const sessionName = messages[0]?.content?.slice(0, 30) || 'New Chat'
+    
+    const session: ChatSession = {
+      id: sessionId,
+      name: sessionName,
+      messages,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    
+    const sessions = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as ChatSession[]
+    const existingIndex = sessions.findIndex(s => s.id === sessionId)
+    
+    if (existingIndex >= 0) {
+      sessions[existingIndex] = session
+    } else {
+      sessions.unshift(session)
+    }
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions.slice(0, 20)))
+    localStorage.setItem(CURRENT_SESSION_KEY, sessionId)
   }, [messages])
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return
+  const loadSession = useCallback((sessionId: string) => {
+    const sessions = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as ChatSession[]
+    const session = sessions.find(s => s.id === sessionId)
+    if (session) {
+      setMessages(session.messages)
+      localStorage.setItem(CURRENT_SESSION_KEY, sessionId)
+      showToast(`Loaded: ${session.name}`)
+    }
+  }, [showToast])
+
+  const newChat = useCallback(() => {
+    const currentId = localStorage.getItem(CURRENT_SESSION_KEY)
+    if (currentId && messages.length > 0) {
+      saveSession()
+    }
+    setMessages([])
+    localStorage.setItem(CURRENT_SESSION_KEY, `session-${Date.now()}`)
+    showToast('New chat started')
+  }, [messages, saveSession, showToast])
+
+  const deleteSession = useCallback((sessionId: string) => {
+    const sessions = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as ChatSession[]
+    const filtered = sessions.filter(s => s.id !== sessionId)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
+    if (localStorage.getItem(CURRENT_SESSION_KEY) === sessionId) {
+      setMessages([])
+      localStorage.removeItem(CURRENT_SESSION_KEY)
+    }
+    showToast('Session deleted')
+  }, [showToast])
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      const timeout = setTimeout(saveSession, 1000)
+      return () => clearTimeout(timeout)
+    }
+  }, [messages, saveSession])
+
+  useEffect(() => {
+    const currentId = localStorage.getItem(CURRENT_SESSION_KEY)
+    if (currentId) {
+      loadSession(currentId)
+    }
+  }, [])
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [messages, isStreaming])
+
+  const handleCopy = useCallback((text: string) => {
+    showToast('Copied to clipboard')
+  }, [showToast])
+
+  const handleRegenerate = useCallback(() => {
+    if (messages.length < 2) return
     
-    const userMessage: Message = {
+    const lastAssistantIdx = messages.findLastIndex(m => m.role === 'assistant')
+    if (lastAssistantIdx === -1) return
+
+    const contextMessages = messages.slice(0, lastAssistantIdx)
+    const originalMsgId = messages[lastAssistantIdx].id
+
+    storeSessionContext(sessionIdRef.current, contextMessages)
+
+    setLoading(true)
+    setIsStreaming(true)
+
+    const assistantId = (Date.now() + 1).toString()
+    setMessages(prev => [
+      ...prev.slice(0, lastAssistantIdx),
+      { ...prev[lastAssistantIdx], id: assistantId, content: '', timestamp: new Date() }
+    ])
+
+    fetch(`${API_SESSION_CONTEXT_ENDPOINT}/${sessionIdRef.current}/regenerate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          showToast('Regeneration failed', 'error')
+        } else {
+          const words = (data.text || '').split(' ')
+          let idx = 0
+          const interval = setInterval(() => {
+            if (idx >= words.length) {
+              clearInterval(interval)
+              setIsStreaming(false)
+              setLoading(false)
+              return
+            }
+            setMessages(prev => prev.map(msg =>
+              msg.id === assistantId
+                ? { ...msg, content: prev.find(m => m.id === assistantId)?.content + words[idx] + ' ' }
+                : msg
+            ))
+            idx++
+          }, 15)
+        }
+      })
+      .catch(() => {
+        showToast('Regeneration failed', 'error')
+        setLoading(false)
+        setIsStreaming(false)
+      })
+  }, [messages, showToast])
+
+  const storeSessionContext = async (sessionId: string, msgs: ChatMessage[]) => {
+    try {
+      await fetch(`${API_SESSION_CONTEXT_ENDPOINT}/${sessionId}/context`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: msgs.map(m => ({ role: m.role, content: m.content })) }),
+      })
+    } catch {}
+  }
+
+  const handleThumbsUp = useCallback(async (messageId: string) => {
+    try {
+      // Find the assistant message and preceding user message
+      const msgIdx = messages.findIndex(m => m.id === messageId)
+      const assistantMsg = messages[msgIdx]
+      const userMsg = msgIdx > 0 ? messages[msgIdx - 1] : null
+
+      // Use the full context endpoint
+      await fetch(`${API_FEEDBACK_ENDPOINT}/record`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_message: userMsg?.content || '',
+          assistant_response: assistantMsg?.content || '',
+          rating: 'thumbs_up',
+          conversation_id: sessionIdRef.current,
+        }),
+      })
+      showToast('Thanks for the feedback!')
+    } catch {
+      // Fallback to simple feedback
+      try {
+        await fetch(API_FEEDBACK_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message_id: messageId,
+            rating: 'thumbs_up',
+            session_id: sessionIdRef.current,
+          }),
+        })
+        showToast('Thanks for the feedback!')
+      } catch {
+        showToast('Failed to submit feedback', 'error')
+      }
+    }
+  }, [showToast, messages])
+
+  const handleThumbsDown = useCallback(async (messageId: string) => {
+    try {
+      // Find the assistant message and preceding user message
+      const msgIdx = messages.findIndex(m => m.id === messageId)
+      const assistantMsg = messages[msgIdx]
+      const userMsg = msgIdx > 0 ? messages[msgIdx - 1] : null
+
+      // Use the full context endpoint
+      await fetch(`${API_FEEDBACK_ENDPOINT}/record`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_message: userMsg?.content || '',
+          assistant_response: assistantMsg?.content || '',
+          rating: 'thumbs_down',
+          conversation_id: sessionIdRef.current,
+        }),
+      })
+      showToast('Thanks for the feedback!')
+    } catch {
+      // Fallback to simple feedback
+      try {
+        await fetch(API_FEEDBACK_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message_id: messageId,
+            rating: 'thumbs_down',
+            session_id: sessionIdRef.current,
+          }),
+        })
+        showToast('Thanks for the feedback!')
+      } catch {
+        showToast('Failed to submit feedback', 'error')
+      }
+    }
+  }, [showToast, messages])
+
+  const handleRetry = useCallback(() => {
+    setCurrentError(null)
+    sendMessage()
+  }, [currentError])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (currentError) {
+          setCurrentError(null)
+        } else if (showSettings) {
+          setShowSettings(false)
+        }
+      }
+      if (e.key === '?' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        setShowSettings(prev => !prev)
+      }
+      if (e.key === 'n' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+        e.preventDefault()
+        newChat()
+      }
+      if (e.key === 'r' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        handleRegenerate()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [currentError, showSettings, handleRegenerate])
+
+  const handleAddImage = useCallback((dataUrl: string) => {
+    const newImage: ImageAttachment = {
+      id: Date.now().toString(),
+      dataUrl,
+      name: `image-${Date.now()}.png`,
+    }
+    setImages(prev => [...prev, newImage])
+  }, [])
+
+  const handleRemoveImage = useCallback((id: string) => {
+    setImages(prev => prev.filter(img => img.id !== id))
+  }, [])
+
+  const sendMessage = async () => {
+    if ((!input.trim() && images.length === 0) || loading) return
+    
+    const userImages = [...images]
+    
+    const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       content: input.trim(),
+      timestamp: new Date(),
     }
     
-    setMessages(prev => [...prev, userMessage])
+    const assistantId = (Date.now() + 1).toString()
+    const assistantMessage: ChatMessage = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+    }
+    
+    setMessages(prev => [...prev, userMessage, assistantMessage])
     setInput('')
+    setImages([])
+    setCurrentError(null)
+    setIsStreaming(true)
     setLoading(true)
 
     try {
-      const response = await api.chat({
-        messages: [...messages, userMessage].map(m => ({ role: m.role, content: m.content })),
-        model,
-        max_new_tokens: maxTokens,
-        temperature: temp,
+      const response = await fetch(API_CHAT_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [...messages, userMessage].map(m => ({ role: m.role, content: m.content })),
+          model,
+          max_new_tokens: maxTokens,
+          temperature,
+        }),
       })
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '')
+        setCurrentError(getErrorInfo(response.status, errorText))
+        setMessages(prev => prev.filter(msg => msg.id !== assistantId))
+        setLoading(false)
+        setIsStreaming(false)
+        return
+      }
+
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      let hasContent = false
       
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response.text || 'No response',
+      if (reader) {
+        let buffer = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+                if (data.error) {
+                  setCurrentError(getErrorInfo(500, data.error))
+                  setMessages(prev => prev.filter(msg => msg.id !== assistantId))
+                  setIsStreaming(false)
+                  return
+                }
+                if (data.token !== undefined && data.token) {
+                  hasContent = true
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantId 
+                      ? { ...msg, content: msg.content + data.token }
+                      : msg
+                  ))
+                }
+                if (data.done) break
+              } catch {}
+            }
+          }
+        }
       }
-      setMessages(prev => [...prev, assistantMessage])
+
+      if (!hasContent) {
+        setMessages(prev => prev.map(msg => 
+          msg.id === assistantId 
+            ? { ...msg, content: '(empty response)' }
+            : msg
+        ))
+      }
     } catch (err) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
-      }
-      setMessages(prev => [...prev, errorMessage])
+      setCurrentError(getErrorInfo(0, err instanceof Error ? err.message : 'Network error'))
+      setMessages(prev => prev.filter(msg => msg.id !== assistantId))
     } finally {
       setLoading(false)
+      setIsStreaming(false)
     }
   }
 
-  const clearChat = () => setMessages([])
+  const clearChat = useCallback(() => {
+    newChat()
+  }, [newChat])
+
+  const toggleSettings = useCallback(() => {
+    setShowSettings(prev => !prev)
+  }, [])
 
   return (
-    <div className="flex h-full flex-col">
-      <AppRouteHeader
-        left={
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-sm">Chat</span>
-          </div>
-        }
-        right={
-          <div className="flex items-center gap-2">
-            <InferenceRuntimeToolbar health={health} onRefresh={() => {}} />
-            <Button variant="ghost" size="sm" onClick={() => setShowSettings(!showSettings)}>
-              Settings
-            </Button>
-          </div>
-        }
+    <div className="flex flex-1 flex-col min-h-0">
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+      <SessionSidebar
+        isOpen={showSidebar}
+        onClose={() => setShowSidebar(false)}
+        currentSessionId={sessionIdRef.current}
+        onLoadSession={loadSession}
+        onDeleteSession={deleteSession}
+        onNewChat={newChat}
       />
 
-      {showSettings && (
-        <div className="border-b border-border/50 px-4 py-3 bg-muted/30">
-          <div className="flex flex-wrap gap-4 items-center text-sm">
-            <label className="flex items-center gap-2">
-              <span className="text-muted-foreground">Model:</span>
-              <select
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                className="rounded border bg-background px-2 py-1 text-xs"
-              >
-                <option value="gpt2">gpt2</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-2">
-              <span className="text-muted-foreground">Temp:</span>
-              <input
-                type="number"
-                value={temp}
-                onChange={(e) => setTemp(Number(e.target.value))}
-                step="0.1"
-                min="0"
-                max="2"
-                className="w-16 rounded border bg-background px-2 py-1 text-xs"
-              />
-            </label>
-            <label className="flex items-center gap-2">
-              <span className="text-muted-foreground">Max:</span>
-              <input
-                type="number"
-                value={maxTokens}
-                onChange={(e) => setMaxTokens(Number(e.target.value))}
-                min="1"
-                max="1000"
-                className="w-16 rounded border bg-background px-2 py-1 text-xs"
-              />
-            </label>
-            <Button variant="ghost" size="sm" onClick={clearChat}>
-              Clear
-            </Button>
-          </div>
-        </div>
+      <ChatHeader
+        health={health}
+        showSettings={showSettings}
+        showSidebar={showSidebar}
+        onToggleSettings={toggleSettings}
+        onToggleSidebar={() => setShowSidebar(prev => !prev)}
+        onNewChat={newChat}
+      />
+
+      <ChatSettings
+        isOpen={showSettings}
+        model={model}
+        temperature={temperature}
+        maxTokens={maxTokens}
+        onModelChange={setModel}
+        onTemperatureChange={setTemperature}
+        onMaxTokensChange={setMaxTokens}
+        onClear={clearChat}
+        hasMessages={messages.length > 0}
+      />
+
+      {currentError && (
+        <ErrorBanner
+          error={currentError}
+          onRetry={handleRetry}
+          onDismiss={() => setCurrentError(null)}
+        />
       )}
 
-      <div className="flex-1 overflow-y-auto flex flex-col justify-end">
-        <div className="mx-auto w-full max-w-2xl px-4 py-4">
-        {messages.length === 0 && (
-          <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
-            Start a conversation
-          </div>
-        )}
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`mb-4 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
-                msg.role === 'user'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-foreground'
-              }`}
-            >
-              {msg.content}
-            </div>
-          </div>
-        ))}
-        {loading && (
-          <div className="mb-4 flex justify-start">
-            <div className="rounded-2xl bg-muted px-4 py-2.5 text-sm text-muted-foreground">
-              Thinking...
-            </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-        </div>
-      </div>
+      <ChatMessages
+        ref={messagesEndRef}
+        messages={messages}
+        loading={loading}
+        isStreaming={isStreaming}
+        health={health}
+        onRefreshHealth={refreshHealth}
+        onCopy={handleCopy}
+        onRegenerate={handleRegenerate}
+        onThumbsUp={handleThumbsUp}
+        onThumbsDown={handleThumbsDown}
+      />
 
-      <div className="border-t border-border/50 px-4 py-3">
-        <div className="flex gap-2">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                sendMessage()
-              }
-            }}
-            placeholder="Type a message..."
-            className="flex-1 resize-none rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            rows={1}
-          />
-          <Button onClick={sendMessage} disabled={loading || !input.trim()}>
-            Send
-          </Button>
-        </div>
-      </div>
+      <ChatInput
+        value={input}
+        onChange={setInput}
+        onSend={sendMessage}
+        loading={loading}
+        health={health}
+        images={images}
+        onAddImage={handleAddImage}
+        onRemoveImage={handleRemoveImage}
+      />
     </div>
   )
 }

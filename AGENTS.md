@@ -6,3 +6,40 @@
 - **Contributing & CI parity:** [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Layout:** [docs/STRUCTURE.md](docs/STRUCTURE.md); runtime dirs (**`data/experiments`**, **`data/features`**, **`data/tuning`**, **`data/vector_store`**) — [data/README.md](data/README.md)
 - **CLI → TUI:** Phase 1 shell [`apps/tui/`](apps/tui/README.md) (`python3 -m apps.tui`); roadmap [docs/plans/tui-cli-port.md](docs/plans/tui-cli-port.md)
+
+## Chat UI (Phase 30-34)
+
+### Components
+Chat UI components are in [`apps/web/components/chat/`](apps/web/components/chat/):
+
+| Component | Description |
+|-----------|-------------|
+| `ChatHeader` | Title + ModelStatusBar + Settings toggle |
+| `ChatSettings` | Model/Temp/Max controls with animation |
+| `ChatMessages` | Message list container |
+| `MessageBubble` | Message with copy, markdown, images |
+| `ChatInput` | Textarea + send + voice + image upload |
+| `EmptyState` | Illustration + keyboard hints |
+| `LoadingIndicator` | Animated typing dots |
+| `TypingDots` | Reusable bouncing dots animation |
+| `Toast` | Success/error/info notifications |
+| `ErrorBanner` | Error with retry/dismiss |
+| `VoiceInput` | Speech-to-text microphone |
+| `ImageUpload` | File picker + preview |
+| `Markdown` | Bold, italic, code, links |
+
+### Features
+- Markdown rendering (bold, italic, code, links)
+- Entrance animations on messages
+- Toast notifications
+- Error handling with retry
+- Keyboard shortcuts (Enter to send, Esc to close)
+- Responsive design
+
+### Pending (Multimodal Engine)
+- Voice input (Web Speech API) - pending multimodal inference
+- Image upload with preview - pending multimodal inference
+
+### API Configuration
+Frontend uses direct API URL: `http://localhost:8000/chat/stream`
+Set via `NEXT_PUBLIC_API_URL` env var or defaults to `http://localhost:8000`.

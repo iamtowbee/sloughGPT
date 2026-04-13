@@ -31,10 +31,16 @@ export function useApiHealth() {
 
   useEffect(() => {
     let cancelled = false
+    
     const run = async () => {
-      const h = await api.getHealth()
-      if (!cancelled) setState(h ?? 'offline')
+      try {
+        const h = await api.getHealth()
+        if (!cancelled) setState(h ?? 'offline')
+      } catch {
+        if (!cancelled) setState('offline')
+      }
     }
+    
     void run()
     const id = setInterval(run, POLL_MS)
     const onVis = () => {

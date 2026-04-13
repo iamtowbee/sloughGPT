@@ -70,6 +70,39 @@ logger = logging.getLogger("sloughgpt")
 _PROCESS_START_MONOTONIC = time.monotonic()
 
 
+# ============ Rate Limiting ============
+class RateLimiter:
+    def __init__(self, max_requests: int = 60, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.requests: Dict[str, list[float]] = {}
+
+    def is_allowed(self, client_id: str) -> bool:
+        now = time.time()
+        if client_id not in self.requests:
+            self.requests[client_id] = []
+
+        self.requests[client_id] = [
+            t for t in self.requests[client_id] if now - t < self.window_seconds
+        ]
+
+        if len(self.requests[client_id]) >= self.max_requests:
+            return False
+
+        self.requests[client_id].append(now)
+        return True
+
+    def get_retry_after(self, client_id: str) -> int:
+        if client_id not in self.requests or not self.requests[client_id]:
+            return 0
+        now = time.time()
+        oldest = min(self.requests[client_id])
+        return max(0, int(self.window_seconds - (now - oldest)))
+
+
+rate_limiter = RateLimiter(max_requests=30, window_seconds=60)
+
+
 # ============ Redis Caching ============
 class RedisCache:
     """Simple in-memory cache with TTL (Redis-like interface)."""
@@ -389,8 +422,9 @@ def _format_chat_messages_for_standard(messages: List[ChatMessage]) -> str:
         elif role == "user":
             formatted += f"User: {content}\n\n"
         elif role == "assistant":
-            formatted += f"{content}\n\n"
-    return formatted.strip() + "\n\n"
+            formatted += f"Assistant: {content}\n\n"
+    formatted += "Assistant:"
+    return formatted
 
 
 def _strip_assistant_prefix(text: str) -> str:
@@ -400,6 +434,54 @@ def _strip_assistant_prefix(text: str) -> str:
         if text.startswith(prefix):
             return text[len(prefix) :]
     return text.lstrip()
+
+
+def _clean_generated_text(text: str) -> str:
+    """Remove repetition and unwanted content from generated text."""
+    if not text:
+        return text
+
+    text = re.sub(r"User:\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"Assistant:\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\[[^\]]+\]", "", text)
+
+    lines = text.split("\n")
+    seen_words = set()
+    final_lines = []
+    seen_line_prefixes = set()
+
+    for line in lines:
+        line_clean = line.strip()
+        line_lower = line_clean.lower()
+
+        if not line_clean or len(line_clean) < 2:
+            continue
+
+        prefix = line_lower[:15]
+        if prefix in seen_line_prefixes:
+            continue
+        seen_line_prefixes.add(prefix)
+
+        words = line_lower.split()
+        unique_words = [w for w in words if w not in seen_words][:15]
+        seen_words.update(unique_words)
+
+        if unique_words:
+            final_lines.append(line_clean)
+
+    result = " ".join(final_lines)
+
+    word_chunks = result.split()
+    unique_chunks = []
+    seen_phrases = set()
+
+    for i in range(len(word_chunks)):
+        chunk = " ".join(word_chunks[i : min(i + 8, len(word_chunks))])
+        if chunk not in seen_phrases and len(chunk) > 3:
+            seen_phrases.add(chunk)
+            unique_chunks.append(word_chunks[i])
+
+    return " ".join(unique_chunks).strip()
 
 
 def _generate_core(request: GenerateRequest, client_ip: str) -> Dict[str, Any]:
@@ -641,6 +723,99 @@ class RateLimiter:
 
 
 rate_limiter = RateLimiter(requests_per_minute=60, burst_size=10)
+
+
+# ============ Message Feedback System ============
+class MessageFeedback:
+    """Stores feedback for messages (thumbs up/down)."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._feedback: Dict[str, Dict[str, Any]] = {}
+        self._regenerations: Dict[str, Dict[str, Any]] = {}
+        self._session_contexts: Dict[str, List[ChatMessage]] = {}
+
+    def record_feedback(
+        self,
+        message_id: str,
+        rating: str,  # "thumbs_up" or "thumbs_down"
+        session_id: Optional[str] = None,
+        message_content: Optional[str] = None,
+        context: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Record feedback for a message."""
+        with self._lock:
+            timestamp = datetime.utcnow().isoformat()
+            feedback_entry = {
+                "message_id": message_id,
+                "rating": rating,
+                "timestamp": timestamp,
+                "session_id": session_id,
+            }
+            self._feedback[message_id] = feedback_entry
+
+            if context:
+                self._feedback[message_id]["context"] = (
+                    context[:1000] if len(context) > 1000 else context
+                )
+
+            logger.info(f"Feedback recorded: {rating} for message {message_id}")
+            return feedback_entry
+
+    def get_feedback(self, message_id: str) -> Optional[Dict[str, Any]]:
+        """Get feedback for a message."""
+        return self._feedback.get(message_id)
+
+    def store_session_context(self, session_id: str, messages: List[ChatMessage]) -> None:
+        """Store conversation context for regeneration."""
+        with self._lock:
+            self._session_contexts[session_id] = list(messages)
+
+    def get_session_context(self, session_id: str) -> Optional[List[ChatMessage]]:
+        """Get stored conversation context."""
+        with self._lock:
+            return self._session_contexts.get(session_id)
+
+    def clear_session_context(self, session_id: str) -> None:
+        """Clear stored context for a session."""
+        with self._lock:
+            if session_id in self._session_contexts:
+                del self._session_contexts[session_id]
+
+    def record_regeneration(
+        self,
+        original_message_id: str,
+        new_message_id: str,
+        session_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Record a regeneration event."""
+        with self._lock:
+            regen_entry = {
+                "original_message_id": original_message_id,
+                "new_message_id": new_message_id,
+                "timestamp": datetime.utcnow().isoformat(),
+                "session_id": session_id,
+            }
+            self._regenerations[original_message_id] = regen_entry
+            return regen_entry
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get feedback statistics."""
+        with self._lock:
+            thumbs_up = sum(1 for f in self._feedback.values() if f.get("rating") == "thumbs_up")
+            thumbs_down = sum(
+                1 for f in self._feedback.values() if f.get("rating") == "thumbs_down"
+            )
+            return {
+                "total_feedback": len(self._feedback),
+                "thumbs_up": thumbs_up,
+                "thumbs_down": thumbs_down,
+                "total_regenerations": len(self._regenerations),
+                "active_sessions": len(self._session_contexts),
+            }
+
+
+message_feedback = MessageFeedback()
 
 
 # ----- HTTP metrics for Prometheus (counters + histogram) -----
@@ -1094,6 +1269,36 @@ class ChatRequest(BaseModel):
     top_p: Optional[float] = 0.9
     top_k: Optional[int] = 50
     model: Optional[str] = None
+    user_id: Optional[str] = "default"
+
+
+# ============ Feedback Models ============
+class FeedbackRequest(BaseModel):
+    message_id: str
+    rating: str  # "thumbs_up" or "thumbs_down"
+    session_id: Optional[str] = None
+    message_content: Optional[str] = None
+    context: Optional[str] = None
+
+
+class FeedbackResponse(BaseModel):
+    status: str
+    message_id: str
+    rating: str
+    timestamp: str
+
+
+class RegenerateRequest(BaseModel):
+    session_id: str
+    last_message_index: Optional[int] = None
+
+
+class RegenerateResponse(BaseModel):
+    status: str
+    original_message_id: str
+    new_message_id: str
+    text: str
+    model: str
 
 
 # ============ SloughGPT Standard v1 inference envelope ============
@@ -1980,8 +2185,19 @@ async def chat_completion(request: ChatRequest, req: Request):
 
 
 @app.post("/chat/stream")
-async def chat_stream(request: ChatRequest):
-    """Streaming chat completion using Server-Sent Events (same prompt formatting as ``POST /chat``)."""
+async def chat_stream(request: ChatRequest, req: Request):
+    """Streaming chat completion using Server-Sent Events with meta-weight adjustment."""
+    client_ip = req.client.host if req.client else "unknown"
+
+    if not rate_limiter.is_allowed(client_ip):
+        retry_after = rate_limiter.get_retry_after(client_ip)
+        return Response(
+            content=json.dumps({"error": "Rate limit exceeded. Please wait."}),
+            status_code=429,
+            headers={"Retry-After": str(retry_after)},
+            media_type="application/json",
+        )
+
     if not request.messages:
         raise HTTPException(status_code=400, detail="messages must not be empty")
 
@@ -1995,38 +2211,551 @@ async def chat_stream(request: ChatRequest):
     top_k = request.top_k if request.top_k is not None else 50
     top_k = max(1, min(500, int(top_k)))
 
+    # Get last user message for meta-weight lookup
+    last_user_msg = ""
+    for msg in reversed(request.messages):
+        if msg.role == "user":
+            last_user_msg = msg.content
+            break
+
+    # Try to get meta-weight adjustments
+    meta_temperate = temperature
+    meta_rep_penalty = 1.1
+    meta_k = top_k
+    meta_p = top_p_val
+
+    try:
+        manager = get_meta_weight_manager()
+        if manager is not None:
+            meta_weights = manager.get_adjustment(
+                last_user_msg, k=3, user_id=request.user_id or "default"
+            )
+            meta_temperate = meta_weights.temperature
+            meta_rep_penalty = meta_weights.repetition_penalty
+            meta_k = meta_weights.top_k
+            meta_p = meta_weights.top_p
+    except Exception:
+        pass  # Use defaults if meta-weight system unavailable
+
+    # Check if user has a LoRA adapter for extra personalization
+    user_lora_adapter = None
+    try:
+        from domains.feedback import get_per_user_lora
+
+        user_lora = get_per_user_lora()
+        adapter = user_lora.get_adapter(request.user_id or "default")
+        if adapter:
+            user_lora_adapter = adapter
+    except Exception:
+        pass
+
     engine = get_inference_engine()
 
     async def token_stream():
         if engine is None:
             yield f"data: {json.dumps({'error': 'Model not loaded', 'token': '', 'done': True})}\n\n"
             return
-        prefix_stripped = False
-        accumulated = ""
-        async for token in engine.generate_stream(
-            prompt=prompt,
-            max_new_tokens=max_gen,
-            temperature=temperature,
-            top_p=top_p_val,
-            top_k=top_k,
-        ):
-            if not prefix_stripped:
-                accumulated += token
-                if accumulated.startswith("Assistant:"):
-                    accumulated = accumulated[len("Assistant:") :].lstrip()
-                    prefix_stripped = True
-                    if accumulated:
-                        yield f"data: {json.dumps({'token': accumulated, 'done': False})}\n\n"
-                elif accumulated.startswith("Assistant: "):
-                    accumulated = accumulated[len("Assistant: ") :]
-                    prefix_stripped = True
-                    if accumulated:
-                        yield f"data: {json.dumps({'token': accumulated, 'done': False})}\n\n"
-            else:
-                yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
-        yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
+
+        try:
+            loop = asyncio.get_event_loop()
+            generated_text = await loop.run_in_executor(
+                None,
+                lambda: engine.generate_single(
+                    prompt=prompt,
+                    max_new_tokens=max_gen,
+                    temperature=meta_temperate,
+                    top_p=meta_p,
+                    top_k=meta_k,
+                    repetition_penalty=meta_rep_penalty,
+                ),
+            )
+            generated_text = _clean_generated_text(generated_text)
+            generated_text = _strip_assistant_prefix(generated_text)
+
+            words = generated_text.split()
+            for word in words:
+                yield f"data: {json.dumps({'token': word + ' ', 'done': False})}\n\n"
+                await asyncio.sleep(0.01)
+            yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e), 'token': '', 'done': True})}\n\n"
 
     return StreamingResponse(token_stream(), media_type="text/event-stream")
+
+
+# ============ Message Feedback Endpoints ============
+@app.post("/feedback", response_model=FeedbackResponse, tags=["feedback"])
+async def submit_feedback(request: FeedbackRequest, req: Request):
+    """
+    Submit feedback for a message (thumbs up or thumbs down).
+
+    This stores user feedback for quality tracking and model improvement.
+    """
+    client_ip = req.client.host if req.client else "unknown"
+
+    if request.rating not in ("thumbs_up", "thumbs_down"):
+        raise HTTPException(status_code=400, detail="rating must be 'thumbs_up' or 'thumbs_down'")
+
+    feedback = message_feedback.record_feedback(
+        message_id=request.message_id,
+        rating=request.rating,
+        session_id=request.session_id,
+        message_content=request.message_content,
+        context=request.context,
+    )
+
+    audit_logger.log(
+        "feedback",
+        client_ip,
+        resource="/feedback",
+        action=request.rating,
+        status="success",
+        details={"message_id": request.message_id},
+    )
+
+    return FeedbackResponse(
+        status="recorded",
+        message_id=feedback["message_id"],
+        rating=feedback["rating"],
+        timestamp=feedback["timestamp"],
+    )
+
+
+@app.get("/feedback/{message_id}", tags=["feedback"])
+async def get_feedback(message_id: str, req: Request):
+    """Get feedback for a specific message."""
+    feedback = message_feedback.get_feedback(message_id)
+    if not feedback:
+        raise HTTPException(status_code=404, detail="Feedback not found for this message")
+    return {"message_id": message_id, "feedback": feedback}
+
+
+@app.get("/feedback/stats/summary", tags=["feedback"])
+async def get_feedback_stats():
+    """Get aggregated feedback statistics."""
+    return message_feedback.get_stats()
+
+
+# ============ Session Context Storage ============
+@app.post("/session/{session_id}/context", tags=["session"])
+async def store_session_context(session_id: str, req: Request):
+    """
+    Store conversation context for a session.
+    Used for regeneration functionality.
+    """
+    try:
+        body = await req.json()
+        messages = body.get("messages", [])
+        validated_messages = [ChatMessage(**msg) for msg in messages]
+        message_feedback.store_session_context(session_id, validated_messages)
+        return {"status": "stored", "session_id": session_id, "message_count": len(messages)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/session/{session_id}/regenerate", response_model=RegenerateResponse, tags=["session"])
+async def regenerate_response(session_id: str, req: Request):
+    """
+    Regenerate the last assistant response using stored context.
+
+    This endpoint retrieves the stored conversation context and generates
+    a new response for the last user message.
+    """
+    client_ip = req.client.host if req.client else "unknown"
+
+    context_messages = message_feedback.get_session_context(session_id)
+    if not context_messages:
+        raise HTTPException(
+            status_code=404, detail="No session context found. Store context before regenerating."
+        )
+
+    last_user_idx = -1
+    for i in range(len(context_messages) - 1, -1, -1):
+        if context_messages[i].role == "user":
+            last_user_idx = i
+            break
+
+    if last_user_idx == -1:
+        raise HTTPException(status_code=400, detail="No user message found in context")
+
+    prompt_messages = context_messages[: last_user_idx + 1]
+    prompt = _format_chat_messages_for_standard(prompt_messages)
+
+    engine = get_inference_engine()
+    if engine is None:
+        return RegenerateResponse(
+            status="error",
+            original_message_id=f"{session_id}-last",
+            new_message_id=f"{session_id}-regen-{uuid.uuid4().hex[:8]}",
+            text="Model not loaded",
+            model="none",
+        )
+
+    try:
+        loop = asyncio.get_event_loop()
+        generated_text = await loop.run_in_executor(
+            None,
+            lambda: engine.generate_single(
+                prompt=prompt,
+                max_new_tokens=100,
+                temperature=0.7,
+                top_p=0.9,
+                top_k=50,
+                repetition_penalty=1.1,
+            ),
+        )
+        generated_text = _clean_generated_text(generated_text)
+        generated_text = _strip_assistant_prefix(generated_text)
+
+        original_msg_id = f"{session_id}-msg-{last_user_idx}"
+        new_msg_id = f"{session_id}-regen-{uuid.uuid4().hex[:8]}"
+
+        message_feedback.record_regeneration(
+            original_message_id=original_msg_id,
+            new_message_id=new_msg_id,
+            session_id=session_id,
+        )
+
+        audit_logger.log(
+            "regenerate",
+            client_ip,
+            resource=f"/session/{session_id}/regenerate",
+            action="success",
+            status="success",
+        )
+
+        return RegenerateResponse(
+            status="success",
+            original_message_id=original_msg_id,
+            new_message_id=new_msg_id,
+            text=generated_text,
+            model=model_type,
+        )
+
+    except Exception as e:
+        audit_logger.log(
+            "regenerate",
+            client_ip,
+            resource=f"/session/{session_id}/regenerate",
+            action="error",
+            status="failure",
+            details={"error": str(e)},
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ Meta-Weight Learning Endpoints ============
+
+_meta_weight_manager = None
+
+
+def get_meta_weight_manager():
+    """Lazy load meta-weight manager to avoid import issues."""
+    global _meta_weight_manager
+    if _meta_weight_manager is None:
+        try:
+            from domains.feedback import MetaWeightManager, get_meta_weight_manager as _get_manager
+
+            _meta_weight_manager = _get_manager()
+        except ImportError:
+            return None
+    return _meta_weight_manager
+
+
+class RecordFeedbackRequest(BaseModel):
+    user_message: str
+    assistant_response: str
+    rating: str  # "thumbs_up" or "thumbs_down"
+    conversation_id: Optional[str] = None
+    quality_score: Optional[float] = None
+    user_id: Optional[str] = "default"
+
+
+class GetMetaWeightsRequest(BaseModel):
+    user_message: str
+    k: Optional[int] = 5
+    user_id: Optional[str] = "default"
+
+
+class MetaWeightResponse(BaseModel):
+    temperature: float
+    repetition_penalty: float
+    top_p: float
+    top_k: int
+    based_on_samples: int
+
+
+@app.post("/meta-weights/get", response_model=MetaWeightResponse, tags=["meta-weights"])
+async def get_meta_weights(request: GetMetaWeightsRequest, req: Request):
+    """
+    Get meta-weight adjustments based on similar past feedback.
+
+    Retrieves k most similar messages with positive feedback and
+    calculates generation parameter adjustments.
+    """
+    manager = get_meta_weight_manager()
+    if manager is None:
+        raise HTTPException(status_code=503, detail="Meta-weight system not available")
+
+    weights = manager.get_adjustment(
+        user_message=request.user_message, k=request.k or 5, user_id=request.user_id or "default"
+    )
+
+    return MetaWeightResponse(
+        temperature=weights.temperature,
+        repetition_penalty=weights.repetition_penalty,
+        top_p=weights.top_p,
+        top_k=weights.top_k,
+        based_on_samples=len(manager._weight_history),
+    )
+
+
+@app.post("/feedback/record", tags=["meta-weights"])
+async def record_feedback_with_context(request: RecordFeedbackRequest, req: Request):
+    """
+    Record feedback with full conversation context for training.
+
+    Stores in SQLite for vector search and training data export.
+    """
+    manager = get_meta_weight_manager()
+    if manager is None:
+        raise HTTPException(status_code=503, detail="Meta-weight system not available")
+
+    if request.rating not in ("thumbs_up", "thumbs_down"):
+        raise HTTPException(status_code=400, detail="rating must be 'thumbs_up' or 'thumbs_down'")
+
+    feedback_id = manager.record_feedback(
+        user_message=request.user_message,
+        assistant_response=request.assistant_response,
+        rating=request.rating,
+        conversation_id=request.conversation_id,
+        quality_score=request.quality_score,
+        user_id=request.user_id or "default",
+    )
+
+    # Trigger online LoRA update (runs in background)
+    try:
+        from domains.feedback import get_online_lora_updater
+
+        lora_updater = get_online_lora_updater()
+        lora_updater.add_feedback(
+            prompt=request.user_message,
+            response=request.assistant_response,
+            rating=request.rating,
+            quality_score=request.quality_score,
+        )
+    except Exception:
+        pass  # Don't fail if online training unavailable
+
+    # Update per-user LoRA adapter
+    try:
+        from domains.feedback import get_per_user_lora
+
+        user_lora = get_per_user_lora()
+        feedback_signal = 1.0 if request.rating == "thumbs_up" else -1.0
+        user_lora.update_adapter(
+            user_id=request.user_id or "default",
+            feedback_signal=feedback_signal,
+            learning_rate=0.01,
+        )
+    except Exception:
+        pass  # Don't fail if per-user LoRA unavailable
+
+    # Get updated stats
+    stats = manager.get_stats()
+
+    return {
+        "status": "recorded",
+        "feedback_id": feedback_id,
+        "stats": stats,
+    }
+
+
+@app.get("/meta-weights/stats", tags=["meta-weights"])
+async def get_meta_weight_stats(req: Request):
+    """Get meta-weight system statistics."""
+    manager = get_meta_weight_manager()
+    if manager is None:
+        raise HTTPException(status_code=503, detail="Meta-weight system not available")
+
+    return manager.get_stats()
+
+
+class ExportFeedbackRequest(BaseModel):
+    filepath: str = "data/training_feedback.jsonl"
+    format: str = "jsonl"  # "jsonl" or "dpo"
+
+
+@app.post("/feedback/export", tags=["meta-weights"])
+async def export_feedback_data(request: ExportFeedbackRequest, req: Request):
+    """Export feedback data for training."""
+    manager = get_meta_weight_manager()
+    if manager is None:
+        raise HTTPException(status_code=503, detail="Meta-weight system not available")
+
+    try:
+        manager.export_training_data(filepath=request.filepath, format=request.format)
+        return {
+            "status": "exported",
+            "filepath": request.filepath,
+            "format": request.format,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/feedback/conversations", tags=["meta-weights"])
+async def list_conversations(req: Request):
+    """List all conversations."""
+    manager = get_meta_weight_manager()
+    if manager is None:
+        raise HTTPException(status_code=503, detail="Meta-weight system not available")
+
+    conversations = manager.db.list_conversations(limit=100)
+    return {"conversations": conversations}
+
+
+@app.get("/feedback/conversations/{conversation_id}/messages", tags=["meta-weights"])
+async def get_conversation_messages(conversation_id: str, req: Request):
+    """Get all messages in a conversation."""
+    manager = get_meta_weight_manager()
+    if manager is None:
+        raise HTTPException(status_code=503, detail="Meta-weight system not available")
+
+    messages = manager.db.get_messages(conversation_id)
+    return {"conversation_id": conversation_id, "messages": messages}
+
+
+@app.get("/online-training/stats", tags=["online-training"])
+async def get_online_training_stats(req: Request):
+    """Get online LoRA training statistics."""
+    try:
+        from domains.feedback import get_online_lora_updater
+
+        updater = get_online_lora_updater()
+        return updater.get_stats()
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Online training not available")
+
+
+@app.post("/online-training/reset", tags=["online-training"])
+async def reset_online_training(req: Request):
+    """Reset online LoRA weights to initial state."""
+    try:
+        from domains.feedback import get_online_lora_updater
+
+        updater = get_online_lora_updater()
+        updater.reset()
+        return {"status": "reset", "message": "Online training weights reset"}
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Online training not available")
+
+
+# ============ Per-User LoRA Endpoints ============
+
+
+@app.get("/user-adapters", tags=["user-adapters"])
+async def list_user_adapters(req: Request):
+    """List all user adapters and their stats."""
+    try:
+        from domains.feedback import get_per_user_lora
+
+        store = get_per_user_lora()
+        adapters = store.get_all_adapters()
+        stats = store.get_stats()
+        return {
+            "adapters": adapters,
+            "stats": stats,
+        }
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Per-user LoRA not available")
+
+
+@app.get("/user-adapters/{user_id}", tags=["user-adapters"])
+async def get_user_adapter(user_id: str, req: Request):
+    """Get a specific user's adapter info."""
+    try:
+        from domains.feedback import get_per_user_lora
+
+        store = get_per_user_lora()
+        adapter = store.get_adapter(user_id)
+        if adapter is None:
+            return {"user_id": user_id, "exists": False}
+        return {
+            "user_id": adapter.user_id,
+            "exists": True,
+            "feedback_count": adapter.feedback_count,
+            "created_at": adapter.created_at,
+            "updated_at": adapter.updated_at,
+        }
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Per-user LoRA not available")
+
+
+@app.post("/user-adapters/{user_id}/update", tags=["user-adapters"])
+async def update_user_adapter(user_id: str, req: Request):
+    """Update a user's LoRA adapter based on feedback."""
+    try:
+        from domains.feedback import get_per_user_lora
+
+        store = get_per_user_lora()
+
+        # Get feedback signal from request
+        body = await req.json()
+        rating = body.get("rating", "thumbs_up")
+        feedback_signal = 1.0 if rating == "thumbs_up" else -1.0
+        learning_rate = body.get("learning_rate", 0.01)
+
+        adapter = store.update_adapter(
+            user_id=user_id,
+            feedback_signal=feedback_signal,
+            learning_rate=learning_rate,
+        )
+
+        return {
+            "status": "updated",
+            "user_id": user_id,
+            "feedback_count": adapter.feedback_count,
+        }
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Per-user LoRA not available")
+
+
+@app.delete("/user-adapters/{user_id}", tags=["user-adapters"])
+async def delete_user_adapter(user_id: str, req: Request):
+    """Delete a user's LoRA adapter."""
+    try:
+        from domains.feedback import get_per_user_lora
+
+        store = get_per_user_lora()
+        store.delete_adapter(user_id)
+        return {"status": "deleted", "user_id": user_id}
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Per-user LoRA not available")
+
+
+@app.post("/user-adapters/merge", tags=["user-adapters"])
+async def merge_user_adapters(req: Request):
+    """Merge multiple user adapters into aggregated weights."""
+    try:
+        from domains.feedback import get_per_user_lora
+
+        store = get_per_user_lora()
+
+        body = await req.json()
+        user_ids = body.get("user_ids", [])
+
+        merged = store.merge_adapters(user_ids)
+
+        return {
+            "status": "merged",
+            "user_count": merged["user_count"],
+            "adapter_rank": store.adapter_rank,
+            "model_dim": store.model_dim,
+            "note": "Merged weights returned (not applied to model)",
+        }
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Per-user LoRA not available")
 
 
 @app.websocket("/ws/generate")
