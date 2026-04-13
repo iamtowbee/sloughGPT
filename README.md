@@ -20,6 +20,7 @@ Self-hosted LLM infrastructure with local model training, inference, and experim
 - **Kubernetes Ready** - Helm charts, health probes, Prometheus metrics
 - **Docker Ready** - Docker Compose with API, GPU, monitoring stacks
 - **TypeScript SDK** - Full-featured SDK with webhooks, billing, caching
+- **Feedback System** - User feedback collection with per-user LoRA adapters for personalized model adaptation
 
 ## Quick Start
 
@@ -83,6 +84,28 @@ python3 -m uvicorn main:app --app-dir apps/api/server --host 0.0.0.0 --port 8000
 # GPU mode
 ./scripts/deploy/docker-manage.sh gpu
 ```
+
+### Feedback & Adaptation System
+```bash
+# The feedback system runs automatically when the server starts
+# It collects user feedback and creates per-user LoRA adapters
+
+# View feedback stats
+curl http://localhost:8000/meta-weights/stats
+
+# View user adapters
+curl http://localhost:8000/user-adapters
+
+# View workflow status
+curl http://localhost:8000/workflow/status
+
+# Export training data (DPO format)
+curl -X POST http://localhost:8000/feedback/export-training \
+  -H "Content-Type: application/json" \
+  -d '{"format": "dpo"}'
+```
+
+See **Training page** in the web UI for admin controls (aggregation, pruning, export).
 
 ### Verify install (optional)
 From the repo root, `verify.sh` checks core paths and (if **`ruff`** is available) runs the same lint smoke as CI; if **`node`** is available and **`apps/web/node_modules`** exists, it runs **`npm run ci`** there (lint + typecheck + Vitest + **`npm run build:clean`** — clean **`.next`** then **`next build`**). It prints **root `package.json`** contract commands (**`npm run test:repo-root`**, **`make test-repo-root`**, etc.) and other commands that mirror CI (**`test-web`**, **`test-sdk-ts`**, **`sdk-test-py`**, **`standards-schemas`** in **`.github/workflows/ci_cd.yml`**). See **QUICKSTART.md** for the full install flow.
