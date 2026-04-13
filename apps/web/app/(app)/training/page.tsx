@@ -55,6 +55,7 @@ export default function TrainingPage() {
   const [trainingStats, setTrainingStats] = useState<TrainingStats | null>(null)
   const [exporting, setExporting] = useState<string | null>(null)
   const [exportResult, setExportResult] = useState<string | null>(null)
+  const [trainResult, setTrainResult] = useState<{ status: string; job_id?: string; samples?: number; message?: string } | null>(null)
 
   // Workflow & adapter state
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus | null>(null)
@@ -131,6 +132,22 @@ export default function TrainingPage() {
       setAdminAction(null)
     }
   }, [])
+
+  const handleTrainFromFeedback = useCallback(async () => {
+    setAdminAction('train')
+    setTrainResult(null)
+    try {
+      const result = await api.trainFromFeedback()
+      setTrainResult(result)
+      // Refresh jobs to show new training job
+      await fetchJobs()
+    } catch (error) {
+      devDebug('Train from feedback failed:', error)
+      setTrainResult({ status: 'error', message: 'Training failed to start' })
+    } finally {
+      setAdminAction(null)
+    }
+  }, [fetchJobs])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -384,7 +401,23 @@ export default function TrainingPage() {
               >
                 {adminAction === 'prune' ? 'Pruning...' : 'Prune Low Quality'}
               </Button>
+              <Button
+                size="sm"
+                variant="default"
+                onClick={handleTrainFromFeedback}
+                disabled={adminAction !== null || !trainingStats || trainingStats.available_sft_examples === 0}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {adminAction === 'train' ? 'Training...' : 'Train from Feedback'}
+              </Button>
             </div>
+            {trainResult && (
+              <div className={`p-2 rounded-md text-sm ${trainResult.status === 'started' ? 'bg-green-500/20 text-green-700' : 'bg-muted'}`}>
+                {trainResult.message}
+                {trainResult.job_id && <span className="ml-2 font-mono text-xs">Job: {trainResult.job_id}</span>}
+                {trainResult.samples && <span className="ml-2">({trainResult.samples} samples)</span>}
+              </div>
+            )}
           </div>
         </FoldSection>
       )}

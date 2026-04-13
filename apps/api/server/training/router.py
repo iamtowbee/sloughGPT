@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -28,13 +29,19 @@ def _sloughgpt_trainer_kwds(req_snapshot: dict[str, Any]) -> dict[str, Any]:
         "n_layer": int(req_snapshot.get("n_layer") or 4),
         "n_head": int(req_snapshot.get("n_head") or 4),
         "block_size": int(req_snapshot.get("block_size") or 128),
-        "dropout": float(req_snapshot.get("dropout") if req_snapshot.get("dropout") is not None else 0.1),
+        "dropout": float(
+            req_snapshot.get("dropout") if req_snapshot.get("dropout") is not None else 0.1
+        ),
         "batch_size": int(req_snapshot.get("batch_size") or 32),
         "epochs": int(req_snapshot.get("epochs") or 3),
         "lr": float(req_snapshot.get("learning_rate") or 1e-3),
         "max_steps": req_snapshot.get("max_steps"),
         "gradient_accumulation_steps": int(req_snapshot.get("gradient_accumulation_steps") or 1),
-        "max_grad_norm": float(req_snapshot.get("max_grad_norm") if req_snapshot.get("max_grad_norm") is not None else 1.0),
+        "max_grad_norm": float(
+            req_snapshot.get("max_grad_norm")
+            if req_snapshot.get("max_grad_norm") is not None
+            else 1.0
+        ),
         "use_mixed_precision": bool(req_snapshot.get("use_mixed_precision", True)),
         "mixed_precision_dtype": str(req_snapshot.get("mixed_precision_dtype") or "bf16"),
         "checkpoint_dir": str(req_snapshot.get("checkpoint_dir") or "checkpoints"),
@@ -42,9 +49,19 @@ def _sloughgpt_trainer_kwds(req_snapshot: dict[str, Any]) -> dict[str, Any]:
         "save_best_only": bool(req_snapshot.get("save_best_only", False)),
         "max_checkpoints": int(req_snapshot.get("max_checkpoints") or 5),
         "scheduler_type": str(req_snapshot.get("scheduler") or "cosine"),
-        "warmup_steps": int(req_snapshot.get("warmup_steps") if req_snapshot.get("warmup_steps") is not None else 100),
-        "min_lr": float(req_snapshot.get("min_lr") if req_snapshot.get("min_lr") is not None else 1e-5),
-        "weight_decay": float(req_snapshot.get("weight_decay") if req_snapshot.get("weight_decay") is not None else 0.01),
+        "warmup_steps": int(
+            req_snapshot.get("warmup_steps")
+            if req_snapshot.get("warmup_steps") is not None
+            else 100
+        ),
+        "min_lr": float(
+            req_snapshot.get("min_lr") if req_snapshot.get("min_lr") is not None else 1e-5
+        ),
+        "weight_decay": float(
+            req_snapshot.get("weight_decay")
+            if req_snapshot.get("weight_decay") is not None
+            else 0.01
+        ),
         "use_lora": bool(req_snapshot.get("use_lora", False)),
         "lora_rank": int(req_snapshot.get("lora_rank") or 8),
         "lora_alpha": int(req_snapshot.get("lora_alpha") or 16),
@@ -245,7 +262,9 @@ async def start_training(request: TrainingRequest):
                 experiment_tracker=tracker,
             )
             result = trainer.train(on_progress=on_progress)
-            safe_stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in out_stem_for_thread)[:120]
+            safe_stem = "".join(
+                c if c.isalnum() or c in "-_" else "_" for c in out_stem_for_thread
+            )[:120]
             trainer.save(f"models/{safe_stem}_trained.pt")
             training_jobs[jid]["status"] = "completed"
             training_jobs[jid]["progress"] = 100
@@ -267,5 +286,118 @@ async def start_training(request: TrainingRequest):
 
     thread = threading.Thread(target=run_training, daemon=True)
     thread.start()
+
+
+@router.post("/training/from-feedback")
+async def train_from_feedback():
+    """Train a model from collected feedback data.
+
+    This endpoint:
+    1. Exports feedback as training data (DPO format)
+    2. Starts training with the exported data
+    3. Returns the job ID for tracking
+    """
+    import os
+    import uuid
+    from pathlib import Path
+    from pydantic import BaseModel
+
+    class TrainFromFeedbackRequest(BaseModel):
+        epochs: int = 3
+        batch_size: int = 16
+        learning_rate: float = 1e-4
+        use_lora: bool = True
+
+    try:
+        from domains.feedback.training import FeedbackTrainer
+
+        trainer = FeedbackTrainer()
+
+        # Export feedback data
+        timestamp = int(time.time())
+        export_dir = Path("data/training_exports")
+        export_dir.mkdir(parents=True, exist_ok=True)
+
+        # Export as SFT format for training
+        sft_path = export_dir / f"feedback_sft_{timestamp}.jsonl"
+        count = trainer.export_sft(str(sft_path))
+
+        if count == 0:
+            return {"status": "no_data", "message": "No feedback data available for training"}
+
+        # Create training job
+        jid = f"feedback_train_{uuid.uuid4().hex[:8]}"
+        data_path = str(sft_path)
+        out_stem = f"feedback_model_{timestamp}"
+
+        training_jobs[jid] = {
+            "id": jid,
+            "name": f"Feedback Training {timestamp}",
+            "status": "running",
+            "progress": 0,
+            "dataset": str(sft_path),
+            "data_source": "feedback",
+            "epochs": 3,
+            "checkpoint_interval": 100,
+            "output_checkpoint_stem": out_stem,
+        }
+
+        def run_feedback_training():
+            try:
+                from domains.training.train_pipeline import SloughGPTTrainer
+
+                trainer = SloughGPTTrainer(
+                    data_path=data_path,
+                    n_embed=256,
+                    n_layer=6,
+                    n_head=8,
+                    block_size=256,
+                    epochs=3,
+                    batch_size=16,
+                    lr=1e-4,
+                    use_lora=True,
+                    lora_rank=8,
+                    lora_alpha=16,
+                    checkpoint_dir="models",
+                    checkpoint_interval=100,
+                    use_mixed_precision=True,
+                )
+
+                def on_progress(
+                    step: int, epoch: int, loss: float | None, loss_type: str = "train"
+                ):
+                    training_jobs[jid]["progress"] = min(99, int((epoch / 3) * 100))
+                    training_jobs[jid]["current_epoch"] = epoch
+                    if loss is not None:
+                        training_jobs[jid][loss_type] = float(loss)
+
+                result = trainer.train(on_progress=on_progress)
+                safe_stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in out_stem)[:120]
+                trainer.save(f"models/{safe_stem}.pt")
+
+                training_jobs[jid]["status"] = "completed"
+                training_jobs[jid]["progress"] = 100
+                training_jobs[jid]["checkpoint"] = f"models/{safe_stem}.pt"
+                training_jobs[jid]["samples_used"] = count
+
+            except Exception as e:
+                logger.exception("Feedback training job %s failed", jid)
+                training_jobs[jid]["status"] = "failed"
+                training_jobs[jid]["error"] = str(e)
+
+        thread = threading.Thread(target=run_feedback_training, daemon=True)
+        thread.start()
+
+        return {
+            "status": "started",
+            "job_id": jid,
+            "samples": count,
+            "data_path": str(sft_path),
+            "message": "Training started from feedback data",
+        }
+
+    except Exception as e:
+        logger.exception("Failed to start feedback training")
+        raise HTTPException(status_code=500, detail=str(e))
 
     return job

@@ -1164,6 +1164,15 @@ export const api = {
     return () => eventSource.close()
   },
 
+  async trainFromFeedback(): Promise<{ status: string; job_id?: string; samples?: number; message?: string }> {
+    const res = await fetchWithAuth(`${API_URL}/training/from-feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    return res.json()
+  },
+
   // ===== FEEDBACK SYSTEM =====
 
   async recordFeedback(params: {
