@@ -14,7 +14,7 @@ import { FoldSection, JobStatus, ProgressBar } from '@/components/strui'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
-import { api, TrainingJob, TrainResolveResponse, type TrainingStats } from '@/lib/api'
+import { api, TrainingJob, TrainResolveResponse, type TrainingStats, type UserAdapterStats, type WorkflowStatus } from '@/lib/api'
 import { devDebug } from '@/lib/dev-log'
 import {
   TRAINING_API_DEFAULTS,
@@ -56,6 +56,11 @@ export default function TrainingPage() {
   const [exporting, setExporting] = useState<string | null>(null)
   const [exportResult, setExportResult] = useState<string | null>(null)
 
+  // Workflow & adapter state
+  const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus | null>(null)
+  const [adapterStats, setAdapterStats] = useState<UserAdapterStats | null>(null)
+  const [adminAction, setAdminAction] = useState<string | null>(null)
+
   const apiHealthLabel = useMemo(() => inferenceHealthLabel(health), [health])
 
   const healthToneClass = useMemo(() => {
@@ -80,6 +85,10 @@ export default function TrainingPage() {
     void fetchJobs()
     // Fetch feedback training stats
     api.getTrainingStats().then(setTrainingStats).catch(() => setTrainingStats(null))
+    // Fetch workflow status
+    api.getWorkflowStatus().then(setWorkflowStatus).catch(() => setWorkflowStatus(null))
+    // Fetch adapter stats
+    api.getUserAdapters().then(setAdapterStats).catch(() => setAdapterStats(null))
   }, [fetchJobs])
 
   const handleExport = useCallback(async (format: 'dpo' | 'sft') => {
@@ -96,6 +105,30 @@ export default function TrainingPage() {
       devDebug('Export failed:', error)
     } finally {
       setExporting(null)
+    }
+  }, [])
+
+  const handleWorkflowAction = useCallback(async (action: 'aggregate' | 'prune' | 'export' | 'start' | 'stop') => {
+    setAdminAction(action)
+    try {
+      if (action === 'start') {
+        await api.startWorkflow()
+      } else if (action === 'stop') {
+        await api.stopWorkflow()
+      } else {
+        await api.triggerWorkflowAction(action)
+      }
+      // Refresh status
+      const [wf, adapters] = await Promise.all([
+        api.getWorkflowStatus(),
+        api.getUserAdapters()
+      ])
+      setWorkflowStatus(wf)
+      setAdapterStats(adapters)
+    } catch (error) {
+      devDebug('Workflow action failed:', error)
+    } finally {
+      setAdminAction(null)
     }
   }, [])
 
@@ -310,6 +343,86 @@ export default function TrainingPage() {
                 disabled={exporting !== null || trainingStats.available_sft_examples === 0}
               >
                 {exporting === 'sft' ? 'Exporting...' : 'Export SFT'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Workflow & Adapters Management Section */}
+      {(workflowStatus || adapterStats) && (
+        <Card className="mb-6">
+          <CardHeader className="py-4">
+            <CardTitle className="text-base">LLM Adaptation System</CardTitle>
+            <CardDescription>
+              Per-user LoRA adapters and automated feedback pipeline
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-3 gap-4 mb-4">
+              {adapterStats && (
+                <>
+                  <div className="text-center p-3 bg-muted/50 rounded-lg">
+                    <div className="text-2xl font-bold">{adapterStats.total_users}</div>
+                    <div className="text-xs text-muted-foreground">User Adapters</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {adapterStats.total_size_mb.toFixed(2)} MB
+                    </div>
+                  </div>
+                  {adapterStats.auto_management && (
+                    <div className="text-center p-3 bg-muted/50 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600">
+                        {adapterStats.auto_management.quality_adapters_count as number}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Quality Adapters</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Threshold: {adapterStats.auto_management.aggregate_threshold as number}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              {workflowStatus && (
+                <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <div className={`text-2xl font-bold ${workflowStatus.running ? 'text-green-600' : 'text-gray-500'}`}>
+                    {workflowStatus.running ? 'Active' : 'Stopped'}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Workflow</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Aggregations: {workflowStatus.stats.aggregations_performed as number}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {workflowStatus && (
+                <Button
+                  size="sm"
+                  variant={workflowStatus.running ? 'destructive' : 'default'}
+                  onClick={() => handleWorkflowAction(workflowStatus.running ? 'stop' : 'start')}
+                  disabled={adminAction !== null}
+                >
+                  {adminAction === (workflowStatus.running ? 'stop' : 'start') 
+                    ? 'Processing...' 
+                    : workflowStatus.running ? 'Stop Workflow' : 'Start Workflow'}
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => handleWorkflowAction('aggregate')}
+                disabled={adminAction !== null}
+              >
+                {adminAction === 'aggregate' ? 'Aggregating...' : 'Aggregate Adapters'}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => handleWorkflowAction('prune')}
+                disabled={adminAction !== null}
+              >
+                {adminAction === 'prune' ? 'Pruning...' : 'Prune Low Quality'}
               </Button>
             </div>
           </CardContent>
