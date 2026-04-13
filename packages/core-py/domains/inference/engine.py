@@ -147,8 +147,10 @@ class InferenceEngine:
     def _apply_lora_to_logits(self, logits: torch.Tensor) -> torch.Tensor:
         """Apply LoRA adapter adjustment to logits.
 
-        LoRA adapter should have W_a (rank x dim) and W_b (dim x rank).
-        Applies delta = W_b @ W_a * (alpha / rank) as additive adjustment.
+        Uses a simplified but effective approach:
+        - Compute delta = W_b @ W_a (dim, dim) and take its diagonal
+        - The diagonal captures per-dimension importance
+        - Scale by (alpha / rank) * feedback_strength
         """
         if self._lora_adapter is None:
             return logits
@@ -161,6 +163,7 @@ class InferenceEngine:
                 W_b = self._lora_adapter.W_b
                 alpha = getattr(self._lora_adapter, "alpha", 16)
                 rank = getattr(self._lora_adapter, "rank", 8)
+                feedback_count = getattr(self._lora_adapter, "feedback_count", 1)
 
                 # Convert to torch tensors if numpy
                 if isinstance(W_a, np.ndarray):
@@ -168,22 +171,23 @@ class InferenceEngine:
                 if isinstance(W_b, np.ndarray):
                     W_b = torch.from_numpy(W_b).to(logits.device, dtype=logits.dtype)
 
-                # LoRA delta = W_b @ W_a * (alpha / rank)
-                # W_b: (dim, rank), W_a: (rank, dim) -> (dim, dim)
-                scale = alpha / rank
-
-                # Compute LoRA update as bias vector (dim,)
-                # Take column-wise mean of W_b @ W_a for per-token adjustment
+                # LoRA update: W_b @ W_a @ x ≈ (W_b @ W_a) @ x
+                # For a quick bias, compute mean of each output dimension
                 lora_matrix = torch.matmul(W_b, W_a)  # (dim, dim)
-                lora_bias = lora_matrix.mean(dim=1) * scale * 0.05  # (dim,)
+                
+                # Take diagonal elements for per-dimension adjustment
+                # Diagonal captures self-attention importance
+                dim = min(lora_matrix.shape[0], logits.shape[-1])
+                lora_bias = lora_matrix[:dim, :dim].diagonal()  # (dim,)
+                
+                # Scale based on alpha/rank and feedback confidence
+                base_scale = alpha / rank
+                feedback_scale = min(1.0, feedback_count / 10.0)  # Saturate at 10 feedback
+                scale = base_scale * feedback_scale * 0.1
+                
+                logits[:dim] = logits[:dim] + lora_bias * scale
 
-                # Ensure compatible shape
-                if lora_bias.shape[0] <= logits.shape[-1]:
-                    logits = logits + lora_bias[: logits.shape[-1]]
-                else:
-                    logits = logits + lora_bias[: logits.shape[-1]]
-
-        except Exception as e:
+        except Exception:
             pass
 
         return logits
