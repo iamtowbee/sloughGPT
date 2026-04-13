@@ -96,9 +96,11 @@ class FeedbackTrainer:
         cursor = conn.cursor()
 
         cursor.execute("""
-            SELECT DISTINCT conversation_id FROM feedback
-            GROUP BY conversation_id
-            HAVING COUNT(DISTINCT rating) > 1
+            SELECT DISTINCT m.conversation_id 
+            FROM feedback f
+            JOIN messages m ON f.message_id = m.id
+            GROUP BY m.conversation_id
+            HAVING COUNT(DISTINCT f.rating) > 1
             LIMIT 1000
         """)
 
@@ -267,6 +269,35 @@ class FeedbackTrainer:
             "available_dpo_pairs": len(pairs),
             "available_sft_examples": len(sft_examples),
         }
+
+    def export_dpo(self, filepath: str) -> int:
+        """Export DPO pairs to JSONL file. Returns count."""
+        pairs = self.prepare_dpo_pairs()
+        count = 0
+        with open(filepath, "w") as f:
+            for pair in pairs:
+                f.write(
+                    json.dumps(
+                        {
+                            "chosen": pair.chosen,
+                            "rejected": pair.rejected,
+                            "prompt": pair.prompt,
+                        }
+                    )
+                    + "\n"
+                )
+                count += 1
+        return count
+
+    def export_sft(self, filepath: str) -> int:
+        """Export SFT examples to JSONL file. Returns count."""
+        data = self.prepare_sft_data()
+        count = 0
+        with open(filepath, "w") as f:
+            for item in data:
+                f.write(json.dumps(item) + "\n")
+                count += 1
+        return count
 
 
 def create_training_pipeline(db_path: str = "data/feedback.db") -> FeedbackTrainer:

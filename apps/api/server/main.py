@@ -2633,6 +2633,62 @@ async def get_conversation_messages(conversation_id: str, req: Request):
     return {"conversation_id": conversation_id, "messages": messages}
 
 
+@app.get("/feedback-stats/training", tags=["meta-weights"])
+async def get_feedback_training_stats(req: Request):
+    """Get training data statistics from feedback."""
+    try:
+        from domains.feedback.training import FeedbackTrainer
+
+        trainer = FeedbackTrainer()
+        stats = trainer.get_training_stats()
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class ExportTrainingRequest(BaseModel):
+    format: str = "dpo"
+    filepath: Optional[str] = None
+
+
+@app.post("/feedback/export-training", tags=["meta-weights"])
+async def export_feedback_training(request: ExportTrainingRequest, req: Request):
+    """Export training data in DPO, SFT, or reward format."""
+    if request.format not in ("dpo", "sft", "reward"):
+        raise HTTPException(status_code=400, detail="format must be 'dpo', 'sft', or 'reward'")
+
+    try:
+        from domains.feedback.training import FeedbackTrainer
+        from pathlib import Path
+
+        trainer = FeedbackTrainer()
+
+        if request.filepath:
+            filepath = request.filepath
+        else:
+            timestamp = int(time.time())
+            filepath = f"data/training_exports/{request.format}_{timestamp}.jsonl"
+
+        Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+
+        if request.format == "dpo":
+            count = trainer.export_dpo(filepath)
+        elif request.format == "sft":
+            count = trainer.export_sft(filepath)
+        else:
+            trainer.export_for_alignment(output_dir=str(Path(filepath).parent), formats=["reward"])
+            count = trainer.get_training_stats()["total_responses"]
+
+        return {
+            "status": "exported",
+            "format": request.format,
+            "filepath": filepath,
+            "count": count,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/online-training/stats", tags=["online-training"])
 async def get_online_training_stats(req: Request):
     """Get online LoRA training statistics."""

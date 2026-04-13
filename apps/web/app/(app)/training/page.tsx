@@ -14,7 +14,7 @@ import { FoldSection, JobStatus, ProgressBar } from '@/components/strui'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
-import { api, TrainingJob, TrainResolveResponse } from '@/lib/api'
+import { api, TrainingJob, TrainResolveResponse, type TrainingStats } from '@/lib/api'
 import { devDebug } from '@/lib/dev-log'
 import {
   TRAINING_API_DEFAULTS,
@@ -51,6 +51,11 @@ export default function TrainingPage() {
   const [resolveError, setResolveError] = useState<string | null>(null)
   const { state: health, refresh: refreshHealth } = useApiHealth()
 
+  // Feedback training data state
+  const [trainingStats, setTrainingStats] = useState<TrainingStats | null>(null)
+  const [exporting, setExporting] = useState<string | null>(null)
+  const [exportResult, setExportResult] = useState<string | null>(null)
+
   const apiHealthLabel = useMemo(() => inferenceHealthLabel(health), [health])
 
   const healthToneClass = useMemo(() => {
@@ -73,7 +78,26 @@ export default function TrainingPage() {
 
   useEffect(() => {
     void fetchJobs()
+    // Fetch feedback training stats
+    api.getTrainingStats().then(setTrainingStats).catch(() => setTrainingStats(null))
   }, [fetchJobs])
+
+  const handleExport = useCallback(async (format: 'dpo' | 'sft') => {
+    setExporting(format)
+    setExportResult(null)
+    try {
+      const result = await api.exportTrainingData(format)
+      setExportResult(`Exported ${result.count} ${format.toUpperCase()} examples to ${result.filepath}`)
+      // Refresh stats
+      const stats = await api.getTrainingStats()
+      setTrainingStats(stats)
+    } catch (error) {
+      setExportResult('Export failed')
+      devDebug('Export failed:', error)
+    } finally {
+      setExporting(null)
+    }
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -235,6 +259,62 @@ export default function TrainingPage() {
           </div>
         }
       />
+
+      {/* Feedback Training Data Section */}
+      {trainingStats && (
+        <Card className="mb-6">
+          <CardHeader className="py-4">
+            <CardTitle className="text-base">Feedback Training Data</CardTitle>
+            <CardDescription>
+              Export training data from user feedback for fine-tuning
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                <div className="text-2xl font-bold">{trainingStats.total_conversations}</div>
+                <div className="text-xs text-muted-foreground">Conversations</div>
+              </div>
+              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                <div className="text-2xl font-bold text-green-600">{trainingStats.thumbs_up}</div>
+                <div className="text-xs text-muted-foreground">Thumbs Up</div>
+              </div>
+              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                <div className="text-2xl font-bold text-red-600">{trainingStats.thumbs_down}</div>
+                <div className="text-xs text-muted-foreground">Thumbs Down</div>
+              </div>
+              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">{trainingStats.available_dpo_pairs}</div>
+                <div className="text-xs text-muted-foreground">DPO Pairs</div>
+              </div>
+            </div>
+            
+            {exportResult && (
+              <div className="mb-4 p-2 text-sm bg-muted rounded-md font-mono break-all">
+                {exportResult}
+              </div>
+            )}
+            
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => handleExport('dpo')}
+                disabled={exporting !== null || trainingStats.available_dpo_pairs === 0}
+              >
+                {exporting === 'dpo' ? 'Exporting...' : 'Export DPO'}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => handleExport('sft')}
+                disabled={exporting !== null || trainingStats.available_sft_examples === 0}
+              >
+                {exporting === 'sft' ? 'Exporting...' : 'Export SFT'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {loading ? (
         <div className="text-center py-8 text-muted-foreground">Loading...</div>

@@ -56,14 +56,10 @@ export function ChatHeader({ health, showSettings, showSidebar, onToggleSettings
             variant="ghost"
             size="sm"
             onClick={onNewChat}
-            className={cn(
-              "text-xs sm:text-sm hover:opacity-80 active:opacity-70",
-              sessionCount !== undefined && sessionCount > 0 && "hidden sm:flex"
-            )}
+            className="p-1.5"
             title="New chat (Ctrl+N)"
           >
-            <PlusIcon className="h-4 w-4 sm:mr-1" />
-            <span className="hidden sm:inline">New</span>
+            <PlusIcon className="h-4 w-4" />
           </Button>
           <Button 
             variant="ghost" 

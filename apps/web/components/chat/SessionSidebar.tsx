@@ -194,11 +194,11 @@ export function SessionSidebar({
         <div className="p-3 space-y-2">
           <Button
             onClick={onNewChat}
-            className="w-full justify-start text-xs"
+            className="w-full p-1.5"
             size="sm"
+            title="New chat"
           >
-            <PlusIcon className="h-4 w-4 mr-2" />
-            New Chat
+            <PlusIcon className="h-4 w-4" />
           </Button>
 
           <div className="relative">
@@ -208,7 +208,7 @@ export function SessionSidebar({
               placeholder="Search sessions..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+              className="w-full pl-8 pr-3 py-2 text-xs rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
             />
           </div>
         </div>

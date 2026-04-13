@@ -1313,6 +1313,24 @@ export const api = {
     })
     return res.json()
   },
+
+  // ===== TRAINING DATA =====
+
+  async getTrainingStats(): Promise<TrainingStats> {
+    const res = await fetchWithAuth(`${API_URL}/feedback-stats/training`)
+    return res.json()
+  },
+
+  async exportTrainingData(format: 'dpo' | 'sft' | 'reward', filepath?: string): Promise<{ status: string; filepath: string; count: number }> {
+    const body: Record<string, unknown> = { format }
+    if (filepath) body.filepath = filepath
+    const res = await fetchWithAuth(`${API_URL}/feedback/export-training`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return res.json()
+  },
 }
 
 // ===== TYPE DEFINITIONS =====
@@ -1400,4 +1418,13 @@ export interface WorkflowStatus {
     lora_store: UserAdapterStats
     lora_updater: Record<string, unknown>
   }
+}
+
+export interface TrainingStats {
+  total_conversations: number
+  total_responses: number
+  thumbs_up: number
+  thumbs_down: number
+  available_dpo_pairs: number
+  available_sft_examples: number
 }
