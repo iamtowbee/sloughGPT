@@ -12,6 +12,7 @@ import {
 import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import { FoldSection, JobStatus, ProgressBar, StatCard, KpiGrid } from '@/components/strui'
 import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import { api, TrainingJob, TrainResolveResponse, type Dataset } from '@/lib/api'
@@ -417,24 +418,24 @@ export default function TrainingPage() {
                   <label className="block text-sm font-medium text-foreground mb-1">
                     Data Source
                   </label>
-                  <select
+                  <Select
                     value={newJob.corpusMode}
-                    onChange={(e) =>
+                    onValueChange={(val) =>
                       setNewJob({
                         ...newJob,
-                        corpusMode: e.target.value as CorpusMode,
+                        corpusMode: val as CorpusMode,
                         manifest_uri: '',
                         ref_dataset_id: '',
                         ref_version: '',
                         ref_manifest_uri: '',
                       })
                     }
-                    className="sl-input"
-                  >
-                    <option value="folder">Local folder (datasets/)</option>
-                    <option value="manifest">v1 manifest file</option>
-                    <option value="ref">Versioned dataset (id + version)</option>
-                  </select>
+                    options={[
+                      { value: 'folder', label: 'Local folder (datasets/)' },
+                      { value: 'manifest', label: 'v1 manifest file' },
+                      { value: 'ref', label: 'Versioned dataset (id + version)' },
+                    ]}
+                  />
                 </div>
 
                 {newJob.corpusMode === 'folder' && (
@@ -453,17 +454,14 @@ export default function TrainingPage() {
                       </Button>
                     </div>
                     {datasets.length > 0 ? (
-                      <select
+                      <Select
                         value={newJob.dataset}
-                        onChange={(e) => setNewJob({ ...newJob, dataset: e.target.value })}
-                        className="sl-input"
-                      >
-                        {datasets.map((ds) => (
-                          <option key={ds.id} value={ds.id}>
-                            {ds.name} ({ds.size})
-                          </option>
-                        ))}
-                      </select>
+                        onValueChange={(val) => setNewJob({ ...newJob, dataset: val })}
+                        options={datasets.map((ds) => ({
+                          value: ds.id,
+                          label: `${ds.name} (${ds.size})`,
+                        }))}
+                      />
                     ) : (
                       <div className="sl-input py-2 text-sm text-muted-foreground">
                         No datasets found
