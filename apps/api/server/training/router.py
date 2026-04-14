@@ -6,8 +6,10 @@ Trainer ``step_*.pt`` charset maps: ``docs/policies/CONTRIBUTING.md`` (*Checkpoi
 from __future__ import annotations
 
 import logging
+import shutil
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -189,8 +191,6 @@ async def delete_training_job(job_id: str):
     Removes job from registry. If ``delete_files`` is true, removes checkpoint
     files associated with the job from disk.
     """
-    import shutil
-
     if job_id not in training_jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
