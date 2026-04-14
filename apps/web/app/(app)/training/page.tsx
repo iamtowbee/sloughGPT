@@ -14,7 +14,7 @@ import { FoldSection, JobStatus, ProgressBar, StatCard, KpiGrid } from '@/compon
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
-import { api, TrainingJob, TrainResolveResponse, type TrainingStats, type UserAdapterStats, type WorkflowStatus, type Dataset } from '@/lib/api'
+import { api, TrainingJob, TrainResolveResponse, type Dataset } from '@/lib/api'
 import { devDebug } from '@/lib/dev-log'
 import {
   TRAINING_API_DEFAULTS,
@@ -52,17 +52,6 @@ export default function TrainingPage() {
   const [resolveError, setResolveError] = useState<string | null>(null)
   const { state: health, refresh: refreshHealth } = useApiHealth()
 
-  // Feedback training data state
-  const [trainingStats, setTrainingStats] = useState<TrainingStats | null>(null)
-  const [exporting, setExporting] = useState<string | null>(null)
-  const [exportResult, setExportResult] = useState<string | null>(null)
-  const [trainResult, setTrainResult] = useState<{ status: string; job_id?: string; samples?: number; message?: string } | null>(null)
-
-  // Workflow & adapter state
-  const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus | null>(null)
-  const [adapterStats, setAdapterStats] = useState<UserAdapterStats | null>(null)
-  const [adminAction, setAdminAction] = useState<string | null>(null)
-
   // Toast notifications
   const [toasts, setToasts] = useState<Toast[]>([])
   const [datasets, setDatasets] = useState<Dataset[]>([])
@@ -96,73 +85,6 @@ export default function TrainingPage() {
       setLoading(false)
     }
   }, [])
-
-  useEffect(() => {
-    void fetchJobs()
-    // Fetch feedback training stats
-    api.getTrainingStats().then(setTrainingStats).catch(() => setTrainingStats(null))
-    // Fetch workflow status
-    api.getWorkflowStatus().then(setWorkflowStatus).catch(() => setWorkflowStatus(null))
-    // Fetch adapter stats
-    api.getUserAdapters().then(setAdapterStats).catch(() => setAdapterStats(null))
-  }, [fetchJobs])
-
-  const handleExport = useCallback(async (format: 'dpo' | 'sft') => {
-    setExporting(format)
-    setExportResult(null)
-    try {
-      const result = await api.exportTrainingData(format)
-      setExportResult(`Exported ${result.count} ${format.toUpperCase()} examples to ${result.filepath}`)
-      // Refresh stats
-      const stats = await api.getTrainingStats()
-      setTrainingStats(stats)
-    } catch (error) {
-      setExportResult('Export failed')
-      devDebug('Export failed:', error)
-    } finally {
-      setExporting(null)
-    }
-  }, [])
-
-  const handleWorkflowAction = useCallback(async (action: 'aggregate' | 'prune' | 'export' | 'start' | 'stop') => {
-    setAdminAction(action)
-    try {
-      if (action === 'start') {
-        await api.startWorkflow()
-      } else if (action === 'stop') {
-        await api.stopWorkflow()
-      } else {
-        await api.triggerWorkflowAction(action)
-      }
-      // Refresh status
-      const [wf, adapters] = await Promise.all([
-        api.getWorkflowStatus(),
-        api.getUserAdapters()
-      ])
-      setWorkflowStatus(wf)
-      setAdapterStats(adapters)
-    } catch (error) {
-      devDebug('Workflow action failed:', error)
-    } finally {
-      setAdminAction(null)
-    }
-  }, [])
-
-  const handleTrainFromFeedback = useCallback(async () => {
-    setAdminAction('train')
-    setTrainResult(null)
-    try {
-      const result = await api.trainFromFeedback()
-      setTrainResult(result)
-      // Refresh jobs to show new training job
-      await fetchJobs()
-    } catch (error) {
-      devDebug('Train from feedback failed:', error)
-      setTrainResult({ status: 'error', message: 'Training failed to start' })
-    } finally {
-      setAdminAction(null)
-    }
-  }, [fetchJobs])
 
   const fetchDatasets = useCallback(async () => {
     setLoadingDatasets(true)
