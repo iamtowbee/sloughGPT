@@ -630,17 +630,17 @@ export default function TrainingPage() {
                 {newJob.corpusMode === 'folder' && (
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-sm font-medium text-foreground">
-                        Dataset <span className="text-destructive">*</span>
-                      </label>
-                      <button
+                      <label className="block text-sm font-medium text-foreground">Dataset</label>
+                      <Button
                         type="button"
                         onClick={() => void fetchDatasets()}
-                        className="text-xs text-muted-foreground hover:text-foreground"
                         disabled={loadingDatasets}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs"
                       >
-                        {loadingDatasets ? 'Loading...' : 'Refresh'}
-                      </button>
+                        {loadingDatasets ? 'Loading...' : '↻'}
+                      </Button>
                     </div>
                     {datasets.length > 0 ? (
                       <select
@@ -650,19 +650,14 @@ export default function TrainingPage() {
                       >
                         {datasets.map((ds) => (
                           <option key={ds.id} value={ds.id}>
-                            {ds.name} ({ds.size}) - {ds.type}
+                            {ds.name} ({ds.size})
                           </option>
                         ))}
                       </select>
                     ) : (
                       <div className="sl-input py-2 text-sm text-muted-foreground">
-                        No datasets found. Server may not be running from repo root.
+                        No datasets found
                       </div>
-                    )}
-                    {datasets.find(d => d.id === newJob.dataset) && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Path: <span className="font-mono">{datasets.find(d => d.id === newJob.dataset)?.path}</span>
-                      </p>
                     )}
                   </div>
                 )}
@@ -744,10 +739,10 @@ export default function TrainingPage() {
                 </pre>
               )}
 
-              <FoldSection heading="Training Data & Advanced (model dimensions, loop, trainer)">
+              <FoldSection heading="Advanced">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">n_embed</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Embed</label>
                     <input
                       type="number"
                       min={32}
@@ -762,7 +757,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">n_layer</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Layers</label>
                     <input
                       type="number"
                       min={1}
@@ -777,7 +772,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">n_head</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Heads</label>
                     <input
                       type="number"
                       min={1}
@@ -792,7 +787,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">block_size</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Block Size</label>
                     <input
                       type="number"
                       min={8}
@@ -821,7 +816,7 @@ export default function TrainingPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-1">
-                      log_interval (progress / train loss UI)
+                      Log Every
                     </label>
                     <input
                       type="number"
@@ -839,7 +834,7 @@ export default function TrainingPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-1">
-                      eval_interval (eval loss)
+                      Eval Every
                     </label>
                     <input
                       type="number"
@@ -856,8 +851,8 @@ export default function TrainingPage() {
                     />
                   </div>
 
-                  <div className="col-span-2 border-t border-border pt-3 mt-1 text-xs font-semibold text-muted-foreground">
-                    Trainer (API / cli train --api parity)
+                  <div className="col-span-2 border-t border-border pt-3 mt-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Optimizer
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-1">dropout</label>
@@ -1123,7 +1118,7 @@ export default function TrainingPage() {
               </FoldSection>
 
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-                <h3 className="text-sm font-semibold text-foreground">Training Parameters</h3>
+                <h3 className="text-sm font-semibold text-foreground">Parameters</h3>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1">Epochs</label>
@@ -1135,11 +1130,10 @@ export default function TrainingPage() {
                       max={100}
                       className="sl-input"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Training passes</p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">Batch Size</label>
+                    <label className="block text-sm font-medium text-foreground mb-1">Batch</label>
                     <input
                       type="number"
                       value={newJob.batch_size}
@@ -1152,7 +1146,7 @@ export default function TrainingPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">Learning Rate</label>
+                    <label className="block text-sm font-medium text-foreground mb-1">LR</label>
                     <input
                       type="number"
                       step="0.000001"
@@ -1160,7 +1154,6 @@ export default function TrainingPage() {
                       onChange={(e) => setNewJob({ ...newJob, learning_rate: parseFloat(e.target.value) })}
                       className="sl-input"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Step size</p>
                   </div>
                 </div>
               </div>
@@ -1183,15 +1176,13 @@ export default function TrainingPage() {
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                     <span className="text-muted-foreground">Job:</span>
                     <span className="font-medium">{newJob.name}</span>
-                    <span className="text-muted-foreground">Model:</span>
-                    <span className="font-medium">{newJob.model}</span>
                     <span className="text-muted-foreground">Dataset:</span>
                     <span className="font-medium">{newJob.dataset}</span>
                     <span className="text-muted-foreground">Epochs:</span>
                     <span className="font-medium">{newJob.epochs}</span>
-                    <span className="text-muted-foreground">Batch Size:</span>
+                    <span className="text-muted-foreground">Batch:</span>
                     <span className="font-medium">{newJob.batch_size}</span>
-                    <span className="text-muted-foreground">Learning Rate:</span>
+                    <span className="text-muted-foreground">LR:</span>
                     <span className="font-medium">{newJob.learning_rate}</span>
                   </div>
                 ) : (
