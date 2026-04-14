@@ -226,6 +226,17 @@ export default function TrainingPage() {
     void fetchDatasets()
   }
 
+  const deleteJob = async (jobId: string, jobName: string) => {
+    if (!confirm(`Delete training job "${jobName}"?`)) return
+    try {
+      await api.deleteTrainingJob(jobId)
+      addToast(`Deleted job "${jobName}"`, 'success')
+      fetchJobs()
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Delete failed', 'error')
+    }
+  }
+
   return (
     <div className="sl-page mx-auto max-w-5xl">
       <AppRouteHeader
@@ -352,6 +363,18 @@ export default function TrainingPage() {
                 )}
                 {job.error && (
                   <p className="text-xs text-warning mt-2">{job.error}</p>
+                )}
+                {job.status !== 'running' && job.status !== 'pending' && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => deleteJob(job.id, job.name)}
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      Delete Job
+                    </Button>
+                  </div>
                 )}
               </div>
             ))}

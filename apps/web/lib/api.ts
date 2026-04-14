@@ -793,6 +793,16 @@ export const api = {
     return res.json()
   },
 
+  async deleteTrainingJob(jobId: string): Promise<{ status: string; job_id: string; deleted_files: string[] }> {
+    const res = await fetchWithAuth(`${API_URL}/training/jobs/${jobId}`, {
+      method: 'DELETE',
+    })
+    if (!res.ok) {
+      throw new Error(`Delete job failed (${res.status})`)
+    }
+    return res.json()
+  },
+
   async startTraining(req: TrainingRequest) {
     const res = await fetchWithAuth(`${API_URL}/training/start`, {
       method: 'POST',

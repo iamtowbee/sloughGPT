@@ -182,6 +182,48 @@ async def get_training_job(job_id: str):
     return training_jobs[job_id]
 
 
+@router.delete("/training/jobs/{job_id}")
+async def delete_training_job(job_id: str):
+    """Delete a training job and optionally its checkpoint files.
+
+    Removes job from registry. If ``delete_files`` is true, removes checkpoint
+    files associated with the job from disk.
+    """
+    import shutil
+
+    if job_id not in training_jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = training_jobs[job_id]
+    deleted_files = []
+
+    if job.get("checkpoint"):
+        checkpoint_path = Path(job["checkpoint"])
+        if checkpoint_path.exists():
+            try:
+                checkpoint_path.unlink()
+                deleted_files.append(str(checkpoint_path))
+            except OSError:
+                pass
+
+    if job.get("checkpoint_dir"):
+        checkpoint_dir = Path(job["checkpoint_dir"])
+        if checkpoint_dir.exists() and checkpoint_dir.is_dir():
+            try:
+                shutil.rmtree(checkpoint_dir)
+                deleted_files.append(str(checkpoint_dir))
+            except OSError:
+                pass
+
+    del training_jobs[job_id]
+
+    return {
+        "status": "deleted",
+        "job_id": job_id,
+        "deleted_files": deleted_files,
+    }
+
+
 @router.post("/training/start")
 async def start_training(request: TrainingRequest):
     """Start a tracked training job (web UI).

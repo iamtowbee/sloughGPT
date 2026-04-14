@@ -4,7 +4,7 @@
   "tagline": "",
   "description": "",
   "created_by": "SloughGPT Training Pipeline",
-  "born_at": "2026-04-13T18:57:36.566741Z",
+  "born_at": "2026-04-14T06:40:26.591584Z",
   "lineage": "sloughgpt",
   "base_model": "sloughgpt",
   "training_dataset": "/Users/mac/sloughGPT/datasets/shakespeare/input.txt",
@@ -80,6 +80,6 @@
     "soul"
   ],
   "certifications": [],
-  "integrity_hash": "e95c8109249e89e0",
+  "integrity_hash": "0c6ed2d54f096759",
   "metadata": {}
 }
