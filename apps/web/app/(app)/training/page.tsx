@@ -369,7 +369,7 @@ export default function TrainingPage() {
           }
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[90vw] max-w-2xl">
           <DialogHeader>
             <DialogTitle>New Training Job</DialogTitle>
             <DialogDescription>
