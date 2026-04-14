@@ -27,16 +27,20 @@ export function ProgressBar({
       aria-valuemax={max}
       aria-valuenow={indeterminate ? undefined : Math.round(value)}
       aria-valuetext={indeterminate ? undefined : `${Math.round(pct)}%`}
-      className={cn('h-2 w-full overflow-hidden rounded-none bg-muted', className)}
+      className={cn('relative h-2 w-full overflow-hidden rounded-none bg-muted/50', className)}
       {...props}
     >
-      <div
-        className={cn(
-          'h-full bg-primary transition-[width] duration-300 ease-smooth',
-          indeterminate && 'w-full animate-pulse',
-        )}
-        style={indeterminate ? undefined : { width: `${pct}%` }}
-      />
+      {indeterminate ? (
+        <div className="absolute inset-0 w-full h-full animate-pulse bg-primary/30" />
+      ) : (
+        <>
+          <div className="absolute inset-0 w-full h-full animate-pulse bg-primary/20" />
+          <div
+            className="absolute inset-y-0 left-0 h-full bg-primary transition-[width] duration-300 ease-smooth"
+            style={{ width: `${pct}%` }}
+          />
+        </>
+      )}
     </div>
   )
 }
