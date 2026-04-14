@@ -14,13 +14,14 @@ import { FoldSection, JobStatus, ProgressBar, StatCard, KpiGrid } from '@/compon
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
-import { api, TrainingJob, TrainResolveResponse, type TrainingStats, type UserAdapterStats, type WorkflowStatus } from '@/lib/api'
+import { api, TrainingJob, TrainResolveResponse, type TrainingStats, type UserAdapterStats, type WorkflowStatus, type Dataset } from '@/lib/api'
 import { devDebug } from '@/lib/dev-log'
 import {
   TRAINING_API_DEFAULTS,
   type TrainingMixedPrecisionDtype,
 } from '@/lib/training-defaults'
 import { trainingJobStatusToStrui } from '@/lib/training-status'
+import { ToastContainer, type Toast } from '@/components/chat/Toast'
 
 type CorpusMode = 'folder' | 'manifest' | 'ref'
 
@@ -61,6 +62,20 @@ export default function TrainingPage() {
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus | null>(null)
   const [adapterStats, setAdapterStats] = useState<UserAdapterStats | null>(null)
   const [adminAction, setAdminAction] = useState<string | null>(null)
+
+  // Toast notifications
+  const [toasts, setToasts] = useState<Toast[]>([])
+  const [datasets, setDatasets] = useState<Dataset[]>([])
+  const [loadingDatasets, setLoadingDatasets] = useState(false)
+
+  const addToast = useCallback((message: string, type: Toast['type'] = 'info') => {
+    const id = Date.now().toString()
+    setToasts(prev => [...prev, { id, message, type }])
+  }, [])
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id))
+  }, [])
 
   const apiHealthLabel = useMemo(() => inferenceHealthLabel(health), [health])
 
@@ -148,6 +163,18 @@ export default function TrainingPage() {
       setAdminAction(null)
     }
   }, [fetchJobs])
+
+  const fetchDatasets = useCallback(async () => {
+    setLoadingDatasets(true)
+    try {
+      const data = await api.getDatasets()
+      setDatasets(data)
+    } catch (error) {
+      devDebug('Failed to fetch datasets:', error)
+    } finally {
+      setLoadingDatasets(false)
+    }
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -258,9 +285,11 @@ export default function TrainingPage() {
       setShowModal(false)
       setNewJob(initialForm)
       setResolveResult(null)
+      addToast(`Training "${newJob.name}" started`, 'success')
       fetchJobs()
     } catch (error) {
       devDebug('Failed to start training:', error)
+      addToast(error instanceof Error ? error.message : 'Start failed', 'error')
       setResolveError(error instanceof Error ? error.message : 'Start failed')
     } finally {
       setStarting(false)
@@ -271,6 +300,7 @@ export default function TrainingPage() {
     setResolveResult(null)
     setResolveError(null)
     setShowModal(true)
+    void fetchDatasets()
   }
 
   return (
@@ -599,24 +629,41 @@ export default function TrainingPage() {
 
                 {newJob.corpusMode === 'folder' && (
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
-                      Dataset <span className="text-destructive">*</span>
-                    </label>
-                    <select
-                      value={newJob.dataset}
-                      onChange={(e) => setNewJob({ ...newJob, dataset: e.target.value })}
-                      className="sl-input"
-                    >
-                      <option value="shakespeare">Shakespeare (bundled demo)</option>
-                      <option value="demo">demo</option>
-                      <option value="summary">summary</option>
-                      <option value="openwebtext">openwebtext (add data first)</option>
-                      <option value="wikitext-103">wikitext-103 (add data first)</option>
-                      <option value="code-search-net">code-search-net (add data first)</option>
-                    </select>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Looks for <span className="font-mono">datasets/{newJob.dataset}/input.txt</span> on the server.
-                    </p>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium text-foreground">
+                        Dataset <span className="text-destructive">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => void fetchDatasets()}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                        disabled={loadingDatasets}
+                      >
+                        {loadingDatasets ? 'Loading...' : 'Refresh'}
+                      </button>
+                    </div>
+                    {datasets.length > 0 ? (
+                      <select
+                        value={newJob.dataset}
+                        onChange={(e) => setNewJob({ ...newJob, dataset: e.target.value })}
+                        className="sl-input"
+                      >
+                        {datasets.map((ds) => (
+                          <option key={ds.id} value={ds.id}>
+                            {ds.name} ({ds.size}) - {ds.type}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="sl-input py-2 text-sm text-muted-foreground">
+                        No datasets found. Server may not be running from repo root.
+                      </div>
+                    )}
+                    {datasets.find(d => d.id === newJob.dataset) && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Path: <span className="font-mono">{datasets.find(d => d.id === newJob.dataset)?.path}</span>
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
