@@ -130,6 +130,10 @@ export default function TrainingPage() {
   }, [fetchJobs, refreshHealth])
 
   useEffect(() => {
+    void fetchDatasets()
+  }, [])
+
+  useEffect(() => {
     const running = jobs.some((j) => j.status === 'running')
     const ms = running ? 2000 : 8000
     const id = setInterval(() => void fetchJobs(), ms)
@@ -294,6 +298,41 @@ export default function TrainingPage() {
           </div>
         }
       />
+
+      <FoldSection heading="Datasets">
+        <div className="space-y-2">
+          {datasets.map((ds) => (
+            <div key={ds.id} className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm truncate">{ds.name}</span>
+                  <span className="text-xs text-muted-foreground">{ds.size}</span>
+                </div>
+                <div className="text-xs text-muted-foreground font-mono truncate">{ds.id}</div>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (confirm(`Delete dataset "${ds.name}"?`)) {
+                    void api.deleteDataset(ds.id).then(() => {
+                      addToast(`Deleted "${ds.name}"`, 'success')
+                      fetchDatasets()
+                    })
+                  }
+                }}
+                className="text-destructive/60 hover:text-destructive shrink-0 ml-2"
+              >
+                ✕
+              </Button>
+            </div>
+          ))}
+          {datasets.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">No datasets found</p>
+          )}
+        </div>
+      </FoldSection>
 
       {loading ? (
         <div className="text-center py-8 text-muted-foreground">Loading...</div>
