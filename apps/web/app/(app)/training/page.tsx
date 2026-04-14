@@ -332,7 +332,14 @@ export default function TrainingPage() {
                         <span className="ml-1.5 font-mono text-xs">· step {job.global_step}</span>
                       )}
                     </span>
-                    <span>{job.progress}%</span>
+                    <span>
+                      {job.progress}%
+                      {job.status === 'running' && job.progress > 0 && job.global_step != null && (
+                        <span className="ml-2 text-xs text-muted-foreground/70">
+                          ~{Math.round((job.global_step / job.progress) * (100 - job.progress))} steps left
+                        </span>
+                      )}
+                    </span>
                   </div>
                   <ProgressBar
                     value={job.progress}
