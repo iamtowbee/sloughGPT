@@ -34,15 +34,16 @@ export function ProgressBar({
         <div 
           className="absolute inset-0 h-full"
           style={{
-            background: `repeating-linear-gradient(
-              -45deg,
-              #22c55e,
-              #22c55e 8px,
-              #16a34a 8px,
-              #16a34a 16px
+            background: `linear-gradient(135deg, 
+              #90EE90 25%, 
+              transparent 25%, 
+              transparent 50%, 
+              #90EE90 50%, 
+              #90EE90 75%, 
+              transparent 75%
             )`,
-            backgroundSize: '200% 100%',
-            animation: 'progress-stripes 0.6s linear infinite',
+            backgroundSize: '16px 16px',
+            animation: 'progress-zigzag 0.8s linear infinite',
           }}
         />
       ) : (
@@ -50,27 +51,31 @@ export function ProgressBar({
           <div 
             className="absolute inset-0 h-full"
             style={{
-              background: `repeating-linear-gradient(
-                -45deg,
-                rgba(34, 197, 94, 0.25),
-                rgba(34, 197, 94, 0.25) 6px,
-                rgba(34, 197, 94, 0.4) 6px,
-                rgba(34, 197, 94, 0.4) 12px
+              background: `linear-gradient(135deg, 
+                rgba(144, 238, 144, 0.3) 25%, 
+                transparent 25%, 
+                transparent 50%, 
+                rgba(144, 238, 144, 0.3) 50%, 
+                rgba(144, 238, 144, 0.3) 75%, 
+                transparent 75%
               )`,
-              backgroundSize: '200% 100%',
-              animation: 'progress-stripes 0.5s linear infinite',
+              backgroundSize: '12px 12px',
+              animation: 'progress-zigzag 0.6s linear infinite',
             }}
           />
           <div
-            className="absolute inset-y-0 left-0 h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-[width] duration-300 ease-smooth"
-            style={{ width: `${pct}%` }}
+            className="absolute inset-y-0 left-0 h-full transition-[width] duration-300 ease-smooth"
+            style={{ 
+              width: `${pct}%`,
+              background: 'linear-gradient(90deg, #98FB98 0%, #7CFC00 50%, #98FB98 100%)',
+            }}
           />
         </>
       )}
       <style>{`
-        @keyframes progress-stripes {
+        @keyframes progress-zigzag {
           0% { background-position: 0 0; }
-          100% { background-position: 200% 0; }
+          100% { background-position: 24px 0; }
         }
       `}</style>
     </div>
