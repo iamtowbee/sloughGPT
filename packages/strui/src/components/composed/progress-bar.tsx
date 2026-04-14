@@ -31,16 +31,48 @@ export function ProgressBar({
       {...props}
     >
       {indeterminate ? (
-        <div className="absolute inset-0 w-full h-full animate-pulse bg-primary/30" />
+        <div 
+          className="absolute inset-0 h-full"
+          style={{
+            background: `repeating-linear-gradient(
+              -45deg,
+              transparent,
+              transparent 8px,
+              rgba(59, 130, 246, 0.4) 8px,
+              rgba(59, 130, 246, 0.4) 16px
+            )`,
+            backgroundSize: '200% 100%',
+            animation: 'progress-stripes 1s linear infinite',
+          }}
+        />
       ) : (
         <>
-          <div className="absolute inset-0 w-full h-full animate-pulse bg-primary/20" />
+          <div 
+            className="absolute inset-0 h-full"
+            style={{
+              background: `repeating-linear-gradient(
+                -45deg,
+                transparent,
+                transparent 6px,
+                rgba(59, 130, 246, 0.15) 6px,
+                rgba(59, 130, 246, 0.15) 12px
+              )`,
+              backgroundSize: '200% 100%',
+              animation: 'progress-stripes 0.8s linear infinite',
+            }}
+          />
           <div
             className="absolute inset-y-0 left-0 h-full bg-primary transition-[width] duration-300 ease-smooth"
             style={{ width: `${pct}%` }}
           />
         </>
       )}
+      <style>{`
+        @keyframes progress-stripes {
+          0% { background-position: 0 0; }
+          100% { background-position: 200% 0; }
+        }
+      `}</style>
     </div>
   )
 }
