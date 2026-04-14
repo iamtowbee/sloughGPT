@@ -33,7 +33,7 @@ export function ProgressBar({
       <div
         className={cn(
           'h-full bg-primary transition-[width] duration-300 ease-smooth',
-          indeterminate && 'w-1/3 animate-pulse',
+          indeterminate && 'w-full animate-pulse',
         )}
         style={indeterminate ? undefined : { width: `${pct}%` }}
       />

@@ -337,10 +337,7 @@ export default function TrainingPage() {
                   <ProgressBar
                     value={job.progress}
                     max={100}
-                    indeterminate={
-                      job.status === 'pending' ||
-                      (job.status === 'running' && job.progress === 0)
-                    }
+                    indeterminate={job.status === 'pending'}
                   />
                 </div>
 
