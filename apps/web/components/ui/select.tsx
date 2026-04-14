@@ -23,9 +23,9 @@ export function Select({ value, onValueChange, options, placeholder = 'Select...
       <DropdownMenuPrimitive.Trigger asChild>
         <button
           type="button"
-          className={`sl-input flex items-center justify-between text-sm ${className}`}
+          className={`sl-input flex items-center justify-between text-sm transition-colors hover:border-foreground/30 focus:border-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 ${className}`}
         >
-          <span className={selected ? '' : 'text-muted-foreground'}>
+          <span className={selected ? 'text-foreground' : 'text-muted-foreground'}>
             {selected?.label || placeholder}
           </span>
           <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -37,16 +37,20 @@ export function Select({ value, onValueChange, options, placeholder = 'Select...
       <DropdownMenuPrimitive.Portal>
         <DropdownMenuPrimitive.Content
           align="start"
-          className="z-50 w-[var(--radix-dropdown-menu-trigger-width)] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
+          className="z-50 w-[var(--radix-dropdown-menu-trigger-width)] overflow-hidden rounded-md border bg-background p-1 shadow-lg animate-in fade-in-0 zoom-in-95"
         >
-          {options.map((option) => (
+          {options.map((option, index) => (
             <DropdownMenuPrimitive.Item
               key={option.value}
               onSelect={() => onValueChange(option.value)}
-              className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+              className={`relative flex cursor-pointer select-none items-center rounded px-3 py-2 text-sm outline-none transition-colors ${
+                value === option.value
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'hover:bg-accent hover:text-accent-foreground'
+              } ${index === 0 ? 'rounded-t-md' : ''} ${index === options.length - 1 ? 'rounded-b-md' : ''}`}
             >
               {value === option.value && (
-                <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="mr-2 h-4 w-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               )}
