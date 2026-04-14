@@ -358,24 +358,24 @@ export default function TrainingPage() {
                     <span>Best eval loss: {job.loss.toFixed(4)}</span>
                   </div>
                 )}
-                {job.checkpoint && (
-                  <p className="text-xs text-muted-foreground mt-2 font-mono break-all">Checkpoint: {job.checkpoint}</p>
-                )}
-                {job.error && (
-                  <p className="text-xs text-warning mt-2">{job.error}</p>
-                )}
-                {job.status !== 'running' && job.status !== 'pending' && (
-                  <div className="mt-3 pt-3 border-t border-border">
+                <div className="flex items-center justify-between mt-2">
+                  {job.checkpoint && (
+                    <p className="text-xs text-muted-foreground font-mono break-all">Checkpoint: {job.checkpoint}</p>
+                  )}
+                  {job.error && (
+                    <p className="text-xs text-warning">{job.error}</p>
+                  )}
+                  {job.status !== 'running' && job.status !== 'pending' && (
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => deleteJob(job.id, job.name)}
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-2"
                     >
-                      Delete Job
+                      Delete
                     </Button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             ))}
           </div>
