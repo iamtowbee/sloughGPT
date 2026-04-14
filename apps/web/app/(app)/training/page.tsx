@@ -1164,6 +1164,30 @@ export default function TrainingPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Training Preview Summary */}
+              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 space-y-2">
+                <h4 className="text-sm font-semibold text-green-600 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  Training Summary
+                </h4>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <span className="text-muted-foreground">Job:</span>
+                  <span className="font-medium">{newJob.name || '—'}</span>
+                  <span className="text-muted-foreground">Model:</span>
+                  <span className="font-medium">{newJob.model}</span>
+                  <span className="text-muted-foreground">Dataset:</span>
+                  <span className="font-medium">{newJob.dataset}</span>
+                  <span className="text-muted-foreground">Epochs:</span>
+                  <span className="font-medium">{newJob.epochs}</span>
+                  <span className="text-muted-foreground">Batch Size:</span>
+                  <span className="font-medium">{newJob.batch_size}</span>
+                  <span className="text-muted-foreground">Learning Rate:</span>
+                  <span className="font-medium">{newJob.learning_rate}</span>
+                </div>
+              </div>
             </div>
 
             <DialogFooter className="mt-4 gap-3 sm:gap-3">
@@ -1186,6 +1210,9 @@ export default function TrainingPage() {
             </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   )
 }
