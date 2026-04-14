@@ -538,84 +538,88 @@ export default function TrainingPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1">
-                  Job Name
-                </label>
-                <input
-                  type="text"
-                  value={newJob.name}
-                  onChange={(e) => setNewJob({ ...newJob, name: e.target.value })}
-                  placeholder="My Fine-tune"
-                  className="sl-input"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1">
-                  Model label
-                </label>
-                <input
-                  type="text"
-                  value={newJob.model}
-                  onChange={(e) => setNewJob({ ...newJob, model: e.target.value })}
-                  placeholder="sloughgpt"
-                  className="sl-input font-mono text-sm"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  For your records and the job card only. The API always trains{' '}
-                  <span className="font-mono text-foreground/90">SloughGPTModel</span> (char-level on the resolved corpus).
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1">
-                  Training corpus
-                </label>
-                <select
-                  value={newJob.corpusMode}
-                  onChange={(e) =>
-                    setNewJob({
-                      ...newJob,
-                      corpusMode: e.target.value as CorpusMode,
-                      manifest_uri: '',
-                      ref_dataset_id: '',
-                      ref_version: '',
-                      ref_manifest_uri: '',
-                    })
-                  }
-                  className="sl-input"
-                >
-                  <option value="folder">Folder: datasets/&lt;name&gt;/input.txt</option>
-                  <option value="manifest">v1 manifest (manifest_uri)</option>
-                  <option value="ref">v1 dataset_ref (id + version + manifest)</option>
-                </select>
-              </div>
-
-              {newJob.corpusMode === 'folder' && (
+          <div className="space-y-6">
+              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">Basic Info</h3>
                 <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-1">
-                    Dataset folder name
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Job Name <span className="text-destructive">*</span>
                   </label>
-                  <select
-                    value={newJob.dataset}
-                    onChange={(e) => setNewJob({ ...newJob, dataset: e.target.value })}
+                  <input
+                    type="text"
+                    value={newJob.name}
+                    onChange={(e) => setNewJob({ ...newJob, name: e.target.value })}
+                    placeholder="e.g., Shakespeare Fine-tune"
                     className="sl-input"
-                  >
-                    <option value="shakespeare">Shakespeare (bundled demo)</option>
-                    <option value="demo">demo</option>
-                    <option value="summary">summary</option>
-                    <option value="openwebtext">openwebtext (add data first)</option>
-                    <option value="wikitext-103">wikitext-103 (add data first)</option>
-                    <option value="code-search-net">code-search-net (add data first)</option>
-                  </select>
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Model Label
+                  </label>
+                  <input
+                    type="text"
+                    value={newJob.model}
+                    onChange={(e) => setNewJob({ ...newJob, model: e.target.value })}
+                    placeholder="sloughgpt"
+                    className="sl-input font-mono text-sm"
+                  />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Server resolves <span className="font-mono text-foreground/80">datasets/&lt;name&gt;/input.txt</span>{' '}
-                    from the API process working directory (run the API from the repo root).
+                    For display only. All jobs train <span className="font-medium text-foreground">SloughGPTModel</span> (char-level).
                   </p>
                 </div>
-              )}
+              </div>
+
+              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">Training Data</h3>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Data Source
+                  </label>
+                  <select
+                    value={newJob.corpusMode}
+                    onChange={(e) =>
+                      setNewJob({
+                        ...newJob,
+                        corpusMode: e.target.value as CorpusMode,
+                        manifest_uri: '',
+                        ref_dataset_id: '',
+                        ref_version: '',
+                        ref_manifest_uri: '',
+                      })
+                    }
+                    className="sl-input"
+                  >
+                    <option value="folder">Local folder (datasets/)</option>
+                    <option value="manifest">v1 manifest file</option>
+                    <option value="ref">Versioned dataset (id + version)</option>
+                  </select>
+                </div>
+
+                {newJob.corpusMode === 'folder' && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1">
+                      Dataset <span className="text-destructive">*</span>
+                    </label>
+                    <select
+                      value={newJob.dataset}
+                      onChange={(e) => setNewJob({ ...newJob, dataset: e.target.value })}
+                      className="sl-input"
+                    >
+                      <option value="shakespeare">Shakespeare (bundled demo)</option>
+                      <option value="demo">demo</option>
+                      <option value="summary">summary</option>
+                      <option value="openwebtext">openwebtext (add data first)</option>
+                      <option value="wikitext-103">wikitext-103 (add data first)</option>
+                      <option value="code-search-net">code-search-net (add data first)</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Looks for <span className="font-mono">datasets/{newJob.dataset}/input.txt</span> on the server.
+                    </p>
+                  </div>
+                )}
+              </div>
 
               {newJob.corpusMode === 'manifest' && (
                 <div>
@@ -1071,43 +1075,51 @@ export default function TrainingPage() {
                 </div>
               </FoldSection>
 
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1">Epochs</label>
-                <input
-                  type="number"
-                  value={newJob.epochs}
-                  onChange={(e) => setNewJob({ ...newJob, epochs: parseInt(e.target.value, 10) })}
-                  min={1}
-                  max={100}
-                  className="sl-input"
-                />
-              </div>
+              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">Training Parameters</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1">Epochs</label>
+                    <input
+                      type="number"
+                      value={newJob.epochs}
+                      onChange={(e) => setNewJob({ ...newJob, epochs: parseInt(e.target.value, 10) })}
+                      min={1}
+                      max={100}
+                      className="sl-input"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Training passes</p>
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1">Batch Size</label>
-                <input
-                  type="number"
-                  value={newJob.batch_size}
-                  onChange={(e) => setNewJob({ ...newJob, batch_size: parseInt(e.target.value, 10) })}
-                  min={1}
-                  max={128}
-                  className="sl-input"
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1">Batch Size</label>
+                    <input
+                      type="number"
+                      value={newJob.batch_size}
+                      onChange={(e) => setNewJob({ ...newJob, batch_size: parseInt(e.target.value, 10) })}
+                      min={1}
+                      max={128}
+                      className="sl-input"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Samples/batch</p>
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1">Learning Rate</label>
-                <input
-                  type="number"
-                  step="0.000001"
-                  value={newJob.learning_rate}
-                  onChange={(e) => setNewJob({ ...newJob, learning_rate: parseFloat(e.target.value) })}
-                  className="sl-input"
-                />
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1">Learning Rate</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={newJob.learning_rate}
+                      onChange={(e) => setNewJob({ ...newJob, learning_rate: parseFloat(e.target.value) })}
+                      className="sl-input"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Step size</p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <DialogFooter className="mt-2 gap-3 sm:gap-3">
+            <DialogFooter className="mt-4 gap-3 sm:gap-3">
               <Button
                 type="button"
                 variant="secondary"
@@ -1118,7 +1130,7 @@ export default function TrainingPage() {
               </Button>
               <Button
                 type="button"
-                className="flex-1 sm:flex-none"
+                className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700"
                 onClick={startTraining}
                 disabled={starting || !newJob.name.trim()}
               >

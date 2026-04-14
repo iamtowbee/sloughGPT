@@ -4,11 +4,11 @@
   "tagline": "",
   "description": "",
   "created_by": "SloughGPT Training Pipeline",
-  "born_at": "2026-04-13T18:39:47.136544Z",
+  "born_at": "2026-04-13T18:57:36.566741Z",
   "lineage": "sloughgpt",
   "base_model": "sloughgpt",
-  "training_dataset": "/Users/mac/sloughGPT/datasets/Shakespeare/input.txt",
-  "epochs_trained": 5,
+  "training_dataset": "/Users/mac/sloughGPT/datasets/shakespeare/input.txt",
+  "epochs_trained": 3,
   "final_train_loss": 0.0,
   "final_val_loss": null,
   "dataset_signature": "",
@@ -80,6 +80,6 @@
     "soul"
   ],
   "certifications": [],
-  "integrity_hash": "533967e01aed4d2f",
+  "integrity_hash": "e95c8109249e89e0",
   "metadata": {}
 }
