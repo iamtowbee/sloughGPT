@@ -258,14 +258,14 @@ export default function TrainingPage() {
           <div className="flex flex-wrap justify-end gap-2">
             <Button
               type="button"
-              variant="secondary"
+              variant="ghost"
               size="sm"
               onClick={() => {
                 void fetchJobs()
                 void refreshHealth()
               }}
             >
-              Refresh
+              ↻
             </Button>
             <Button type="button" onClick={openModal}>
               New Training Job
