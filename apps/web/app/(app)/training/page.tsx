@@ -240,7 +240,7 @@ export default function TrainingPage() {
   return (
     <div className="sl-page mx-auto max-w-5xl">
       <AppRouteHeader
-        className="mb-6 items-start"
+        className="mb-6 justify-between"
         left={
           <AppRouteHeaderLead
             title="Training"
