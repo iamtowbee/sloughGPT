@@ -446,7 +446,24 @@ export default function TrainingPage() {
                 )}
                 <div className="flex items-center justify-between mt-2">
                   {job.checkpoint && (
-                    <p className="text-xs text-muted-foreground font-mono break-all">Checkpoint: {job.checkpoint}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground font-mono">Checkpoint: {job.checkpoint?.split('/').pop()}</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          const link = document.createElement('a')
+                          link.href = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/training/export/${job.id}`
+                          link.download = job.checkpoint?.split('/').pop() || 'checkpoint.pt'
+                          link.click()
+                          addToast('Download started', 'info')
+                        }}
+                        className="text-primary/60 hover:text-primary h-6 px-2"
+                        title="Download checkpoint"
+                      >
+                        ↓
+                      </Button>
+                    </div>
                   )}
                   {job.error && (
                     <p className="text-xs text-warning">{job.error}</p>
@@ -456,7 +473,7 @@ export default function TrainingPage() {
                       size="sm"
                       variant="ghost"
                       onClick={() => deleteJob(job.id, job.name)}
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-2"
+                      className="text-destructive/60 hover:text-destructive ml-2"
                     >
                       Delete
                     </Button>

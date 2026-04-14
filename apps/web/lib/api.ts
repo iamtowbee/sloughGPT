@@ -803,6 +803,14 @@ export const api = {
     return res.json()
   },
 
+  async exportTrainingJob(jobId: string): Promise<Blob> {
+    const res = await fetchWithAuth(`${API_URL}/training/export/${jobId}`)
+    if (!res.ok) {
+      throw new Error(`Export failed (${res.status})`)
+    }
+    return res.blob()
+  },
+
   async startTraining(req: TrainingRequest) {
     const res = await fetchWithAuth(`${API_URL}/training/start`, {
       method: 'POST',

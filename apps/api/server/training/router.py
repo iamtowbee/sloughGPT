@@ -224,6 +224,34 @@ async def delete_training_job(job_id: str):
     }
 
 
+@router.get("/training/export/{job_id}")
+async def export_training_job(job_id: str):
+    """Export a completed training job's checkpoint file."""
+    from fastapi.responses import FileResponse
+
+    if job_id not in training_jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = training_jobs[job_id]
+
+    if job.get("status") not in ("completed", "failed", "cancelled"):
+        raise HTTPException(status_code=400, detail="Job must be completed before export")
+
+    checkpoint = job.get("checkpoint")
+    if not checkpoint:
+        raise HTTPException(status_code=404, detail="No checkpoint found for this job")
+
+    checkpoint_path = Path(checkpoint)
+    if not checkpoint_path.exists():
+        raise HTTPException(status_code=404, detail="Checkpoint file not found on disk")
+
+    return FileResponse(
+        path=checkpoint_path,
+        filename=checkpoint_path.name,
+        media_type="application/octet-stream",
+    )
+
+
 @router.post("/training/start")
 async def start_training(request: TrainingRequest):
     """Start a tracked training job (web UI).
