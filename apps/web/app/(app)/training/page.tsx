@@ -334,6 +334,33 @@ export default function TrainingPage() {
         </div>
       </FoldSection>
 
+      <FoldSection heading="Evaluate">
+        <div className="space-y-3">
+          <textarea
+            className="sl-input w-full h-24 resize-none text-sm font-mono"
+            placeholder="Enter text to evaluate..."
+            value={perplexityText}
+            onChange={(e) => setPerplexityText(e.target.value)}
+          />
+          <div className="flex items-center justify-between">
+            <Button
+              size="sm"
+              onClick={calculatePerplexity}
+              disabled={perplexityLoading || !perplexityText.trim()}
+            >
+              {perplexityLoading ? 'Calculating...' : 'Calculate Perplexity'}
+            </Button>
+            {perplexityResult && (
+              <div className="text-sm">
+                <span className="text-muted-foreground">Perplexity: </span>
+                <span className="font-mono font-medium">{perplexityResult.perplexity.toFixed(4)}</span>
+                <span className="text-muted-foreground ml-2">({perplexityResult.text_length} chars)</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </FoldSection>
+
       {loading ? (
         <div className="text-center py-8 text-muted-foreground">Loading...</div>
       ) : jobs.length === 0 ? (
