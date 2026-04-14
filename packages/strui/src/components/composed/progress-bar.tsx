@@ -27,7 +27,7 @@ export function ProgressBar({
       aria-valuemax={max}
       aria-valuenow={indeterminate ? undefined : Math.round(value)}
       aria-valuetext={indeterminate ? undefined : `${Math.round(pct)}%`}
-      className={cn('relative h-2 w-full overflow-hidden rounded-none bg-muted/50', className)}
+      className={cn('relative h-2 w-full overflow-hidden rounded-none bg-muted', className)}
       {...props}
     >
       {indeterminate ? (
@@ -36,13 +36,13 @@ export function ProgressBar({
           style={{
             background: `repeating-linear-gradient(
               -45deg,
-              transparent,
-              transparent 8px,
-              rgba(59, 130, 246, 0.4) 8px,
-              rgba(59, 130, 246, 0.4) 16px
+              #22c55e,
+              #22c55e 8px,
+              #16a34a 8px,
+              #16a34a 16px
             )`,
             backgroundSize: '200% 100%',
-            animation: 'progress-stripes 1s linear infinite',
+            animation: 'progress-stripes 0.6s linear infinite',
           }}
         />
       ) : (
@@ -52,17 +52,17 @@ export function ProgressBar({
             style={{
               background: `repeating-linear-gradient(
                 -45deg,
-                transparent,
-                transparent 6px,
-                rgba(59, 130, 246, 0.15) 6px,
-                rgba(59, 130, 246, 0.15) 12px
+                rgba(34, 197, 94, 0.25),
+                rgba(34, 197, 94, 0.25) 6px,
+                rgba(34, 197, 94, 0.4) 6px,
+                rgba(34, 197, 94, 0.4) 12px
               )`,
               backgroundSize: '200% 100%',
-              animation: 'progress-stripes 0.8s linear infinite',
+              animation: 'progress-stripes 0.5s linear infinite',
             }}
           />
           <div
-            className="absolute inset-y-0 left-0 h-full bg-primary transition-[width] duration-300 ease-smooth"
+            className="absolute inset-y-0 left-0 h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-[width] duration-300 ease-smooth"
             style={{ width: `${pct}%` }}
           />
         </>

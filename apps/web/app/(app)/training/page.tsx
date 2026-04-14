@@ -99,6 +99,24 @@ export default function TrainingPage() {
     }
   }, [])
 
+  const [perplexityText, setPerplexityText] = useState('')
+  const [perplexityResult, setPerplexityResult] = useState<{ perplexity: number; text_length: number } | null>(null)
+  const [perplexityLoading, setPerplexityLoading] = useState(false)
+
+  const calculatePerplexity = async () => {
+    if (!perplexityText.trim()) return
+    setPerplexityLoading(true)
+    setPerplexityResult(null)
+    try {
+      const result = await api.calculatePerplexity(perplexityText)
+      setPerplexityResult(result)
+    } catch (error) {
+      addToast('Perplexity calculation failed', 'error')
+    } finally {
+      setPerplexityLoading(false)
+    }
+  }
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'r' && (e.metaKey || e.ctrlKey)) {
