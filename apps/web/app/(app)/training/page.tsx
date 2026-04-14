@@ -385,7 +385,7 @@ export default function TrainingPage() {
             <KpiGrid>
               {adapterStats && (
                 <>
-                  <StatCard label="User Adapters" value={adapterStats.total_users} hint={`${adapterStats.total_size_mb.toFixed(2)} MB`} />
+                  <StatCard label="User Adapters" value={adapterStats.total_users} hint={typeof adapterStats.total_size_mb === 'number' ? `${adapterStats.total_size_mb.toFixed(2)} MB` : '—'} />
                   <StatCard 
                     label="Quality Adapters" 
                     value={adapterStats.auto_management?.quality_adapters_count ?? 0} 
