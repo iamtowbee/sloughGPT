@@ -601,152 +601,153 @@ export default function TrainingPage() {
                 </div>
               </div>
 
-              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-                <h3 className="text-sm font-semibold text-foreground">Training Data</h3>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
-                    Data Source
-                  </label>
-                  <select
-                    value={newJob.corpusMode}
-                    onChange={(e) =>
-                      setNewJob({
-                        ...newJob,
-                        corpusMode: e.target.value as CorpusMode,
-                        manifest_uri: '',
-                        ref_dataset_id: '',
-                        ref_version: '',
-                        ref_manifest_uri: '',
-                      })
-                    }
-                    className="sl-input"
-                  >
-                    <option value="folder">Local folder (datasets/)</option>
-                    <option value="manifest">v1 manifest file</option>
-                    <option value="ref">Versioned dataset (id + version)</option>
-                  </select>
-                </div>
-
-                {newJob.corpusMode === 'folder' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-sm font-medium text-foreground">
-                        Dataset <span className="text-destructive">*</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => void fetchDatasets()}
-                        className="text-xs text-muted-foreground hover:text-foreground"
-                        disabled={loadingDatasets}
-                      >
-                        {loadingDatasets ? 'Loading...' : 'Refresh'}
-                      </button>
-                    </div>
-                    {datasets.length > 0 ? (
-                      <select
-                        value={newJob.dataset}
-                        onChange={(e) => setNewJob({ ...newJob, dataset: e.target.value })}
-                        className="sl-input"
-                      >
-                        {datasets.map((ds) => (
-                          <option key={ds.id} value={ds.id}>
-                            {ds.name} ({ds.size}) - {ds.type}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="sl-input py-2 text-sm text-muted-foreground">
-                        No datasets found. Server may not be running from repo root.
+              <FoldSection heading="Advanced (training data, model dimensions, loop, trainer)">
+                <div className="space-y-4">
+                  {/* Training Data */}
+                  <div className="border-b border-border pb-4">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Training Data</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-foreground mb-1">
+                          Data Source
+                        </label>
+                        <select
+                          value={newJob.corpusMode}
+                          onChange={(e) =>
+                            setNewJob({
+                              ...newJob,
+                              corpusMode: e.target.value as CorpusMode,
+                              manifest_uri: '',
+                              ref_dataset_id: '',
+                              ref_version: '',
+                              ref_manifest_uri: '',
+                            })
+                          }
+                          className="sl-input"
+                        >
+                          <option value="folder">Local folder (datasets/)</option>
+                          <option value="manifest">v1 manifest file</option>
+                          <option value="ref">Versioned dataset (id + version)</option>
+                        </select>
                       </div>
+
+                      {newJob.corpusMode === 'folder' && (
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-medium text-foreground">
+                              Dataset
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => void fetchDatasets()}
+                              className="text-xs text-muted-foreground hover:text-foreground"
+                              disabled={loadingDatasets}
+                            >
+                              {loadingDatasets ? 'Loading...' : 'Refresh'}
+                            </button>
+                          </div>
+                          {datasets.length > 0 ? (
+                            <select
+                              value={newJob.dataset}
+                              onChange={(e) => setNewJob({ ...newJob, dataset: e.target.value })}
+                              className="sl-input"
+                            >
+                              {datasets.map((ds) => (
+                                <option key={ds.id} value={ds.id}>
+                                  {ds.name} ({ds.size}) - {ds.type}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <div className="sl-input py-2 text-sm text-muted-foreground">
+                              No datasets found. Server may not be running from repo root.
+                            </div>
+                          )}
+                          {datasets.find(d => d.id === newJob.dataset) && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Path: <span className="font-mono">{datasets.find(d => d.id === newJob.dataset)?.path}</span>
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {newJob.corpusMode === 'manifest' && (
+                        <div>
+                          <label className="block text-xs font-medium text-foreground mb-1">
+                            Path to dataset_manifest.json
+                          </label>
+                          <input
+                            type="text"
+                            value={newJob.manifest_uri}
+                            onChange={(e) => setNewJob({ ...newJob, manifest_uri: e.target.value })}
+                            placeholder="datasets/my_run/dataset_manifest.json"
+                            className="sl-input font-mono text-sm"
+                          />
+                        </div>
+                      )}
+
+                      {newJob.corpusMode === 'ref' && (
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="block text-xs font-medium text-foreground mb-1">dataset_id</label>
+                            <input
+                              type="text"
+                              value={newJob.ref_dataset_id}
+                              onChange={(e) => setNewJob({ ...newJob, ref_dataset_id: e.target.value })}
+                              className="sl-input font-mono text-sm py-1"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-foreground mb-1">version</label>
+                            <input
+                              type="text"
+                              value={newJob.ref_version}
+                              onChange={(e) => setNewJob({ ...newJob, ref_version: e.target.value })}
+                              className="sl-input font-mono text-sm py-1"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-foreground mb-1">manifest_uri</label>
+                            <input
+                              type="text"
+                              value={newJob.ref_manifest_uri}
+                              onChange={(e) => setNewJob({ ...newJob, ref_manifest_uri: e.target.value })}
+                              className="sl-input font-mono text-sm py-1"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <Button
+                      type="button"
+                      onClick={previewResolution}
+                      disabled={resolving}
+                      variant="secondary"
+                      size="sm"
+                    >
+                      {resolving ? 'Checking…' : 'Preview resolution'}
+                    </Button>
+                    {resolveResult && (
+                      <span className="text-xs text-success">OK → {resolveResult.data_path}</span>
                     )}
-                    {datasets.find(d => d.id === newJob.dataset) && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Path: <span className="font-mono">{datasets.find(d => d.id === newJob.dataset)?.path}</span>
-                      </p>
-                    )}
                   </div>
-                )}
-              </div>
+                  {resolveError && (
+                    <p className="text-sm text-destructive">{resolveError}</p>
+                  )}
+                  {resolveResult && (
+                    <pre className="text-xs bg-muted border border-border p-3 rounded-none overflow-x-auto text-foreground">
+                      {JSON.stringify(resolveResult, null, 2)}
+                    </pre>
+                  )}
 
-              {newJob.corpusMode === 'manifest' && (
-                <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-1">
-                    Path to dataset_manifest.json
-                  </label>
-                  <input
-                    type="text"
-                    value={newJob.manifest_uri}
-                    onChange={(e) => setNewJob({ ...newJob, manifest_uri: e.target.value })}
-                    placeholder="datasets/my_run/dataset_manifest.json"
-                    className="sl-input font-mono text-sm"
-                  />
-                </div>
-              )}
-
-              {newJob.corpusMode === 'ref' && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1">
-                      dataset_id (must match manifest)
-                    </label>
-                    <input
-                      type="text"
-                      value={newJob.ref_dataset_id}
-                      onChange={(e) => setNewJob({ ...newJob, ref_dataset_id: e.target.value })}
-                      className="sl-input font-mono text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1">
-                      version (must match manifest)
-                    </label>
-                    <input
-                      type="text"
-                      value={newJob.ref_version}
-                      onChange={(e) => setNewJob({ ...newJob, ref_version: e.target.value })}
-                      className="sl-input font-mono text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1">
-                      manifest_uri
-                    </label>
-                    <input
-                      type="text"
-                      value={newJob.ref_manifest_uri}
-                      onChange={(e) => setNewJob({ ...newJob, ref_manifest_uri: e.target.value })}
-                      className="sl-input font-mono text-sm"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-2 items-center">
-                <Button
-                  type="button"
-                  onClick={previewResolution}
-                  disabled={resolving}
-                  variant="secondary"
-                  size="sm"
-                >
-                  {resolving ? 'Checking…' : 'Preview resolution'}
-                </Button>
-                {resolveResult && (
-                  <span className="text-xs text-success">OK → {resolveResult.data_path}</span>
-                )}
-              </div>
-              {resolveError && (
-                <p className="text-sm text-destructive">{resolveError}</p>
-              )}
-              {resolveResult && (
-                <pre className="text-xs bg-muted border border-border p-3 rounded-none overflow-x-auto text-foreground">
-                  {JSON.stringify(resolveResult, null, 2)}
-                </pre>
-              )}
-
-              <FoldSection heading="Advanced (model dimensions, loop, trainer)">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
+                  {/* Model Dimensions */}
+                  <div className="border-t border-border pt-4">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Model Dimensions</h4>
+                    <div className="grid grid-cols-4 gap-3">
+                      <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-1">n_embed</label>
                     <input
                       type="number"
@@ -855,6 +856,8 @@ export default function TrainingPage() {
                       className="sl-input py-1 text-sm"
                     />
                   </div>
+                  </div>
+                </div>
 
                   <div className="col-span-2 border-t border-border pt-3 mt-1 text-xs font-semibold text-muted-foreground">
                     Trainer (API / cli train --api parity)
