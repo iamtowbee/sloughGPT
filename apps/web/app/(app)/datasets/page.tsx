@@ -50,6 +50,9 @@ export default function DatasetsPage() {
   const [versions, setVersions] = useState<Array<{ version_id: string; created_at: string; description: string }>>([])
   const [loadingVersions, setLoadingVersions] = useState(false)
   const [createVersionDesc, setCreateVersionDesc] = useState('')
+  const [batchModalOpen, setBatchModalOpen] = useState(false)
+  const [batchSources, setBatchSources] = useState<Array<{ type: string; url: string; name: string }>>([{ type: 'url', url: '', name: '' }])
+  const [batchResults, setBatchResults] = useState<{ successful: number; failed: number; results: Array<{ dataset_id: string; success: boolean; message: string }> } | null>(null)
   const { state: health, refresh: refreshHealth } = useApiHealth()
 
   const apiHealthLabel = useMemo(() => inferenceHealthLabel(health), [health])
@@ -193,6 +196,40 @@ export default function DatasetsPage() {
     }
   }
 
+  const handleBatchImport = async () => {
+    setSavingId('batch')
+    setBatchResults(null)
+    try {
+      const sources = batchSources.filter(s => s.url.trim()).map(s => ({
+        type: s.type as 'url' | 'local' | 'github',
+        url: s.url,
+        name: s.name || undefined,
+      }))
+      if (sources.length === 0) {
+        alert('Please add at least one URL to import.')
+        return
+      }
+      const result = await api.batchImport(sources)
+      setBatchResults(result)
+      if (result.successful > 0) {
+        void fetchDatasets()
+      }
+    } catch (err) {
+      devDebug('Batch import failed:', err)
+      alert('Batch import failed.')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const handleAddBatchSource = () => {
+    setBatchSources(prev => [...prev, { type: 'url', url: '', name: '' }])
+  }
+
+  const handleRemoveBatchSource = (index: number) => {
+    setBatchSources(prev => prev.filter((_, i) => i !== index))
+  }
+
   return (
     <div className="sl-page mx-auto max-w-6xl">
       <AppRouteHeader
@@ -218,6 +255,14 @@ export default function DatasetsPage() {
               onClick={() => setImportModalOpen(true)}
             >
               Import Dataset
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => { setBatchModalOpen(true); setBatchResults(null); }}
+            >
+              Batch Import
             </Button>
             <Button
               type="button"
@@ -523,6 +568,85 @@ export default function DatasetsPage() {
               )}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={batchModalOpen} onOpenChange={setBatchModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Batch Import</DialogTitle>
+            <DialogDescription>
+              Import multiple datasets at once by URLs. Up to 20 imports per batch.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {batchSources.map((source, index) => (
+              <div key={index} className="flex gap-2 items-start">
+                <select
+                  value={source.type}
+                  onChange={(e) => {
+                    const newSources = [...batchSources]
+                    newSources[index].type = e.target.value
+                    setBatchSources(newSources)
+                  }}
+                  className="sl-input py-2 px-2 w-28"
+                >
+                  <option value="url">URL</option>
+                  <option value="local">Local</option>
+                  <option value="github">GitHub</option>
+                </select>
+                <Input
+                  value={source.url}
+                  onChange={(e) => {
+                    const newSources = [...batchSources]
+                    newSources[index].url = e.target.value
+                    setBatchSources(newSources)
+                  }}
+                  placeholder={source.type === 'github' ? 'owner/repo/path' : 'https://...'}
+                  className="flex-1"
+                />
+                <Input
+                  value={source.name}
+                  onChange={(e) => {
+                    const newSources = [...batchSources]
+                    newSources[index].name = e.target.value
+                    setBatchSources(newSources)
+                  }}
+                  placeholder="Name (optional)"
+                  className="w-32"
+                />
+                <Button variant="ghost" size="sm" onClick={() => handleRemoveBatchSource(index)}>
+                  ✕
+                </Button>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={handleAddBatchSource}>
+              + Add Source
+            </Button>
+
+            {batchResults && (
+              <div className="mt-4 p-4 rounded-lg bg-muted/30">
+                <h4 className="font-medium mb-2">Results</h4>
+                <p className="text-sm">
+                  <span className="text-green-600 font-medium">{batchResults.successful}</span> successful,{' '}
+                  <span className="text-red-600 font-medium">{batchResults.failed}</span> failed
+                </p>
+                {batchResults.results.filter(r => r.success).map((r) => (
+                  <p key={r.dataset_id} className="text-sm text-green-600">
+                    ✓ {r.dataset_id}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBatchModalOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={handleBatchImport} disabled={savingId !== null}>
+              {savingId ? 'Importing...' : 'Import All'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

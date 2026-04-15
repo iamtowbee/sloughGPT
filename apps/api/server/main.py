@@ -3952,6 +3952,70 @@ async def import_from_local(request: LocalImportRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class BatchImportRequest(BaseModel):
+    sources: List[Dict[str, Any]]  # List of {type: "url"|"local"|"github", ...params}
+
+
+@app.post("/datasets/import/batch", tags=["datasets"])
+async def batch_import(request: BatchImportRequest):
+    """Import multiple datasets in one request."""
+    from domains.training.data_import import DataImporter, URLImporter, GitHubImporter
+
+    results = []
+    errors = []
+
+    for i, source in enumerate(request.sources[:20]):  # Max 20 imports
+        source_type = source.get("type", "")
+        name = source.get("name", f"batch_{i}")
+
+        try:
+            if source_type == "url":
+                importer = URLImporter()
+                result = importer.import_from_url(
+                    url=source.get("url", ""),
+                    dataset_name=name,
+                )
+            elif source_type == "local":
+                importer = DataImporter()
+                result = importer.import_from_local(
+                    path=source.get("path", ""),
+                    name=name,
+                    extensions=source.get("extensions"),
+                )
+            elif source_type == "github":
+                importer = GitHubImporter()
+                result = importer.import_from_github(
+                    repo=source.get("repo", ""),
+                    path=source.get("path", ""),
+                    dataset_name=name,
+                )
+            else:
+                errors.append({"index": i, "error": f"Unknown source type: {source_type}"})
+                continue
+
+            if result.success:
+                results.append(
+                    {
+                        "index": i,
+                        "dataset_id": name,
+                        "success": True,
+                        "message": f"Imported {result.files_imported or 1} items",
+                    }
+                )
+            else:
+                errors.append({"index": i, "error": result.error or "Import failed"})
+        except Exception as e:
+            errors.append({"index": i, "error": str(e)})
+
+    return {
+        "total": len(request.sources),
+        "successful": len(results),
+        "failed": len(errors),
+        "results": results,
+        "errors": errors,
+    }
+
+
 class KaggleImportRequest(BaseModel):
     dataset: str  # e.g., "zillow/zecon"
     name: Optional[str] = None

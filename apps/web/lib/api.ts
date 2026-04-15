@@ -1347,6 +1347,30 @@ export const api = {
     return res.json()
   },
 
+  async batchImport(sources: Array<{
+    type: 'url' | 'local' | 'github'
+    url?: string
+    path?: string
+    repo?: string
+    name?: string
+  }>): Promise<{
+    total: number
+    successful: number
+    failed: number
+    results: Array<{ dataset_id: string; success: boolean; message: string }>
+    errors: Array<{ index: number; error: string }>
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/import/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sources }),
+    })
+    if (!res.ok) {
+      throw new Error(`Batch import failed (${res.status})`)
+    }
+    return res.json()
+  },
+
   async importFromCSV(request: CSVImportRequest): Promise<ImportResponse> {
     const res = await fetchWithAuth(`${API_URL}/datasets/import/csv`, {
       method: 'POST',
