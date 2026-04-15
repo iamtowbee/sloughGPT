@@ -4614,24 +4614,9 @@ def _load_hf_model_core(request: LoadModelRequest) -> Dict[str, Any]:
                 tokenizer = loader.tokenizer
                 model_type = "gpt2"
 
-                # Apply dynamic quantization for ~2x speedup on MPS
+                # MPS doesn't support quantization well, use native inference
                 if request.device == "mps" or request.device == "auto":
-                    try:
-                        logger.info("Applying dynamic quantization for faster inference...")
-                        import torch
-
-                        if hasattr(torch, "quantization") and hasattr(
-                            torch.quantization, "quantize_dynamic"
-                        ):
-                            model = torch.quantization.quantize_dynamic(
-                                model, {torch.nn.Linear}, dtype=torch.qint8
-                            )
-                            logger.info("Dynamic quantization applied successfully")
-                    except Exception as e:
-                        logger.warning(f"Quantization failed: {e}")
-
-                # torch.compile can cause issues on MPS, skip for now
-                # TODO: Enable when CUDA is available or MPS issues are resolved
+                    logger.info("Using native MPS inference")
             else:
                 model_type = f"hf/{request.model_id}"
                 logger.warning(
