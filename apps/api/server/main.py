@@ -60,16 +60,183 @@ import json
 import asyncio
 import time
 import logging
+import threading
+from typing import Any, Callable, Dict, List, Optional
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from collections import defaultdict
 
 from domains.errors import require_non_empty_prompt, SloughGPTDomainError
 from domains.ops.wandb_server import record_inference_call
 
 logging.basicConfig(level=logging.INFO)
-logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
-logging.getLogger("urllib3").setLevel(logging.WARNING)
 logger = logging.getLogger("sloughgpt")
 
 _PROCESS_START_MONOTONIC = time.monotonic()
+
+
+class TaskStatus(Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    SUCCESS = "success"
+    FAILED = "failed"
+    RETRYING = "retrying"
+
+
+@dataclass
+class Task:
+    id: str
+    name: str
+    status: TaskStatus = TaskStatus.PENDING
+    created_at: datetime = field(default_factory=datetime.now)
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    result: Any = None
+    error: Optional[str] = None
+    retry_count: int = 0
+    max_retries: int = 3
+
+
+class TaskQueueManager:
+    """
+    Centralized task manager for operations with retries and event-based notifications.
+    Prevents duplicate logging from multiple retries.
+    """
+
+    def __init__(self):
+        self._tasks: Dict[str, Task] = {}
+        self._event_handlers: Dict[str, List[Callable]] = defaultdict(list)
+        self._retry_delays = [1, 2, 4, 8, 16]
+
+    def on(self, event: str, handler: Callable) -> None:
+        """Register an event handler."""
+        self._event_handlers[event].append(handler)
+
+    def off(self, event: str, handler: Callable) -> None:
+        """Remove an event handler."""
+        if event in self._event_handlers:
+            self._event_handlers[event] = [h for h in self._event_handlers[event] if h != handler]
+
+    def _emit(self, event: str, *args, **kwargs) -> None:
+        """Emit an event to all handlers."""
+        for handler in self._event_handlers.get(event, []):
+            try:
+                handler(*args, **kwargs)
+            except Exception as e:
+                logger.error(f"Event handler error: {e}")
+
+    async def submit(
+        self, name: str, coro: Callable, max_retries: int = 3, task_id: Optional[str] = None
+    ) -> str:
+        """Submit and run a task with retries."""
+        if task_id is None:
+            task_id = f"{name}_{int(time.time() * 1000)}"
+
+        task = Task(id=task_id, name=name, max_retries=max_retries)
+        self._tasks[task_id] = task
+        self._emit("task:submitted", task)
+
+        task.status = TaskStatus.RUNNING
+        task.started_at = datetime.now()
+        self._emit("task:started", task)
+
+        await self._run_task(task, coro)
+        return task_id
+
+    async def _run_task(self, task: Task, coro_fn: Callable) -> None:
+        """Run a task with retry logic."""
+        last_error = None
+
+        for attempt in range(task.max_retries + 1):
+            try:
+                if asyncio.iscoroutinefunction(coro_fn):
+                    result = await coro_fn()
+                else:
+                    maybe_coro = coro_fn()
+                    if asyncio.iscoroutine(maybe_coro):
+                        result = await maybe_coro
+                    else:
+                        result = maybe_coro
+
+                task.status = TaskStatus.SUCCESS
+                task.result = result
+                task.completed_at = datetime.now()
+                self._emit("task:success", task)
+                return
+
+            except Exception as e:
+                last_error = e
+                task.retry_count = attempt + 1
+
+                if attempt < task.max_retries:
+                    task.status = TaskStatus.RETRYING
+                    delay = self._retry_delays[min(attempt, len(self._retry_delays) - 1)]
+                    logger.info(
+                        f"Task {task.name} failed (attempt {attempt + 1}/{task.max_retries + 1}): {e}. Retrying in {delay}s..."
+                    )
+                    self._emit("task:retry", task, attempt, delay)
+                    await asyncio.sleep(delay)
+                else:
+                    task.status = TaskStatus.FAILED
+                    task.error = str(last_error)
+                    task.completed_at = datetime.now()
+                    logger.error(
+                        f"Task {task.name} failed permanently after {attempt + 1} attempts: {e}"
+                    )
+                    self._emit("task:failed", task, last_error)
+
+    def get_task(self, task_id: str) -> Optional[Task]:
+        """Get task by ID."""
+        return self._tasks.get(task_id)
+
+    def get_tasks(self, status: Optional[TaskStatus] = None) -> List[Task]:
+        """Get all tasks, optionally filtered by status."""
+        tasks = list(self._tasks.values())
+        if status:
+            tasks = [t for t in tasks if t.status == status]
+        return sorted(tasks, key=lambda t: t.created_at, reverse=True)
+
+    async def wait_for_completion(self, task_id: str, timeout: float = 120.0) -> Optional[Task]:
+        """Wait for a task to complete (success or failure)."""
+        start = time.time()
+        while time.time() - start < timeout:
+            task = self._tasks.get(task_id)
+            if task and task.status in (TaskStatus.SUCCESS, TaskStatus.FAILED):
+                return task
+            await asyncio.sleep(0.5)
+        return self._tasks.get(task_id)
+
+
+# Global task queue manager instance
+task_queue = TaskQueueManager()
+
+
+def _on_task_submitted(task):
+    logger.info(f"Task queued: {task.name} (id={task.id})")
+
+
+def _on_task_started(task):
+    logger.info(f"Task started: {task.name}")
+
+
+def _on_task_retry(task, attempt, delay):
+    logger.warning(f"Task retry: {task.name} (attempt {attempt + 1}, waiting {delay}s)")
+
+
+def _on_task_success(task):
+    logger.info(f"Task completed: {task.name}")
+
+
+def _on_task_failed(task, error):
+    logger.error(f"Task failed: {task.name} - {error}")
+
+
+task_queue.on("task:submitted", _on_task_submitted)
+task_queue.on("task:started", _on_task_started)
+task_queue.on("task:retry", _on_task_retry)
+task_queue.on("task:success", _on_task_success)
+task_queue.on("task:failed", _on_task_failed)
 
 
 # ============ Rate Limiting ============
@@ -3874,54 +4041,96 @@ async def import_from_github(request: GitHubImportRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def _do_huggingface_import(request: HuggingFaceImportRequest) -> dict:
+    """Internal function for HuggingFace import, meant to be run via task queue."""
+    from domains.training.data_import import HuggingFaceImporter
+
+    hf = HuggingFaceImporter()
+    name = request.name or request.dataset_id.split("/")[-1]
+
+    result = hf.download_dataset(
+        dataset_id=request.dataset_id,
+        name=name,
+    )
+
+    if not result.success:
+        raise Exception(result.error or "Download failed")
+
+    return {
+        "success": True,
+        "dataset_id": name,
+        "message": f"Downloaded {result.files_imported} splits ({result.total_chars} chars)",
+        "output_path": result.output_path,
+    }
+
+
 @app.post("/datasets/import/huggingface", tags=["datasets"])
 async def import_from_huggingface(request: HuggingFaceImportRequest):
     """Import dataset from HuggingFace Hub."""
     try:
-        from domains.training.data_import import HuggingFaceImporter
-
-        hf = HuggingFaceImporter()
-        name = request.name or request.dataset_id.split("/")[-1]
-
-        result = hf.download_dataset(
-            dataset_id=request.dataset_id,
-            name=name,
+        task_id = await task_queue.submit(
+            name=f"hf_import:{request.dataset_id}",
+            coro=lambda: _do_huggingface_import(request),
+            max_retries=3,
+            task_id=f"hf_import_{hash(request.dataset_id)}",
         )
+        task = await task_queue.wait_for_completion(task_id)
 
-        if result.success:
-            return {
-                "success": True,
-                "dataset_id": name,
-                "message": f"Downloaded {result.files_imported} splits ({result.total_chars} chars)",
-                "output_path": result.output_path,
-            }
+        if task and task.status == TaskStatus.SUCCESS:
+            return task.result
+        elif task and task.status == TaskStatus.FAILED:
+            raise HTTPException(status_code=400, detail=task.error or "Download failed")
         else:
-            raise HTTPException(status_code=400, detail=result.error or "Download failed")
+            raise HTTPException(status_code=408, detail="Task timed out")
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _do_url_import(request: URLImportRequest) -> dict:
+    """Internal function for URL import, meant to be run via task queue."""
+    from domains.training.data_import import URLImporter
+
+    url_importer = URLImporter()
+    result = url_importer.import_from_url(
+        url=request.url,
+        dataset_name=request.name,
+    )
+
+    if not result.success:
+        raise Exception(result.error or "Download failed")
+
+    return {
+        "success": True,
+        "dataset_id": request.name,
+        "message": f"Downloaded {result.total_chars} chars",
+        "output_path": result.output_path,
+    }
 
 
 @app.post("/datasets/import/url", tags=["datasets"])
 async def import_from_url(request: URLImportRequest):
     """Import dataset from URL."""
     try:
-        from domains.training.data_import import URLImporter
-
-        url_importer = URLImporter()
-        result = url_importer.import_from_url(
-            url=request.url,
-            dataset_name=request.name,
+        task_id = await task_queue.submit(
+            name=f"url_import:{request.url[:50]}",
+            coro=lambda: _do_url_import(request),
+            max_retries=3,
+            task_id=f"url_import_{hash(request.url)}",
         )
+        task = await task_queue.wait_for_completion(task_id)
 
-        if result.success:
-            return {
-                "success": True,
-                "dataset_id": request.name,
-                "message": f"Downloaded {result.total_chars} chars",
-                "output_path": result.output_path,
-            }
+        if task and task.status == TaskStatus.SUCCESS:
+            return task.result
+        elif task and task.status == TaskStatus.FAILED:
+            raise HTTPException(status_code=400, detail=task.error or "Download failed")
         else:
-            raise HTTPException(status_code=400, detail=result.error or "Download failed")
+            raise HTTPException(status_code=408, detail="Task timed out")
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
