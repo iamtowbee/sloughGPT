@@ -1228,6 +1228,22 @@ export const api = {
     return res.json()
   },
 
+  async updateDataset(datasetId: string, updates: {
+    name?: string
+    description?: string
+    tags?: string[]
+  }): Promise<{ status: string; dataset_id: string }> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/${datasetId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    })
+    if (!res.ok) {
+      throw new Error(`Update dataset failed (${res.status})`)
+    }
+    return res.json()
+  },
+
   async previewDataset(datasetId: string, limit = 10): Promise<DatasetPreview> {
     const res = await fetchWithAuth(`${API_URL}/datasets/${datasetId}/preview?limit=${limit}`)
     if (!res.ok) {

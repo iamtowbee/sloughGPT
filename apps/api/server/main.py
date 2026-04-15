@@ -3464,6 +3464,43 @@ async def get_dataset_stats(dataset_id: str):
     }
 
 
+class DatasetUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+
+@app.patch("/datasets/{dataset_id}", tags=["datasets"])
+async def update_dataset(dataset_id: str, request: DatasetUpdateRequest):
+    """Update dataset metadata (name, description, tags)."""
+    from pathlib import Path
+    import json
+
+    dataset_path = Path(f"datasets/{dataset_id}")
+
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    meta_file = dataset_path / "metadata.json"
+    metadata = {}
+    if meta_file.exists():
+        with open(meta_file, "r") as f:
+            metadata = json.load(f)
+
+    if request.name is not None:
+        metadata["name"] = request.name
+    if request.description is not None:
+        metadata["description"] = request.description
+    if request.tags is not None:
+        metadata["tags"] = request.tags
+    metadata["updated_at"] = datetime.now().isoformat()
+
+    with open(meta_file, "w") as f:
+        json.dump(metadata, f, indent=2)
+
+    return {"status": "updated", "dataset_id": dataset_id, "metadata": metadata}
+
+
 @app.get("/datasets/{dataset_id}/preview", tags=["datasets"])
 async def preview_dataset(dataset_id: str, limit: int = 10):
     """Preview dataset content and stats."""

@@ -17,6 +17,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
@@ -34,6 +42,9 @@ export default function DatasetsPage() {
   const [selectedDataset, setSelectedDataset] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [editingDataset, setEditingDataset] = useState<{ id: string; name: string; description: string; tags: string }>({ id: '', name: '', description: '', tags: '' })
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [savingId, setSavingId] = useState<string | null>(null)
   const { state: health, refresh: refreshHealth } = useApiHealth()
 
   const apiHealthLabel = useMemo(() => inferenceHealthLabel(health), [health])
@@ -106,6 +117,30 @@ export default function DatasetsPage() {
     } catch (err) {
       devDebug('Failed to export dataset:', err)
       alert('Failed to export dataset. Please try again.')
+    }
+  }
+
+  const handleEditDataset = (dataset: Dataset) => {
+    setEditingDataset({ id: dataset.id, name: dataset.name, description: '', tags: '' })
+    setEditModalOpen(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingDataset.id) return
+    setSavingId(editingDataset.id)
+    try {
+      await api.updateDataset(editingDataset.id, {
+        name: editingDataset.name,
+        description: editingDataset.description,
+        tags: editingDataset.tags ? editingDataset.tags.split(',').map(t => t.trim()).filter(Boolean) : undefined,
+      })
+      void fetchDatasets()
+      setEditModalOpen(false)
+    } catch (err) {
+      devDebug('Failed to update dataset:', err)
+      alert('Failed to update dataset. Please try again.')
+    } finally {
+      setSavingId(null)
     }
   }
 
@@ -230,11 +265,14 @@ export default function DatasetsPage() {
                   </CardContent>
                   <CardFooter className="flex justify-between border-t border-border pt-4">
                     <span className="text-sm font-medium text-chart-3">{dataset.size}</span>
-                    <div className="flex gap-1">
-                      <Button type="button" variant="ghost" size="sm" onClick={() => handleViewDataset(dataset.id)}>
-                        View
-                      </Button>
-                      <div className="relative group">
+                      <div className="flex gap-1">
+                        <Button type="button" variant="ghost" size="sm" onClick={() => handleViewDataset(dataset.id)}>
+                          View
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => handleEditDataset(dataset)}>
+                          Edit
+                        </Button>
+                        <div className="relative group">
                         <Button type="button" variant="ghost" size="sm">
                           Export
                         </Button>
@@ -345,6 +383,51 @@ export default function DatasetsPage() {
         datasets={datasets}
         onCombineComplete={handleImportComplete}
       />
+
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Dataset</DialogTitle>
+            <DialogDescription>
+              Update dataset name, description, and tags.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Name</label>
+              <Input
+                value={editingDataset.name}
+                onChange={(e) => setEditingDataset(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Dataset name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Description</label>
+              <Input
+                value={editingDataset.description}
+                onChange={(e) => setEditingDataset(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Optional description"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Tags (comma-separated)</label>
+              <Input
+                value={editingDataset.tags}
+                onChange={(e) => setEditingDataset(prev => ({ ...prev, tags: e.target.value }))}
+                placeholder="e.g., text, shakespeare, training"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={savingId !== null}>
+              {savingId ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
