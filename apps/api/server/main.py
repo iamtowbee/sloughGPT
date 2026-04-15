@@ -1060,6 +1060,18 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("W&B server background task did not start: %s", e)
     yield
+    # Shutdown: mark running jobs as interrupted for recovery
+    try:
+        from training.job_store import get_job_store
+
+        store = get_job_store()
+        running_jobs = store.list(status="running")
+        for job in running_jobs:
+            logger.info(f"Marking job {job['id']} as interrupted on shutdown")
+            store.mark_crashed(job["id"])
+    except Exception as e:
+        logger.warning("Failed to mark running jobs as interrupted: %s", e)
+
     if wandb_server_task is not None:
         wandb_server_task.cancel()
         try:
@@ -1540,6 +1552,97 @@ async def get_soul():
         if hasattr(current_soul, "certifications")
         else [],
     }
+
+
+# ===== Soul Manager - Hot-Swappable Souls =====
+
+
+@app.get("/souls", tags=["souls"])
+async def list_souls():
+    """List all available souls."""
+    try:
+        from domains.inference.soul_manager import get_soul_manager
+
+        manager = get_soul_manager()
+        souls = manager.list_souls()
+        return {
+            "souls": [
+                {
+                    "name": s.name,
+                    "path": s.path,
+                    "description": s.description,
+                    "personality": s.personality,
+                    "traits": s.traits,
+                }
+                for s in souls
+            ],
+            "current_soul": manager.get_current_soul().name if manager.get_current_soul() else None,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/souls/switch", tags=["souls"])
+async def switch_soul(name: str):
+    """Switch to a different soul/personality."""
+    global current_soul, soul_engine
+
+    try:
+        from domains.inference.soul_manager import get_soul_manager
+
+        manager = get_soul_manager()
+        result = manager.switch_soul(name)
+
+        if result.get("success"):
+            # Load the soul into engine if available
+            soul_info = manager.get_soul(name)
+            if soul_info and soul_info.path:
+                from domains.core import SoulEngine
+
+                engine = SoulEngine(device="cpu")
+                soul = engine.load_soul(soul_info.path)
+                current_soul = soul
+                soul_engine = engine
+
+            return result
+        else:
+            return result
+
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/souls/current", tags=["souls"])
+async def get_current_soul():
+    """Get currently active soul."""
+    try:
+        from domains.inference.soul_manager import get_soul_manager
+
+        manager = get_soul_manager()
+        current = manager.get_current_soul()
+
+        if current:
+            return {
+                "name": current.name,
+                "path": current.path,
+                "description": current.description,
+                "personality": current.personality,
+                "traits": current.traits,
+            }
+        return {"name": None}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/souls/stats", tags=["souls"])
+async def get_soul_stats():
+    """Get soul manager statistics."""
+    try:
+        from domains.inference.soul_manager import get_soul_manager
+
+        return get_soul_manager().get_stats()
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.get("/")

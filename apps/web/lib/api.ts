@@ -811,6 +811,182 @@ export const api = {
     return res.blob()
   },
 
+  // ===== Training State Control =====
+
+  async getTrainingStatus(): Promise<{
+    state: string
+    is_running: boolean
+    is_paused: boolean
+    is_idle: boolean
+    current_job_id: string | null
+    current_job_name: string | null
+    can_start: boolean
+    can_pause: boolean
+    can_resume: boolean
+    can_stop: boolean
+    total_jobs: number
+    completed_jobs: number
+    failed_jobs: number
+    running_jobs: Array<{ id: string; name: string; progress: number }>
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/training/status`)
+    if (!res.ok) {
+      throw new Error(`Get training status failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async isTrainingRunning(): Promise<{
+    is_running: boolean
+    is_paused: boolean
+    is_idle: boolean
+    state: string
+    current_job: string | null
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/training/is-running`)
+    if (!res.ok) {
+      throw new Error(`Check training status failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async pauseTraining(): Promise<{ success: boolean; state: string; message: string }> {
+    const res = await fetchWithAuth(`${API_URL}/training/control/pause`, { method: 'POST' })
+    if (!res.ok) {
+      throw new Error(`Pause training failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async resumeTraining(): Promise<{ success: boolean; state: string; message: string }> {
+    const res = await fetchWithAuth(`${API_URL}/training/control/resume`, { method: 'POST' })
+    if (!res.ok) {
+      throw new Error(`Resume training failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async stopTraining(): Promise<{ success: boolean; state: string; message: string }> {
+    const res = await fetchWithAuth(`${API_URL}/training/control/stop`, { method: 'POST' })
+    if (!res.ok) {
+      throw new Error(`Stop training failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async resetTraining(): Promise<{ success: boolean; state: string; message: string }> {
+    const res = await fetchWithAuth(`${API_URL}/training/control/reset`, { method: 'POST' })
+    if (!res.ok) {
+      throw new Error(`Reset training failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  // ===== Webhooks =====
+
+  async getWebhooks(): Promise<{
+    webhooks: Array<{
+      id: string
+      url: string
+      events: string[]
+      description: string
+      is_active: boolean
+      created_at: string
+    }>
+    available_events: string[]
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/training/webhooks`)
+    if (!res.ok) {
+      throw new Error(`Get webhooks failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async registerWebhook(params: {
+    url: string
+    events: string[]
+    description?: string
+    secret?: string
+    headers?: Record<string, string>
+  }): Promise<{
+    id: string
+    url: string
+    events: string[]
+    secret: string
+    message: string
+  }> {
+    const searchParams = new URLSearchParams()
+    searchParams.append('url', params.url)
+    searchParams.append('events', JSON.stringify(params.events))
+    if (params.description) searchParams.append('description', params.description)
+    if (params.secret) searchParams.append('secret', params.secret)
+
+    const res = await fetchWithAuth(`${API_URL}/training/webhooks?${searchParams}`, {
+      method: 'POST',
+    })
+    if (!res.ok) {
+      throw new Error(`Register webhook failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async deleteWebhook(webhookId: string): Promise<{ status: string; webhook_id: string }> {
+    const res = await fetchWithAuth(`${API_URL}/training/webhooks/${webhookId}`, {
+      method: 'DELETE',
+    })
+    if (!res.ok) {
+      throw new Error(`Delete webhook failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async getWebhookDeliveries(webhookId: string, limit = 50): Promise<{
+    deliveries: Array<{
+      id: string
+      event: string
+      success: boolean
+      status_code: number | null
+      attempted_at: string
+      error: string | null
+    }>
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/training/webhooks/${webhookId}/deliveries?limit=${limit}`)
+    if (!res.ok) {
+      throw new Error(`Get webhook deliveries failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async getWebhookStats(): Promise<{
+    total_webhooks: number
+    active_webhooks: number
+    total_deliveries: number
+    successful_deliveries: number
+    failed_deliveries: number
+    success_rate: string
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/training/webhooks/stats`)
+    if (!res.ok) {
+      throw new Error(`Get webhook stats failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async testWebhook(url: string): Promise<{
+    success: boolean
+    status_code: number | null
+    error: string | null
+    response_body: string | null
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/training/webhooks/test?url=${encodeURIComponent(url)}`, {
+      method: 'POST',
+    })
+    if (!res.ok) {
+      throw new Error(`Test webhook failed (${res.status})`)
+    }
+    return res.json()
+  },
+
   async startTraining(req: TrainingRequest) {
     const res = await fetchWithAuth(`${API_URL}/training/start`, {
       method: 'POST',
@@ -850,7 +1026,7 @@ export const api = {
       body: JSON.stringify(body),
     })
     if (!res.ok) {
-      const err = (await res.json().catch(() => ({}))) as { detail?: string | Array<{ msg?: string }> }
+      const err = (await res.json().catch(() => ({}))) as { detail?: Array<{ msg?: string }> }
       const d = err.detail
       const msg =
         typeof d === 'string'
@@ -859,6 +1035,154 @@ export const api = {
             ? d.map((x) => x.msg || JSON.stringify(x)).join('; ')
             : res.statusText
       throw new Error(msg)
+    }
+    return res.json()
+  },
+
+  // ===== Job Recovery =====
+
+  async checkCrashedJobs(timeoutSeconds = 300): Promise<{
+    detected_crashes: number
+    jobs: Array<{
+      id: string
+      name: string
+      status: string
+      progress: number
+      last_heartbeat: string
+      crashed: boolean
+    }>
+    message: string
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/training/recovery/check?timeout_seconds=${timeoutSeconds}`)
+    if (!res.ok) {
+      throw new Error(`Check crashed jobs failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async getRecoverableJobs(): Promise<{
+    count: number
+    jobs: Array<{
+      id: string
+      name: string
+      status: string
+      progress: number
+      config: Record<string, unknown>
+      checkpoint_path?: string
+    }>
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/training/recovery/recoverable`)
+    if (!res.ok) {
+      throw new Error(`Get recoverable jobs failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async recoverJob(jobId: string): Promise<{
+    status: string
+    original_job_id: string
+    new_job_id: string
+    checkpoint_path: string
+    message: string
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/training/recovery/recover/${jobId}`, {
+      method: 'POST',
+    })
+    if (!res.ok) {
+      throw new Error(`Recover job failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async abandonJob(jobId: string): Promise<{
+    status: string
+    job_id: string
+    message: string
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/training/recovery/abandon/${jobId}`, {
+      method: 'DELETE',
+    })
+    if (!res.ok) {
+      throw new Error(`Abandon job failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async getRecoveryStats(): Promise<{
+    pending: number
+    running: number
+    completed: number
+    failed: number
+    total: number
+    crashed_jobs: number
+    recoverable_jobs: number
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/training/recovery/stats`)
+    if (!res.ok) {
+      throw new Error(`Get recovery stats failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  // ===== Soul Management =====
+
+  async getSouls(): Promise<{
+    souls: Array<{
+      name: string
+      path: string
+      description: string
+      personality: Record<string, number>
+      traits: string[]
+    }>
+    current_soul: string | null
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/souls`)
+    if (!res.ok) {
+      throw new Error(`Get souls failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async switchSoul(name: string): Promise<{
+    success: boolean
+    name?: string
+    path?: string
+    description?: string
+    personality?: Record<string, number>
+    error?: string
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/souls/switch?name=${encodeURIComponent(name)}`, {
+      method: 'POST',
+    })
+    if (!res.ok) {
+      throw new Error(`Switch soul failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async getCurrentSoul(): Promise<{
+    name: string | null
+    path?: string
+    description?: string
+    personality?: Record<string, number>
+    traits?: string[]
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/souls/current`)
+    if (!res.ok) {
+      throw new Error(`Get current soul failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async getSoulStats(): Promise<{
+    total_souls: number
+    current_soul: string | null
+    souls_dir: string
+    available_souls: string[]
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/souls/stats`)
+    if (!res.ok) {
+      throw new Error(`Get soul stats failed (${res.status})`)
     }
     return res.json()
   },

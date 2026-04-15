@@ -326,10 +326,26 @@ export default function ChatPage() {
     
     const userImages = [...images]
     
+    // Get injected knowledge
+    const injectedKnowledge = (() => {
+      try {
+        const stored = localStorage.getItem(KNOWLEDGE_STORAGE_KEY)
+        return stored ? JSON.parse(stored) : []
+      } catch {
+        return []
+      }
+    })()
+    
+    // Build knowledge context
+    let knowledgeContext = ''
+    if (injectedKnowledge.length > 0) {
+      knowledgeContext = `\n\n[IMPORTANT KNOWLEDGE - Use this information when responding:]\n${injectedKnowledge.map((k: { content: string }) => `• ${k.content}`).join('\n')}\n[/IMPORTANT KNOWLEDGE]`
+    }
+    
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
+      content: input.trim() + knowledgeContext,
       timestamp: new Date(),
     }
     
@@ -358,6 +374,8 @@ export default function ChatPage() {
           max_new_tokens: maxTokens,
           temperature,
           user_id: userIdRef.current,
+          // Also send knowledge to API for storage
+          injected_knowledge: injectedKnowledge,
         }),
       })
 
@@ -469,6 +487,9 @@ export default function ChatPage() {
         hasMessages={messages.length > 0}
       />
 
+      {/* Knowledge Injection Panel */}
+      <KnowledgePanel />
+
       {currentError && (
         <ErrorBanner
           error={currentError}
@@ -500,6 +521,166 @@ export default function ChatPage() {
         onAddImage={handleAddImage}
         onRemoveImage={handleRemoveImage}
       />
+    </div>
+  )
+}
+
+// ===== Knowledge Injection Panel =====
+
+const KNOWLEDGE_STORAGE_KEY = 'sloughgpt_injected_knowledge'
+
+interface InjectedKnowledge {
+  id: string
+  content: string
+  timestamp: number
+}
+
+function KnowledgePanel() {
+  const [isOpen, setIsOpen] = useState(false)
+  const [knowledge, setKnowledge] = useState<InjectedKnowledge[]>([])
+  const [newKnowledge, setNewKnowledge] = useState('')
+  const [showAdd, setShowAdd] = useState(false)
+
+  useEffect(() => {
+    const stored = localStorage.getItem(KNOWLEDGE_STORAGE_KEY)
+    if (stored) {
+      try {
+        setKnowledge(JSON.parse(stored))
+      } catch {
+        setKnowledge([])
+      }
+    }
+  }, [])
+
+  const saveKnowledge = (updated: InjectedKnowledge[]) => {
+    setKnowledge(updated)
+    localStorage.setItem(KNOWLEDGE_STORAGE_KEY, JSON.stringify(updated))
+  }
+
+  const addKnowledge = () => {
+    if (!newKnowledge.trim()) return
+    
+    const item: InjectedKnowledge = {
+      id: `know_${Date.now()}`,
+      content: newKnowledge.trim(),
+      timestamp: Date.now(),
+    }
+    
+    saveKnowledge([...knowledge, item])
+    setNewKnowledge('')
+    setShowAdd(false)
+  }
+
+  const removeKnowledge = (id: string) => {
+    saveKnowledge(knowledge.filter(k => k.id !== id))
+  }
+
+  const clearAll = () => {
+    if (confirm('Clear all injected knowledge?')) {
+      saveKnowledge([])
+    }
+  }
+
+  if (!isOpen) {
+    return (
+      <button
+        onClick={() => setIsOpen(true)}
+        className="fixed bottom-20 right-4 z-40 p-2 rounded-full bg-muted hover:bg-muted/80 shadow-lg transition-all"
+        title="Knowledge Panel"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+        {knowledge.length > 0 && (
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
+            {knowledge.length}
+          </span>
+        )}
+      </button>
+    )
+  }
+
+  return (
+    <div className="fixed bottom-20 right-4 z-40 w-80 max-h-96 bg-background border rounded-lg shadow-xl flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between p-3 border-b">
+        <h3 className="font-medium text-sm">Injected Knowledge</h3>
+        <button
+          onClick={() => setIsOpen(false)}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+        {knowledge.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-4">
+            No knowledge injected. Add facts the AI should know.
+          </p>
+        ) : (
+          knowledge.map(item => (
+            <div key={item.id} className="p-2 bg-muted/50 rounded text-sm">
+              <p className="whitespace-pre-wrap">{item.content}</p>
+              <button
+                onClick={() => removeKnowledge(item.id)}
+                className="text-xs text-muted-foreground hover:text-destructive mt-1"
+              >
+                Remove
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Add Form */}
+      <div className="p-2 border-t space-y-2">
+        {showAdd ? (
+          <>
+            <textarea
+              className="w-full p-2 text-sm border rounded resize-none h-20"
+              placeholder="Enter knowledge to inject..."
+              value={newKnowledge}
+              onChange={e => setNewKnowledge(e.target.value)}
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={addKnowledge}
+                className="flex-1 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
+              >
+                Add
+              </button>
+              <button
+                onClick={() => { setShowAdd(false); setNewKnowledge('') }}
+                className="px-3 py-1.5 text-sm border rounded hover:bg-muted"
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowAdd(true)}
+              className="flex-1 px-3 py-1.5 text-sm border rounded hover:bg-muted"
+            >
+              + Add Knowledge
+            </button>
+            {knowledge.length > 0 && (
+              <button
+                onClick={clearAll}
+                className="px-3 py-1.5 text-sm text-destructive border rounded hover:bg-destructive/10"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

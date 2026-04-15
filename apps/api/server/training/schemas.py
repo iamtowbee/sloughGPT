@@ -77,6 +77,7 @@ class _TrainHyperparameters(BaseModel):
     save_best_only: bool = False
     max_checkpoints: int = Field(default=5, ge=1, le=100)
     device: str | None = None
+    use_compile: bool = False
 
     @field_validator("mixed_precision_dtype", mode="before")
     @classmethod

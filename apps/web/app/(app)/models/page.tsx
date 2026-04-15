@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import { Button } from '@/components/ui/button'
@@ -38,6 +38,37 @@ export default function ModelsPage() {
     title: '',
     body: '',
   })
+
+  // Soul management
+  const [souls, setSouls] = useState<{ name: string; path: string; description: string; personality: Record<string, number>; traits: string[] }[]>([])
+  const [currentSoul, setCurrentSoul] = useState<string | null>(null)
+  const [switchingSoul, setSwitchingSoul] = useState<string | null>(null)
+
+  const fetchSouls = useCallback(async () => {
+    try {
+      const data = await api.getSouls()
+      setSouls(data.souls)
+      setCurrentSoul(data.current_soul)
+    } catch (err) {
+      devDebug('Failed to fetch souls:', err)
+    }
+  }, [])
+
+  const switchSoul = async (name: string) => {
+    setSwitchingSoul(name)
+    try {
+      await api.switchSoul(name)
+      setCurrentSoul(name)
+    } catch (err) {
+      devDebug('Failed to switch soul:', err)
+    } finally {
+      setSwitchingSoul(null)
+    }
+  }
+
+  useEffect(() => {
+    void fetchSouls()
+  }, [fetchSouls])
 
   const apiHealthLabel = useMemo(() => inferenceHealthLabel(health), [health])
 
@@ -156,6 +187,36 @@ export default function ModelsPage() {
           </Button>
         ))}
       </div>
+
+      {souls.length > 0 && (
+        <div className="mb-6 p-4 border border-border rounded-lg bg-muted/20">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium">Soul Personality</h3>
+            <span className="text-xs text-muted-foreground">
+              Current: <span className="text-primary font-medium">{currentSoul || 'None'}</span>
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {souls.map((soul) => (
+              <Button
+                key={soul.name}
+                size="sm"
+                variant={currentSoul === soul.name ? 'default' : 'outline'}
+                onClick={() => void switchSoul(soul.name)}
+                disabled={switchingSoul !== null}
+                className="gap-1"
+              >
+                {switchingSoul === soul.name ? 'Switching...' : soul.name}
+              </Button>
+            ))}
+          </div>
+          {currentSoul && (
+            <p className="text-xs text-muted-foreground mt-2">
+              {souls.find(s => s.name === currentSoul)?.description || 'Active soul personality'}
+            </p>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="py-12 text-center text-muted-foreground">Loading models…</div>

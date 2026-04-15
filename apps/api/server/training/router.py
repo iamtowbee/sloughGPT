@@ -17,6 +17,13 @@ from fastapi import APIRouter, HTTPException
 from training.jobs import training_jobs
 from training.resolution import resolve_training_inputs
 from training.schemas import TrainingRequest, TrainRequest, TrainResolveRequest
+from training.controller import get_training_controller, TrainingState
+from training.webhooks import (
+    get_webhook_store,
+    TRAINING_EVENTS,
+    notify_training_event,
+)
+from training.job_store import get_job_store
 
 logger = logging.getLogger("sloughgpt")
 
@@ -292,6 +299,28 @@ async def start_training(request: TrainingRequest):
         job["manifest"] = manifest_meta
     training_jobs[job_id] = job
 
+    # Update global training controller
+    controller = get_training_controller()
+    controller.start(job_id, request.name or "training")
+
+    # Trigger webhook notification for training started
+    try:
+        import asyncio
+
+        asyncio.get_event_loop().run_until_complete(
+            notify_training_event(
+                "training.started",
+                {
+                    "job_id": job_id,
+                    "job_name": request.name or "training",
+                    "dataset": request.dataset,
+                    "epochs": request.epochs,
+                },
+            )
+        )
+    except Exception:
+        pass
+
     req_snapshot = request.model_dump()
     data_path_for_thread = data_path_str
     out_stem_for_thread = out_stem
@@ -342,11 +371,50 @@ async def start_training(request: TrainingRequest):
             bel = result.get("best_eval_loss")
             training_jobs[jid]["loss"] = bel if bel is not None and bel < float("inf") else None
             training_jobs[jid]["checkpoint"] = f"models/{safe_stem}_trained.pt"
+            get_training_controller().complete()
+
+            # Trigger webhook notification (fire and forget)
+            try:
+                import asyncio
+
+                asyncio.get_event_loop().run_until_complete(
+                    notify_training_event(
+                        "training.completed",
+                        {
+                            "job_id": jid,
+                            "job_name": training_jobs[jid].get("name", "training"),
+                            "status": "completed",
+                            "loss": training_jobs[jid]["loss"],
+                            "checkpoint": training_jobs[jid]["checkpoint"],
+                        },
+                    )
+                )
+            except Exception:
+                pass
         except Exception as e:
             logger.exception("Training job %s failed", jid)
             training_jobs[jid]["status"] = "failed"
             training_jobs[jid]["error"] = str(e)
             training_jobs[jid]["progress"] = 0
+            get_training_controller().fail(str(e))
+
+            # Trigger webhook notification (fire and forget)
+            try:
+                import asyncio
+
+                asyncio.get_event_loop().run_until_complete(
+                    notify_training_event(
+                        "training.failed",
+                        {
+                            "job_id": jid,
+                            "job_name": training_jobs[jid].get("name", "training"),
+                            "status": "failed",
+                            "error": str(e),
+                        },
+                    )
+                )
+            except Exception:
+                pass
         finally:
             if tracker is not None:
                 try:
@@ -412,6 +480,9 @@ async def train_from_feedback():
             "output_checkpoint_stem": out_stem,
         }
 
+        # Update global training controller
+        get_training_controller().start(jid, f"Feedback Training {timestamp}")
+
         def run_feedback_training():
             try:
                 from domains.training.train_pipeline import SloughGPTTrainer
@@ -449,11 +520,50 @@ async def train_from_feedback():
                 training_jobs[jid]["progress"] = 100
                 training_jobs[jid]["checkpoint"] = f"models/{safe_stem}.pt"
                 training_jobs[jid]["samples_used"] = count
+                get_training_controller().complete()
+
+                # Trigger webhook notification (fire and forget)
+                try:
+                    import asyncio
+
+                    asyncio.get_event_loop().run_until_complete(
+                        notify_training_event(
+                            "training.completed",
+                            {
+                                "job_id": jid,
+                                "job_name": training_jobs[jid].get("name", "feedback_training"),
+                                "status": "completed",
+                                "samples_used": count,
+                                "checkpoint": training_jobs[jid]["checkpoint"],
+                            },
+                        )
+                    )
+                except Exception:
+                    pass
 
             except Exception as e:
                 logger.exception("Feedback training job %s failed", jid)
                 training_jobs[jid]["status"] = "failed"
                 training_jobs[jid]["error"] = str(e)
+                get_training_controller().fail(str(e))
+
+                # Trigger webhook notification
+                try:
+                    import asyncio
+
+                    asyncio.get_event_loop().run_until_complete(
+                        notify_training_event(
+                            "training.failed",
+                            {
+                                "job_id": jid,
+                                "job_name": training_jobs[jid].get("name", "feedback_training"),
+                                "status": "failed",
+                                "error": str(e),
+                            },
+                        )
+                    )
+                except Exception:
+                    pass
 
         thread = threading.Thread(target=run_feedback_training, daemon=True)
         thread.start()
@@ -471,3 +581,554 @@ async def train_from_feedback():
         raise HTTPException(status_code=500, detail=str(e))
 
     return job
+
+
+# ===== TRAINING STATE CONTROLLER =====
+
+
+@router.get("/training/status")
+async def get_training_status():
+    """
+    Get comprehensive training system status.
+
+    Returns current state (idle/running/paused), current job info,
+    and statistics about completed/failed jobs.
+    """
+    controller = get_training_controller()
+    status = controller.get_status()
+
+    # Also include any running jobs from the job registry
+    running_jobs = [
+        {"id": jid, "name": job.get("name"), "progress": job.get("progress", 0)}
+        for jid, job in training_jobs.items()
+        if job.get("status") == "running"
+    ]
+
+    status["running_jobs"] = running_jobs
+    status["total_tracked_jobs"] = len(training_jobs)
+
+    return status
+
+
+@router.post("/training/control/start")
+async def control_start_training():
+    """
+    Request to start training.
+
+    Returns success/failure with current state.
+    Note: Actual training start happens via POST /training/start
+    """
+    controller = get_training_controller()
+
+    if controller.is_running():
+        return {
+            "success": False,
+            "message": "Training is already running",
+            **controller.get_status(),
+        }
+
+    if controller.is_paused():
+        return {
+            "success": False,
+            "message": "Training is paused. Use /training/control/resume to continue.",
+            **controller.get_status(),
+        }
+
+    return {
+        "success": True,
+        "message": "Ready to start training",
+        **controller.get_status(),
+    }
+
+
+@router.post("/training/control/pause")
+async def control_pause_training():
+    """
+    Pause current training.
+
+    Pauses the training loop if running.
+    """
+    controller = get_training_controller()
+    result = controller.pause()
+
+    # Notify the training job if it's listening
+    if result["success"]:
+        logger.info("Training pause requested")
+
+    return result
+
+
+@router.post("/training/control/resume")
+async def control_resume_training():
+    """
+    Resume paused training.
+
+    Continues training from where it was paused.
+    """
+    controller = get_training_controller()
+    result = controller.resume()
+
+    if result["success"]:
+        logger.info("Training resumed")
+
+    return result
+
+
+@router.post("/training/control/stop")
+async def control_stop_training():
+    """
+    Stop current training.
+
+    Gracefully stops the training job.
+    """
+    controller = get_training_controller()
+    result = controller.stop()
+
+    # Update all running jobs to stopping
+    if result["success"]:
+        for jid, job in training_jobs.items():
+            if job.get("status") == "running":
+                job["status"] = "stopping"
+        logger.info("Training stop requested")
+
+    return result
+
+
+@router.post("/training/control/reset")
+async def control_reset_training():
+    """
+    Reset training controller to idle state.
+
+    Use after training completes or fails to clear state.
+    """
+    controller = get_training_controller()
+    return controller.reset()
+
+
+@router.get("/training/is-running")
+async def is_training_running():
+    """
+    Quick check if training is currently running.
+
+    Useful for UI to conditionally show controls.
+    """
+    controller = get_training_controller()
+    return {
+        "is_running": controller.is_running(),
+        "is_paused": controller.is_paused(),
+        "is_idle": controller.is_idle(),
+        "state": controller.state.value,
+        "current_job": controller.current_job_id,
+    }
+
+
+# ===== WEBHOOK NOTIFICATIONS =====
+
+
+@router.get("/training/webhooks")
+async def list_webhooks():
+    """
+    List all registered webhooks.
+    """
+    store = get_webhook_store()
+    webhooks = store.list()
+
+    return {
+        "webhooks": [
+            {
+                "id": w.id,
+                "url": w.url,
+                "events": w.events,
+                "description": w.description,
+                "is_active": w.is_active,
+                "created_at": w.created_at.isoformat(),
+            }
+            for w in webhooks
+        ],
+        "available_events": TRAINING_EVENTS,
+    }
+
+
+@router.post("/training/webhooks")
+async def register_webhook(
+    url: str,
+    events: str,  # JSON stringified array
+    description: str = "",
+    secret: str | None = None,
+):
+    """
+    Register a new webhook endpoint.
+
+    Args:
+        url: The URL to send notifications to
+        events: JSON stringified list of events (e.g., '["training.completed","training.failed"]')
+        description: Optional description
+        secret: Optional HMAC secret (generated if not provided)
+    """
+    # Parse events from JSON string
+    import json
+
+    try:
+        events_list = json.loads(events) if isinstance(events, str) else events
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid events format. Must be JSON array.")
+
+    # Validate URL
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="URL must start with http:// or https://")
+
+    # Validate events
+    invalid_events = [e for e in events_list if e not in TRAINING_EVENTS]
+    if invalid_events:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid events: {invalid_events}. Available: {TRAINING_EVENTS}",
+        )
+
+    store = get_webhook_store()
+    webhook_id = store.register(
+        url=url,
+        events=events_list,
+        secret=secret,
+        description=description,
+        headers=None,
+    )
+
+    webhook = store.get(webhook_id)
+
+    return {
+        "id": webhook_id,
+        "url": url,
+        "events": events,
+        "secret": webhook.secret if webhook else None,
+        "message": "Webhook registered successfully",
+    }
+
+
+@router.delete("/training/webhooks/{webhook_id}")
+async def unregister_webhook(webhook_id: str):
+    """Unregister a webhook."""
+    store = get_webhook_store()
+
+    if not store.get(webhook_id):
+        raise HTTPException(status_code=404, detail="Webhook not found")
+
+    store.unregister(webhook_id)
+
+    return {"status": "deleted", "webhook_id": webhook_id}
+
+
+@router.get("/training/webhooks/{webhook_id}")
+async def get_webhook(webhook_id: str):
+    """Get webhook details (without secret)."""
+    store = get_webhook_store()
+    webhook = store.get(webhook_id)
+
+    if not webhook:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+
+    return {
+        "id": webhook.id,
+        "url": webhook.url,
+        "events": webhook.events,
+        "description": webhook.description,
+        "is_active": webhook.is_active,
+        "created_at": webhook.created_at.isoformat(),
+    }
+
+
+@router.get("/training/webhooks/{webhook_id}/deliveries")
+async def get_webhook_deliveries(webhook_id: str, limit: int = 50):
+    """Get delivery log for a webhook."""
+    store = get_webhook_store()
+
+    if not store.get(webhook_id):
+        raise HTTPException(status_code=404, detail="Webhook not found")
+
+    deliveries = store.get_deliveries(webhook_id, limit=limit)
+
+    return {
+        "deliveries": [
+            {
+                "id": d.id,
+                "event": d.event,
+                "success": d.success,
+                "status_code": d.status_code,
+                "attempted_at": d.attempted_at.isoformat(),
+                "error": d.error,
+            }
+            for d in deliveries
+        ]
+    }
+
+
+@router.get("/training/webhooks/stats")
+async def get_webhook_stats():
+    """Get webhook statistics."""
+    store = get_webhook_store()
+    return store.get_stats()
+
+
+@router.post("/training/webhooks/test")
+async def test_webhook(url: str):
+    """
+    Send a test notification to a URL.
+
+    Useful for verifying webhook setup.
+    """
+    store = get_webhook_store()
+
+    # Register temporary webhook for test
+    webhook_id = store.register(
+        url=url,
+        events=TRAINING_EVENTS,
+        description="Temporary test webhook",
+    )
+
+    # Send test event
+    delivery = await store.deliver(
+        webhook_id=webhook_id,
+        event="training.completed",
+        payload={
+            "job_id": "test",
+            "job_name": "Test Training",
+            "status": "completed",
+            "message": "This is a test webhook notification",
+        },
+        retries=1,
+    )
+
+    # Clean up
+    store.unregister(webhook_id)
+
+    return {
+        "success": delivery.success,
+        "status_code": delivery.status_code,
+        "error": delivery.error,
+        "response_body": delivery.response_body,
+    }
+
+
+# ===== JOB RECOVERY =====
+
+
+@router.get("/recovery/check")
+async def check_crashed_jobs(timeout_seconds: int = 300):
+    """
+    Check for jobs that may have crashed.
+
+    Jobs that are 'running' but haven't sent a heartbeat in timeout_seconds
+    are considered potentially crashed.
+    """
+    store = get_job_store()
+    crashed = store.detect_crashed_jobs(timeout_seconds)
+
+    return {
+        "detected_crashes": len(crashed),
+        "jobs": crashed,
+        "message": f"Found {len(crashed)} potentially crashed job(s)",
+    }
+
+
+@router.get("/recovery/recoverable")
+async def get_recoverable_jobs():
+    """
+    Get all jobs that can be recovered.
+
+    Includes interrupted and crashed jobs.
+    """
+    store = get_job_store()
+    jobs = store.get_recoverable_jobs()
+
+    return {
+        "count": len(jobs),
+        "jobs": jobs,
+    }
+
+
+@router.post("/recovery/recover/{job_id}")
+async def recover_job(job_id: str):
+    """
+    Recover and restart an interrupted/crashed job.
+
+    Resumes training from the last checkpoint if available.
+    """
+    store = get_job_store()
+    job = store.get(job_id)
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job["status"] not in ("interrupted", "failed"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Job status is '{job['status']}', only 'interrupted' or 'failed' jobs can be recovered",
+        )
+
+    # Get config and checkpoint
+    config = job.get("config", {})
+    data_path = job.get("data_path", "")
+    checkpoint_path = job.get("checkpoint_path", "")
+    checkpoint_dir = job.get("checkpoint_dir", "checkpoints")
+    job_name = job.get("name", "recovered_job")
+
+    # Find checkpoint
+    from pathlib import Path
+
+    if checkpoint_path and Path(checkpoint_path).exists():
+        pass  # Use existing checkpoint_path
+    else:
+        # Try to find any checkpoint in the checkpoint dir
+        checkpoint_dir_path = Path(checkpoint_dir)
+        if checkpoint_dir_path.exists():
+            checkpoints = list(checkpoint_dir_path.glob("step_*.pt")) + list(
+                checkpoint_dir_path.glob("*.pt")
+            )
+            if checkpoints:
+                latest = max(checkpoints, key=lambda p: p.stat().st_mtime)
+                checkpoint_path = str(latest)
+
+    # Create recovery job in training_jobs
+    recovery_job_id = f"recovery_{job_id}"
+    recovery_job = {
+        "id": recovery_job_id,
+        "name": f"Recovered: {job_name}",
+        "model": config.get("model", "sloughgpt"),
+        "dataset": job.get("dataset", ""),
+        "data_path": data_path,
+        "status": "running",
+        "progress": job.get("progress", 0),
+        "current_epoch": job.get("current_epoch", 0),
+        "global_step": job.get("global_step", 0),
+        "checkpoint_path": checkpoint_path,
+        "checkpoint_dir": checkpoint_dir,
+        "original_job_id": job_id,
+        **config,
+    }
+    training_jobs[recovery_job_id] = recovery_job
+
+    # Update job store
+    store.update(job_id, status="recovering", crashed=0)
+
+    # Update controller
+    controller = get_training_controller()
+    controller.start(recovery_job_id, f"Recovered: {job_name}")
+
+    # Start recovery in background thread
+    jid = recovery_job_id
+    checkpoint_for_recovery = checkpoint_path
+
+    def run_recovery():
+        try:
+            from domains.training.train_pipeline import SloughGPTTrainer
+
+            trainer_config = {
+                "data_path": recovery_job.get("data_path", ""),
+                "epochs": recovery_job.get("epochs", 10),
+                "batch_size": recovery_job.get("batch_size", 32),
+                "lr": recovery_job.get("learning_rate", 1e-3),
+                "n_embed": recovery_job.get("n_embed", 256),
+                "n_layer": recovery_job.get("n_layer", 6),
+                "n_head": recovery_job.get("n_head", 8),
+                "block_size": recovery_job.get("block_size", 128),
+                "checkpoint_dir": recovery_job.get("checkpoint_dir", "checkpoints"),
+                "checkpoint_interval": recovery_job.get("checkpoint_interval", 500),
+            }
+
+            def on_progress(info: dict):
+                rec = training_jobs.get(jid)
+                if not rec:
+                    return
+                rec["progress"] = int(info.get("progress_percent", rec.get("progress", 0)))
+                rec["current_epoch"] = int(info.get("epoch", rec.get("current_epoch", 0)))
+                rec["global_step"] = int(info.get("global_step", 0))
+                store.update_progress(
+                    jid, rec["progress"], epoch=rec["current_epoch"], step=rec["global_step"]
+                )
+
+            trainer = SloughGPTTrainer(**trainer_config)
+
+            # Resume from checkpoint if available
+            result = trainer.train(
+                on_progress=on_progress,
+                resume=True,
+                resume_path=checkpoint_for_recovery,
+            )
+
+            # Mark as completed
+            training_jobs[jid]["status"] = "completed"
+            training_jobs[jid]["progress"] = 100
+            store.mark_completed(
+                jid, checkpoint_for_recovery or trainer_config["checkpoint_dir"] + "/final.pt"
+            )
+            store.update(job_id, status="recovered")
+            controller.complete()
+
+            # Trigger webhook
+            try:
+                import asyncio
+
+                asyncio.get_event_loop().run_until_complete(
+                    notify_training_event(
+                        "training.completed",
+                        {
+                            "job_id": jid,
+                            "job_name": training_jobs[jid].get("name"),
+                            "status": "completed",
+                            "recovered_from": job_id,
+                        },
+                    )
+                )
+            except Exception:
+                pass
+
+        except Exception as e:
+            logger.error(f"Recovery failed: {e}")
+            training_jobs[jid]["status"] = "failed"
+            training_jobs[jid]["error"] = str(e)
+            store.mark_failed(jid, str(e))
+            controller.fail()
+
+    thread = threading.Thread(target=run_recovery, daemon=True)
+    thread.start()
+
+    return {
+        "status": "recovered",
+        "original_job_id": job_id,
+        "recovery_job_id": recovery_job_id,
+        "checkpoint_path": checkpoint_path,
+        "message": f"Recovery started. Training restarting from checkpoint: {checkpoint_path or 'beginning'}",
+    }
+
+
+@router.delete("/recovery/abandon/{job_id}")
+async def abandon_recovery(job_id: str):
+    """
+    Abandon a crashed job and mark it as permanently failed.
+    """
+    store = get_job_store()
+    job = store.get(job_id)
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    store.update(job_id, status="abandoned")
+
+    return {
+        "status": "abandoned",
+        "job_id": job_id,
+        "message": "Job marked as abandoned",
+    }
+
+
+@router.get("/recovery/stats")
+async def get_recovery_stats():
+    """Get recovery statistics."""
+    store = get_job_store()
+    stats = store.get_stats()
+
+    return {
+        **stats,
+        "crashed_jobs": store.detect_crashed_jobs().__len__(),
+        "recoverable_jobs": len(store.get_recoverable_jobs()),
+    }

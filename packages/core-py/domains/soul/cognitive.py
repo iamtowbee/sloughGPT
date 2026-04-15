@@ -729,6 +729,7 @@ class CognitiveSLO(FoundationSLO):
     - Neural plasticity (Hebbian learning)
     - Meta-learning optimization
     - Dream consolidation
+    - Hyperdimensional memory (fast semantic recall)
     """
 
     def __init__(self, config: Optional[SLOConfig] = None):
@@ -757,6 +758,10 @@ class CognitiveSLO(FoundationSLO):
         self.emotional_generator = EmotionalResponseGenerator()
         self.relationship_memory = RelationshipMemory()
 
+        # Hyperdimensional Memory (fast semantic recall)
+        self._hd_memory = None
+        self._init_hd_memory()
+
         # Current user context (for single-user mode)
         self.current_user_id = "default_user"
 
@@ -777,16 +782,34 @@ class CognitiveSLO(FoundationSLO):
 
         logger.info("Cognitive SLO initialized")
 
+    def _init_hd_memory(self) -> None:
+        """Initialize hyperdimensional memory store."""
+        try:
+            from domains.soul.hd_memory import HDMemoryStore
+
+            self._hd_memory = HDMemoryStore(dim=10000, max_items=1000)
+            logger.debug("HD Memory initialized in CognitiveSLO")
+        except Exception as e:
+            logger.debug(f"HD Memory not available in CognitiveSLO: {e}")
+            self._hd_memory = None
+
     def process(self, input_data: Any) -> Thought:
         """Process with cognitive enhancement."""
-        # Process through foundation first
         base_thought = super().process(input_data)
 
-        # Cognitive processing
         content = str(input_data)
 
-        # Add to session memory (current conversation)
+        # Add to session memory
         self.cognitive_arch.add_to_session("user", content)
+
+        # HD Memory: Store user input for fast semantic recall
+        hd_context = ""
+        if self._hd_memory:
+            try:
+                self._hd_memory.add(content, role="user")
+                hd_context = self._hd_memory.get_context(content, max_chars=200)
+            except Exception:
+                pass
 
         # Sensory input
         self.cognitive_arch.process_sensory(input_data)
@@ -813,11 +836,15 @@ class CognitiveSLO(FoundationSLO):
         rag_result = self.rag_engine.cot_retrieve(content)
         rag_context = rag_result.get("synthesized", "")
 
+        # Unified recall stats
+        hd_items = self._hd_memory.get_stats()["total_items"] if self._hd_memory else 0
+
         # Enhanced reasoning with memory info
         reasoning = base_thought.reasoning + [
             f"Session turns: {len(self.cognitive_arch.session_memory.conversation)}",
             f"Working memory: {len(self.cognitive_arch.working_memory)}/{self.cognitive_arch.working_capacity}",
             f"Episodic memories: {len(self.cognitive_arch.episodic_store.episodes)}",
+            f"HD memory items: {hd_items}",
             f"Plastic connections: {sum(len(v) for v in self.plasticity.connections.values())}",
             f"Best learning strategy: {self.meta_learner.get_strategy()}",
             f"RAG sub-queries: {len(rag_result.get('sub_queries', []))}",
@@ -827,7 +854,9 @@ class CognitiveSLO(FoundationSLO):
         if related_episodes:
             reasoning.append(f"Recalled {len(related_episodes)} related past conversations")
 
-        # Generate cognitive thought
+        if hd_context:
+            reasoning.append(f"HD semantic context: {len(hd_context)} chars")
+
         thought = Thought(
             content=base_thought.content,
             stage=self.stage,
@@ -836,15 +865,20 @@ class CognitiveSLO(FoundationSLO):
             insights=self._generate_insights(content),
         )
         thought.rag_context = rag_context
+        thought.hd_context = hd_context
         self.thoughts.append(thought)
 
-        # Add response to session memory
         self.cognitive_arch.add_to_session("assistant", thought.content[:200])
 
-        # Progress evolution
+        # HD Memory: Store assistant response
+        if self._hd_memory and thought.content:
+            try:
+                self._hd_memory.add(thought.content[:500], role="assistant")
+            except Exception:
+                pass
+
         self._evolution_progress = min(1.0, self._evolution_progress + 0.008)
 
-        # Trigger dream if enough time passed
         if (datetime.now() - self.last_dream).seconds > 3600:
             self._dream()
 
@@ -853,7 +887,7 @@ class CognitiveSLO(FoundationSLO):
     def chat(self, message: str) -> Dict:
         """
         Chat interface - maintains conversation context.
-        Uses the 3-tier memory hierarchy + RAG.
+        Uses the unified recall pipeline: HD memory + RAG + Episodic.
         """
         # Process the message
         thought = self.process(message)
@@ -861,27 +895,14 @@ class CognitiveSLO(FoundationSLO):
         # Get session context for response
         context = self.cognitive_arch.get_session_context(5)
 
-        # Recall relevant long-term memories
+        # Unified recall (HD + RAG + Episodic)
+        recall = self.unified_recall(message, mode="auto")
+
+        # HD memory context
+        hd_context = self.get_hd_context(message, max_chars=300)
+
+        # Long-term recall
         long_term = self.recall(message, limit=3)
-
-        # Recall relevant episodes
-        episodes = self.cognitive_arch.recall_episodes(message, limit=2)
-
-        # Get RAG results using advanced search strategy
-        if self.search_strategy == "hybrid":
-            rag_results = self.rag_engine.hybrid_search(message)
-        elif self.search_strategy == "temporal":
-            rag_results = self.rag_engine.temporal_search(message)
-        elif self.search_strategy == "personalized":
-            rag_results = self.rag_engine.personalized_search(message, self.user_profile)
-        elif self.search_strategy == "adaptive":
-            rag_results = self.rag_engine.advanced_search(
-                message, strategy="adaptive", user_profile=self.user_profile
-            )
-        else:
-            rag_results = self.rag_engine.search(message)
-
-        rag_context = "\n\n".join([r["content"] for r in rag_results[:3]])
 
         return {
             "response": thought.content,
@@ -889,12 +910,22 @@ class CognitiveSLO(FoundationSLO):
             "reasoning": thought.reasoning,
             "session_context": context,
             "long_term_memories": len(long_term),
-            "related_episodes": len(episodes),
-            "rag_context": rag_context,
-            "rag_results": rag_results,
+            "related_episodes": len(recall.get("episodic_results", [])),
+            # Memory sources
+            "hd_memory_context": hd_context,
+            "hd_results_count": len(recall.get("hd_results", [])),
+            "rag_results_count": len(recall.get("rag_results", [])),
+            "sources_used": recall.get("sources_used", []),
+            "synthesized_context": recall.get("synthesized_context", ""),
+            # Legacy support
+            "rag_context": "\n\n".join(
+                [r.get("content", "") for r in recall.get("rag_results", [])[:3]]
+            ),
+            "rag_results": recall.get("rag_results", []),
             "search_strategy": self.search_strategy,
             "user_profile": self.user_profile.copy(),
             "knowledge_stats": self.rag_engine.get_knowledge_stats(),
+            "hd_memory_stats": self.get_hd_memory_stats(),
         }
 
     def think(self, query: str, mode: str = "auto") -> Dict[str, Any]:
@@ -959,6 +990,20 @@ class CognitiveSLO(FoundationSLO):
         result["related_episodes"] = episodes
         result["episode_count"] = len(episodes)
         result["systems_used"].append("episodic_memory")
+
+        # 3b. HD Memory - fast semantic recall
+        hd_results = []
+        hd_context = ""
+        if self._hd_memory:
+            hd_results = self._hd_memory.search(query, top_k=5)
+            hd_context = self._hd_memory.get_context(query, max_chars=300)
+        result["hd_memory_results"] = [
+            {"id": id, "content": content, "score": score} for id, content, score in hd_results
+        ]
+        result["hd_memory_context"] = hd_context
+        result["hd_memory_items"] = len(hd_results)
+        if self._hd_memory:
+            result["systems_used"].append("hd_memory")
 
         # 4. Long-term memory recall
         long_term = self.recall(query, limit=5)
@@ -1070,6 +1115,10 @@ class CognitiveSLO(FoundationSLO):
             parts.append(f"{empathy} ")
 
         parts.append(result["base_response"])
+
+        # Add HD memory context
+        if result.get("hd_memory_context"):
+            parts.append(f"\n\n[Recent Context]: {result['hd_memory_context'][:200]}")
 
         if result.get("cot_context"):
             parts.append(f"\n\n[Knowledge]: {result['cot_context'][:300]}")
@@ -1506,6 +1555,10 @@ class CognitiveSLO(FoundationSLO):
                 "episodic_episodes": len(self.cognitive_arch.episodic_store.episodes),
                 "semantic_memory": len(self.cognitive_arch.semantic_memory),
                 "long_term_items": self.hauls_store.count(),
+                # HD Memory
+                "hd_memory_items": self._hd_memory.get_stats()["total_items"]
+                if self._hd_memory
+                else 0,
                 # Learning
                 "neural_connections": sum(len(v) for v in self.plasticity.connections.values()),
                 "learning_sessions": self.learning_sessions,
@@ -1514,3 +1567,101 @@ class CognitiveSLO(FoundationSLO):
             }
         )
         return status
+
+    # ===== UNIFIED RECALL PIPELINE =====
+
+    def unified_recall(self, query: str, mode: str = "auto") -> Dict[str, Any]:
+        """
+        Unified memory recall with automatic routing.
+
+        Routes queries to appropriate memory systems:
+        - "fast": HD memory only (session context)
+        - "deep": RAG only (knowledge)
+        - "auto": Both, synthesized
+
+        Returns:
+            Dict with results from each memory system
+        """
+        result = {
+            "query": query,
+            "mode": mode,
+            "sources_used": [],
+            "hd_results": [],
+            "rag_results": [],
+            "episodic_results": [],
+            "synthesized_context": "",
+        }
+
+        # Fast path: HD memory for session context
+        if mode in ("fast", "auto") and self._hd_memory:
+            hd_results = self._hd_memory.search(query, top_k=5)
+            result["hd_results"] = [
+                {"id": id, "content": content, "score": score} for id, content, score in hd_results
+            ]
+            result["sources_used"].append("hd_memory")
+
+        # Deep path: RAG for knowledge
+        if mode in ("deep", "auto"):
+            rag_results = self.rag_engine.search(query, top_k=5)
+            result["rag_results"] = rag_results
+            result["sources_used"].append("rag")
+
+        # Episodic recall
+        if mode in ("auto", "fast"):
+            episodes = self.cognitive_arch.recall_episodes(query, limit=3)
+            result["episodic_results"] = episodes
+            if episodes:
+                result["sources_used"].append("episodic")
+
+        # Synthesize context
+        if mode == "auto":
+            result["synthesized_context"] = self._synthesize_recall_context(result)
+
+        return result
+
+    def _synthesize_recall_context(self, recall_result: Dict) -> str:
+        """Synthesize context from multiple memory sources."""
+        parts = []
+
+        # HD memory context (most recent/similar)
+        if recall_result.get("hd_results"):
+            hd_text = "\n".join(f"- {r['content'][:100]}" for r in recall_result["hd_results"][:3])
+            parts.append(f"[Recent Context]\n{hd_text}")
+
+        # RAG context (knowledge)
+        if recall_result.get("rag_results"):
+            rag_text = "\n".join(
+                f"- {r.get('content', '')[:100]}" for r in recall_result["rag_results"][:3]
+            )
+            parts.append(f"[Knowledge]\n{rag_text}")
+
+        return "\n\n".join(parts)
+
+    def get_hd_memory_stats(self) -> Dict[str, Any]:
+        """Get HD memory statistics."""
+        if not self._hd_memory:
+            return {"enabled": False}
+        stats = self._hd_memory.get_stats()
+        stats["enabled"] = True
+        return stats
+
+    def search_hd_memory(self, query: str, top_k: int = 5) -> List[Dict]:
+        """Search HD memory for relevant content."""
+        if not self._hd_memory:
+            return []
+        return [
+            {"id": id, "content": content, "score": score}
+            for id, content, score in self._hd_memory.search(query, top_k=top_k)
+        ]
+
+    def get_hd_context(self, query: str, max_chars: int = 500) -> str:
+        """Get relevant context from HD memory."""
+        if not self._hd_memory:
+            return ""
+        return self._hd_memory.get_context(query, max_chars=max_chars)
+
+    def clear_hd_memory(self) -> int:
+        """Clear HD memory."""
+        if not self._hd_memory:
+            return 0
+        return self._hd_memory.clear()

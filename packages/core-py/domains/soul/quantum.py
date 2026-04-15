@@ -194,7 +194,13 @@ class QuantumParallelProcessor:
 class HyperdimensionalProcessor:
     """
     High-dimensional computing for complex pattern recognition.
-    Uses holographic reduced representations.
+    Uses holographic reduced representations (HD Computing).
+
+    Key operations:
+    - encode(): Symbol → hypervector
+    - bundle(): Superposition (OR semantics)
+    - bind(): Association (AND semantics)
+    - similarity(): Fast cosine similarity search
     """
 
     def __init__(self, dim: int = 10000):
@@ -206,33 +212,88 @@ class HyperdimensionalProcessor:
         if symbol in self.vectors:
             return self.vectors[symbol]
 
-        # Generate random hypervector
+        # Generate random hypervector (binary: -1 or 1)
         vector = [random.choice([-1, 1]) for _ in range(self.dim)]
         self.vectors[symbol] = vector
         return vector
 
+    def encode_text(self, text: str) -> List[float]:
+        """
+        Encode full text as hypervector by bundling word tokens.
+        Uses chunking for long texts.
+        """
+        words = text.split()
+        if not words:
+            return [0] * self.dim
+
+        word_vectors = []
+        for word in words:
+            wv = self.encode(word)
+            word_vectors.append(wv)
+
+        return self.bundle(word_vectors)
+
     def bundle(self, vectors: List[List[float]]) -> List[float]:
-        """Bundle vectors (superposition)."""
+        """
+        Bundle vectors via superposition.
+        Result is thresholded to binary (-1, 1).
+        Used for representing sets, OR semantics.
+        """
         if not vectors:
             return [0] * self.dim
 
-        result = [0] * self.dim
+        result = [0.0] * self.dim
         for v in vectors:
-            for i in range(self.dim):
+            for i in range(min(self.dim, len(v))):
                 result[i] += v[i]
 
-        # Threshold
-        result = [1 if x > 0 else -1 for x in result]
+        # Normalize and threshold to binary
+        norm = sum(abs(x) for x in result)
+        if norm > 0:
+            result = [x / norm for x in result]
+
+        # Binarize
+        result = [1.0 if x > 0 else -1.0 for x in result]
         return result
 
     def bind(self, v1: List[float], v2: List[float]) -> List[float]:
-        """Bind vectors (association via XOR-like operation)."""
-        return [a * b for a, b in zip(v1, v2)]
+        """
+        Bind vectors (element-wise multiplication).
+        Used for creating associations (AND semantics).
+        Result is also binarized.
+        """
+        if len(v1) != len(v2):
+            raise ValueError("Vectors must have same dimension")
+
+        result = [a * b for a, b in zip(v1, v2)]
+        return [1.0 if x > 0 else -1.0 for x in result]
 
     def similarity(self, v1: List[float], v2: List[float]) -> float:
-        """Calculate cosine similarity."""
+        """
+        Calculate cosine similarity between hypervectors.
+        Returns value in [-1, 1] range.
+        """
+        if len(v1) != len(v2):
+            raise ValueError("Vectors must have same dimension")
+
         dot = sum(a * b for a, b in zip(v1, v2))
         return dot / self.dim
+
+    def unbind(self, bound: List[float], key: List[float]) -> List[float]:
+        """
+        Unbind a bound vector using the key.
+        Inverse of bind operation.
+        """
+        return self.bind(bound, key)
+
+    def cleanup(self) -> int:
+        """Remove rarely used vectors to save memory."""
+        removed = 0
+        to_remove = [k for k, v in self.vectors.items() if sum(v) == 0]
+        for k in to_remove:
+            del self.vectors[k]
+            removed += 1
+        return removed
 
 
 class TemporalReasoningEngine:

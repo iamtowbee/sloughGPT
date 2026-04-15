@@ -8,16 +8,21 @@ It wraps a ModelInterface (the neural brain) and integrates:
 - SoulProfile (identity, behavioral DNA - NOT optional, IS the core)
 
 The reasoning chain works as STRUCTURED TEXT injected into the LLM context:
-  User Query → SoulCognitive (emotion, session) → SoulReasoning (strategy) 
+  User Query → SoulCognitive (emotion, session) → SoulReasoning (strategy)
     → Structured text prompt → LLM generates → Hebbian learning updates
 
 This is how chain-of-thought prompting works - text-based, not binary.
 """
 
+import asyncio
 import time
 import logging
+from typing import TYPE_CHECKING
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass, field
+
+if TYPE_CHECKING:
+    from domains.soul.hd_memory import HDMemoryStore
 
 import torch
 
@@ -130,7 +135,11 @@ class SoulEngine:
         self._hebbian_connections: Dict[str, Dict[str, float]] = {}
         self._inference_optimizer = None
         self._grounding: Optional[Any] = None
+        self._hd_memory: Optional["HDMemoryStore"] = None
+        self._semantic_cache: Optional["SemanticCache"] = None
+        self._cache_enabled: bool = False
         self._init_cognitive()
+        self._init_hd_memory()
 
         logger.info(f"SoulEngine initialized: soul={self._soul.name}, device={device}")
 
@@ -143,6 +152,7 @@ class SoulEngine:
                 FormalLogicEngine,
                 WorkingMemory,
             )
+
             self._reasoning_engine = ReasoningEngine()
             self._deep_reasoning = DeepReasoning()
             self._logic_engine = FormalLogicEngine()
@@ -156,10 +166,39 @@ class SoulEngine:
 
         try:
             from domains.soul.cognitive import SentimentAnalyzer
+
             self._sentiment_analyzer = SentimentAnalyzer()
         except Exception:
             logger.debug("SentimentAnalyzer not available")
             self._sentiment_analyzer = None
+
+    def _init_hd_memory(self) -> None:
+        """Initialize hyperdimensional memory store."""
+        try:
+            from domains.soul.hd_memory import HDMemoryStore
+
+            self._hd_memory = HDMemoryStore(dim=10000, max_items=1000)
+            logger.debug("HD Memory initialized")
+        except Exception as e:
+            logger.debug(f"HD Memory not available: {e}")
+            self._hd_memory = None
+
+    def _init_semantic_cache(self) -> None:
+        """Initialize semantic cache."""
+        try:
+            from domains.inference.semantic_cache import SemanticCache
+
+            self._semantic_cache = SemanticCache(
+                dim=10000,
+                max_entries=500,
+                similarity_threshold=0.85,
+                ttl_seconds=3600,
+            )
+            self._cache_enabled = True
+            logger.debug("Semantic cache initialized")
+        except Exception as e:
+            logger.debug(f"Semantic cache not available: {e}")
+            self._semantic_cache = None
 
     @property
     def soul(self) -> SoulProfile:
@@ -263,6 +302,14 @@ class SoulEngine:
         if self._reasoning_engine:
             lines.append(f"reasoning_engine: active ({len(self._session_history)} context items)")
 
+        # HD Memory context injection
+        if self._hd_memory:
+            try:
+                stats = self._hd_memory.get_stats()
+                lines.append(f"hd_memory: {stats['total_items']} items stored")
+            except Exception:
+                pass
+
         lines.append("[/SOUL_REASONING]")
         lines.append("")
 
@@ -312,7 +359,9 @@ class SoulEngine:
             parts.append(system)
             parts.append("")
 
-        if include_reasoning and (self._cognitive_state.get("session_turns", 0) > 0 or self._reasoning_engine):
+        if include_reasoning and (
+            self._cognitive_state.get("session_turns", 0) > 0 or self._reasoning_engine
+        ):
             reasoning_text = self._build_reasoning_chain_text(prompt)
             parts.append(reasoning_text)
 
@@ -333,6 +382,19 @@ class SoulEngine:
             parts.append(session_context.rstrip())
             parts.append("[/CONVERSATION_HISTORY]")
             parts.append("")
+
+        # HD Memory: Inject relevant semantic context
+        hd_context = ""
+        if self._hd_memory:
+            try:
+                hd_context = self._hd_memory.get_context(prompt, max_chars=400)
+                if hd_context:
+                    parts.append("[SEMANTIC_MEMORY]")
+                    parts.append(hd_context)
+                    parts.append("[/SEMANTIC_MEMORY]")
+                    parts.append("")
+            except Exception as e:
+                logger.debug(f"HD context retrieval failed: {e}")
 
         parts.append(f"User: {prompt}")
         parts.append("Assistant:")
@@ -404,6 +466,29 @@ class SoulEngine:
         """
         start_time = time.time()
         reasoning_chain: List[str] = []
+        cache_hit = False
+        cached_response: Optional[str] = None
+
+        # Semantic Cache: Check for cached response
+        if self._cache_enabled and self._semantic_cache:
+            try:
+                cached_response = self._semantic_cache.get(prompt)
+                if cached_response:
+                    cache_hit = True
+                    reasoning_chain.append(f"cache_hit: semantic match")
+                    generated_text = cached_response
+                    tokens_generated = len(cached_response.split())
+                    latency_ms = (time.time() - start_time) * 1000
+                    self._generation_stats["total_generations"] += 1
+                    if return_reasoning:
+                        return cached_response, {
+                            "reasoning_chain": reasoning_chain,
+                            "cache_hit": True,
+                            "latency_ms": latency_ms,
+                        }
+                    return cached_response
+            except Exception as e:
+                logger.debug(f"Cache lookup failed: {e}")
 
         if self._sentiment_analyzer:
             emotional = self._sentiment_analyzer.analyze(prompt)
@@ -415,6 +500,22 @@ class SoulEngine:
             )
 
         self._cognitive_state["session_turns"] += 1
+
+        # HD Memory: Encode user input for semantic retrieval
+        hd_context = ""
+        if self._hd_memory:
+            try:
+                self._hd_memory.add(
+                    prompt, role="user", metadata={"turn": self._cognitive_state["session_turns"]}
+                )
+                hd_context = self._hd_memory.get_context(prompt, max_chars=300)
+                if hd_context:
+                    reasoning_chain.append(
+                        f"hd_memory: found {len(hd_context)} chars relevant context"
+                    )
+            except Exception as e:
+                logger.debug(f"HD memory encode failed: {e}")
+
         # Prior turns live in _session_history only; current user text is added below
         # so we do not duplicate it inside [CONVERSATION_HISTORY].
         full_prompt = self._build_full_prompt(prompt, include_reasoning=include_reasoning)
@@ -426,7 +527,9 @@ class SoulEngine:
             temperature=temperature if temperature is not None else 0.8,
             top_k=top_k if top_k is not None else self._soul.generation.top_k,
             top_p=top_p if top_p is not None else self._soul.generation.top_p,
-            max_tokens=max_new_tokens if max_new_tokens is not None else self._soul.generation.max_tokens,
+            max_tokens=max_new_tokens
+            if max_new_tokens is not None
+            else self._soul.generation.max_tokens,
             stop_tokens=stop_tokens or self._soul.generation.stop,
             reasoning_chain=reasoning_chain,
         )
@@ -456,7 +559,7 @@ class SoulEngine:
                 generated_text = self._detokenize(output_ids[0])
 
                 if full_prompt in generated_text:
-                    generated_text = generated_text[len(full_prompt):]
+                    generated_text = generated_text[len(full_prompt) :]
 
                 tokens_generated = output_ids.size(1) - idx.size(1)
 
@@ -467,12 +570,44 @@ class SoulEngine:
         self._session_history.append({"role": "user", "content": prompt})
         self._session_history.append({"role": "assistant", "content": generated_text})
 
+        # HD Memory: Store assistant response for future retrieval
+        if self._hd_memory and generated_text and not generated_text.startswith("[Error"):
+            try:
+                self._hd_memory.add(
+                    generated_text,
+                    role="assistant",
+                    metadata={
+                        "user_prompt": prompt[:100],
+                        "turn": self._cognitive_state["session_turns"],
+                    },
+                )
+            except Exception as e:
+                logger.debug(f"HD memory store failed: {e}")
+
+        # Semantic Cache: Store response for future similar queries
+        if (
+            self._cache_enabled
+            and self._semantic_cache
+            and generated_text
+            and not generated_text.startswith("[Error")
+            and not generated_text.startswith("[Soul")
+        ):
+            try:
+                self._semantic_cache.put(
+                    query=prompt,
+                    response=generated_text,
+                    metadata={
+                        "turn": self._cognitive_state["session_turns"],
+                        "latency_ms": latency_ms,
+                    },
+                )
+            except Exception as e:
+                logger.debug(f"Cache store failed: {e}")
+
         if len(self._session_history) > 100:
             self._session_history = self._session_history[-100:]
 
-        self._apply_hebbian_learning(
-            prompt.split()[:20], generated_text.split()[:20]
-        )
+        self._apply_hebbian_learning(prompt.split()[:20], generated_text.split()[:20])
 
         latency_ms = (time.time() - start_time) * 1000
         self._generation_stats["total_generations"] += 1
@@ -481,9 +616,7 @@ class SoulEngine:
         if self._generation_stats["total_generations"] > 1:
             n = self._generation_stats["total_generations"]
             prev_avg = self._generation_stats["avg_latency_ms"]
-            self._generation_stats["avg_latency_ms"] = (
-                (prev_avg * (n - 1)) + latency_ms
-            ) / n
+            self._generation_stats["avg_latency_ms"] = ((prev_avg * (n - 1)) + latency_ms) / n
 
         if return_reasoning:
             extra = {
@@ -502,6 +635,7 @@ class SoulEngine:
     async def generate_async(self, prompt: str, **kwargs) -> str:
         """Async wrapper."""
         import asyncio
+
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, lambda: self.generate(prompt, **kwargs))
 
@@ -589,6 +723,7 @@ class SoulEngine:
         export_to_sou(self._model, output_path, soul_profile=self._soul, weights_only=False)
 
         import json
+
         meta_path = output_path + ".meta.json"
         with open(meta_path, "w") as f:
             json.dump(self._soul.to_dict(), f, indent=2, default=str)
@@ -674,7 +809,11 @@ class SoulEngine:
             Training results and metrics
         """
         from domains.training.optimized_pipeline import (
-            UnifiedConfig, OptimizationConfig, Precision, LoRAMode, OptimizedPipeline
+            UnifiedConfig,
+            OptimizationConfig,
+            Precision,
+            LoRAMode,
+            OptimizedPipeline,
         )
 
         if not self._model:
@@ -745,7 +884,7 @@ class SoulEngine:
     async def deep_reason(self, problem: str, max_depth: int = 3) -> Dict[str, Any]:
         """
         Perform deep reasoning with retrieval and self-correction.
-        
+
         Uses:
         - VectorStore + Memory for grounding
         - Self-correction loop to refine reasoning
@@ -758,7 +897,10 @@ class SoulEngine:
         return {
             "conclusion": result.conclusion,
             "confidence": result.confidence,
-            "steps": [{"id": s.step_id, "thought": s.thought, "type": s.reasoning_type} for s in result.steps],
+            "steps": [
+                {"id": s.step_id, "thought": s.thought, "type": s.reasoning_type}
+                for s in result.steps
+            ],
             "metadata": result.metadata,
         }
 
@@ -770,12 +912,12 @@ class SoulEngine:
     ) -> Dict[str, Any]:
         """
         Prove a categorical syllogism using formal logic.
-        
+
         Args:
             premise1: (quantifier, copula, predicate) e.g., ("All", "are", "mortal")
             premise2: (quantifier, copula, predicate)
             conclusion: (quantifier, copula, predicate)
-        
+
         Example:
             soul.prove_syllogism(
                 premise1=("All", "are", "mortal"),
@@ -798,6 +940,7 @@ class SoulEngine:
         if not self._logic_engine:
             return False
         from domains.cognitive.reasoning import Predicate, Term
+
         return self._logic_engine.query(
             Predicate(name=predicate_name, terms=[Term(name=t) for t in terms])
         )
@@ -889,7 +1032,7 @@ class SoulEngine:
         Returns:
             Benchmark results
         """
-        if not hasattr(self, '_inference_optimizer') or not self._inference_optimizer:
+        if not hasattr(self, "_inference_optimizer") or not self._inference_optimizer:
             return {"error": "Run optimize_inference() first"}
 
         try:
@@ -975,6 +1118,196 @@ class SoulEngine:
             return ""
 
         return self._grounding.get_knowledge_context(query)
+
+    # ===== HYPERDIMENSIONAL MEMORY =====
+
+    def get_hd_memory_stats(self) -> Dict[str, Any]:
+        """
+        Get hyperdimensional memory statistics.
+
+        Returns:
+            HD memory stats including item count, dimension, etc.
+        """
+        if not self._hd_memory:
+            return {"enabled": False, "error": "HD memory not initialized"}
+
+        try:
+            return {"enabled": True, **self._hd_memory.get_stats()}
+        except Exception as e:
+            return {"enabled": True, "error": str(e)}
+
+    def search_hd_memory(self, query: str, top_k: int = 5) -> List[Tuple[str, str, float]]:
+        """
+        Search hyperdimensional memory for relevant content.
+
+        Args:
+            query: Query text
+            top_k: Number of results
+
+        Returns:
+            List of (id, content, similarity) tuples
+        """
+        if not self._hd_memory:
+            return []
+
+        try:
+            return self._hd_memory.search(query, top_k=top_k)
+        except Exception as e:
+            logger.debug(f"HD memory search failed: {e}")
+            return []
+
+    def add_to_hd_memory(self, content: str, role: str = "user") -> str:
+        """
+        Add content to hyperdimensional memory.
+
+        Args:
+            content: Text to encode and store
+            role: Role (user/assistant/system)
+
+        Returns:
+            Memory item ID
+        """
+        if not self._hd_memory:
+            return ""
+
+        try:
+            return self._hd_memory.add(content, role=role)
+        except Exception as e:
+            logger.debug(f"HD memory add failed: {e}")
+            return ""
+
+    def clear_hd_memory(self) -> int:
+        """
+        Clear hyperdimensional memory.
+
+        Returns:
+            Number of items cleared
+        """
+        if not self._hd_memory:
+            return 0
+
+        try:
+            return self._hd_memory.clear()
+        except Exception as e:
+            logger.debug(f"HD memory clear failed: {e}")
+            return 0
+
+    def get_hd_context(self, query: str, max_chars: int = 500) -> str:
+        """
+        Get relevant context from HD memory.
+
+        Args:
+            query: Query text
+            max_chars: Maximum characters to return
+
+        Returns:
+            Relevant context string
+        """
+        if not self._hd_memory:
+            return ""
+
+        try:
+            return self._hd_memory.get_context(query, max_chars=max_chars)
+        except Exception as e:
+            logger.debug(f"HD context retrieval failed: {e}")
+            return ""
+
+    # ===== SEMANTIC CACHE =====
+
+    def enable_cache(
+        self,
+        max_entries: int = 500,
+        similarity_threshold: float = 0.30,
+        ttl_seconds: float = 3600,
+    ) -> Dict[str, Any]:
+        """
+        Enable semantic caching.
+
+        Args:
+            max_entries: Maximum cache entries
+            similarity_threshold: Min similarity for cache hit (0-1)
+            ttl_seconds: Cache entry TTL
+
+        Returns:
+            Cache configuration
+        """
+        if not self._semantic_cache:
+            try:
+                from domains.inference.semantic_cache import SemanticCache
+
+                self._semantic_cache = SemanticCache(
+                    dim=10000,
+                    max_entries=max_entries,
+                    similarity_threshold=similarity_threshold,
+                    ttl_seconds=ttl_seconds,
+                )
+            except Exception as e:
+                return {"enabled": False, "error": str(e)}
+
+        self._cache_enabled = True
+        return {
+            "enabled": True,
+            "max_entries": max_entries,
+            "similarity_threshold": similarity_threshold,
+            "ttl_seconds": ttl_seconds,
+        }
+
+    def disable_cache(self) -> bool:
+        """Disable semantic caching."""
+        self._cache_enabled = False
+        return True
+
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """
+        Get semantic cache statistics.
+
+        Returns:
+            Cache stats including hit rate, entry count, etc.
+        """
+        if not self._semantic_cache:
+            return {"enabled": False, "error": "Cache not initialized"}
+
+        try:
+            stats = self._semantic_cache.get_stats()
+            stats["cache_enabled"] = self._cache_enabled
+            return stats
+        except Exception as e:
+            return {"enabled": False, "error": str(e)}
+
+    def clear_cache(self) -> int:
+        """
+        Clear semantic cache.
+
+        Returns:
+            Number of entries cleared
+        """
+        if not self._semantic_cache:
+            return 0
+
+        try:
+            return self._semantic_cache.clear()
+        except Exception as e:
+            logger.debug(f"Cache clear failed: {e}")
+            return 0
+
+    def invalidate_cache_entry(self, query: str) -> bool:
+        """
+        Invalidate specific cache entry.
+
+        Args:
+            query: Query to invalidate
+
+        Returns:
+            True if entry was found and removed
+        """
+        if not self._semantic_cache:
+            return False
+
+        try:
+            return self._semantic_cache.invalidate(query)
+        except Exception as e:
+            logger.debug(f"Cache invalidation failed: {e}")
+            return False
 
     def __repr__(self) -> str:
         loaded = "loaded" if self._model else "no model"

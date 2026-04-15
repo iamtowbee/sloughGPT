@@ -87,6 +87,74 @@ export default function TrainingPage() {
     }
   }, [])
 
+  // Training state control
+  const [trainingState, setTrainingState] = useState<{
+    state: string
+    is_running: boolean
+    is_paused: boolean
+    is_idle: boolean
+    current_job_id: string | null
+    current_job_name: string | null
+    can_start: boolean
+    can_pause: boolean
+    can_resume: boolean
+    can_stop: boolean
+    total_jobs: number
+    completed_jobs: number
+  } | null>(null)
+  const [controlLoading, setControlLoading] = useState(false)
+
+  // Fetch training state
+  const fetchTrainingState = useCallback(async () => {
+    try {
+      const state = await api.getTrainingStatus()
+      setTrainingState(state)
+    } catch (error) {
+      devDebug('Failed to fetch training state:', error)
+    }
+  }, [])
+
+  // Training control handlers
+  const handlePause = useCallback(async () => {
+    setControlLoading(true)
+    try {
+      const result = await api.pauseTraining()
+      addToast(result.message, result.success ? 'info' : 'error')
+      void fetchTrainingState()
+    } catch (error) {
+      addToast('Failed to pause training', 'error')
+    } finally {
+      setControlLoading(false)
+    }
+  }, [fetchTrainingState])
+
+  const handleResume = useCallback(async () => {
+    setControlLoading(true)
+    try {
+      const result = await api.resumeTraining()
+      addToast(result.message, result.success ? 'info' : 'error')
+      void fetchTrainingState()
+    } catch (error) {
+      addToast('Failed to resume training', 'error')
+    } finally {
+      setControlLoading(false)
+    }
+  }, [fetchTrainingState])
+
+  const handleStop = useCallback(async () => {
+    if (!confirm('Stop current training job?')) return
+    setControlLoading(true)
+    try {
+      const result = await api.stopTraining()
+      addToast(result.message, result.success ? 'info' : 'error')
+      void fetchTrainingState()
+    } catch (error) {
+      addToast('Failed to stop training', 'error')
+    } finally {
+      setControlLoading(false)
+    }
+  }, [fetchTrainingState])
+
   const fetchDatasets = useCallback(async () => {
     setLoadingDatasets(true)
     try {
@@ -131,7 +199,8 @@ export default function TrainingPage() {
 
   useEffect(() => {
     void fetchDatasets()
-  }, [])
+    void fetchTrainingState()
+  }, [fetchDatasets, fetchTrainingState])
 
   useEffect(() => {
     const running = jobs.some((j) => j.status === 'running')
@@ -139,6 +208,11 @@ export default function TrainingPage() {
     const id = setInterval(() => void fetchJobs(), ms)
     return () => clearInterval(id)
   }, [jobs, fetchJobs])
+
+  useEffect(() => {
+    const interval = setInterval(() => void fetchTrainingState(), 5000)
+    return () => clearInterval(interval)
+  }, [fetchTrainingState])
 
   const buildResolveBody = () => {
     if (newJob.corpusMode === 'folder') {
@@ -260,7 +334,7 @@ export default function TrainingPage() {
   }
 
   return (
-    <div className="sl-page mx-auto max-w-5xl">
+    <div className="sl-page mx-auto max-w-7xl">
       <AppRouteHeader
         className="mb-6 justify-between"
         left={
@@ -293,197 +367,166 @@ export default function TrainingPage() {
               </svg>
             </Button>
             <Button type="button" onClick={openModal}>
-              New Training Job
+              + New Training Job
             </Button>
           </div>
         }
       />
 
-      <FoldSection heading="Datasets">
-        <div className="space-y-2">
-          {datasets.map((ds) => (
-            <div key={ds.id} className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm truncate">{ds.name}</span>
-                  <span className="text-xs text-muted-foreground">{ds.size}</span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <RecoveryPanel jobs={jobs} addToast={addToast} fetchJobs={fetchJobs} />
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Training Jobs</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {loading ? (
+                <div className="text-center py-8 text-muted-foreground">Loading...</div>
+              ) : jobs.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-2">No training jobs yet</p>
+                  <p className="text-sm text-muted-foreground">
+                    Click <strong>+ New Training Job</strong> to start
+                  </p>
                 </div>
-                <div className="text-xs text-muted-foreground font-mono truncate">{ds.id}</div>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  if (confirm(`Delete dataset "${ds.name}"?`)) {
-                    void api.deleteDataset(ds.id).then(() => {
-                      addToast(`Deleted "${ds.name}"`, 'success')
-                      fetchDatasets()
-                    })
-                  }
-                }}
-                className="text-destructive/60 hover:text-destructive shrink-0 ml-2"
-              >
-                ✕
-              </Button>
-            </div>
-          ))}
-          {datasets.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">No datasets found</p>
-          )}
-        </div>
-      </FoldSection>
-
-      <FoldSection heading="Evaluate">
-        <div className="space-y-3">
-          <textarea
-            className="sl-input w-full h-24 resize-none text-sm font-mono"
-            placeholder="Enter text to evaluate..."
-            value={perplexityText}
-            onChange={(e) => setPerplexityText(e.target.value)}
-          />
-          <div className="flex items-center justify-between">
-            <Button
-              size="sm"
-              onClick={calculatePerplexity}
-              disabled={perplexityLoading || !perplexityText.trim()}
-            >
-              {perplexityLoading ? 'Calculating...' : 'Calculate Perplexity'}
-            </Button>
-            {perplexityResult && (
-              <div className="text-sm">
-                <span className="text-muted-foreground">Perplexity: </span>
-                <span className="font-mono font-medium">{perplexityResult.perplexity.toFixed(4)}</span>
-                <span className="text-muted-foreground ml-2">({perplexityResult.text_length} chars)</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </FoldSection>
-
-      {loading ? (
-        <div className="text-center py-8 text-muted-foreground">Loading...</div>
-      ) : jobs.length === 0 ? (
-        <Card className="mx-auto max-w-md border-dashed">
-          <CardHeader className="text-center">
-            <CardTitle className="text-base">No training jobs yet</CardTitle>
-            <CardDescription className="text-balance">
-              Start the FastAPI app from the repo root, pick a dataset folder under{' '}
-              <span className="font-mono text-foreground/90">datasets/</span> (e.g.{' '}
-              <span className="font-mono">shakespeare</span>), then use <strong>New Training Job</strong>.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center">
-            <p className="font-mono text-xs text-muted-foreground break-all">python3 apps/api/server/main.py</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="overflow-hidden p-0">
-          <CardHeader className="border-b border-border py-4">
-            <CardTitle className="text-base">Training jobs</CardTitle>
-          </CardHeader>
-
-          <div className="divide-y divide-border">
-            {jobs.map((job) => (
-              <div key={job.id} className="p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h3 className="font-medium text-foreground">{job.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {job.model} • {job.dataset}
-                      {job.data_source && (
-                        <span className="ml-2 text-xs uppercase tracking-wide text-muted-foreground">
-                          ({job.data_source})
+              ) : (
+                <div className="space-y-3">
+                  {jobs.map((job) => (
+                    <div key={job.id} className="p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h3 className="font-medium">{job.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {job.model} • {job.dataset}
+                          </p>
+                        </div>
+                        <JobStatus status={trainingJobStatusToStrui(job.status)} />
+                      </div>
+                      <ProgressBar value={job.progress || 0} />
+                      <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground">
+                        <span>
+                          {job.status === 'running'
+                            ? (job.progress !== undefined && job.progress > 0 && job.global_step !== undefined
+                              ? `Step ${job.global_step} / ~${Math.round(job.global_step / (job.progress / 100))}`
+                              : `Step ${job.global_step || 0}`)
+                            : null}
                         </span>
-                      )}
-                    </p>
-                    {job.data_path && (
-                      <p className="text-xs text-muted-foreground mt-1 font-mono break-all">
-                        {job.data_path}
-                      </p>
-                    )}
-                  </div>
-                  <JobStatus status={trainingJobStatusToStrui(job.status)} />
+                        <span>{job.progress || 0}%</span>
+                      </div>
+                      <div className="flex gap-2 mt-3">
+                        {job.status === 'completed' && job.checkpoint && (
+                          <Button size="sm" variant="outline" onClick={() => {
+                            void api.exportTrainingJob(job.id).then((blob) => {
+                              const url = URL.createObjectURL(blob)
+                              const link = document.createElement('a')
+                              link.href = url
+                              link.download = job.checkpoint?.split('/').pop() || 'checkpoint.pt'
+                              link.click()
+                              URL.revokeObjectURL(url)
+                              addToast('Download started', 'success')
+                            }).catch((err) => {
+                              addToast(`Export failed: ${err.message}`, 'error')
+                            })
+                          }}>
+                            Download
+                          </Button>
+                        )}
+                        {job.status !== 'running' && job.status !== 'pending' && (
+                          <Button size="sm" variant="ghost" onClick={() => deleteJob(job.id, job.name)} className="text-destructive/60 hover:text-destructive">
+                            Delete
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              )}
+            </CardContent>
+          </Card>
 
-                <div className="mt-3">
-                  <div className="flex justify-between text-sm text-muted-foreground mb-1">
-                    <span>
-                      {job.current_epoch && job.epochs
-                        ? `Epoch ${job.current_epoch}/${job.epochs}`
-                        : 'Progress'}
-                      {job.global_step != null && job.status === 'running' && (
-                        <span className="ml-1.5 font-mono text-xs">
-                          step {job.global_step}{job.progress > 0 ? ` / ~${Math.round(job.global_step / (job.progress / 100))}` : ''}
-                        </span>
-                      )}
-                    </span>
-                    <span>{job.progress}%</span>
-                  </div>
-                  <ProgressBar
-                    value={job.progress}
-                    max={100}
-                    indeterminate={job.status === 'pending'}
-                  />
-                </div>
-
-                {(job.train_loss != null && Number.isFinite(job.train_loss)) ||
-                (job.eval_loss != null && Number.isFinite(job.eval_loss)) ? (
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-sm text-muted-foreground">
-                    {job.train_loss != null && Number.isFinite(job.train_loss) && (
-                      <span>Train loss: {job.train_loss.toFixed(4)}</span>
-                    )}
-                    {job.eval_loss != null && Number.isFinite(job.eval_loss) && (
-                      <span>Eval loss: {job.eval_loss.toFixed(4)}</span>
-                    )}
-                  </div>
-                ) : null}
-
-                {job.loss != null && Number.isFinite(job.loss) && job.status === 'completed' && (
-                  <div className="flex gap-4 mt-3 text-sm text-muted-foreground">
-                    <span>Best eval loss: {job.loss.toFixed(4)}</span>
+          <FoldSection heading="Evaluate">
+            <div className="space-y-3">
+              <textarea
+                className="sl-input w-full h-24 resize-none text-sm font-mono"
+                placeholder="Enter text to evaluate..."
+                value={perplexityText}
+                onChange={(e) => setPerplexityText(e.target.value)}
+              />
+              <div className="flex items-center justify-between">
+                <Button
+                  size="sm"
+                  onClick={calculatePerplexity}
+                  disabled={perplexityLoading || !perplexityText.trim()}
+                >
+                  {perplexityLoading ? 'Calculating...' : 'Calculate Perplexity'}
+                </Button>
+                {perplexityResult && (
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Perplexity: </span>
+                    <span className="font-mono font-medium">{perplexityResult.perplexity.toFixed(4)}</span>
                   </div>
                 )}
-                <div className="flex items-center justify-between mt-2">
-                  {job.checkpoint && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground font-mono">Checkpoint: {job.checkpoint?.split('/').pop()}</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          const link = document.createElement('a')
-                          link.href = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/training/export/${job.id}`
-                          link.download = job.checkpoint?.split('/').pop() || 'checkpoint.pt'
-                          link.click()
-                          addToast('Download started', 'info')
-                        }}
-                        className="text-primary/60 hover:text-primary h-6 px-2"
-                        title="Download checkpoint"
-                      >
-                        ↓
-                      </Button>
-                    </div>
-                  )}
-                  {job.error && (
-                    <p className="text-xs text-warning">{job.error}</p>
-                  )}
-                  {job.status !== 'running' && job.status !== 'pending' && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => deleteJob(job.id, job.name)}
-                      className="text-destructive/60 hover:text-destructive ml-2"
-                    >
-                      Delete
-                    </Button>
-                  )}
-                </div>
               </div>
-            ))}
-          </div>
-        </Card>
-      )}
+            </div>
+          </FoldSection>
+        </div>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Datasets</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-2">
+                {datasets.map((ds) => (
+                  <div key={ds.id} className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm truncate">{ds.name}</span>
+                        <span className="text-xs text-muted-foreground">{ds.size}</span>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm(`Delete dataset "${ds.name}"?\n\nThis will permanently remove the dataset. This cannot be undone.`)) {
+                          void api.deleteDataset(ds.id).then(() => {
+                            addToast(`Deleted "${ds.name}"`, 'success')
+                            fetchDatasets()
+                          }).catch((err) => {
+                            addToast(`Failed to delete: ${err.message}`, 'error')
+                          })
+                        }
+                      }}
+                      className="text-destructive/60 hover:text-destructive shrink-0"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </Button>
+                  </div>
+                ))}
+                {datasets.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No datasets found</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Webhooks</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <WebhookManager addToast={addToast} />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       <Dialog
         open={showModal}
@@ -1150,6 +1193,330 @@ export default function TrainingPage() {
 
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+    </div>
+  )
+}
+
+// ===== RecoveryPanel Component =====
+
+interface RecoveryPanelProps {
+  jobs: TrainingJob[]
+  addToast: (message: string, type?: 'info' | 'success' | 'error') => void
+  fetchJobs: () => void
+}
+
+function RecoveryPanel({ addToast, fetchJobs }: RecoveryPanelProps) {
+  const [expanded, setExpanded] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [stats, setStats] = useState<{
+    pending: number
+    running: number
+    completed: number
+    failed: number
+    total: number
+    crashed_jobs: number
+    recoverable_jobs: number
+  } | null>(null)
+  const [recoverableJobs, setRecoverableJobs] = useState<Array<{
+    id: string
+    name: string
+    status: string
+    progress: number
+    config: Record<string, unknown>
+    checkpoint_path?: string
+  }>>([])
+
+  const checkRecovery = useCallback(async () => {
+    try {
+      const data = await api.getRecoveryStats()
+      setStats(data)
+      const recoverable = await api.getRecoverableJobs()
+      setRecoverableJobs(recoverable.jobs)
+    } catch (error) {
+      devDebug('Failed to check recovery:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    void checkRecovery()
+    const interval = setInterval(() => void checkRecovery(), 30000)
+    return () => clearInterval(interval)
+  }, [checkRecovery])
+
+  const handleRecover = async (jobId: string) => {
+    if (!confirm('Recover this job? It will restart from the last checkpoint.')) return
+    setLoading(true)
+    try {
+      const result = await api.recoverJob(jobId)
+      addToast(result.message, result.status === 'recovered' ? 'success' : 'info')
+      void fetchJobs()
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Recovery failed', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAbandon = async (jobId: string) => {
+    if (!confirm('Abandon this job permanently? This cannot be undone.')) return
+    setLoading(true)
+    try {
+      const result = await api.abandonJob(jobId)
+      addToast(result.message, 'success')
+      void fetchJobs()
+      void checkRecovery()
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Abandon failed', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const crashedCount = stats?.crashed_jobs ?? 0
+
+  if (crashedCount === 0) return null
+
+  return (
+    <FoldSection heading="Job Recovery">
+      <div className="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+        <div>
+          <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+            {crashedCount > 0 ? `${crashedCount} job(s) may have crashed` : 'Interrupted jobs detected'}
+          </p>
+          <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+            Server may have stopped unexpectedly.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? 'Hide' : 'Show'}
+        </Button>
+      </div>
+
+      {expanded && (
+        <div className="mt-3 space-y-2">
+          {recoverableJobs.length > 0 ? (
+            recoverableJobs.map(job => (
+              <div key={job.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-md">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    <span className="font-medium text-sm truncate">{job.name || job.id}</span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                    <span>Progress: {job.progress}%</span>
+                    {job.checkpoint_path && (
+                      <span className="truncate">Checkpoint: {job.checkpoint_path.split('/').pop()}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2 ml-2">
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => void handleRecover(job.id)}
+                    disabled={loading}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    Recover
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => void handleAbandon(job.id)}
+                    className="text-destructive/60 hover:text-destructive"
+                  >
+                    Abandon
+                  </Button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No recoverable jobs found.
+            </p>
+          )}
+        </div>
+      )}
+    </FoldSection>
+  )
+}
+
+// ===== WebhookManager Component =====
+
+interface WebhookManagerProps {
+  addToast: (message: string, type?: 'info' | 'success' | 'error') => void
+}
+
+function WebhookManager({ addToast }: WebhookManagerProps) {
+  const [webhooks, setWebhooks] = useState<Array<{
+    id: string
+    url: string
+    events: string[]
+    description: string
+    is_active: boolean
+    created_at: string
+  }>>([])
+  const [showAdd, setShowAdd] = useState(false)
+  const [newWebhook, setNewWebhook] = useState({
+    url: '',
+    description: '',
+    events: ['training.completed'],
+  })
+  const [loading, setLoading] = useState(false)
+  const [availableEvents, setAvailableEvents] = useState<string[]>(['training.completed'])
+
+  const fetchWebhooks = useCallback(async () => {
+    try {
+      const data = await api.getWebhooks()
+      setWebhooks(data.webhooks)
+      setAvailableEvents(data.available_events)
+    } catch (error) {
+      devDebug('Failed to fetch webhooks:', error)
+    }
+  }, [])
+
+  const fetchStats = useCallback(async () => {
+    try {
+      await api.getWebhookStats()
+    } catch (error) {
+      devDebug('Failed to fetch webhook stats:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    void fetchWebhooks()
+    void fetchStats()
+  }, [fetchWebhooks, fetchStats])
+
+  const handleAddWebhook = async () => {
+    if (!newWebhook.url.trim()) return
+    setLoading(true)
+    try {
+      await api.registerWebhook({
+        url: newWebhook.url,
+        events: newWebhook.events,
+        description: newWebhook.description,
+      })
+      addToast('Webhook registered', 'success')
+      setShowAdd(false)
+      setNewWebhook({ url: '', description: '', events: ['training.completed'] })
+      void fetchWebhooks()
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Failed to register webhook', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteWebhook = async (id: string) => {
+    if (!confirm('Delete this webhook?')) return
+    try {
+      await api.deleteWebhook(id)
+      addToast('Webhook deleted', 'success')
+      void fetchWebhooks()
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Delete failed', 'error')
+    }
+  }
+
+  const handleTestWebhook = async (url: string) => {
+    try {
+      await api.testWebhook(url)
+      addToast('Test sent', 'success')
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Test failed', 'error')
+    }
+  }
+
+  const toggleEvent = (event: string) => {
+    setNewWebhook(prev => ({
+      ...prev,
+      events: prev.events.includes(event)
+        ? prev.events.filter(e => e !== event)
+        : [...prev.events, event],
+    }))
+  }
+
+  return (
+    <div className="space-y-3">
+      {webhooks.length > 0 ? (
+        <div className="space-y-2">
+          {webhooks.map(webhook => (
+            <div key={webhook.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${webhook.is_active ? 'bg-green-500' : 'bg-gray-400'}`} />
+                  <span className="font-medium text-sm truncate">{webhook.url}</span>
+                </div>
+                <div className="flex gap-1 mt-1 flex-wrap">
+                  {webhook.events.map(event => (
+                    <span key={event} className="text-xs bg-muted px-2 py-0.5 rounded">
+                      {event.split('.')[1]}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-1 ml-2">
+                <Button size="sm" variant="ghost" onClick={() => handleTestWebhook(webhook.url)}>
+                  Test
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => handleDeleteWebhook(webhook.id)} className="text-destructive/60 hover:text-destructive">
+                  ✕
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground text-center py-4">No webhooks configured</p>
+      )}
+
+      {showAdd ? (
+        <div className="p-4 border border-border rounded-lg space-y-3">
+          <input
+            type="url"
+            value={newWebhook.url}
+            onChange={e => setNewWebhook(prev => ({ ...prev, url: e.target.value }))}
+            placeholder="https://example.com/webhook"
+            className="sl-input w-full"
+          />
+          <input
+            type="text"
+            value={newWebhook.description}
+            onChange={e => setNewWebhook(prev => ({ ...prev, description: e.target.value }))}
+            placeholder="Description (optional)"
+            className="sl-input w-full"
+          />
+          <div className="flex gap-2 flex-wrap">
+            {availableEvents.map(event => (
+              <label key={event} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={newWebhook.events.includes(event)}
+                  onChange={() => toggleEvent(event)}
+                />
+                {event.split('.')[1]}
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleAddWebhook} disabled={loading || !newWebhook.url.trim()}>
+              {loading ? 'Adding...' : 'Add Webhook'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button size="sm" onClick={() => setShowAdd(true)}>
+          + Add Webhook
+        </Button>
+      )}
     </div>
   )
 }
