@@ -4170,7 +4170,7 @@ class BatchImportRequest(BaseModel):
 @app.post("/datasets/import/batch", tags=["datasets"])
 async def batch_import(request: BatchImportRequest):
     """Import multiple datasets in one request."""
-    from domains.training.data_import import DataImporter, URLImporter, GitHubImporter
+    from domains.training.data_import import DataImporter, URLImporter
 
     results = []
     errors = []
@@ -4192,13 +4192,6 @@ async def batch_import(request: BatchImportRequest):
                     path=source.get("path", ""),
                     name=name,
                     extensions=source.get("extensions"),
-                )
-            elif source_type == "github":
-                importer = GitHubImporter()
-                result = importer.import_from_github(
-                    repo=source.get("repo", ""),
-                    path=source.get("path", ""),
-                    dataset_name=name,
                 )
             else:
                 errors.append({"index": i, "error": f"Unknown source type: {source_type}"})
