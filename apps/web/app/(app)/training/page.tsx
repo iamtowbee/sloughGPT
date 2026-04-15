@@ -57,6 +57,21 @@ export default function TrainingPage() {
   const [toasts, setToasts] = useState<Toast[]>([])
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [loadingDatasets, setLoadingDatasets] = useState(false)
+  const [exportFormats, setExportFormats] = useState<{ id: string; name: string; description: string }[]>([])
+
+  // Fetch export formats
+  const fetchExportFormats = useCallback(async () => {
+    try {
+      const data = await api.getExportFormats()
+      setExportFormats(Object.entries(data.formats).map(([id, desc]) => ({
+        id,
+        name: id.toUpperCase(),
+        description: desc as string,
+      })))
+    } catch (err) {
+      devDebug('Failed to fetch export formats:', err)
+    }
+  }, [])
 
   const addToast = useCallback((message: string, type: Toast['type'] = 'info') => {
     const id = Date.now().toString()
@@ -200,7 +215,8 @@ export default function TrainingPage() {
   useEffect(() => {
     void fetchDatasets()
     void fetchTrainingState()
-  }, [fetchDatasets, fetchTrainingState])
+    void fetchExportFormats()
+  }, [fetchDatasets, fetchTrainingState, fetchExportFormats])
 
   useEffect(() => {
     const running = jobs.some((j) => j.status === 'running')
@@ -417,21 +433,7 @@ export default function TrainingPage() {
                       </div>
                       <div className="flex gap-2 mt-3">
                         {job.status === 'completed' && job.checkpoint && (
-                          <Button size="sm" variant="outline" onClick={() => {
-                            void api.exportTrainingJob(job.id).then((blob) => {
-                              const url = URL.createObjectURL(blob)
-                              const link = document.createElement('a')
-                              link.href = url
-                              link.download = job.checkpoint?.split('/').pop() || 'checkpoint.pt'
-                              link.click()
-                              URL.revokeObjectURL(url)
-                              addToast('Download started', 'success')
-                            }).catch((err) => {
-                              addToast(`Export failed: ${err.message}`, 'error')
-                            })
-                          }}>
-                            Download
-                          </Button>
+                          <ExportDropdown jobId={job.id} checkpoint={job.checkpoint} addToast={addToast} />
                         )}
                         {job.status !== 'running' && job.status !== 'pending' && (
                           <Button size="sm" variant="ghost" onClick={() => deleteJob(job.id, job.name)} className="text-destructive/60 hover:text-destructive">
@@ -1517,6 +1519,70 @@ function WebhookManager({ addToast }: WebhookManagerProps) {
           + Add Webhook
         </Button>
       )}
+    </div>
+  )
+}
+
+// ===== ExportDropdown Component =====
+
+interface ExportDropdownProps {
+  jobId: string
+  checkpoint: string
+  addToast: (message: string, type?: 'info' | 'success' | 'error') => void
+}
+
+function ExportDropdown({ jobId, checkpoint, addToast }: ExportDropdownProps) {
+  const [format, setFormat] = useState('pt')
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const blob = await api.exportTrainingJob(jobId)
+      const filename = checkpoint.split('/').pop() || `model.${format}`
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.click()
+      URL.revokeObjectURL(url)
+      addToast(`Downloaded ${filename}`, 'success')
+    } catch (err) {
+      addToast(`Export failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const formats = [
+    { id: 'pt', name: 'PyTorch (.pt)', desc: 'Standard PyTorch format' },
+    { id: 'sou', name: 'Soul (.sou)', desc: 'SloughGPT with personality' },
+    { id: 'safetensors', name: 'SafeTensors', desc: 'Safe, memory-mapped' },
+    { id: 'onnx', name: 'ONNX (.onnx)', desc: 'Cross-platform inference' },
+    { id: 'gguf', name: 'GGUF', desc: 'Mobile/embedded (llama.cpp)' },
+  ]
+
+  return (
+    <div className="flex gap-2 items-center">
+      <select
+        value={format}
+        onChange={(e) => setFormat(e.target.value)}
+        className="sl-input py-1 px-2 text-xs h-8"
+      >
+        {formats.map((f) => (
+          <option key={f.id} value={f.id}>
+            {f.name}
+          </option>
+        ))}
+      </select>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={handleExport}
+        disabled={exporting}
+      >
+        {exporting ? 'Exporting...' : 'Export'}
+      </Button>
     </div>
   )
 }
