@@ -65,6 +65,8 @@ from domains.errors import require_non_empty_prompt, SloughGPTDomainError
 from domains.ops.wandb_server import record_inference_call
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 logger = logging.getLogger("sloughgpt")
 
 _PROCESS_START_MONOTONIC = time.monotonic()
