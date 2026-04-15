@@ -2321,98 +2321,105 @@ async def generate_stream(request: GenerateRequest):
     top_p_val = max(0.0, min(1.0, float(request.top_p if request.top_p is not None else 0.9)))
 
     async def generate_stream_tokens():
-        # llama.cpp streaming
-        llama_model_path = os.environ.get("SLOUGHGPT_MODEL_PATH", "").strip()
-        if llama_model_path:
-            try:
-                from domains.inference.llama_engine import (
-                    detect_gpu,
-                    auto_select_backend,
-                    LlamaInferenceConfig,
-                    LlamaInferenceEngine,
-                )
+        try:
+            llama_model_path = os.environ.get("SLOUGHGPT_MODEL_PATH", "").strip()
+            if llama_model_path:
+                try:
+                    from domains.inference.llama_engine import (
+                        detect_gpu,
+                        auto_select_backend,
+                        LlamaInferenceConfig,
+                        LlamaInferenceEngine,
+                    )
 
-                gpu = detect_gpu()
-                n_gpu_layers = auto_select_backend(1.5)
-                config = LlamaInferenceConfig(
-                    model_path=llama_model_path, n_gpu_layers=n_gpu_layers
-                )
+                    gpu = detect_gpu()
+                    n_gpu_layers = auto_select_backend(1.5)
+                    config = LlamaInferenceConfig(
+                        model_path=llama_model_path, n_gpu_layers=n_gpu_layers
+                    )
 
-                start_time = time.perf_counter()
+                    start_time = time.perf_counter()
 
-                for token in engine.generate_stream(request.prompt, max_tokens=max_gen):
-                    yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
+                    for token in engine.generate_stream(request.prompt, max_tokens=max_gen):
+                        yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
 
-                elapsed = time.perf_counter() - start_time
-                yield f"data: {json.dumps({'token': '', 'done': True, 'elapsed': elapsed})}\n\n"
+                    elapsed = time.perf_counter() - start_time
+                    yield f"data: {json.dumps({'token': '', 'done': True, 'elapsed': elapsed})}\n\n"
+                    return
+                except Exception as e:
+                    logger.error(f"llama.cpp streaming failed: {e}")
+
+            if model is None:
+                demo = f"Demo streaming response to: {request.prompt}..."
+                for char in demo:
+                    yield f"data: {json.dumps({'token': char, 'done': False})}\n\n"
+                    await asyncio.sleep(0.02)
+                yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
                 return
-            except Exception as e:
-                logger.error(f"llama.cpp streaming failed: {e}")
 
-        if model is None:
-            demo = f"Demo streaming response to: {request.prompt}..."
-            for char in demo:
-                yield f"data: {json.dumps({'token': char, 'done': False})}\n\n"
-                await asyncio.sleep(0.02)
-            yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
-            return
+            if model_type == "gpt2":
+                loop = asyncio.get_event_loop()
 
-        if model_type == "gpt2":
-            loop = asyncio.get_event_loop()
+                def _tokenize():
+                    enc = tokenizer(request.prompt, return_tensors="pt")
+                    return _inputs_to_model_device(enc, model)
 
-            def _tokenize():
-                enc = tokenizer(request.prompt, return_tensors="pt")
-                return _inputs_to_model_device(enc, model)
+                inputs = await loop.run_in_executor(None, _tokenize)
 
-            inputs = await loop.run_in_executor(None, _tokenize)
+                def _generate_batch():
+                    idx = inputs["input_ids"]
+                    batch_size = 8
+                    generated = []
+                    with torch.no_grad():
+                        for _ in range(max_gen):
+                            logits = model(idx, use_cache=True)[0]
+                            logits = logits[:, -1, :]
 
-            def _generate_batch():
-                idx = inputs["input_ids"]
-                batch_size = 8
-                generated = []
-                with torch.no_grad():
-                    for _ in range(max_gen):
-                        logits = model(idx, use_cache=True)[0]
-                        logits = logits[:, -1, :]
-
-                        if temperature > 0 and top_p_val < 1.0:
-                            logits = logits / temperature
-                            probs = torch.softmax(logits, dim=-1)
-                            if request.top_k and request.top_k > 0:
-                                k = min(request.top_k, probs.size(-1))
-                                _, indices = torch.topk(probs, k)
-                                mask = torch.zeros_like(probs)
-                                mask.scatter_(1, indices, 1.0)
-                                probs = probs * mask
+                            if temperature > 0 and top_p_val < 1.0:
+                                logits = logits / temperature
+                                probs = torch.softmax(logits, dim=-1)
+                                if request.top_k and request.top_k > 0:
+                                    k = min(request.top_k, probs.size(-1))
+                                    _, indices = torch.topk(probs, k)
+                                    mask = torch.zeros_like(probs)
+                                    mask.scatter_(1, indices, 1.0)
+                                    probs = probs * mask
+                                    probs = probs / probs.sum(dim=-1, keepdim=True)
+                                cumsum = torch.cumsum(probs, dim=-1)
+                                cumsum[..., -1:] = 1.0
+                                mask = cumsum > top_p_val
+                                probs[mask] = 0
                                 probs = probs / probs.sum(dim=-1, keepdim=True)
-                            cumsum = torch.cumsum(probs, dim=-1)
-                            cumsum[..., -1:] = 1.0
-                            mask = cumsum > top_p_val
-                            probs[mask] = 0
-                            probs = probs / probs.sum(dim=-1, keepdim=True)
-                            next_tok = torch.multinomial(probs, num_samples=1)
-                        else:
-                            next_tok = logits.argmax(dim=-1, keepdim=True)
+                                next_tok = torch.multinomial(probs, num_samples=1)
+                            else:
+                                next_tok = logits.argmax(dim=-1, keepdim=True)
 
-                        idx = torch.cat([idx, next_tok], dim=1)
-                        generated.append(next_tok.item())
+                            idx = torch.cat([idx, next_tok], dim=1)
+                            generated.append(next_tok.item())
 
-                        if next_tok.item() == tokenizer.eos_token_id:
-                            break
+                            if next_tok.item() == tokenizer.eos_token_id:
+                                break
 
-                        if len(generated) >= batch_size:
+                            if len(generated) >= batch_size:
+                                yield generated
+                                generated = []
+
+                        if generated:
                             yield generated
-                            generated = []
 
-                    if generated:
-                        yield generated
+                for token_ids in _generate_batch():
+                    token_text = tokenizer.decode(token_ids, skip_special_tokens=True)
+                    if token_text:
+                        yield f"data: {json.dumps({'token': token_text, 'done': False})}\n\n"
 
-            for token_ids in _generate_batch():
-                token_text = tokenizer.decode(token_ids, skip_special_tokens=True)
-                if token_text:
-                    yield f"data: {json.dumps({'token': token_text, 'done': False})}\n\n"
+            yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
 
-        yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
+        except asyncio.CancelledError:
+            logger.warning("Generate stream cancelled")
+            yield f"data: {json.dumps({'error': 'Stream cancelled', 'token': '', 'done': True})}\n\n"
+        except Exception as e:
+            logger.error(f"Generate stream error: {e}", exc_info=True)
+            yield f"data: {json.dumps({'error': str(e), 'token': '', 'done': True})}\n\n"
 
     return StreamingResponse(generate_stream_tokens(), media_type="text/event-stream")
 
@@ -2547,26 +2554,80 @@ async def chat_stream(request: ChatRequest, req: Request):
 
         try:
             loop = asyncio.get_event_loop()
-            generated_text = await loop.run_in_executor(
-                None,
-                lambda: engine.generate_single(
-                    prompt=prompt,
-                    max_new_tokens=max_gen,
-                    temperature=meta_temperate,
-                    top_p=meta_p,
-                    top_k=meta_k,
-                    repetition_penalty=meta_rep_penalty,
-                ),
-            )
-            generated_text = _clean_generated_text(generated_text)
-            generated_text = _strip_assistant_prefix(generated_text)
 
-            words = generated_text.split()
-            for word in words:
-                yield f"data: {json.dumps({'token': word + ' ', 'done': False})}\n\n"
-                await asyncio.sleep(0.01)
-            yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
+            def _get_model_stream():
+                if model is None:
+                    return None, None
+                enc = tokenizer(prompt, return_tensors="pt")
+                enc = _inputs_to_model_device(enc, model)
+                return enc["input_ids"], model
+
+            inputs, model_obj = await loop.run_in_executor(None, _get_model_stream)
+
+            if inputs is None or model_obj is None:
+                for char in "Response generation unavailable...":
+                    yield f"data: {json.dumps({'token': char, 'done': False})}\n\n"
+                    await asyncio.sleep(0.01)
+                yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
+                return
+
+            idx = inputs
+            generated_tokens = []
+
+            with torch.no_grad():
+                for _ in range(max_gen):
+                    logits = model_obj(idx, use_cache=True)[0]
+                    logits = logits[:, -1, :]
+
+                    if meta_temperate > 0:
+                        logits = logits / meta_temperate
+                        probs = torch.softmax(logits, dim=-1)
+
+                        if meta_k > 0:
+                            k = min(meta_k, probs.size(-1))
+                            _, indices = torch.topk(probs, k)
+                            mask = torch.zeros_like(probs)
+                            mask.scatter_(1, indices, 1.0)
+                            probs = probs * mask
+                            probs = probs / probs.sum(dim=-1, keepdim=True)
+
+                        if meta_p < 1.0:
+                            sorted_probs, sorted_indices = torch.sort(probs, descending=True)
+                            cumsum = torch.cumsum(sorted_probs, dim=-1)
+                            mask = cumsum > meta_p
+                            sorted_probs[mask] = 0
+                            sorted_probs = sorted_probs / sorted_probs.sum(dim=-1, keepdim=True)
+                            probs.scatter_(1, sorted_indices, sorted_probs)
+
+                        next_tok = torch.multinomial(probs, num_samples=1)
+                    else:
+                        next_tok = logits.argmax(dim=-1, keepdim=True)
+
+                    idx = torch.cat([idx, next_tok], dim=1)
+                    token_id = next_tok.item()
+                    generated_tokens.append(token_id)
+
+                    token_text = tokenizer.decode([token_id], skip_special_tokens=True)
+                    if token_text.strip():
+                        yield f"data: {json.dumps({'token': token_text, 'done': False})}\n\n"
+
+                    if token_id == tokenizer.eos_token_id:
+                        break
+
+                yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
+        except asyncio.CancelledError:
+            logger.warning(f"Chat stream cancelled for client {client_ip}")
+            yield f"data: {json.dumps({'error': 'Stream cancelled', 'token': '', 'done': True})}\n\n"
         except Exception as e:
+            logger.error(f"Chat stream error: {e}", exc_info=True)
+            audit_logger.log(
+                "chat_error",
+                client_ip,
+                resource="/chat/stream",
+                action="stream_error",
+                status="failure",
+                details={"error": str(e)},
+            )
             yield f"data: {json.dumps({'error': str(e), 'token': '', 'done': True})}\n\n"
 
     return StreamingResponse(token_stream(), media_type="text/event-stream")
