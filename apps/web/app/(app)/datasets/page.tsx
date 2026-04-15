@@ -45,6 +45,11 @@ export default function DatasetsPage() {
   const [editingDataset, setEditingDataset] = useState<{ id: string; name: string; description: string; tags: string }>({ id: '', name: '', description: '', tags: '' })
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [versionsModalOpen, setVersionsModalOpen] = useState(false)
+  const [versionsDatasetId, setVersionsDatasetId] = useState<string | null>(null)
+  const [versions, setVersions] = useState<Array<{ version_id: string; created_at: string; description: string }>>([])
+  const [loadingVersions, setLoadingVersions] = useState(false)
+  const [createVersionDesc, setCreateVersionDesc] = useState('')
   const { state: health, refresh: refreshHealth } = useApiHealth()
 
   const apiHealthLabel = useMemo(() => inferenceHealthLabel(health), [health])
@@ -141,6 +146,50 @@ export default function DatasetsPage() {
       alert('Failed to update dataset. Please try again.')
     } finally {
       setSavingId(null)
+    }
+  }
+
+  const handleViewVersions = async (datasetId: string) => {
+    setVersionsDatasetId(datasetId)
+    setVersionsModalOpen(true)
+    setLoadingVersions(true)
+    try {
+      const data = await api.listDatasetVersions(datasetId)
+      setVersions(data.versions)
+    } catch (err) {
+      devDebug('Failed to load versions:', err)
+      setVersions([])
+    } finally {
+      setLoadingVersions(false)
+    }
+  }
+
+  const handleCreateVersion = async () => {
+    if (!versionsDatasetId) return
+    setSavingId(versionsDatasetId)
+    try {
+      await api.createDatasetVersion(versionsDatasetId, createVersionDesc)
+      setCreateVersionDesc('')
+      void handleViewVersions(versionsDatasetId)
+    } catch (err) {
+      devDebug('Failed to create version:', err)
+      alert('Failed to create version.')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const handleRollback = async (versionId: string) => {
+    if (!versionsDatasetId) return
+    if (!confirm('Rollback to this version? Current data will be replaced.')) return
+    try {
+      await api.rollbackDataset(versionsDatasetId, versionId)
+      alert('Dataset rolled back successfully.')
+      setVersionsModalOpen(false)
+      void fetchDatasets()
+    } catch (err) {
+      devDebug('Failed to rollback:', err)
+      alert('Failed to rollback.')
     }
   }
 
@@ -271,6 +320,9 @@ export default function DatasetsPage() {
                         </Button>
                         <Button type="button" variant="ghost" size="sm" onClick={() => handleEditDataset(dataset)}>
                           Edit
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => handleViewVersions(dataset.id)}>
+                          Versions
                         </Button>
                         <div className="relative group">
                         <Button type="button" variant="ghost" size="sm">
@@ -426,6 +478,51 @@ export default function DatasetsPage() {
               {savingId ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={versionsModalOpen} onOpenChange={setVersionsModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Dataset Versions</DialogTitle>
+            <DialogDescription>
+              Create snapshots to save versions of your dataset. You can rollback to any previous version.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex gap-2">
+              <Input
+                value={createVersionDesc}
+                onChange={(e) => setCreateVersionDesc(e.target.value)}
+                placeholder="Version description (optional)"
+                className="flex-1"
+              />
+              <Button onClick={handleCreateVersion} disabled={savingId !== null}>
+                {savingId ? 'Creating...' : 'Create Snapshot'}
+              </Button>
+            </div>
+            <div className="max-h-[300px] overflow-auto space-y-2">
+              {loadingVersions ? (
+                <p className="text-center text-muted-foreground py-4">Loading versions...</p>
+              ) : versions.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">No versions yet. Create a snapshot to save your data.</p>
+              ) : (
+                versions.map((v) => (
+                  <div key={v.version_id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                    <div>
+                      <p className="font-medium text-sm">{v.version_id}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(v.created_at).toLocaleString()} • {v.description}
+                      </p>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => handleRollback(v.version_id)}>
+                      Rollback
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

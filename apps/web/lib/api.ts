@@ -1252,6 +1252,36 @@ export const api = {
     return res.json()
   },
 
+  async createDatasetVersion(datasetId: string, description = ''): Promise<{ version_id: string }> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/${datasetId}/versions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description }),
+    })
+    if (!res.ok) {
+      throw new Error(`Create version failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async listDatasetVersions(datasetId: string): Promise<{ versions: Array<{ version_id: string; created_at: string; description: string }> }> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/${datasetId}/versions`)
+    if (!res.ok) {
+      throw new Error(`List versions failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async rollbackDataset(datasetId: string, versionId: string): Promise<{ status: string }> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/${datasetId}/rollback/${versionId}`, {
+      method: 'POST',
+    })
+    if (!res.ok) {
+      throw new Error(`Rollback failed (${res.status})`)
+    }
+    return res.json()
+  },
+
   async importFromGitHub(request: GitHubImportRequest): Promise<ImportResponse> {
     const res = await fetchWithAuth(`${API_URL}/datasets/import/github`, {
       method: 'POST',

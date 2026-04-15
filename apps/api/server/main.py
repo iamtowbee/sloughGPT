@@ -3501,6 +3501,115 @@ async def update_dataset(dataset_id: str, request: DatasetUpdateRequest):
     return {"status": "updated", "dataset_id": dataset_id, "metadata": metadata}
 
 
+@app.post("/datasets/{dataset_id}/versions", tags=["datasets"])
+async def create_dataset_version(dataset_id: str, description: str = ""):
+    """Create a new version snapshot of the dataset."""
+    import shutil
+    import uuid
+    from pathlib import Path
+
+    dataset_path = Path(f"datasets/{dataset_id}")
+    versions_dir = dataset_path / ".versions"
+
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    versions_dir.mkdir(exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    version_id = f"v{timestamp}_{uuid.uuid4().hex[:6]}"
+    version_dir = versions_dir / version_id
+
+    shutil.copytree(
+        dataset_path, version_dir, ignore=shutil.ignore_patterns(".versions", "__pycache__")
+    )
+
+    version_meta = {
+        "version_id": version_id,
+        "created_at": datetime.now().isoformat(),
+        "description": description or f"Auto-snapshot",
+        "files": [
+            f.name
+            for f in dataset_path.iterdir()
+            if f.is_file() and f.name not in (".versions", "__pycache__")
+        ],
+    }
+
+    meta_file = version_dir / "version_meta.json"
+    with open(meta_file, "w") as f:
+        json.dump(version_meta, f, indent=2)
+
+    return {"status": "created", "version_id": version_id, "version": version_meta}
+
+
+@app.get("/datasets/{dataset_id}/versions", tags=["datasets"])
+async def list_dataset_versions(dataset_id: str):
+    """List all versions of a dataset."""
+    from pathlib import Path
+
+    dataset_path = Path(f"datasets/{dataset_id}")
+    versions_dir = dataset_path / ".versions"
+
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    if not versions_dir.exists():
+        return {"versions": [], "count": 0}
+
+    versions = []
+    for v_dir in sorted(versions_dir.iterdir(), reverse=True):
+        if v_dir.is_dir():
+            meta_file = v_dir / "version_meta.json"
+            if meta_file.exists():
+                with open(meta_file, "r") as f:
+                    versions.append(json.load(f))
+            else:
+                versions.append(
+                    {
+                        "version_id": v_dir.name,
+                        "created_at": datetime.fromtimestamp(v_dir.stat().st_mtime).isoformat(),
+                        "description": "Manual snapshot",
+                    }
+                )
+
+    return {"versions": versions, "count": len(versions)}
+
+
+@app.post("/datasets/{dataset_id}/rollback/{version_id}", tags=["datasets"])
+async def rollback_dataset_version(dataset_id: str, version_id: str):
+    """Rollback dataset to a previous version."""
+    import shutil
+    from pathlib import Path
+
+    dataset_path = Path(f"datasets/{dataset_id}")
+    versions_dir = dataset_path / ".versions"
+    version_dir = versions_dir / version_id
+
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    if not version_dir.exists():
+        raise HTTPException(status_code=404, detail=f"Version {version_id} not found")
+
+    for item in dataset_path.iterdir():
+        if item.name in (".versions", "__pycache__"):
+            continue
+        if item.is_dir():
+            shutil.rmtree(item)
+        else:
+            item.unlink()
+
+    for item in version_dir.iterdir():
+        if item.name == "version_meta.json":
+            continue
+        if item.is_dir():
+            shutil.copytree(item, dataset_path / item.name)
+        else:
+            shutil.copy2(item, dataset_path / item.name)
+
+    return {"status": "rolled_back", "version_id": version_id}
+
+
 @app.get("/datasets/{dataset_id}/preview", tags=["datasets"])
 async def preview_dataset(dataset_id: str, limit: int = 10):
     """Preview dataset content and stats."""
