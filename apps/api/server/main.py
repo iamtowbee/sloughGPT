@@ -429,11 +429,17 @@ def _format_chat_messages_for_standard(messages: List[ChatMessage]) -> str:
 
 def _strip_assistant_prefix(text: str) -> str:
     """Strip 'Assistant:' prefix from generated text."""
-    prefixes = ["Assistant:", "Assistant: ", "\nAssistant:", "\nAssistant: "]
+    import re
+
+    prefixes = [
+        r"^Assistant:\s*",
+        r"^\n?Assistant:\s*",
+        r"^\s*Assistant:\s*",
+        r"^\s*>\s*Assistant:\s*",
+    ]
     for prefix in prefixes:
-        if text.startswith(prefix):
-            return text[len(prefix) :]
-    return text.lstrip()
+        text = re.sub(prefix, "", text, flags=re.IGNORECASE)
+    return text.strip()
 
 
 def _clean_generated_text(text: str) -> str:
@@ -441,9 +447,13 @@ def _clean_generated_text(text: str) -> str:
     if not text:
         return text
 
+    # Remove common prefixes
     text = re.sub(r"User:\s*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"Assistant:\s*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\[[^\]]+\]", "", text)
+
+    # Remove > artifacts (common in chat responses)
+    text = re.sub(r"^\s*>\s*", "", text, flags=re.MULTILINE)
 
     lines = text.split("\n")
     seen_words = set()

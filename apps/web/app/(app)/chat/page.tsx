@@ -52,6 +52,7 @@ export default function ChatPage() {
   const [model, setModel] = useState('gpt2')
   const [temperature, setTemperature] = useState(0.8)
   const [maxTokens, setMaxTokens] = useState(200)
+  const [availableModels, setAvailableModels] = useState<string[]>([])
   const [currentError, setCurrentError] = useState<ReturnType<typeof getErrorInfo> | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [images, setImages] = useState<ImageAttachment[]>([])
@@ -81,6 +82,10 @@ export default function ChatPage() {
     // Fetch initial feedback stats
     fetchStats()
     fetchAdapterStats()
+    // Fetch available models
+    api.getModels().then((models) => {
+      setAvailableModels(models.map((m: { id: string }) => m.id))
+    }).catch(() => {})
   }, [])
 
   const showToast = useCallback((message: string, type: Toast['type'] = 'success') => {
@@ -473,6 +478,9 @@ export default function ChatPage() {
         onToggleSettings={toggleSettings}
         onToggleSidebar={() => setShowSidebar(prev => !prev)}
         onNewChat={newChat}
+        model={model}
+        onModelChange={setModel}
+        models={availableModels}
       />
 
       <ChatSettings
