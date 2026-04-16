@@ -114,43 +114,46 @@ export function MessageBubble({
               )}
             </div>
           ) : isEditing ? (
-            <div className="space-y-3">
-              <div className="relative">
-                <textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  className="w-full bg-primary-foreground/20 border border-primary/30 rounded-xl px-4 py-3 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-                  rows={3}
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                      handleEditSave()
-                    }
-                    if (e.key === 'Escape') {
-                      handleEditCancel()
-                    }
-                  }}
-                />
-                <div className="absolute bottom-2 right-2 flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                  <kbd className="px-1.5 py-0.5 bg-muted/50 rounded border border-border/50">⌘</kbd>
-                  <span>+</span>
-                  <kbd className="px-1.5 py-0.5 bg-muted/50 rounded border border-border/50">↵</kbd>
-                  <span>to send</span>
-                </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="h-4 w-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <span className="text-xs font-medium text-primary">Edit message</span>
               </div>
-              <div className="flex gap-2 justify-end">
-                <button
-                  onClick={handleEditCancel}
-                  className="px-4 py-2 text-xs font-medium rounded-lg bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleEditSave}
-                  className="px-4 py-2 text-xs font-medium rounded-lg bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:opacity-90 transition-all shadow-sm"
-                >
-                  Resend
-                </button>
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="w-full bg-primary-foreground/10 border border-input rounded-xl px-4 py-3 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all placeholder:text-muted-foreground/50"
+                rows={2}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    handleEditSave()
+                  }
+                  if (e.key === 'Escape') {
+                    handleEditCancel()
+                  }
+                }}
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-muted-foreground/60">
+                  <kbd className="px-1.5 py-0.5 bg-muted/60 rounded border border-border/30">⌘↵</kbd> to send
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleEditCancel}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-input bg-transparent hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleEditSave}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                  >
+                    Resend
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
