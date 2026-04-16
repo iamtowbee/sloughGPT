@@ -1752,6 +1752,24 @@ export const api = {
     })
     return res.json()
   },
+
+  // ===== GENERATION CONFIG =====
+
+  async getGenerationConfig(): Promise<GenerationConfig> {
+    const res = await fetch(`${API_URL}/config/generation`)
+    if (!res.ok) throw new Error('Failed to fetch generation config')
+    return res.json()
+  },
+
+  async updateGenerationConfig(config: GenerationConfigUpdate): Promise<{ status: string; config: GenerationConfig }> {
+    const res = await fetch(`${API_URL}/config/generation`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    })
+    if (!res.ok) throw new Error('Failed to update generation config')
+    return res.json()
+  },
 }
 
 // ===== TYPE DEFINITIONS =====
@@ -1848,4 +1866,22 @@ export interface TrainingStats {
   thumbs_down: number
   available_dpo_pairs: number
   available_sft_examples: number
+}
+
+export interface GenerationConfig {
+  temperature: number
+  top_p: number
+  top_k: number
+  repetition_penalty: number
+  max_new_tokens: number
+  max_context_length: number
+}
+
+export interface GenerationConfigUpdate {
+  temperature?: number
+  top_p?: number
+  top_k?: number
+  repetition_penalty?: number
+  max_new_tokens?: number
+  max_context_length?: number
 }

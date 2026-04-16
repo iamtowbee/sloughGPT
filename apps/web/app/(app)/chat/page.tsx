@@ -86,6 +86,11 @@ export default function ChatPage() {
     api.getModels().then((models) => {
       setAvailableModels(models.map((m: { id: string }) => m.id))
     }).catch(() => {})
+    // Fetch generation config from server
+    api.getGenerationConfig().then((config) => {
+      setTemperature(config.temperature)
+      setMaxTokens(config.max_new_tokens)
+    }).catch(() => {})
   }, [])
 
   const showToast = useCallback((message: string, type: Toast['type'] = 'success') => {
@@ -489,8 +494,14 @@ export default function ChatPage() {
         temperature={temperature}
         maxTokens={maxTokens}
         onModelChange={setModel}
-        onTemperatureChange={setTemperature}
-        onMaxTokensChange={setMaxTokens}
+        onTemperatureChange={(temp) => {
+          setTemperature(temp)
+          api.updateGenerationConfig({ temperature: temp }).catch(() => {})
+        }}
+        onMaxTokensChange={(tokens) => {
+          setMaxTokens(tokens)
+          api.updateGenerationConfig({ max_new_tokens: tokens }).catch(() => {})
+        }}
         onClear={clearChat}
         hasMessages={messages.length > 0}
       />
