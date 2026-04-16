@@ -45,7 +45,7 @@ interface ChatSession {
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(false) // Always reset to false on mount
   const [showSettings, setShowSettings] = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
   const [model, setModel] = useState('gpt2')
@@ -174,6 +174,18 @@ export default function ChatPage() {
     const currentId = localStorage.getItem(CURRENT_SESSION_KEY)
     if (currentId) {
       loadSession(currentId)
+    }
+  }, [])
+
+  // Check for incomplete requests on mount (e.g., after crash/reboot)
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1]
+      // If last message is a user message, the request was interrupted
+      if (lastMsg.role === 'user' && !lastMsg.content.includes('[incomplete]')) {
+        setLoading(false)
+        showToast('Previous request was interrupted. Edit and resend if needed.', 'info')
+      }
     }
   }, [])
 
