@@ -628,6 +628,40 @@ def _format_chat_messages_for_standard(messages: List[ChatMessage]) -> str:
     return formatted
 
 
+def _estimate_tokens(text: str) -> int:
+    """Rough token estimation: ~4 chars per token for English."""
+    return len(text) // 4
+
+
+def _truncate_context(messages: List[ChatMessage], max_context_tokens: int) -> List[ChatMessage]:
+    """Truncate conversation to fit within context window, keeping recent messages."""
+    system_messages = [m for m in messages if m.role == "system"]
+    conversation_messages = [m for m in messages if m.role != "system"]
+
+    total_tokens = sum(_estimate_tokens(m.content or "") for m in conversation_messages)
+
+    if total_tokens <= max_context_tokens:
+        return messages
+
+    truncated = list(system_messages)
+    for msg in reversed(conversation_messages):
+        msg_tokens = _estimate_tokens(msg.content or "")
+        if total_tokens + _estimate_tokens(msg.content or "") <= max_context_tokens:
+            truncated.insert(len(system_messages), msg)
+            total_tokens += msg_tokens
+        else:
+            break
+
+    return truncated
+
+
+def _build_context_prompt(messages: List[ChatMessage]) -> str:
+    """Build prompt from messages with context truncation."""
+    max_tokens = gen_config.max_context_length
+    truncated = _truncate_context(messages, max_tokens - 100)
+    return _format_chat_messages_for_standard(truncated)
+
+
 def _strip_assistant_prefix(text: str) -> str:
     """Strip 'Assistant:' prefix from generated text."""
     import re
@@ -2510,12 +2544,12 @@ async def generate_stream(request: GenerateRequest):
 
 @app.post("/chat", tags=["chat"])
 async def chat_completion(request: ChatRequest, req: Request):
-    """Non-streaming chat completion (messages → assistant text). Uses the same engine as ``/inference/generate``."""
+    """Non-streaming chat completion using direct model access for speed."""
     client_ip = req.client.host if req.client else "unknown"
     if not request.messages:
         raise HTTPException(status_code=400, detail="messages must not be empty")
 
-    prompt = _format_chat_messages_for_standard(request.messages)
+    prompt = _build_context_prompt(request.messages)
     max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
     temperature = input_validator.validate_temperature(
         request.temperature if request.temperature is not None else 0.8
@@ -2524,34 +2558,42 @@ async def chat_completion(request: ChatRequest, req: Request):
     top_k = request.top_k if request.top_k is not None else 50
     top_k = max(1, min(500, int(top_k)))
 
+    if model is None or tokenizer is None:
+        audit_logger.log("chat", client_ip, resource="/chat", action="no_model", status="success")
+        return {"error": "Model not loaded", "text": ""}
+
     t0 = time.perf_counter()
     text = ""
     try:
-        engine = get_inference_engine()
-        if engine is None:
-            audit_logger.log(
-                "chat", client_ip, resource="/chat", action="no_model", status="success"
-            )
-            return {"error": "Model not loaded", "text": ""}
+        loop = asyncio.get_event_loop()
 
-        text = engine.generate_single(
-            prompt=prompt,
-            max_new_tokens=max_tokens,
-            temperature=temperature,
-            top_p=top_p_val,
-            top_k=top_k,
-            repetition_penalty=1.0,
-        )
+        def _generate():
+            enc = tokenizer(prompt, return_tensors="pt")
+            enc = _inputs_to_model_device(enc, model)
+            with torch.no_grad():
+                outputs = model.generate(
+                    **enc,
+                    max_new_tokens=max_tokens,
+                    temperature=temperature,
+                    top_k=top_k,
+                    top_p=top_p_val,
+                    repetition_penalty=gen_config.repetition_penalty,
+                    do_sample=True,
+                )
+            return tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+        text = await loop.run_in_executor(None, _generate)
         text = _strip_assistant_prefix(text)
         audit_logger.log("chat", client_ip, resource="/chat", action="inference", status="success")
         return {
             "text": text,
-            "model": "gpt2-engine",
+            "model": model_type,
             "tokens_generated": len(text.split()) if text else 0,
         }
     except SloughGPTDomainError:
         raise
     except Exception as e:
+        logger.error(f"Chat error: {e}")
         return {"error": str(e), "text": ""}
     finally:
         record_inference_call(time.perf_counter() - t0, float(len(text.split()) if text else 0))
@@ -2574,7 +2616,7 @@ async def chat_stream(request: ChatRequest, req: Request):
     if not request.messages:
         raise HTTPException(status_code=400, detail="messages must not be empty")
 
-    prompt = _format_chat_messages_for_standard(request.messages)
+    prompt = _build_context_prompt(request.messages)
     require_non_empty_prompt(prompt, field_name="messages")
     max_gen = input_validator.validate_max_tokens(request.max_new_tokens or 100)
     temperature = input_validator.validate_temperature(
