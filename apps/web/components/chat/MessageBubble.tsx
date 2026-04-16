@@ -116,15 +116,15 @@ export function MessageBubble({
           ) : isEditing ? (
             <div className="space-y-3 py-1">
               <div className="flex items-center gap-2 mb-1">
-                <svg className="h-4 w-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-3 w-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
-                <span className="text-xs font-medium text-primary">Edit message</span>
+                <span className="text-[11px] font-medium text-primary">Edit message</span>
               </div>
               <textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="w-full min-h-[80px] bg-primary-foreground/10 border border-input rounded-xl px-5 py-4 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all placeholder:text-muted-foreground/50 leading-relaxed"
+                className="w-full min-h-[80px] bg-primary-foreground/10 border border-input rounded-xl px-4 py-3 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all placeholder:text-muted-foreground/50 leading-relaxed"
                 rows={4}
                 autoFocus
                 onKeyDown={(e) => {
@@ -138,18 +138,18 @@ export function MessageBubble({
               />
               <div className="flex items-center justify-between pt-1">
                 <span className="text-[10px] text-muted-foreground/60">
-                  <kbd className="px-1.5 py-0.5 bg-muted/60 rounded border border-border/30">⌘↵</kbd> to send
+                  <kbd className="px-1 py-0.5 bg-muted/60 rounded border border-border/30">⌘↵</kbd> to send
                 </span>
                 <div className="flex gap-2">
                   <button
                     onClick={handleEditCancel}
-                    className="px-4 py-2 text-xs font-medium rounded-lg border border-input bg-transparent hover:bg-accent hover:text-accent-foreground transition-colors"
+                    className="px-3 py-1 text-[11px] font-medium rounded-md border border-input bg-transparent hover:bg-accent hover:text-accent-foreground transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleEditSave}
-                    className="px-4 py-2 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                    className="px-3 py-1 text-[11px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                   >
                     Resend
                   </button>
