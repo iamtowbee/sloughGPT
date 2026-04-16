@@ -2864,10 +2864,9 @@ async def regenerate_response(session_id: str, req: Request):
         raise HTTPException(status_code=400, detail="No user message found in context")
 
     prompt_messages = context_messages[: last_user_idx + 1]
-    prompt = _format_chat_messages_for_standard(prompt_messages)
+    prompt = _build_context_prompt(prompt_messages)
 
-    engine = get_inference_engine()
-    if engine is None:
+    if model is None or tokenizer is None:
         return RegenerateResponse(
             status="error",
             original_message_id=f"{session_id}-last",
@@ -2878,17 +2877,23 @@ async def regenerate_response(session_id: str, req: Request):
 
     try:
         loop = asyncio.get_event_loop()
-        generated_text = await loop.run_in_executor(
-            None,
-            lambda: engine.generate_single(
-                prompt=prompt,
-                max_new_tokens=100,
-                temperature=0.7,
-                top_p=0.9,
-                top_k=50,
-                repetition_penalty=1.1,
-            ),
-        )
+
+        def _generate():
+            enc = tokenizer(prompt, return_tensors="pt")
+            enc = _inputs_to_model_device(enc, model)
+            with torch.no_grad():
+                outputs = model.generate(
+                    **enc,
+                    max_new_tokens=100,
+                    temperature=0.7,
+                    top_k=50,
+                    top_p=0.9,
+                    repetition_penalty=gen_config.repetition_penalty,
+                    do_sample=True,
+                )
+            return tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+        generated_text = await loop.run_in_executor(None, _generate)
         generated_text = _clean_generated_text(generated_text)
         generated_text = _strip_assistant_prefix(generated_text)
 
