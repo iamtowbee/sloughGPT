@@ -294,10 +294,16 @@ export default function ChatPage() {
     const nextMsg = messages[msgIndex + 1]
     const keepCount = nextMsg?.role === 'assistant' ? msgIndex + 1 : msgIndex + 2
     
-    setInput(newContent)
     setMessages(prev => prev.slice(0, keepCount))
     setLoading(false)
     setIsStreaming(false)
+    
+    setInput(newContent)
+    
+    setTimeout(() => {
+      const sendBtn = document.querySelector('[data-send-button]') as HTMLButtonElement
+      if (sendBtn) sendBtn.click()
+    }, 50)
   }, [messages])
 
   const handleRetry = useCallback(() => {

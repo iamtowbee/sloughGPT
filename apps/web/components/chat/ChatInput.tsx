@@ -125,6 +125,7 @@ export function ChatInput({
             disabled={isDisabled || (!value.trim() && images.length === 0)}
             className="h-11 w-11 shrink-0 p-0 sm:h-12 sm:w-auto sm:px-5 hover:opacity-80 active:opacity-70 disabled:opacity-50"
             aria-label="Send message"
+            data-send-button="true"
           >
             <svg className="h-4 w-4 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
