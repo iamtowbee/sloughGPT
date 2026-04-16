@@ -114,34 +114,42 @@ export function MessageBubble({
               )}
             </div>
           ) : isEditing ? (
-            <div className="space-y-2">
-              <textarea
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                className="w-full bg-primary-foreground/10 rounded-lg p-2 text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-                rows={3}
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                    handleEditSave()
-                  }
-                  if (e.key === 'Escape') {
-                    handleEditCancel()
-                  }
-                }}
-              />
+            <div className="space-y-3">
+              <div className="relative">
+                <textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  className="w-full bg-primary-foreground/20 border border-primary/30 rounded-xl px-4 py-3 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                  rows={3}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                      handleEditSave()
+                    }
+                    if (e.key === 'Escape') {
+                      handleEditCancel()
+                    }
+                  }}
+                />
+                <div className="absolute bottom-2 right-2 flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                  <kbd className="px-1.5 py-0.5 bg-muted/50 rounded border border-border/50">⌘</kbd>
+                  <span>+</span>
+                  <kbd className="px-1.5 py-0.5 bg-muted/50 rounded border border-border/50">↵</kbd>
+                  <span>to send</span>
+                </div>
+              </div>
               <div className="flex gap-2 justify-end">
                 <button
                   onClick={handleEditCancel}
-                  className="px-3 py-1 text-xs rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+                  className="px-4 py-2 text-xs font-medium rounded-lg bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleEditSave}
-                  className="px-3 py-1 text-xs rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                  className="px-4 py-2 text-xs font-medium rounded-lg bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:opacity-90 transition-all shadow-sm"
                 >
-                  Save & Resend
+                  Resend
                 </button>
               </div>
             </div>
