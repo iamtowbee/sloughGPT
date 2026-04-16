@@ -16,6 +16,7 @@ export interface MessageBubbleProps {
   onRegenerate?: () => void
   onThumbsUp?: (messageId: string) => void
   onThumbsDown?: (messageId: string) => void
+  onEdit?: (messageId: string, newContent: string) => void
   messageId?: string
   isStreaming?: boolean
 }
@@ -35,11 +36,14 @@ export function MessageBubble({
   onRegenerate,
   onThumbsUp,
   onThumbsDown,
+  onEdit,
   messageId,
   isStreaming = false,
 }: MessageBubbleProps) {
   const [displayContent, setDisplayContent] = useState(content)
   const [isVisible, setIsVisible] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState(content)
   
   useEffect(() => {
     setIsVisible(true)
@@ -47,7 +51,20 @@ export function MessageBubble({
   
   useEffect(() => {
     setDisplayContent(content)
+    setEditContent(content)
   }, [content])
+
+  const handleEditSave = () => {
+    if (editContent.trim() && onEdit && messageId) {
+      onEdit(messageId, editContent.trim())
+      setIsEditing(false)
+    }
+  }
+
+  const handleEditCancel = () => {
+    setEditContent(content)
+    setIsEditing(false)
+  }
 
   const hasContent = displayContent && displayContent.trim().length > 0
   const showActions = role === 'assistant' && hasContent && !isStreaming
@@ -56,7 +73,7 @@ export function MessageBubble({
   return (
     <div
       className={cn(
-        "flex flex-col transition-all duration-300 ease-out",
+        "flex flex-col transition-all duration-300 ease-out group",
         isVisible 
           ? "opacity-100 translate-y-0" 
           : "opacity-0 translate-y-2",
@@ -96,6 +113,38 @@ export function MessageBubble({
                 <span className="inline-block ml-1 animate-pulse">▊</span>
               )}
             </div>
+          ) : isEditing ? (
+            <div className="space-y-2">
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="w-full bg-primary-foreground/10 rounded-lg p-2 text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                rows={3}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    handleEditSave()
+                  }
+                  if (e.key === 'Escape') {
+                    handleEditCancel()
+                  }
+                }}
+              />
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={handleEditCancel}
+                  className="px-3 py-1 text-xs rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEditSave}
+                  className="px-3 py-1 text-xs rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  Save & Resend
+                </button>
+              </div>
+            </div>
           ) : (
             <p className="whitespace-pre-wrap break-words leading-relaxed">{displayContent}</p>
           )
@@ -127,6 +176,14 @@ export function MessageBubble({
           onRegenerate={onRegenerate}
           onThumbsUp={onThumbsUp}
           onThumbsDown={onThumbsDown}
+        />
+      )}
+      
+      {role === 'user' && hasContent && !isEditing && onEdit && (
+        <MessageActions
+          content={content}
+          messageId={id}
+          onEdit={() => setIsEditing(true)}
         />
       )}
     </div>

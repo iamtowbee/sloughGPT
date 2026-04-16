@@ -24,10 +24,11 @@ interface ChatMessagesProps {
   onRegenerate?: () => void
   onThumbsUp?: (messageId: string) => void
   onThumbsDown?: (messageId: string) => void
+  onEdit?: (messageId: string, newContent: string) => void
 }
 
 export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
-  function ChatMessages({ messages, loading, isStreaming, health, onRefreshHealth, onCopy, onRegenerate, onThumbsUp, onThumbsDown }, ref) {
+  function ChatMessages({ messages, loading, isStreaming, health, onRefreshHealth, onCopy, onRegenerate, onThumbsUp, onThumbsDown, onEdit }, ref) {
     const isOffline = health === 'offline'
     const hasModel = health !== null && health !== 'offline' && health.model_loaded
 
@@ -71,6 +72,7 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                   onRegenerate={msg.role === 'assistant' && isLast ? onRegenerate : undefined}
                   onThumbsUp={msg.role === 'assistant' ? onThumbsUp : undefined}
                   onThumbsDown={msg.role === 'assistant' ? onThumbsDown : undefined}
+                  onEdit={msg.role === 'user' ? onEdit : undefined}
                 />
               )
             })}

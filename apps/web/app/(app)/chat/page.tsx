@@ -287,6 +287,15 @@ export default function ChatPage() {
     }
   }, [showToast, messages])
 
+  const handleEditMessage = useCallback((messageId: string, newContent: string) => {
+    const msgIndex = messages.findIndex(m => m.id === messageId)
+    if (msgIndex === -1) return
+    
+    setInput(newContent)
+    
+    setMessages(prev => prev.slice(0, msgIndex + 1))
+  }, [messages])
+
   const handleRetry = useCallback(() => {
     setCurrentError(null)
     sendMessage()
@@ -528,6 +537,7 @@ export default function ChatPage() {
         onRegenerate={handleRegenerate}
         onThumbsUp={handleThumbsUp}
         onThumbsDown={handleThumbsDown}
+        onEdit={handleEditMessage}
       />
 
       <ChatInput

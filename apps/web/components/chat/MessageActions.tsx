@@ -10,6 +10,7 @@ interface MessageActionsProps {
   onRegenerate?: () => void
   onThumbsUp?: (messageId: string) => void
   onThumbsDown?: (messageId: string) => void
+  onEdit?: (messageId: string) => void
 }
 
 function CopyIcon({ className }: { className?: string }) {
@@ -52,7 +53,15 @@ function ThumbsDownIcon({ className }: { className?: string }) {
   )
 }
 
-export function MessageActions({ content, messageId, onCopy, onRegenerate, onThumbsUp, onThumbsDown }: MessageActionsProps) {
+function EditIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    </svg>
+  )
+}
+
+export function MessageActions({ content, messageId, onCopy, onRegenerate, onThumbsUp, onThumbsDown, onEdit }: MessageActionsProps) {
   const [copied, setCopied] = useState(false)
   const [thumbsUp, setThumbsUp] = useState(false)
   const [thumbsDown, setThumbsDown] = useState(false)
@@ -133,6 +142,17 @@ export function MessageActions({ content, messageId, onCopy, onRegenerate, onThu
           title="Bad"
         >
           <ThumbsDownIcon className="h-4 w-4" />
+        </button>
+      )}
+      
+      {onEdit && (
+        <button
+          onClick={() => onEdit(messageId)}
+          className="p-1 rounded text-muted-foreground/60 hover:bg-secondary/60 hover:text-foreground transition-all"
+          aria-label="Edit"
+          title="Edit and resend"
+        >
+          <EditIcon className="h-4 w-4" />
         </button>
       )}
     </div>
