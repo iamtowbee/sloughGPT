@@ -76,6 +76,38 @@ logger = logging.getLogger("sloughgpt")
 _PROCESS_START_MONOTONIC = time.monotonic()
 
 
+# ============ Production Configuration ============
+@dataclass
+class GenerationConfig:
+    """Production configuration for text generation. Set via environment variables."""
+
+    temperature: float = float(os.getenv("SLOUGHGT_TEMPERATURE", "0.8"))
+    top_p: float = float(os.getenv("SLOUGHGT_TOP_P", "0.9"))
+    top_k: int = int(os.getenv("SLOUGHGT_TOP_K", "50"))
+    repetition_penalty: float = float(os.getenv("SLOUGHGT_REPETITION_PENALTY", "1.2"))
+    max_new_tokens: int = int(os.getenv("SLOUGHGT_MAX_NEW_TOKENS", "200"))
+    max_context_length: int = int(os.getenv("SLOUGHGT_MAX_CONTEXT_LENGTH", "1024"))
+
+    @classmethod
+    def from_env(cls) -> "GenerationConfig":
+        """Create config from environment variables."""
+        return cls(
+            temperature=float(os.getenv("SLOUGHGT_TEMPERATURE", "0.8")),
+            top_p=float(os.getenv("SLOUGHGT_TOP_P", "0.9")),
+            top_k=int(os.getenv("SLOUGHGT_TOP_K", "50")),
+            repetition_penalty=float(os.getenv("SLOUGHGT_REPETITION_PENALTY", "1.2")),
+            max_new_tokens=int(os.getenv("SLOUGHGT_MAX_NEW_TOKENS", "200")),
+            max_context_length=int(os.getenv("SLOUGHGT_MAX_CONTEXT_LENGTH", "1024")),
+        )
+
+
+gen_config = GenerationConfig.from_env()
+logger.info(
+    f"Generation config: temp={gen_config.temperature}, top_p={gen_config.top_p}, "
+    f"top_k={gen_config.top_k}, rep_penalty={gen_config.repetition_penalty}"
+)
+
+
 class TaskStatus(Enum):
     PENDING = "pending"
     RUNNING = "running"
@@ -756,7 +788,7 @@ def _generate_core(request: GenerateRequest, client_ip: str) -> Dict[str, Any]:
                 temperature=temperature,
                 top_k=top_k,
                 top_p=top_p,
-                repetition_penalty=1.2,
+                repetition_penalty=gen_config.repetition_penalty,
                 do_sample=True,
             )
         text = tokenizer.decode(outputs[0], skip_special_tokens=True)
@@ -1916,6 +1948,47 @@ async def info():
     return info
 
 
+class GenerationConfigUpdate(BaseModel):
+    temperature: Optional[float] = Field(None, ge=0.0, le=2.0)
+    top_p: Optional[float] = Field(None, ge=0.0, le=1.0)
+    top_k: Optional[int] = Field(None, ge=1, le=500)
+    repetition_penalty: Optional[float] = Field(None, ge=1.0, le=2.0)
+    max_new_tokens: Optional[int] = Field(None, ge=1, le=4096)
+    max_context_length: Optional[int] = Field(None, ge=64, le=8192)
+
+
+@app.get("/config/generation", tags=["config"])
+async def get_generation_config():
+    """Get current generation configuration."""
+    return {
+        "temperature": gen_config.temperature,
+        "top_p": gen_config.top_p,
+        "top_k": gen_config.top_k,
+        "repetition_penalty": gen_config.repetition_penalty,
+        "max_new_tokens": gen_config.max_new_tokens,
+        "max_context_length": gen_config.max_context_length,
+    }
+
+
+@app.put("/config/generation", tags=["config"])
+async def update_generation_config(config: GenerationConfigUpdate):
+    """Update generation configuration at runtime."""
+    global gen_config
+
+    updates = {k: v for k, v in config.model_dump().items() if v is not None}
+    if not updates:
+        return {"status": "no_changes", "config": gen_config}
+
+    for key, value in updates.items():
+        setattr(gen_config, key, value)
+
+    logger.info(f"Updated generation config: {updates}")
+    return {
+        "status": "updated",
+        "config": gen_config,
+    }
+
+
 @app.get("/health")
 async def health():
     return {
@@ -2372,7 +2445,7 @@ async def generate_stream(request: GenerateRequest):
                     batch_size = 8
                     generated = []
                     prev_tokens = list(idx[0].tolist())
-                    rep_penalty = 1.2
+                    rep_penalty = gen_config.repetition_penalty
                     with torch.no_grad():
                         for _ in range(max_gen):
                             logits = model(idx, use_cache=True)[0]
@@ -2585,7 +2658,7 @@ async def chat_stream(request: ChatRequest, req: Request):
             idx = inputs
             generated_tokens = []
             prev_tokens = list(idx[0].tolist())
-            rep_penalty = 1.2
+            rep_penalty = gen_config.repetition_penalty
 
             with torch.no_grad():
                 for _ in range(max_gen):
