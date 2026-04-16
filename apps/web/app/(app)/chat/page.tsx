@@ -291,12 +291,13 @@ export default function ChatPage() {
     const msgIndex = messages.findIndex(m => m.id === messageId)
     if (msgIndex === -1) return
     
-    const nextMsg = messages[msgIndex + 1]
-    const keepCount = nextMsg?.role === 'assistant' ? msgIndex + 1 : msgIndex + 2
+    // Keep messages BEFORE the edited message (not including it)
+    const keepCount = msgIndex
     
     setMessages(prev => prev.slice(0, keepCount))
     setLoading(false)
     setIsStreaming(false)
+    setCurrentError(null)
     
     setInput(newContent)
     
