@@ -26,6 +26,7 @@ interface Model {
   description?: string
   size_mb?: number
   tags?: string[]
+  thumbnail?: string
 }
 
 export default function ModelsPage() {
@@ -283,6 +284,16 @@ export default function ModelsPage() {
                 }`}
               >
                 <CardHeader className="pb-3">
+                  {model.thumbnail && (
+                    <div className="mb-3 -mt-2">
+                      <img
+                        src={model.thumbnail}
+                        alt={model.name}
+                        className="h-20 w-full object-cover rounded-lg"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                      />
+                    </div>
+                  )}
                   <div className="flex items-start justify-between gap-2">
                     <CardTitle className="text-base leading-snug">{model.name}</CardTitle>
                     {model.source && (
