@@ -4769,6 +4769,7 @@ async def list_models():
 
         hf_models = get_available_hf_models()
         for m in hf_models:
+            thumbnail = f"https://huggingface.co/{m.id}/resolve/main/thumbnail.png"
             models.append(
                 {
                     "id": m.id,
@@ -4776,6 +4777,7 @@ async def list_models():
                     "description": m.description,
                     "source": "huggingface",
                     "tags": m.tags,
+                    "thumbnail": thumbnail,
                 }
             )
     except Exception:

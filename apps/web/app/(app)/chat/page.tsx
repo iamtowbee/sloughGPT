@@ -46,7 +46,6 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [isStreaming, setIsStreaming] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
   const [model, setModel] = useState('gpt2')
@@ -102,15 +101,13 @@ export default function ChatPage() {
     setToasts(prev => prev.filter(t => t.id !== id))
   }, [])
 
-  const saveSession = useCallback(() => {
-    if (messages.length === 0) return
-    const sessionId = localStorage.getItem(CURRENT_SESSION_KEY) || `session-${Date.now()}`
-    const sessionName = messages[0]?.content?.slice(0, 30) || 'New Chat'
-    
+  // Save to localStorage immediately (for crash recovery)
+  const saveSessionToStorage = (msgs: ChatMessage[], sessionId: string) => {
+    const sessionName = msgs[0]?.content?.slice(0, 30) || 'New Chat'
     const session: ChatSession = {
       id: sessionId,
       name: sessionName,
-      messages,
+      messages: msgs,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -126,6 +123,11 @@ export default function ChatPage() {
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions.slice(0, 20)))
     localStorage.setItem(CURRENT_SESSION_KEY, sessionId)
+  }
+
+  const saveSession = useCallback(() => {
+    if (messages.length === 0) return
+    saveSessionToStorage(messages, localStorage.getItem(CURRENT_SESSION_KEY) || `session-${Date.now()}`)
   }, [messages])
 
   const loadSession = useCallback((sessionId: string) => {
@@ -177,7 +179,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [messages, isStreaming])
+  }, [messages, loading])
 
   const handleCopy = useCallback((text: string) => {
     showToast('Copied to clipboard')
@@ -195,7 +197,7 @@ export default function ChatPage() {
     storeSessionContext(sessionIdRef.current, contextMessages)
 
     setLoading(true)
-    setIsStreaming(true)
+    
 
     const assistantId = (Date.now() + 1).toString()
     setMessages(prev => [
@@ -217,7 +219,7 @@ export default function ChatPage() {
           const interval = setInterval(() => {
             if (idx >= words.length) {
               clearInterval(interval)
-              setIsStreaming(false)
+              
               setLoading(false)
               return
             }
@@ -233,7 +235,7 @@ export default function ChatPage() {
       .catch(() => {
         showToast('Regeneration failed', 'error')
         setLoading(false)
-        setIsStreaming(false)
+        
       })
   }, [messages, showToast])
 
@@ -296,7 +298,7 @@ export default function ChatPage() {
     
     setMessages(prev => prev.slice(0, keepCount))
     setLoading(false)
-    setIsStreaming(false)
+    
     setCurrentError(null)
     
     setInput(newContent)
@@ -391,8 +393,11 @@ export default function ChatPage() {
     setInput('')
     setImages([])
     setCurrentError(null)
-    setIsStreaming(true)
     setLoading(true)
+    
+    // Save to localStorage immediately (crash recovery)
+    const messagesWithNew = [...messages, userMessage, assistantMessage]
+    saveSessionToStorage(messagesWithNew, sessionIdRef.current)
 
     try {
       const response = await fetch(API_CHAT_ENDPOINT, {
@@ -414,7 +419,7 @@ export default function ChatPage() {
         setCurrentError(getErrorInfo(response.status, errorText))
         setMessages(prev => prev.filter(msg => msg.id !== assistantId))
         setLoading(false)
-        setIsStreaming(false)
+        
         return
       }
 
@@ -439,16 +444,21 @@ export default function ChatPage() {
                 if (data.error) {
                   setCurrentError(getErrorInfo(500, data.error))
                   setMessages(prev => prev.filter(msg => msg.id !== assistantId))
-                  setIsStreaming(false)
+                  
                   return
                 }
                 if (data.token !== undefined && data.token) {
                   hasContent = true
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === assistantId 
-                      ? { ...msg, content: msg.content + data.token }
-                      : msg
-                  ))
+                  setMessages(prev => {
+                    const updated = prev.map(msg => 
+                      msg.id === assistantId 
+                        ? { ...msg, content: msg.content + data.token }
+                        : msg
+                    )
+                    // Save partial response for crash recovery
+                    saveSessionToStorage(updated, sessionIdRef.current)
+                    return updated
+                  })
                 }
                 if (data.done) break
               } catch {}
@@ -471,7 +481,7 @@ export default function ChatPage() {
       setMessages(prev => prev.filter(msg => msg.id !== assistantId))
     } finally {
       setLoading(false)
-      setIsStreaming(false)
+      
     }
   }
 
@@ -541,7 +551,6 @@ export default function ChatPage() {
         ref={messagesEndRef}
         messages={messages}
         loading={loading}
-        isStreaming={isStreaming}
         health={health}
         onRefreshHealth={refreshHealth}
         onCopy={handleCopy}

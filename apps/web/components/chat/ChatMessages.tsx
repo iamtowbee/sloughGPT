@@ -17,7 +17,6 @@ export interface ChatMessage {
 interface ChatMessagesProps {
   messages: ChatMessage[]
   loading: boolean
-  isStreaming: boolean
   health: ApiHealthSnapshot
   onRefreshHealth: () => void
   onCopy: (text: string) => void
@@ -28,7 +27,7 @@ interface ChatMessagesProps {
 }
 
 export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
-  function ChatMessages({ messages, loading, isStreaming, health, onRefreshHealth, onCopy, onRegenerate, onThumbsUp, onThumbsDown, onEdit }, ref) {
+  function ChatMessages({ messages, loading, health, onRefreshHealth, onCopy, onRegenerate, onThumbsUp, onThumbsDown, onEdit }, ref) {
     const isOffline = health === 'offline'
     const hasModel = health !== null && health !== 'offline' && health.model_loaded
 
@@ -57,9 +56,9 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
           <div className="space-y-3 sm:space-y-4">
             {messages.map((msg, idx) => {
               const isLast = idx === messages.length - 1
-              const isStreamingThis = isLast && loading && isStreaming
+              const isGeneratingThis = isLast && loading
               const hasContent = msg.content.length > 0
-              const isAssistantWithContent = msg.role === 'assistant' && hasContent && !isStreamingThis
+              const isAssistantWithContent = msg.role === 'assistant' && hasContent && !isGeneratingThis
               return (
                 <MessageBubble
                   key={msg.id}
@@ -67,6 +66,7 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                   role={msg.role}
                   timestamp={msg.timestamp}
                   showTimestamp={isAssistantWithContent}
+                  isStreaming={isGeneratingThis}
                   messageId={msg.id}
                   onCopy={msg.role === 'assistant' ? onCopy : undefined}
                   onRegenerate={msg.role === 'assistant' && isLast ? onRegenerate : undefined}

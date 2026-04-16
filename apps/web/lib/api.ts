@@ -62,6 +62,8 @@ export interface Model {
   tags?: string[]
   /** Numeric size when the API provides `size_mb`. */
   size_mb?: number
+  /** HuggingFace model thumbnail URL */
+  thumbnail?: string
 }
 
 export interface TrainingJob {
@@ -451,6 +453,7 @@ export const api = {
         size_mb?: number
         description?: string
         tags?: unknown
+        thumbnail?: string
       }>
     }
     const rows = body.models ?? []
@@ -465,6 +468,7 @@ export const api = {
         description: typeof m.description === 'string' ? m.description : undefined,
         tags,
         size_mb: sizeMb,
+        thumbnail: typeof m.thumbnail === 'string' ? m.thumbnail : undefined,
       }
     })
   },
