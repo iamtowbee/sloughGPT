@@ -756,6 +756,7 @@ def _generate_core(request: GenerateRequest, client_ip: str) -> Dict[str, Any]:
                 temperature=temperature,
                 top_k=top_k,
                 top_p=top_p,
+                repetition_penalty=1.2,
                 do_sample=True,
             )
         text = tokenizer.decode(outputs[0], skip_special_tokens=True)
@@ -2370,10 +2371,18 @@ async def generate_stream(request: GenerateRequest):
                     idx = inputs["input_ids"]
                     batch_size = 8
                     generated = []
+                    prev_tokens = list(idx[0].tolist())
+                    rep_penalty = 1.2
                     with torch.no_grad():
                         for _ in range(max_gen):
                             logits = model(idx, use_cache=True)[0]
                             logits = logits[:, -1, :]
+
+                            for prev_tok in set(prev_tokens):
+                                if logits[0, prev_tok] > 0:
+                                    logits[0, prev_tok] /= rep_penalty
+                                else:
+                                    logits[0, prev_tok] *= rep_penalty
 
                             if temperature > 0 and top_p_val < 1.0:
                                 logits = logits / temperature
@@ -2395,9 +2404,11 @@ async def generate_stream(request: GenerateRequest):
                                 next_tok = logits.argmax(dim=-1, keepdim=True)
 
                             idx = torch.cat([idx, next_tok], dim=1)
-                            generated.append(next_tok.item())
+                            token_id = next_tok.item()
+                            generated.append(token_id)
+                            prev_tokens.append(token_id)
 
-                            if next_tok.item() == tokenizer.eos_token_id:
+                            if token_id == tokenizer.eos_token_id:
                                 break
 
                             if len(generated) >= batch_size:
@@ -2412,7 +2423,7 @@ async def generate_stream(request: GenerateRequest):
                     if token_text:
                         yield f"data: {json.dumps({'token': token_text, 'done': False})}\n\n"
 
-            yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
+                yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
 
         except asyncio.CancelledError:
             logger.warning("Generate stream cancelled")
@@ -2573,11 +2584,19 @@ async def chat_stream(request: ChatRequest, req: Request):
 
             idx = inputs
             generated_tokens = []
+            prev_tokens = list(idx[0].tolist())
+            rep_penalty = 1.2
 
             with torch.no_grad():
                 for _ in range(max_gen):
                     logits = model_obj(idx, use_cache=True)[0]
                     logits = logits[:, -1, :]
+
+                    for prev_tok in set(prev_tokens):
+                        if logits[0, prev_tok] > 0:
+                            logits[0, prev_tok] /= rep_penalty
+                        else:
+                            logits[0, prev_tok] *= rep_penalty
 
                     if meta_temperate > 0:
                         logits = logits / meta_temperate
@@ -2606,6 +2625,7 @@ async def chat_stream(request: ChatRequest, req: Request):
                     idx = torch.cat([idx, next_tok], dim=1)
                     token_id = next_tok.item()
                     generated_tokens.append(token_id)
+                    prev_tokens.append(token_id)
 
                     token_text = tokenizer.decode([token_id], skip_special_tokens=True)
                     if token_text.strip():
