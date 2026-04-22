@@ -1,12 +1,30 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 
 import { api, type ApiHealth } from '@/lib/api'
 
 const POLL_MS = 28_000
 
-/** `null` until the first `GET /health` completes. */
+let _sharedState: ApiHealthSnapshot = null
+let _pollId: ReturnType<typeof setInterval> | null = null
+let _subscribers: Set<(s: ApiHealthSnapshot) => void> = new Set()
+
+function _notify() {
+  _subscribers.forEach(fn => fn(_sharedState))
+}
+
+function _startPolling() {
+  if (_pollId) return
+  const run = async () => {
+    const h = await api.getHealth()
+    _sharedState = h ?? 'offline'
+    _notify()
+  }
+  void run()
+  _pollId = setInterval(run, POLL_MS)
+}
+
 export type ApiHealthSnapshot = ApiHealth | 'offline' | null
 
 /** One-line status for headers (Models page, tooltips). */
@@ -20,38 +38,23 @@ export function inferenceHealthLabel(state: ApiHealthSnapshot): string {
 /**
  * Polls `GET /health` on an interval and when the tab becomes visible again.
  * Use for chat, models, and anywhere inference readiness matters.
+ * Uses shared singleton polling to avoid redundant requests.
  */
 export function useApiHealth() {
-  const [state, setState] = useState<ApiHealthSnapshot>(null)
+  const [state, setState] = useState<ApiHealthSnapshot>(_sharedState)
+
+  useEffect(() => {
+    _startPolling()
+    const fn = (s: ApiHealthSnapshot) => setState(s)
+    _subscribers.add(fn)
+    return () => { _subscribers.delete(fn) }
+  }, [])
 
   const refresh = useCallback(async () => {
     const h = await api.getHealth()
-    setState(h ?? 'offline')
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    
-    const run = async () => {
-      try {
-        const h = await api.getHealth()
-        if (!cancelled) setState(h ?? 'offline')
-      } catch {
-        if (!cancelled) setState('offline')
-      }
-    }
-    
-    void run()
-    const id = setInterval(run, POLL_MS)
-    const onVis = () => {
-      if (document.visibilityState === 'visible') void run()
-    }
-    document.addEventListener('visibilitychange', onVis)
-    return () => {
-      cancelled = true
-      clearInterval(id)
-      document.removeEventListener('visibilitychange', onVis)
-    }
+    const s = h ?? 'offline'
+    _sharedState = s
+    _notify()
   }, [])
 
   return { state, refresh }

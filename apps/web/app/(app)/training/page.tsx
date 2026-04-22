@@ -16,6 +16,7 @@ import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import { api, TrainingJob, TrainResolveResponse, type Dataset } from '@/lib/api'
+import { PUBLIC_API_URL } from '@/lib/config'
 import { devDebug } from '@/lib/dev-log'
 import {
   TRAINING_API_DEFAULTS,
@@ -220,13 +221,13 @@ export default function TrainingPage() {
 
   useEffect(() => {
     const running = jobs.some((j) => j.status === 'running')
-    const ms = running ? 2000 : 8000
+    const ms = running ? 5000 : 15000
     const id = setInterval(() => void fetchJobs(), ms)
     return () => clearInterval(id)
   }, [jobs, fetchJobs])
 
   useEffect(() => {
-    const interval = setInterval(() => void fetchTrainingState(), 5000)
+    const interval = setInterval(() => void fetchTrainingState(), 10000)
     return () => clearInterval(interval)
   }, [fetchTrainingState])
 
@@ -385,6 +386,22 @@ export default function TrainingPage() {
             <Button type="button" onClick={openModal}>
               + New Training Job
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={async () => {
+                if (!confirm('Start self-training? This runs the model talking to itself.')) return
+                try {
+                  const res = await fetch(`${PUBLIC_API_URL}/self-train/start`, { method: 'POST' })
+                  if (res.ok) addToast('Self-training started', 'success')
+                  else addToast('Failed to start', 'error')
+                } catch (e) {
+                  addToast('Failed to start self-training', 'error')
+                }
+              }}
+            >
+              Self-Train
+            </Button>
           </div>
         }
       />
@@ -420,16 +437,34 @@ export default function TrainingPage() {
                         </div>
                         <JobStatus status={trainingJobStatusToStrui(job.status)} />
                       </div>
-                      <ProgressBar value={job.progress || 0} />
-                      <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground">
-                        <span>
-                          {job.status === 'running'
-                            ? (job.progress !== undefined && job.progress > 0 && job.global_step !== undefined
-                              ? `Step ${job.global_step} / ~${Math.round(job.global_step / (job.progress / 100))}`
-                              : `Step ${job.global_step || 0}`)
-                            : null}
-                        </span>
-                        <span>{job.progress || 0}%</span>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <ProgressBar 
+                              value={job.progress || 0} 
+                              indeterminate={job.status === 'running' && (job.progress || 0) === 0}
+                            />
+                          </div>
+                          <span className="text-sm font-mono text-foreground">
+                            {job.progress || 0}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Step {job.global_step || 0}
+                          </span>
+                          {job.status === 'running' && (
+                            <span className="flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                              Training
+                            </span>
+                          )}
+                          {job.eval_loss !== undefined && job.status === 'completed' && (
+                            <span className="text-muted-foreground">
+                              Loss: {job.eval_loss.toFixed(4)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex gap-2 mt-3">
                         {job.status === 'completed' && job.checkpoint && (
@@ -527,6 +562,16 @@ export default function TrainingPage() {
               <WebhookManager addToast={addToast} />
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Conversation Data</CardTitle>
+              <CardDescription>Train from your chats</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-4">
+              <ConversationDataSection addToast={addToast} />
+            </CardContent>
+          </Card>
         </div>
       </div>
 
@@ -554,7 +599,7 @@ export default function TrainingPage() {
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
                 <h3 className="text-sm font-semibold text-foreground">Basic Info</h3>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
+                  <label className="block sl-text-body font-medium text-foreground mb-1">
                     Job Name <span className="text-destructive">*</span>
                   </label>
                   <input
@@ -567,7 +612,7 @@ export default function TrainingPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
+                  <label className="block sl-text-body font-medium text-foreground mb-1">
                     Model Label
                   </label>
                   <input
@@ -586,7 +631,7 @@ export default function TrainingPage() {
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
                 <h3 className="text-sm font-semibold text-foreground">Training Data</h3>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
+                  <label className="block sl-text-body font-medium text-foreground mb-1">
                     Data Source
                   </label>
                   <Select
@@ -721,7 +766,7 @@ export default function TrainingPage() {
               <FoldSection heading="Advanced">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Embed</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">Embed</label>
                     <input
                       type="number"
                       min={32}
@@ -736,7 +781,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Layers</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">Layers</label>
                     <input
                       type="number"
                       min={1}
@@ -751,7 +796,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Heads</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">Heads</label>
                     <input
                       type="number"
                       min={1}
@@ -766,7 +811,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Block Size</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">Block Size</label>
                     <input
                       type="number"
                       min={8}
@@ -781,7 +826,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    <label className="block sl-text-caption text-muted-foreground mb-1">
                       max_steps (optional, caps training steps)
                     </label>
                     <input
@@ -794,7 +839,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    <label className="block sl-text-caption text-muted-foreground mb-1">
                       Log Every
                     </label>
                     <input
@@ -812,7 +857,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    <label className="block sl-text-caption text-muted-foreground mb-1">
                       Eval Every
                     </label>
                     <input
@@ -834,7 +879,7 @@ export default function TrainingPage() {
                     Optimizer
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">dropout</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">dropout</label>
                     <input
                       type="number"
                       min={0}
@@ -852,7 +897,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">weight_decay</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">weight_decay</label>
                     <input
                       type="number"
                       min={0}
@@ -869,7 +914,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">max_grad_norm</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">max_grad_norm</label>
                     <input
                       type="number"
                       min={0}
@@ -886,7 +931,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">grad_accum_steps</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">grad_accum_steps</label>
                     <input
                       type="number"
                       min={1}
@@ -902,7 +947,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">warmup_steps</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">warmup_steps</label>
                     <input
                       type="number"
                       min={0}
@@ -918,7 +963,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">min_lr</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">min_lr</label>
                     <input
                       type="number"
                       step="any"
@@ -934,7 +979,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">scheduler</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">scheduler</label>
                     <input
                       type="text"
                       value={newJob.scheduler}
@@ -957,7 +1002,7 @@ export default function TrainingPage() {
                     <span className="text-xs text-muted-foreground">Mixed precision</span>
                   </label>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">AMP dtype</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">AMP dtype</label>
                     <select
                       value={newJob.mixed_precision_dtype}
                       onChange={(e) =>
@@ -974,7 +1019,7 @@ export default function TrainingPage() {
                     </select>
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    <label className="block sl-text-caption text-muted-foreground mb-1">
                       device (training host; empty = default)
                     </label>
                     <input
@@ -995,7 +1040,7 @@ export default function TrainingPage() {
                     <span className="text-xs text-muted-foreground">LoRA</span>
                   </label>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">lora_rank</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">lora_rank</label>
                     <input
                       type="number"
                       min={1}
@@ -1011,7 +1056,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">lora_alpha</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">lora_alpha</label>
                     <input
                       type="number"
                       min={1}
@@ -1027,7 +1072,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">checkpoint_dir</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">checkpoint_dir</label>
                     <input
                       type="text"
                       value={newJob.checkpoint_dir}
@@ -1049,7 +1094,7 @@ export default function TrainingPage() {
                     </p>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    <label className="block sl-text-caption text-muted-foreground mb-1">
                       checkpoint_interval
                     </label>
                     <input
@@ -1067,7 +1112,7 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">max_checkpoints</label>
+                    <label className="block sl-text-caption text-muted-foreground mb-1">max_checkpoints</label>
                     <input
                       type="number"
                       min={1}
@@ -1100,7 +1145,7 @@ export default function TrainingPage() {
                 <h3 className="text-sm font-semibold text-foreground">Parameters</h3>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">Epochs</label>
+                    <label className="block sl-text-body font-medium text-foreground mb-1">Epochs</label>
                     <input
                       type="number"
                       value={newJob.epochs}
@@ -1112,7 +1157,7 @@ export default function TrainingPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">Batch</label>
+                    <label className="block sl-text-body font-medium text-foreground mb-1">Batch</label>
                     <input
                       type="number"
                       value={newJob.batch_size}
@@ -1125,7 +1170,7 @@ export default function TrainingPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">LR</label>
+                    <label className="block sl-text-body font-medium text-foreground mb-1">LR</label>
                     <input
                       type="number"
                       step="0.000001"
@@ -1583,6 +1628,142 @@ function ExportDropdown({ jobId, checkpoint, addToast }: ExportDropdownProps) {
       >
         {exporting ? 'Exporting...' : 'Export'}
       </Button>
+    </div>
+  )
+}
+
+// ===== ConversationDataSection Component =====
+
+function ConversationDataSection({ addToast }: { addToast: (message: string, type?: 'info' | 'success' | 'error') => void }) {
+  const [stats, setStats] = useState<{
+    total_pairs: number
+    positive_pairs: number
+    negative_pairs: number
+    neutral_pairs: number
+    unused_pairs: number
+  } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
+  const [strategy, setStrategy] = useState<'balanced' | 'weighted' | 'simple'>('balanced')
+  const [targetCount, setTargetCount] = useState(100)
+
+  const fetchStats = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`${PUBLIC_API_URL}/training/stats`)
+      const data = await res.json()
+      if (!data.error) {
+        setStats(data)
+      }
+    } catch (err) {
+      devDebug('Failed to fetch training stats:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void fetchStats()
+  }, [fetchStats])
+
+  const handleExport = useCallback(async () => {
+    setExporting(true)
+    try {
+      console.log('Exporting from:', `${PUBLIC_API_URL}/training/export-text`)
+      
+      const res = await fetch(
+        `${PUBLIC_API_URL}/training/export-text?min_quality=0&target_count=${targetCount}`,
+        { method: 'POST' }
+      )
+      const data = await res.json()
+      console.log('Export response:', data)
+      
+      if (data.error) {
+        addToast(data.error, 'error')
+      } else {
+        addToast(`Exported ${data.pairs_count || 0} pairs to ${data.filepath || 'file'}`, 'success')
+        void fetchStats()
+      }
+    } catch (err) {
+      console.error('Export error:', err)
+      addToast('Export failed: ' + (err instanceof Error ? err.message : 'Unknown error'), 'error')
+    } finally {
+      setExporting(false)
+    }
+  }, [targetCount, addToast, fetchStats])
+
+  return (
+    <div className="space-y-4">
+      {loading ? (
+        <div className="text-center py-4 text-muted-foreground">Loading...</div>
+      ) : stats ? (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+              <div className="text-2xl font-bold text-green-600">{stats.positive_pairs}</div>
+              <div className="text-xs text-muted-foreground">Positive (👍)</div>
+            </div>
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+              <div className="text-2xl font-bold text-red-600">{stats.negative_pairs}</div>
+              <div className="text-xs text-muted-foreground">Negative (👎)</div>
+            </div>
+            <div className="p-3 rounded-lg bg-muted">
+              <div className="text-2xl font-bold">{stats.neutral_pairs}</div>
+              <div className="text-xs text-muted-foreground">Neutral</div>
+            </div>
+            <div className="p-3 rounded-lg bg-muted">
+              <div className="text-2xl font-bold">{stats.total_pairs}</div>
+              <div className="text-xs text-muted-foreground">Total Pairs</div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Sampling Strategy</label>
+              <select
+                value={strategy}
+                onChange={(e) => setStrategy(e.target.value as any)}
+                className="sl-input py-1.5 text-sm"
+              >
+                <option value="balanced">Balanced (equal +/ /neutral)</option>
+                <option value="weighted">Weighted (edge cases)</option>
+                <option value="simple">Simple (filter by quality)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Target Count</label>
+              <input
+                type="number"
+                value={targetCount}
+                onChange={(e) => setTargetCount(parseInt(e.target.value) || 100)}
+                min={10}
+                max={1000}
+                className="sl-input py-1.5 text-sm"
+              />
+            </div>
+
+            <Button
+              onClick={handleExport}
+              disabled={exporting || stats.total_pairs < 5}
+              className="w-full"
+              size="sm"
+            >
+              {exporting ? 'Exporting...' : `Export ${targetCount} Pairs for Training`}
+            </Button>
+
+            {stats.total_pairs < 5 && (
+              <p className="text-xs text-amber-600">
+                Need at least 5 conversation pairs to export. Chat more to build your training data!
+              </p>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="text-center py-4 text-muted-foreground">
+          No training data yet. Start chatting to build your dataset.
+        </div>
+      )}
     </div>
   )
 }

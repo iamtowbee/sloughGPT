@@ -23,7 +23,7 @@ export function Select({ value, onValueChange, options, placeholder = 'Select...
       <DropdownMenuPrimitive.Trigger asChild>
         <button
           type="button"
-          className={`sl-input flex items-center justify-between text-sm transition-colors hover:border-foreground/30 focus:border-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 ${className}`}
+          className={`flex items-center justify-between text-xs transition-colors hover:border-foreground/30 focus:border-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 px-2 py-1 border rounded ${className}`}
         >
           <span className={selected ? 'text-foreground' : 'text-muted-foreground'}>
             {selected?.label || placeholder}

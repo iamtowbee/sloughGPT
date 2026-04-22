@@ -575,6 +575,57 @@ class RepoImporter:
             )
 
 
+class BooksSearch:
+    """Search books by title or ISBN via Open Library API."""
+
+    def _sanitize_query(self, query: str) -> str:
+        import urllib.parse
+        return urllib.parse.quote(query.strip(), safe="")
+
+    def _is_isbn(self, query: str) -> Optional[str]:
+        import re
+        digits = re.sub(r"[-_\s]", "", query)
+        if len(digits) == 10 and digits.isdigit():
+            return f"isbn:{digits}"
+        if len(digits) == 13 and digits.isdigit():
+            return f"isbn:{digits}"
+        return None
+
+    def search(self, query: str, limit: int = 10) -> List[Dict]:
+        """Search books by title or ISBN."""
+        import urllib.request
+        import json
+
+        isbn_query = self._is_isbn(query)
+        if isbn_query:
+            q = isbn_query
+        else:
+            q = f"title:{self._sanitize_query(query)}"
+
+        url = f"https://openlibrary.org/search.json?q={q}&limit={limit}"
+        try:
+            req = urllib.request.Request(url)
+            req.add_header("User-Agent", "SloughGPT/1.0")
+
+            with urllib.request.urlopen(req, timeout=30) as response:
+                data = json.loads(response.read().decode())
+                return [
+                    {
+                        "key": r.get("key", ""),
+                        "title": r.get("title", ""),
+                        "author": r.get("author_name", [""])[0],
+                        "isbn": r.get("isbn", [""])[0],
+                        "year": r.get("first_publish_year"),
+                        "cover": r.get("cover_i"),
+                    }
+                    for r in data.get("docs", [])[:limit]
+                    if r.get("title")
+                ]
+        except Exception as e:
+            logger.error(f"Books search failed: {e}")
+            return []
+
+
 class HuggingFaceImporter:
     """Import datasets from HuggingFace Hub."""
 
@@ -632,24 +683,45 @@ class HuggingFaceImporter:
             output_path.mkdir(parents=True, exist_ok=True)
 
             logger.info(f"Downloading {dataset_id}...")
-            dataset = load_dataset(dataset_id)
-
+            
+            # Handle datasets with subsets/config
+            try:
+                dataset = load_dataset(dataset_id, trust_remote_code=True)
+            except Exception as config_err:
+                # Try with default config for datasets with subsets
+                logger.warning(f"Full load failed, trying default config: {config_err}")
+                dataset = load_dataset(dataset_id, split="train", trust_remote_code=True)
+            
+            # Handle both DatasetDict and Dataset
             total_chars = 0
             corpus_file = output_path / "corpus.jsonl"
+            files_imported = 0
 
             with open(corpus_file, "w", encoding="utf-8") as f:
-                for split in dataset:
-                    for item in dataset[split]:
+                # Check if dataset is a dict (DatasetDict) or single dataset
+                if hasattr(dataset, 'keys'):
+                    # It's a DatasetDict - iterate over splits
+                    for split in dataset.keys():
+                        for item in dataset[split]:
+                            text = item.get("text") or item.get("content") or str(item)
+                            record = {"content": text, "split": split}
+                            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+                            total_chars += len(text)
+                            files_imported += 1
+                else:
+                    # Single dataset
+                    for item in dataset:
                         text = item.get("text") or item.get("content") or str(item)
-                        record = {"content": text, "split": split}
+                        record = {"content": text, "split": "train"}
                         f.write(json.dumps(record, ensure_ascii=False) + "\n")
                         total_chars += len(text)
+                        files_imported += 1
 
             return ImportResult(
                 success=True,
                 name=name,
                 source=f"huggingface:{dataset_id}",
-                files_imported=len(dataset),
+                files_imported=files_imported,
                 total_chars=total_chars,
                 output_path=str(corpus_file),
             )
@@ -724,6 +796,53 @@ class URLImporter:
                 output_path="",
                 error=str(e),
             )
+
+
+class GitHubSearch:
+    """Search GitHub repositories."""
+
+    def _sanitize_query(self, query: str) -> str:
+        """Convert natural language to GitHub search query format.
+
+        User types: "python code in here"
+        URL becomes: q=python+code+in+here
+        """
+        import urllib.parse
+        normalized = query.strip().lower()
+        return urllib.parse.quote(normalized, safe="")
+
+    def search_repos(self, query: str, limit: int = 10) -> List[Dict]:
+        """Search GitHub repos via API.
+
+        Args:
+            query: Natural language like "python code" or "machine learning examples"
+        """
+        try:
+            import urllib.request
+            import json
+
+            q = self._sanitize_query(query)
+            url = f"https://api.github.com/search/repositories?q={q}&per_page={limit}"
+            req = urllib.request.Request(url)
+            req.add_header("Accept", "application/vnd.github.v3+json")
+            req.add_header("User-Agent", "SloughGPT")
+
+            with urllib.request.urlopen(req, timeout=30) as response:
+                data = json.loads(response.read().decode())
+                return [
+                    {
+                        "full_name": r["full_name"],
+                        "description": r.get("description", ""),
+                        "html_url": r["html_url"],
+                        "stargazers_count": r.get("stargazers_count", 0),
+                        "forks_count": r.get("forks_count", 0),
+                        "language": r.get("language"),
+                    }
+                    for r in data.get("items", [])
+                ]
+        except Exception as e:
+            logger.error(f"GitHub search failed: {e}")
+            return []
 
 
 class DataImporter:
@@ -866,6 +985,8 @@ __all__ = [
     "RepoImporter",
     "HuggingFaceImporter",
     "URLImporter",
+    "GitHubSearch",
+    "BooksSearch",
     "ImportResult",
     "import_data",
 ]

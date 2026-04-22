@@ -48,29 +48,29 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
     const timer = setTimeout(() => {
       setIsVisible(false)
       setTimeout(() => onDismiss(toast.id), 200)
-    }, 2800)
+    }, 3000)
     return () => clearTimeout(timer)
   }, [toast.id, onDismiss])
 
   return (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-lg px-3 py-2 text-xs shadow-lg transition-all duration-200",
+        "flex items-center gap-2.5 rounded-lg px-4 py-2.5 text-sm shadow-xl border border-white/10 transition-all duration-200 backdrop-blur-sm",
         toast.type === 'success' && "bg-emerald-500/95 text-white",
         toast.type === 'error' && "bg-red-500/95 text-white",
         toast.type === 'info' && "bg-blue-500/95 text-white",
         isVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
       )}
     >
-      {toast.type === 'success' && <CheckIcon className="h-3.5 w-3.5 shrink-0" />}
-      {toast.type === 'error' && <XIcon className="h-3.5 w-3.5 shrink-0" />}
-      {toast.type === 'info' && <InfoIcon className="h-3.5 w-3.5 shrink-0" />}
-      <span>{toast.message}</span>
+      {toast.type === 'success' && <CheckIcon className="h-4 w-4 shrink-0" />}
+      {toast.type === 'error' && <XIcon className="h-4 w-4 shrink-0" />}
+      {toast.type === 'info' && <InfoIcon className="h-4 w-4 shrink-0" />}
+      <span className="font-medium">{toast.message}</span>
       <button 
         onClick={() => onDismiss(toast.id)} 
-        className="ml-1 opacity-60 hover:opacity-100"
+        className="ml-1 opacity-50 hover:opacity-100 transition-opacity"
       >
-        <XIcon className="h-3 w-3" />
+        <XIcon className="h-3.5 w-3.5" />
       </button>
     </div>
   )

@@ -31,14 +31,12 @@ import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import { api, type Dataset } from '@/lib/api'
 import { devDebug } from '@/lib/dev-log'
 import { DatasetImportModal } from '@/components/DatasetImportModal'
-import { DatasetCombineModal } from '@/components/DatasetCombineModal'
 import { DatasetPreview } from '@/components/DatasetPreview'
 
 export default function DatasetsPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [loading, setLoading] = useState(true)
   const [importModalOpen, setImportModalOpen] = useState(false)
-  const [combineModalOpen, setCombineModalOpen] = useState(false)
   const [selectedDataset, setSelectedDataset] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -266,15 +264,6 @@ export default function DatasetsPage() {
             </Button>
             <Button
               type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setCombineModalOpen(true)}
-              disabled={datasets.length < 2}
-            >
-              Combine ({datasets.length})
-            </Button>
-            <Button
-              type="button"
               variant="secondary"
               size="sm"
               onClick={() => {
@@ -299,7 +288,7 @@ export default function DatasetsPage() {
           )}
         </TabsList>
 
-        <form onSubmit={handleSearch} className="mb-4 flex gap-2">
+        <form onSubmit={handleSearch} className="mb-6 flex gap-2">
           <Input
             type="search"
             placeholder="Search datasets..."
@@ -327,11 +316,11 @@ export default function DatasetsPage() {
 
         <TabsContent value="list">
           {loading ? (
-            <div className="py-12 text-center text-muted-foreground">Loading datasets…</div>
+            <div className="py-12 text-center sl-body text-muted-foreground">Loading datasets…</div>
           ) : datasets.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="py-12 text-center text-muted-foreground">
-                <p className="mb-4">No datasets found.</p>
+            <Card className="border-dashed bg-card/50">
+              <CardContent className="py-12 text-center">
+                <p className="sl-subtitle mb-4">No datasets found.</p>
                 <Button type="button" onClick={() => setImportModalOpen(true)}>
                   Import your first dataset
                 </Button>
@@ -342,23 +331,23 @@ export default function DatasetsPage() {
               {datasets.map((dataset) => (
                 <Card
                   key={dataset.id}
-                  className="transition-colors duration-200 ease-smooth hover:border-primary/25"
+                  className="bg-card/50 border-border/40 hover:border-border/70 transition-colors"
                 >
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base">{dataset.name}</CardTitle>
-                      <span className="shrink-0 border border-border bg-muted/50 px-2 py-0.5 font-mono text-xs text-muted-foreground">
+                      <CardTitle className="sl-text-subtitle">{dataset.name}</CardTitle>
+                      <span className="shrink-0 border border-border/50 bg-muted/30 px-2 py-0.5 font-mono sl-text-caption">
                         {dataset.type}
                       </span>
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
                     {dataset.path && (
-                      <p className="truncate font-mono text-xs text-muted-foreground">{dataset.path}</p>
+                      <p className="truncate font-mono sl-text-caption text-muted-foreground">{dataset.path}</p>
                     )}
                   </CardContent>
-                  <CardFooter className="flex justify-between border-t border-border pt-4">
-                    <span className="text-sm font-medium text-chart-3">{dataset.size}</span>
+                  <CardFooter className="flex justify-between border-t border-border/40 pt-4">
+                    <span className="sl-text-body font-medium text-chart-3">{dataset.size}</span>
                       <div className="flex gap-1">
                         <Button type="button" variant="ghost" size="sm" onClick={() => handleViewDataset(dataset.id)}>
                           View
@@ -373,31 +362,31 @@ export default function DatasetsPage() {
                         <Button type="button" variant="ghost" size="sm">
                           Export
                         </Button>
-                        <div className="absolute right-0 top-full z-10 hidden min-w-[120px] rounded-md border bg-background py-1 shadow-lg group-hover:block">
+                        <div className="absolute right-0 top-full z-10 hidden min-w-[120px] rounded-md border border-border bg-background py-1 shadow-lg group-hover:block">
                           <button
                             type="button"
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-muted"
+                            className="w-full px-4 py-2 text-left sl-text-body hover:bg-muted"
                             onClick={() => handleExportDataset(dataset.id, 'json')}
                           >
                             JSON
                           </button>
                           <button
                             type="button"
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-muted"
+                            className="w-full px-4 py-2 text-left sl-text-body hover:bg-muted"
                             onClick={() => handleExportDataset(dataset.id, 'jsonl')}
                           >
                             JSONL
                           </button>
                           <button
                             type="button"
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-muted"
+                            className="w-full px-4 py-2 text-left sl-text-body hover:bg-muted"
                             onClick={() => handleExportDataset(dataset.id, 'csv')}
                           >
                             CSV
                           </button>
                           <button
                             type="button"
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-muted"
+                            className="w-full px-4 py-2 text-left sl-text-body hover:bg-muted"
                             onClick={() => handleExportDataset(dataset.id, 'txt')}
                           >
                             TXT
@@ -473,12 +462,6 @@ export default function DatasetsPage() {
         open={importModalOpen}
         onOpenChange={setImportModalOpen}
         onImportComplete={handleImportComplete}
-      />
-      <DatasetCombineModal
-        open={combineModalOpen}
-        onOpenChange={setCombineModalOpen}
-        datasets={datasets}
-        onCombineComplete={handleImportComplete}
       />
 
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>

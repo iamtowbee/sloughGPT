@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { api, type ImportSource, type GitHubRepo } from '@/lib/api'
+import { api, type ImportSource, type GitHubRepo, type BookResult } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -31,6 +31,7 @@ type SourceOption = {
 const SOURCE_OPTIONS: SourceOption[] = [
   { value: 'github', label: 'GitHub', description: 'Clone a repository' },
   { value: 'huggingface', label: 'HuggingFace', description: 'Download from HF Hub' },
+  { value: 'isbn', label: 'ISBN / Book', description: 'Search by title or ISBN' },
   { value: 'kaggle', label: 'Kaggle', description: 'Download from Kaggle' },
   { value: 'csv', label: 'CSV', description: 'Import CSV from URL' },
   { value: 'url', label: 'URL', description: 'Download from a URL' },
@@ -55,6 +56,7 @@ export function DatasetImportModal({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [searchResults, setSearchResults] = useState<GitHubRepo[]>([])
+  const [bookResults, setBookResults] = useState<BookResult[]>([])
   const [searching, setSearching] = useState(false)
 
   const resetForm = () => {
@@ -66,6 +68,7 @@ export function DatasetImportModal({
     setError(null)
     setSuccess(null)
     setSearchResults([])
+    setBookResults([])
   }
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -80,8 +83,13 @@ export function DatasetImportModal({
     setSearching(true)
     setError(null)
     try {
-      const result = await api.searchGitHubRepos(url.trim())
-      setSearchResults(result.repos || [])
+      if (source === 'isbn') {
+        const result = await api.searchBooks(url.trim())
+        setBookResults(result.books || [])
+      } else {
+        const result = await api.searchGitHubRepos(url.trim())
+        setSearchResults(result.repos || [])
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Search failed')
     } finally {
@@ -119,6 +127,10 @@ export function DatasetImportModal({
             name: name.trim() || undefined,
           })
           break
+
+        case 'isbn':
+          setError('Search and select a book, then import via URL (coming soon)')
+          return
 
         case 'url':
           if (!url.trim()) {
@@ -260,8 +272,32 @@ export function DatasetImportModal({
               )}
 
               <Button type="button" variant="outline" size="sm" onClick={handleSearch} disabled={searching}>
-                {searching ? 'Searching...' : 'Search Repos'}
+                {searching ? 'Searching...' : 'Search'}
               </Button>
+            </div>
+          )}
+
+          {source === 'isbn' && bookResults.length > 0 && (
+            <div className="max-h-40 overflow-y-auto rounded-md border">
+              {bookResults.map((book) => (
+                <button
+                  key={book.key}
+                  type="button"
+                  onClick={() => {
+                    setName(book.title)
+                    setUrl(book.isbn)
+                  }}
+                  className="flex w-full items-center justify-between border-b px-3 py-2 text-left last:border-b-0 hover:bg-muted"
+                >
+                  <div>
+                    <div className="font-medium">{book.title}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {book.author} {book.year && `(${book.year})`}
+                    </div>
+                  </div>
+                  <Badge variant="secondary">{book.isbn}</Badge>
+                </button>
+              ))}
             </div>
           )}
 
@@ -333,16 +369,46 @@ export function DatasetImportModal({
 
           {source === 'local' && (
             <div className="space-y-3">
-              <div>
-                <Label htmlFor="local-path">Path to file or directory</Label>
-                <Input
-                  id="local-path"
-                  placeholder="/path/to/data"
-                  value={path}
-                  onChange={(e) => setPath(e.target.value)}
-                  className="mt-1"
+              <div
+                className="border-2 border-dashed border-border rounded-lg p-8 text-center transition-colors hover:border-primary cursor-pointer"
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const files = e.dataTransfer?.files
+                  if (files && files[0]) {
+                    const file = files[0]
+                    setPath(file.name)
+                    setName(file.name.replace(/\.[^/.]+$/, ''))
+                  }
+                }}
+              >
+                <p className="text-sm text-muted-foreground">
+                  Drag & drop files here, or{' '}
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    onClick={() => document.getElementById('local-file-input')?.click()}
+                  >
+                    browse
+                  </button>
+                </p>
+                <input
+                  id="local-file-input"
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      setPath(file.name)
+                      setName(file.name.replace(/\.[^/.]+$/, ''))
+                    }
+                  }}
                 />
               </div>
+              {path && (
+                <p className="text-sm">Selected: {path}</p>
+              )}
             </div>
           )}
 

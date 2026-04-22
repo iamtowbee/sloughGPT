@@ -225,10 +225,10 @@ class BenchmarkSuite:
 
 def benchmark_model(checkpoint_path: str, device: str = "cpu"):
     """Benchmark a trained model."""
-    from domains.training.inference_engine import load_model_for_inference
-    
+    from domains.inference.loader import load_model
+
     print(f"Loading model from {checkpoint_path}...")
-    engine = load_model_for_inference(checkpoint_path, device=device)
+    engine = load_model(checkpoint_path, quantize=None)
     
     suite = BenchmarkSuite(engine.model, device=device)
     results = suite.run_all()

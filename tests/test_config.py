@@ -394,7 +394,7 @@ class TestInferenceConfig:
     
     def test_generation_config_defaults(self):
         """Test GenerationConfig defaults."""
-        from domains.training.inference_engine import GenerationConfig
+        from domains.inference.engine import GenerationConfig
         
         cfg = GenerationConfig()
         
@@ -407,7 +407,7 @@ class TestInferenceConfig:
     
     def test_generation_config_custom(self):
         """Test custom GenerationConfig."""
-        from domains.training.inference_engine import GenerationConfig
+        from domains.inference.engine import GenerationConfig
         
         cfg = GenerationConfig(
             max_new_tokens=200,

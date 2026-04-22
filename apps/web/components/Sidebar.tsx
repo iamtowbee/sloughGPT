@@ -8,6 +8,7 @@ import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import {
   IconAgents,
   IconApiDocs,
+  IconAutoTrain,
   IconChat,
   IconClose,
   IconModels,
@@ -22,6 +23,7 @@ import { ThemeSwitcher } from './ThemeSwitcher'
 
 const navItems = [
   { path: '/chat', label: 'Chat', Icon: IconChat },
+  { path: '/auto-train', label: 'Auto-Train', Icon: IconAutoTrain },
   { path: '/agents', label: 'Agents', Icon: IconAgents },
   { path: '/plugins', label: 'Plugins', Icon: IconPlugins },
   { path: '/models', label: 'Models', Icon: IconModels },

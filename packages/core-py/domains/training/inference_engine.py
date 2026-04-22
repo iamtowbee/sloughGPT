@@ -31,6 +31,14 @@ from typing import List, Optional, Iterator, Dict, Tuple
 from dataclasses import dataclass, field
 
 from domains.errors import require_non_empty_prompt
+import warnings
+
+
+warnings.warn(
+    "domains.training.inference_engine is deprecated. Use domains.inference.engine instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 @dataclass

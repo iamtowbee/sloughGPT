@@ -82,10 +82,10 @@ export function MessageBubble({
     >
       <div
         className={cn(
-          "relative rounded-2xl px-4 py-3 text-sm sm:px-5 sm:py-3.5 max-w-[85%] sm:max-w-[75%] transition-shadow duration-200",
+          "relative rounded-2xl px-3 py-2 text-sm sm:px-4 sm:py-2.5 max-w-[85%] sm:max-w-[75%] transition-all duration-200",
           role === 'user'
             ? 'bg-primary text-primary-foreground rounded-br-md shadow-sm hover:shadow-md'
-            : 'bg-muted/90 text-foreground rounded-bl-md border border-border/50 hover:bg-muted',
+            : 'bg-muted/80 text-foreground rounded-bl-md border border-border/40 hover:bg-muted/90',
           isStreaming && role === 'assistant' && "cursor-wait"
         )}
       >

@@ -307,8 +307,8 @@ async def start_training(request: TrainingRequest):
     try:
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(
-            notify_training_event(
+        async def notify_async():
+            await notify_training_event(
                 "training.started",
                 {
                     "job_id": job_id,
@@ -317,7 +317,12 @@ async def start_training(request: TrainingRequest):
                     "epochs": request.epochs,
                 },
             )
-        )
+
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.create_task(notify_async())
+        else:
+            loop.run_until_complete(notify_async())
     except Exception:
         pass
 

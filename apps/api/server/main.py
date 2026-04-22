@@ -46,6 +46,7 @@ from fastapi import (
     Header,
     Request,
     Response,
+    APIRouter,
 )
 from fastapi.staticfiles import StaticFiles
 from federated_routes import router as federated_router
@@ -54,7 +55,7 @@ from training.router import router as training_router
 from training.schemas import TrainingRequest  # noqa: F401 — re-export for tests: ``from main import TrainingRequest``
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 import torch
 import json
 import asyncio
@@ -236,7 +237,7 @@ class TaskQueueManager:
             task = self._tasks.get(task_id)
             if task and task.status in (TaskStatus.SUCCESS, TaskStatus.FAILED):
                 return task
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.01)
         return self._tasks.get(task_id)
 
 
@@ -837,29 +838,42 @@ def _generate_core(request: GenerateRequest, client_ip: str) -> Dict[str, Any]:
         try:
             checkpoint = model
             if isinstance(checkpoint, dict):
-                stoi = checkpoint.get("stoi", {})
-                itos = checkpoint.get("itos", {})
-                if not stoi and "stoi" in checkpoint:
-                    stoi = checkpoint["stoi"]
-                if not itos and "itos" in checkpoint:
-                    itos = checkpoint["itos"]
-                model_to_use = checkpoint.get("model", checkpoint)
-                if not hasattr(model_to_use, "eval") and isinstance(model_to_use, dict):
-                    pass
+                from domains.training.checkpoint_utils import (
+                    load_sloughgpt_from_checkpoint,
+                    tokenizer_maps_from_bundle,
+                )
+
+                stoi, itos = tokenizer_maps_from_bundle(checkpoint)
+                if not stoi or not itos:
+                    raise ValueError("Checkpoint missing stoi/itos vocabulary")
+
+                # Create model and load weights
+                sloughgpt_model, hp = load_sloughgpt_from_checkpoint(
+                    checkpoint,
+                    device="cpu",
+                    fallback_vocab_size=hp.get("vocab_size", 256) if "hp" in dir() else 256,
+                )
+                sloughgpt_model.eval()
+
                 idx = torch.tensor([[stoi.get(c, 0) for c in request.prompt]], dtype=torch.long)
-                model_to_use.eval()
                 with torch.no_grad():
-                    for _ in range(max_tokens):
-                        idx_cond = idx[:, -128:]
-                        logits, _ = model_to_use(idx_cond)
+                    gen_idx = idx
+                    step = 0
+                    while step < max_tokens:
+                        idx_cond = gen_idx[:, -128:]
+                        logits, _ = sloughgpt_model(idx_cond)
                         logits = logits[:, -1, :] / temperature
                         if top_k > 0:
                             indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
                             logits[indices_to_remove] = float("-inf")
                         probs = torch.softmax(logits, dim=-1)
+                        probs = torch.where(torch.isfinite(probs), probs, torch.zeros_like(probs))
+                        probs_sum = probs.sum(dim=-1, keepdim=True)
+                        probs = probs / (probs_sum + 1e-10)
                         idx_next = torch.multinomial(probs, num_samples=1)
-                        idx = torch.cat([idx, idx_next], dim=1)
-                generated = "".join([itos.get(i, "") for i in idx[0].tolist()])
+                        gen_idx = torch.cat([gen_idx, idx_next], dim=1)
+                        step += 1
+                generated = "".join([itos.get(i.item(), "") for i in gen_idx[0]])
                 text = generated[len(request.prompt) :]
                 return {
                     "text": text,
@@ -1062,6 +1076,82 @@ class MessageFeedback:
 
 
 message_feedback = MessageFeedback()
+
+
+# ============ Model Request/Response Logger ============
+class ModelRequestLogger:
+    """Log model requests and responses for monitoring and debugging."""
+
+    def __init__(self, max_logs: int = 1000):
+        self.max_logs = max_logs
+        self._logs: List[Dict[str, Any]] = []
+        self._lock = threading.Lock()
+
+    def log_request(
+        self,
+        endpoint: str,
+        model: str,
+        prompt: str,
+        params: Dict[str, Any],
+        response: Optional[str] = None,
+        error: Optional[str] = None,
+        duration_ms: float = 0.0,
+    ) -> None:
+        """Log a model request/response."""
+        with self._lock:
+            entry = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "endpoint": endpoint,
+                "model": model,
+                "prompt": prompt[:500] if prompt else "",
+                "prompt_len": len(prompt),
+                "params": params,
+                "response": response[:500] if response else "",
+                "response_len": len(response) if response else 0,
+                "error": error,
+                "duration_ms": duration_ms,
+            }
+            self._logs.append(entry)
+            if len(self._logs) > self.max_logs:
+                self._logs = self._logs[-self.max_logs :]
+
+    def get_logs(self, limit: int = 100, model: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get recent logs, optionally filtered by model."""
+        with self._lock:
+            logs = self._logs[-limit:]
+            if model:
+                logs = [l for l in logs if l.get("model") == model]
+            return logs
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get aggregated stats by model."""
+        with self._lock:
+            stats: Dict[str, Dict[str, Any]] = {}
+            for log in self._logs:
+                m = log.get("model", "unknown")
+                if m not in stats:
+                    stats[m] = {
+                        "requests": 0,
+                        "total_duration_ms": 0.0,
+                        "errors": 0,
+                        "chars_in": 0,
+                        "chars_out": 0,
+                    }
+                stats[m]["requests"] += 1
+                stats[m]["total_duration_ms"] += log.get("duration_ms", 0)
+                if log.get("error"):
+                    stats[m]["errors"] += 1
+                stats[m]["chars_in"] += log.get("prompt_len", 0)
+                stats[m]["chars_out"] += log.get("response_len", 0)
+            return stats
+
+    def clear(self) -> None:
+        """Clear all logs."""
+        with self._lock:
+            self._logs.clear()
+
+
+model_request_logger = ModelRequestLogger()
 
 
 # ----- HTTP metrics for Prometheus (counters + histogram) -----
@@ -1442,6 +1532,971 @@ checkpoint = None
 current_soul = None
 soul_engine = None
 
+# Knowledge store
+_knowledge_store: List[Dict[str, str]] = []
+
+
+class KnowledgeItem(BaseModel):
+    content: str
+    source: str = "user"
+    timestamp: Optional[str] = None
+
+    model_config = ConfigDict(extra='ignore')
+
+
+class KnowledgeAddRequest(BaseModel):
+    items: List[KnowledgeItem]
+
+
+INJECTION_PATTERNS = [
+    "ignore previous instructions",
+    "disregard previous",
+    "ignore all rules",
+    "system prompt",
+    "you are now",
+    "new instructions",
+    "remove previous",
+    "forget everything",
+]
+
+
+def _sanitize_knowledge(text: str) -> str:
+    """Sanitize knowledge input to prevent prompt injection."""
+    cleaned = text.strip()
+    lower = cleaned.lower()
+    for pattern in INJECTION_PATTERNS:
+        if pattern in lower:
+            raise ValueError(f"Blocked: suspicious pattern '{pattern}'")
+    if cleaned.startswith("[") and "IMPORTANT" in cleaned.upper():
+        raise ValueError("Blocked: potential prompt injection")
+    return cleaned
+
+
+@app.post("/knowledge", tags=["knowledge"])
+async def add_knowledge(body: dict):
+    """Add knowledge items to the knowledge store. DEBUG VERSION."""
+    global _knowledge_store
+    return {"debug": body, "status": "received"}
+
+
+@app.get("/knowledge", tags=["knowledge"])
+async def get_knowledge():
+    """Get all knowledge items."""
+    return {"knowledge": _knowledge_store}
+
+
+@app.delete("/knowledge", tags=["knowledge"])
+async def clear_knowledge():
+    """Clear all knowledge."""
+    global _knowledge_store
+    _knowledge_store = []
+    return {"status": "cleared"}
+
+
+# ============ Auto-Train API (Teacher-Student) ============
+_auto_train_running = False
+_auto_train_config = {}
+_auto_train_baby_model = None
+_auto_train_baby_tokenizer = None
+_auto_train_optimizer = None
+_auto_train_training_log = []
+
+# Setup logging
+import logging
+autotrain_logger = logging.getLogger("autotrain")
+autotrain_logger.setLevel(logging.DEBUG)
+
+
+class AutoTrainRequest(BaseModel):
+    teacher_model: str = "gpt2"
+    student_model: str = "sloughgpt"
+    temperature: float = 0.8
+    baby_model_path: Optional[str] = None
+    learning_rate: float = 0.01
+    max_steps: int = 20
+
+
+def _init_baby_tokenizer() -> tuple[dict, dict]:
+    """Initialize tokenizer maps - simple humble character set for baby model."""
+    chars = list(" abcdefghijklmnopqrstuvwxyz0123456789.,!?-'")
+    chars = ["<PAD>", "<UNK>"] + chars
+    stoi = {ch: i for i, ch in enumerate(chars)}
+    itos = {i: ch for i, ch in enumerate(chars)}
+    return stoi, itos
+
+
+def _create_baby_model(vocab_size: int = 46, n_embed: int = 384, n_layer: int = 6):
+    """Create a fresh baby model from scratch using our SloughGPT infrastructure."""
+    from domains.models import SloughGPTModel
+    
+    # Create a larger SloughGPT config for better learning capacity
+    baby = SloughGPTModel(
+        vocab_size=vocab_size,
+        n_embed=n_embed,
+        n_layer=n_layer,
+        block_size=128,
+    )
+    
+    param_count = sum(p.numel() for p in baby.parameters())
+    autotrain_logger.info(f"Baby model created (SloughGPT): vocab={vocab_size}, embed={n_embed}, layers={n_layer}, params={param_count}")
+    return baby
+
+
+@app.post("/auto-train/start", tags=["training"])
+async def start_auto_train(request: AutoTrainRequest):
+    """Start teacher-student auto-training with real-time weight updates."""
+    global _auto_train_running, _auto_train_config, _auto_train_training_log
+    
+    # Reset training log
+    _auto_train_training_log = []
+    
+    # Load or create baby model (our actual SloughGPT)
+    model_path = request.baby_model_path or "models/auto-training/baby.pt"
+    _load_or_create_baby_model(model_path)
+    
+    _auto_train_running = True
+    _auto_train_config = {
+        "teacher": request.teacher_model,
+        "student": request.student_model,
+        "temperature": request.temperature,
+        "baby_model_path": model_path,
+        "learning_rate": request.learning_rate,
+    }
+    return {"status": "started", "teacher": request.teacher_model, "baby_model": model_path}
+
+
+def _load_or_create_baby_model(model_path: Optional[str] = None):
+    """Load existing model or create fresh one."""
+    global _auto_train_baby_model, _auto_train_baby_tokenizer, _auto_train_optimizer, _auto_train_training_log
+    
+    if model_path is None:
+        model_path = "models/auto-training/baby.pt"
+    
+    baby_path = _REPO_ROOT / model_path
+    
+    # Try to load existing checkpoint
+    if baby_path.exists():
+        try:
+            checkpoint = torch.load(baby_path, map_location="cpu", weights_only=False)
+            
+            # Initialize tokenizer
+            if "tokenizer" in checkpoint:
+                _auto_train_baby_tokenizer = checkpoint["tokenizer"]
+                stoi = _auto_train_baby_tokenizer.get("stoi", {})
+                vocab_size = len(stoi)
+            else:
+                stoi, itos = _init_baby_tokenizer()
+                vocab_size = len(stoi)
+                _auto_train_baby_tokenizer = {"stoi": stoi, "itos": itos}
+            
+            # Create model and load weights
+            _auto_train_baby_model = _create_baby_model(vocab_size=vocab_size)
+            if "model" in checkpoint:
+                try:
+                    _auto_train_baby_model.load_state_dict(checkpoint["model"], strict=False)
+                    autotrain_logger.info(f"✅ Loaded model from {baby_path}")
+                except Exception as load_err:
+                    autotrain_logger.warning(f"Could not load weights, using fresh model: {load_err}")
+            
+            # Restore training log
+            _auto_train_training_log = checkpoint.get("training_log", [])
+            steps = checkpoint.get("total_steps", 0)
+            autotrain_logger.info(f"Resuming from {steps} training steps")
+        except Exception as e:
+            autotrain_logger.warning(f"Could not load checkpoint: {e}, creating fresh model")
+            _create_fresh_model()
+    else:
+        _create_fresh_model()
+    
+    lr = _auto_train_config.get("learning_rate", 0.01)
+    _auto_train_optimizer = torch.optim.Adam(_auto_train_baby_model.parameters(), lr=lr)
+    autotrain_logger.info(f"Optimizer ready with lr={lr}")
+    _auto_train_baby_model.train()
+    return _auto_train_baby_model, _auto_train_baby_tokenizer
+
+
+def _create_fresh_model():
+    """Create a fresh model from scratch."""
+    global _auto_train_baby_model, _auto_train_baby_tokenizer
+    
+    stoi, itos = _init_baby_tokenizer()
+    vocab_size = len(stoi)
+    autotrain_logger.info(f"Humble tokenizer has {vocab_size} tokens")
+    _auto_train_baby_tokenizer = {"stoi": stoi, "itos": itos}
+    _auto_train_baby_model = _create_baby_model(vocab_size=vocab_size)
+    autotrain_logger.info("Fresh baby model created (random weights)")
+
+
+def _save_baby_model(model_path: str = "models/auto-training/baby.sou"):
+    """Save the baby model checkpoint in .sou Soul Unit format."""
+    global _auto_train_baby_model, _auto_train_baby_tokenizer, _auto_train_training_log
+    
+    if _auto_train_baby_model is None:
+        return
+    
+    sou_path = _REPO_ROOT / model_path.replace(".pt", ".sou")
+    sou_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    try:
+        from domains.inference.sou_format import export_to_sou, SoulProfile
+        
+        # Create soul profile
+        soul = SoulProfile(
+            name="AutoTrainBaby",
+            lineage="autotrain",
+            base_model="sloughgpt",
+            epochs_trained=len(_auto_train_training_log),
+        )
+        
+        # Export to .sou
+        export_to_sou(
+            model=_auto_train_baby_model,
+            output_path=str(sou_path),
+            soul_profile=soul,
+        )
+        
+        autotrain_logger.info(f"✅ Baby model saved to {sou_path}")
+    except Exception as e:
+        autotrain_logger.warning(f"Could not save .sou, falling back to .pt: {e}")
+        # Fallback to .pt
+        pt_path = _REPO_ROOT / model_path
+        torch.save({
+            "model": _auto_train_baby_model.state_dict(),
+            "tokenizer": _auto_train_baby_tokenizer,
+            "training_log": _auto_train_training_log,
+            "total_steps": len(_auto_train_training_log),
+        }, pt_path)
+        autotrain_logger.info(f"✅ Baby model saved to {pt_path}")
+
+
+def _train_baby_on_pair(input_text: str, output_text: str, step: int, personality: dict = None):
+    """Train the baby model on a single input-output pair. Train multiple times for better learning."""
+    global _auto_train_baby_model, _auto_train_baby_tokenizer, _auto_train_optimizer
+    
+    if _auto_train_baby_model is None or _auto_train_optimizer is None:
+        autotrain_logger.error("Cannot train: baby_model or optimizer is None")
+        return None
+    
+    import torch
+    import torch.nn as nn
+    
+    stoi = _auto_train_baby_tokenizer.get("stoi", {})
+    unk_idx = stoi.get("<UNK>", 1)
+    pad_idx = stoi.get("<PAD>", 0)
+    
+    input_ids = [stoi.get(c, unk_idx) for c in input_text[:128]]
+    output_ids = [stoi.get(c, unk_idx) for c in output_text[:128]]
+    
+    if len(input_ids) < 2 or len(output_ids) < 2:
+        autotrain_logger.warning("Input/output too short")
+        return None
+    
+    while len(input_ids) < 32:
+        input_ids.append(pad_idx)
+    while len(output_ids) < 32:
+        output_ids.append(pad_idx)
+    
+    input_tensor = torch.tensor(input_ids[:32], dtype=torch.long).unsqueeze(0)
+    output_tensor = torch.tensor(output_ids[:32], dtype=torch.long).unsqueeze(0)
+    
+    # Train multiple times per step for better learning - 10 epochs for faster improvement
+    num_epochs = 10
+    try:
+        _auto_train_baby_model.train()
+        criterion = nn.CrossEntropyLoss()
+        
+        # Try to use personality loss if available
+        try:
+            from domains.training.personality_loss import CombinedPersonalityLoss
+            personality_loss_fn = CombinedPersonalityLoss(personality_weight=0.3)
+            has_personality = True
+        except ImportError:
+            has_personality = False
+        
+        total_loss = 0
+        for epoch in range(num_epochs):
+            logits, _ = _auto_train_baby_model(input_tensor)
+            
+            # Standard language modeling loss
+            lm_loss = criterion(logits.view(-1, logits.size(-1)), output_tensor.view(-1))
+            
+            # Add personality loss if available
+            if has_personality and personality:
+                # Map correction_style personality to training traits
+                # formality -> formality trait, certainty -> confidence, detail -> curiosity
+                traits = torch.tensor([[
+                    personality.get("detail_level", 0.5),    # curiosity
+                    0.5,  # humor
+                    0.5,  # empathy
+                    personality.get("formality", 0.5),      # formality
+                ]], dtype=torch.float)
+                personality_loss = personality_loss_fn(
+                    embeddings=logits.mean(dim=1),
+                    traits=traits
+                )
+                loss = lm_loss + personality_loss.get("total", lm_loss)
+            else:
+                loss = lm_loss
+            
+            _auto_train_optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(_auto_train_baby_model.parameters(), 1.0)
+            _auto_train_optimizer.step()
+            total_loss += loss.item()
+        
+        loss_val = total_loss / num_epochs
+        autotrain_logger.info(f"Step {step}: loss={loss_val:.4f} ({num_epochs} epochs)")
+        return loss_val
+    except Exception as e:
+        autotrain_logger.error(f"Training error: {e}")
+        import traceback
+        autotrain_logger.error(traceback.format_exc())
+        return None
+
+
+@app.post("/auto-train/start", tags=["training"])
+async def start_auto_train(request: AutoTrainRequest):
+    """Start teacher-student auto-training with real-time weight updates."""
+    global _auto_train_running, _auto_train_config
+    
+    model_path = request.baby_model_path or "models/auto-training/baby.pt"
+    _load_or_create_baby_model(model_path)
+    
+    _auto_train_running = True
+    _auto_train_config = {
+        "teacher": request.teacher_model,
+        "student": request.student_model,
+        "temperature": request.temperature,
+        "baby_model_path": model_path,
+        "learning_rate": request.learning_rate,
+        "max_steps": request.max_steps,
+    }
+    return {"status": "started", "teacher": request.teacher_model, "baby_model": model_path, "max_steps": request.max_steps}
+
+
+@app.get("/auto-train/stream", tags=["training"])
+async def stream_auto_train():
+    """Stream teacher-student conversation as training data."""
+    global _auto_train_running, _auto_train_config
+    
+    async def event_generator():
+        global _auto_train_running
+        
+        import torch
+        from transformers import AutoTokenizer, AutoModelForCausalLM
+        
+        if not _auto_train_config:
+            autotrain_logger.error("Auto-train config not set, call /auto-train/start first")
+            yield f"data: {json.dumps({'error': 'Call /auto-train/start first'})}\n\n"
+            return
+        
+        # Check if already running
+        if _auto_train_running:
+            autotrain_logger.warning("Auto-train already running, stopping previous")
+            _auto_train_running = False
+            await asyncio.sleep(0.5)
+        
+        teacher = _auto_train_config.get("teacher", "gpt2")
+        temp = _auto_train_config.get("temperature", 0.8)
+        
+        autotrain_logger.info(f"Loading teacher model: {teacher}")
+        
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(teacher)
+            model = AutoModelForCausalLM.from_pretrained(teacher)
+            model.eval()
+            autotrain_logger.info(f"Teacher model {teacher} loaded successfully")
+        except Exception as e:
+            err_msg = str(e)
+            if "Failed to establish" in err_msg or "Connection" in err_msg or "network" in err_msg.lower():
+                autotrain_logger.error(f"Network error loading teacher {teacher}. Check internet connection.")
+                yield f"data: {json.dumps({'error': 'Network error: Cannot connect to HuggingFace. Check your internet connection.'})}\n\n"
+            else:
+                autotrain_logger.error(f"Failed to load teacher {teacher}: {e}")
+                yield f"data: {json.dumps({'error': f'Failed to load teacher model: {err_msg[:100]}'})}\n\n"
+            return
+        
+        conversation_context = []
+        
+        tokenizer.pad_token = tokenizer.eos_token
+        
+        # Better topic generation - give examples then ask for new one
+        topic_examples = [
+            "What would happen if the sun suddenly disappeared?",
+            "Why do some animals sleep more than others?",
+            "How do memories form in the brain?",
+            "What is dark matter?",
+            "Why do we get deja vu?",
+            "How do plants know which way to grow?",
+            "What causes earthquakes?",
+            "Why do we have nightmares?",
+        ]
+        example_str = "\n".join([f"- {q}" for q in topic_examples[:4]])
+        topic_system = f"Questions for students to think about:\n{example_str}\n\nNew question:"
+        
+        step = 0
+        turn_topic = ""
+        
+        autotrain_logger.info("Starting training loop")
+        
+        while _auto_train_running and step < 1000:
+            # Check running flag first
+            if not _auto_train_running:
+                autotrain_logger.info("Training stopped before step")
+                break
+            try:
+                # Check flag again mid-loop
+                if not _auto_train_running:
+                    autotrain_logger.info("Training stopped mid-loop")
+                    break
+                
+                # Generate a new topic dynamically
+                topic_inputs = tokenizer(topic_system, return_tensors="pt", padding=True, truncation=True, max_length=100)
+                with torch.no_grad():
+                    topic_outputs = model.generate(
+                        **topic_inputs,
+                        max_new_tokens=15,
+                        temperature=0.9,
+                        top_k=50,
+                        do_sample=True,
+                        pad_token_id=tokenizer.eos_token_id,
+                    )
+                generated_topic = tokenizer.decode(topic_outputs[0], skip_special_tokens=True)
+                # Extract - take after "New question:" or after "- "
+                if "New question:" in generated_topic:
+                    turn_topic = generated_topic.split("New question:")[-1].strip()
+                elif "- " in generated_topic:
+                    turn_topic = generated_topic.split("- ")[-1].strip()
+                else:
+                    turn_topic = generated_topic.strip()
+                # Remove leading numbers/bullets
+                turn_topic = turn_topic.lstrip("0123456789.-) ").strip()
+                # Ensure it's a question
+                if not turn_topic.endswith("?"):
+                    turn_topic = turn_topic.split("\n")[0].strip()
+                autotrain_logger.info(f"Generated topic: {turn_topic[:50]}")
+                
+# Generate teacher answer purely from LLM
+                teacher_prompt = f"Answer: {turn_topic}"
+                
+                autotrain_logger.info(f"Generating teacher answer...")
+                
+                inputs = tokenizer(teacher_prompt, return_tensors="pt", padding=True, truncation=True, max_length=80)
+                with torch.no_grad():
+                    outputs = model.generate(
+                        **inputs, 
+                        max_new_tokens=40,
+                        temperature=0.7,
+                        top_k=40,
+                        top_p=0.9,
+                        do_sample=True,
+                        repetition_penalty=1.2,
+                        pad_token_id=tokenizer.eos_token_id,
+                    )
+                teacher_response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+                # Extract after "Answer:"
+                if "Answer:" in teacher_response:
+                    answer = teacher_response.split("Answer:")[-1].strip()
+                else:
+                    answer = teacher_response[len(teacher_prompt):].strip() if len(teacher_response) > len(teacher_prompt) else teacher_response
+                answer = answer.strip()
+                answer = ' '.join(answer.split())
+                if '.' in answer:
+                    parts = answer.split('.')
+                    answer = '. '.join(parts[:2]) + '.'
+                
+                # Clean and truncate
+                student_input = answer[:50] if answer and len(answer) > 10 else turn_topic[:50]
+                
+                autotrain_logger.info(f"Yielding teacher: {student_input[:50]}...")
+                
+                autotrain_logger.info(f"Step {step}: teacher done, generating baby response...")
+                
+                yield f"data: {json.dumps({'teacher': student_input, 'step': step * 3 + 1})}\n\n"
+                
+                # Baby model generates response (babbles incoherently)
+                student_response = ""
+                _baby_m = _auto_train_baby_model
+                _baby_tok = _auto_train_baby_tokenizer
+                if _baby_m is not None and _baby_tok is not None:
+                    try:
+                        stoi = _baby_tok.get("stoi", {})
+                        pad_idx = stoi.get("<PAD>", 0)
+                        
+                        # Character-level encoding - filter to known chars only
+                        input_chars = [c for c in student_input[:64].lower() if c in stoi]
+                        # Pad if too short
+                        if len(input_chars) < 8:
+                            input_ids = [pad_idx] * (8 - len(input_chars)) + [stoi.get(c, stoi.get("<UNK>", 1)) for c in input_chars]
+                        else:
+                            input_ids = [stoi.get(c, stoi.get("<UNK>", 1)) for c in input_chars]
+                        
+                        # Ensure valid input
+                        if len(input_ids) == 0:
+                            input_ids = [pad_idx] * 8
+                        
+                        input_tensor = torch.tensor(input_ids, dtype=torch.long).unsqueeze(0)
+                        if torch.cuda.is_available() and next(_baby_m.parameters()).is_cuda:
+                            input_tensor = input_tensor.cuda()
+                        
+                        autotrain_logger.debug(f"Baby generating response to: {student_input[:30]}")
+                        
+                        # Generate with high temperature for chaos
+                        with torch.no_grad():
+                            try:
+                                outputs = _baby_m.generate(
+                                    input_tensor, 
+                                    max_new_tokens=10, 
+                                    temperature=1.5,
+                                    top_k=None
+                                )
+                            except Exception as gen_err:
+                                autotrain_logger.error(f"Generation error: {gen_err}")
+                                # Fallback: use random tokens from actual vocab
+                                vocab_size = len(stoi)
+                                fallback = torch.randint(0, vocab_size, (1, 8), dtype=torch.long)
+                                random_tokens = torch.randint(0, vocab_size, (1, 40), dtype=torch.long)
+                                outputs = torch.cat([fallback, random_tokens], dim=1)
+                        
+                        # Decode from token IDs back to characters - filter unknowns
+                        itos = _baby_tok.get("itos", {})
+                        # Only decode the generated tokens (skip input)
+                        input_len = len(input_ids)
+                        generated_tokens = outputs[0].tolist()[input_len:]
+                        decoded_chars = []
+                        for t in generated_tokens:
+                            char = itos.get(t, "?")
+                            # Skip special tokens, only show readable chars in our humble set
+                            if char not in ["<PAD>", "<UNK>"] and char in stoi:
+                                decoded_chars.append(char)
+                        student_response = "".join(decoded_chars).strip()
+                        
+                        if not student_response or len(student_response) < 3:
+                            student_response = "[babbles]"
+                        
+                        autotrain_logger.debug(f"Baby response: {student_response[:50]}")
+                    except Exception as e:
+                        autotrain_logger.error(f"Baby generation error: {e}")
+                        student_response = f"[Error: {str(e)}]"
+                else:
+                    autotrain_logger.error("Baby model is None!")
+                    student_response = "[Baby model not loaded]"
+                
+                yield f"data: {json.dumps({'student': student_response, 'step': step * 3 + 2})}\n\n"
+                
+                # Teacher corrects baby's response with proper explanation
+                teacher_feedback = ""
+                correction_style = {"formality": 0.5, "detail_level": 0.5, "certainty": 0.5}
+                try:
+                    # Generate correction from LLM - simple question format
+                    correction_prompt = f"What is {turn_topic}?"
+                    
+                    inputs = tokenizer(correction_prompt, return_tensors="pt", padding=True, truncation=True, max_length=60)
+                    with torch.no_grad():
+                        outputs = model.generate(
+                            **inputs, 
+                            max_new_tokens=30, 
+                            temperature=0.7,
+                            top_k=40,
+                            top_p=0.9,
+                            do_sample=True,
+                            repetition_penalty=1.2,
+                            pad_token_id=tokenizer.eos_token_id,
+                        )
+                    raw_feedback = tokenizer.decode(outputs[0], skip_special_tokens=True)
+                    
+                    # Remove prompt and clean up
+                    teacher_feedback = raw_feedback.replace(correction_prompt, "").strip()
+                    if not teacher_feedback:
+                        teacher_feedback = raw_feedback.strip()
+                    
+                    # Take first sentence
+                    if '.' in teacher_feedback and len(teacher_feedback) > 20:
+                        parts = teacher_feedback.split('.')
+                        teacher_feedback = '. '.join(parts[:2]) + '.'
+                    
+                    # Retry if too short
+                    if not teacher_feedback or len(teacher_feedback) < 15:
+                        retry_inputs = tokenizer(f"Explain: {turn_topic}", return_tensors="pt", padding=True, truncation=True, max_length=50)
+                        with torch.no_grad():
+                            retry_outputs = model.generate(**retry_inputs, max_new_tokens=40, temperature=0.8, top_k=50, do_sample=True)
+                        retry_response = tokenizer.decode(retry_outputs[0], skip_special_tokens=True)
+                        teacher_feedback = retry_response.strip()[:150]
+                    
+                    # Ultra fallback
+                    if not teacher_feedback or len(teacher_feedback) < 15:
+                        teacher_feedback = f"{turn_topic} is a fundamental concept involving cause and effect relationships."
+                    
+                    # Analyze teacher feedback for personality tracking
+                    formality_words = ["must", "should", "required", "cannot", "always", "never", "proper", "correct"]
+                    casual_words = ["like", "feel", "think", "maybe", "kinda", "sorta", "probably", "might"]
+                    
+                    feedback_lower = teacher_feedback.lower()
+                    formality_score = sum(1 for w in formality_words if w in feedback_lower) / max(len(feedback_lower.split()), 1)
+                    formality_score = min(formality_score * 10, 1.0)
+                    
+                    casual_score = sum(1 for w in casual_words if w in feedback_lower) / max(len(feedback_lower.split()), 1)
+                    formality_score = formality_score - (casual_score * 5)
+                    formality_score = max(0, min(1, formality_score))
+                    
+                    detail_level = min(len(teacher_feedback) / 150, 1.0)
+                    
+                    certainty_indicators = ["is", "are", "will", "definitely", "certainly", "always", "never", "exactly"]
+                    certainty_score = sum(1 for w in certainty_indicators if w in feedback_lower) / max(len(feedback_lower.split()), 1)
+                    certainty_score = min(certainty_score * 15, 1.0)
+                    
+                    correction_style = {
+                        "formality": formality_score,
+                        "detail_level": detail_level,
+                        "certainty": certainty_score,
+                    }
+                    
+                    autotrain_logger.debug(f"Teacher feedback: {teacher_feedback[:50]}, personality: {correction_style}")
+                except Exception as e:
+                    autotrain_logger.error(f"Teacher correction error: {e}")
+                    teacher_feedback = student_response
+                
+                yield f"data: {json.dumps({'teacher_feedback': teacher_feedback, 'step': step * 3 + 3, 'training_pair': {'input': student_input, 'output': teacher_feedback}})}\n\n"
+                
+                # Train baby model on this pair (learns from teacher's correction)
+                loss_val = None
+                try:
+                    loss_val = _train_baby_on_pair(student_input, teacher_feedback, step, correction_style)
+                except Exception as train_err:
+                    autotrain_logger.error(f"Training failed: {train_err}")
+                    import traceback
+                    autotrain_logger.error(traceback.format_exc())
+                
+                # Yield training result with loss
+                yield f"data: {json.dumps({'training_done': True, 'step': step, 'loss': loss_val, 'personality': correction_style})}\n\n"
+                
+                # Periodic checkpoint saving every 5 steps
+                if (step + 1) % 5 == 0:
+                    checkpoint_path = f"models/auto-training/baby_step_{step + 1}.pt"
+                    _save_baby_model(checkpoint_path)
+                    yield f"data: {json.dumps({'checkpoint_saved': checkpoint_path, 'step': step})}\n\n"
+                
+                # Log the training step with personality evolution
+                log_entry = {
+                    "step": step,
+                    "teacher_input": student_input[:50],
+                    "baby_output": student_response[:50],
+                    "teacher_feedback": teacher_feedback[:50],
+                    "personality": correction_style,
+                }
+                _auto_train_training_log.append(log_entry)
+                
+                step += 1
+                
+                if not _auto_train_running:
+                    autotrain_logger.info("Training stopped by flag")
+                    break
+                    
+                await asyncio.sleep(0)
+            except asyncio.CancelledError:
+                _auto_train_running = False
+                autotrain_logger.info("Training cancelled")
+                break
+            except Exception as e:
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                break
+        
+        yield f"data: {json.dumps({'done': True, 'total_turns': step})}\n\n"
+    
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@app.post("/auto-train/stop", tags=["training"])
+async def stop_auto_train():
+    """Stop auto-training and save the baby model."""
+    global _auto_train_running, _auto_train_training_log
+    _auto_train_running = False
+    _save_baby_model(_auto_train_config.get("baby_model_path", "models/auto-training/baby.pt"))
+    return {
+        "status": "stopped",
+        "model_saved": _auto_train_config.get("baby_model_path", "models/auto-training/baby.pt"),
+        "training_steps": len(_auto_train_training_log),
+    }
+
+
+@app.get("/auto-train/log", tags=["training"])
+async def get_training_log():
+    """Get the training log."""
+    global _auto_train_training_log
+    return {"log": _auto_train_training_log[-50:]}
+
+
+@app.get("/auto-train/download", tags=["training"])
+async def download_model(path: str = "models/auto-training/baby.pt"):
+    """Download the trained model checkpoint."""
+    model_path = _REPO_ROOT / path
+    if not model_path.exists():
+        raise HTTPException(status_code=404, detail="Model not found")
+    return FileResponse(model_path, filename=path.split("/")[-1], media_type="application/octet-stream")
+
+
+@app.get("/auto-train/status", tags=["training"])
+async def get_model_status(path: str = "models/auto-training/baby.pt"):
+    """Get model checkpoint status + training runtime state."""
+    global _auto_train_running, _auto_train_config, _auto_train_training_log
+    
+    model_path = _REPO_ROOT / path
+    if not model_path.exists():
+        return {"path": path, "exists": False, "steps": 0}
+    
+    try:
+        checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
+        return {
+            "path": path,
+            "exists": True,
+            "steps": checkpoint.get("total_steps", 0),
+            "size_kb": model_path.stat().st_size / 1024,
+            "training": {
+                "running": _auto_train_running,
+                "config": _auto_train_config,
+                "log_entries": len(_auto_train_training_log) if _auto_train_training_log else 0,
+            },
+        }
+    except:
+        return {"path": path, "exists": True, "size_kb": model_path.stat().st_size / 1024, "steps": "unknown"}
+
+
+@app.post("/auto-train/eval", tags=["training"])
+async def eval_baby_model(prompt: str = "The meaning of life is"):
+    """Evaluate baby model on a prompt."""
+    global _auto_train_baby_model, _auto_train_baby_tokenizer
+    
+    if _auto_train_baby_model is None:
+        return {"error": "No baby model loaded"}
+    
+    stoi = _auto_train_baby_tokenizer.get("stoi", {})
+    input_ids = [stoi.get(c, stoi.get("<UNK>", 1)) for c in prompt[:32]]
+    while len(input_ids) < 8:
+        input_ids.append(stoi.get("<PAD>", 0))
+    
+    input_tensor = torch.tensor(input_ids[:8], dtype=torch.long).unsqueeze(0)
+    
+    with torch.no_grad():
+        _auto_train_baby_model.eval()
+        outputs = _auto_train_baby_model.generate(input_tensor, max_new_tokens=30, temperature=1.0)
+    
+    itos = _auto_train_baby_tokenizer.get("itos", {})
+    generated = outputs[0].tolist()[8:]
+    result = ''.join([itos.get(t, '?') for t in generated if t not in [0, 1]])
+    
+    return {"prompt": prompt, "baby_output": result}
+
+
+@app.get("/auto-train/status", tags=["training"])
+async def get_model_status(path: str = "models/auto-training/baby.pt"):
+    """Get model checkpoint status + training runtime state."""
+    model_path = _REPO_ROOT / path
+    exists = model_path.exists()
+    size_mb = model_path.stat().st_size / (1024 * 1024) if exists else 0
+    
+    # Load checkpoint info if exists
+    checkpoint_info = {}
+    if exists:
+        try:
+            ckpt = torch.load(model_path, map_location="cpu", weights_only=False)
+            checkpoint_info = {
+                "total_steps": ckpt.get("total_steps", 0),
+                "has_tokenizer": "tokenizer" in ckpt,
+                "has_log": "training_log" in ckpt,
+            }
+        except:
+            pass
+    
+    return {
+        "path": path,
+        "exists": exists,
+        "size_mb": round(size_mb, 2),
+        "info": checkpoint_info,
+        "training": {
+            "running": _auto_train_running,
+            "config": _auto_train_config,
+            "current_step": len(_auto_train_training_log) if _auto_train_running else 0,
+        },
+    }
+
+
+@app.post("/auto-train/compare", tags=["training"])
+async def compare_models(prompt: str = "The meaning of life is"):
+    """Compare baby model vs teacher (gpt2) on same prompt."""
+    global _auto_train_baby_model, _auto_train_baby_tokenizer
+    
+    result = {"prompt": prompt, "baby": None, "teacher": None}
+    
+    # Baby model output
+    if _auto_train_baby_model is not None and _auto_train_baby_tokenizer is not None:
+        stoi = _auto_train_baby_tokenizer.get("stoi", {})
+        input_ids = [stoi.get(c, stoi.get("<UNK>", 1)) for c in prompt[:32]]
+        while len(input_ids) < 8:
+            input_ids.append(stoi.get("<PAD>", 0))
+        
+        input_tensor = torch.tensor(input_ids[:8], dtype=torch.long).unsqueeze(0)
+        
+        with torch.no_grad():
+            _auto_train_baby_model.eval()
+            outputs = _auto_train_baby_model.generate(input_tensor, max_new_tokens=30, temperature=0.8)
+        
+        itos = _auto_train_baby_tokenizer.get("itos", {})
+        generated = outputs[0].tolist()[8:]
+        result["baby"] = ''.join([itos.get(t, '?') for t in generated if t not in [0, 1]])
+    
+    # Teacher (gpt2) output via existing inference
+    try:
+        from transformers import GPT2LMHeadModel, GPT2Tokenizer
+        tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+        model = GPT2LMHeadModel.from_pretrained("gpt2")
+        model.eval()
+        
+        inputs = tokenizer(prompt, return_tensors="pt")
+        with torch.no_grad():
+            outputs = model.generate(**inputs, max_new_tokens=30, temperature=0.8, do_sample=True)
+        result["teacher"] = tokenizer.decode(outputs[0], skip_special_tokens=True).replace(prompt, "").strip()
+    except Exception as e:
+        result["teacher_error"] = str(e)
+    
+    return result
+async def get_self_train_status():
+    """Get self-training status."""
+    global _self_train_proc
+    history_path = _REPO_ROOT / "data" / "self_train_history.txt"
+    history = []
+    if history_path.exists():
+        history = history_path.read_text().strip().split("\n")[-50:]  # Last 50 lines
+    if _self_train_proc is None:
+        return {"running": False, "history": history}
+    return {
+        "running": _self_train_proc.poll() is None,
+        "pid": _self_train_proc.pid if _self_train_proc.poll() is None else None,
+        "history": history,
+    }
+
+
+# ============ Auto-Train API (Teacher-Student) ============
+_auto_train_running = False
+_auto_train_config = {}
+
+
+class AutoTrainRequest(BaseModel):
+    teacher_model: str = "gpt2"
+    student_model: str = "sloughgpt"
+    temperature: float = 0.8
+
+
+@app.post("/auto-train/start", tags=["training"])
+async def start_auto_train(request: AutoTrainRequest):
+    """Start teacher-student auto-training."""
+    global _auto_train_running, _auto_train_config
+    _auto_train_running = True
+    _auto_train_config = {
+        "teacher": request.teacher_model,
+        "student": request.student_model,
+        "temperature": request.temperature,
+    }
+    return {"status": "started", "teacher": request.teacher_model, "student": request.student_model}
+
+
+@app.get("/auto-train/stream", tags=["training"])
+async def stream_auto_train():
+    """Stream teacher-student conversation as training data."""
+    global _auto_train_running, _auto_train_config
+    
+    async def event_generator():
+        global _auto_train_running
+        import torch
+        from transformers import AutoTokenizer, AutoModelForCausalLM
+        
+        if not _auto_train_config:
+            yield f"data: {json.dumps({'error': 'Call /auto-train/start first'})}\n\n"
+            return
+        
+        teacher = _auto_train_config.get("teacher", "gpt2")
+        temp = _auto_train_config.get("temperature", 0.8)
+        
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(teacher)
+            model = AutoModelForCausalLM.from_pretrained(teacher)
+            model.eval()
+        except Exception as e:
+            err_msg = str(e)
+            if "Failed to establish" in err_msg or "Connection" in err_msg or "network" in err_msg.lower():
+                yield f"data: {json.dumps({'error': 'Network error: Cannot connect to HuggingFace. Check your internet connection.'})}\n\n"
+            else:
+                yield f"data: {json.dumps({'error': f'Failed to load teacher model: {err_msg[:100]}'})}\n\n"
+            return
+        
+        prompts = [
+            "Hello, how are you?",
+            "Tell me about yourself.",
+            "What can you help me with?",
+            "Explain machine learning.",
+            "Write a short poem.",
+        ]
+        
+        step = 0
+        prompt_idx = 0
+        
+        while _auto_train_running and step < 1000:
+            try:
+                seed = prompts[prompt_idx % len(prompts)]
+                prompt_idx += 1
+                
+                inputs = tokenizer(seed, return_tensors="pt")
+                with torch.no_grad():
+                    outputs = model.generate(**inputs, max_new_tokens=30, temperature=temp, do_sample=True)
+                teacher_response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+                
+                student_input = teacher_response[len(seed):].strip() if len(teacher_response) > len(seed) else teacher_response
+                if not student_input:
+                    student_input = seed
+                
+                yield f"data: {json.dumps({'teacher': student_input, 'step': step * 2 + 1})}\n\n"
+                
+                # Generate student response using SloughGPT
+                student_response = ""
+                if model is not None and tokenizer is not None:
+                    try:
+                        prompt = f"User: {student_input}\n\nAssistant:"
+                        inputs = tokenizer(prompt, return_tensors="pt")
+                        if torch.cuda.is_available():
+                            inputs = {k: v.cuda() for k, v in inputs.items()}
+                        with torch.no_grad():
+                            outputs = model.generate(**inputs, max_new_tokens=50, temperature=temp, do_sample=True)
+                        raw_response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+                        student_response = raw_response[len(prompt):].strip() if len(raw_response) > len(prompt) else raw_response
+                        if not student_response:
+                            student_response = "[No response generated]"
+                    except Exception as e:
+                        student_response = f"[Error: {str(e)}]"
+                else:
+                    student_response = "[SloughGPT model not loaded]"
+                
+                yield f"data: {json.dumps({'student': student_response, 'step': step * 2 + 2})}\n\n"
+                
+                step += 1
+                await asyncio.sleep(0)
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                break
+        
+        yield f"data: {json.dumps({'done': True, 'total_turns': step})}\n\n"
+    
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@app.post("/auto-train/stop", tags=["training"])
+async def stop_auto_train():
+    """Stop auto-training."""
+    global _auto_train_running
+    _auto_train_running = False
+    return {"status": "stopped"}
+
 
 def get_soul_generation_params():
     """Get generation params from loaded soul, or defaults."""
@@ -1513,6 +2568,7 @@ class GenerateRequest(BaseModel):
     repetition_penalty: Optional[float] = 1.0
     seed: Optional[int] = None
     personality: Optional[str] = None
+    system_prompt: Optional[str] = None
 
 
 class ChatMessage(BaseModel):
@@ -1528,6 +2584,17 @@ class ChatRequest(BaseModel):
     top_k: Optional[int] = 50
     model: Optional[str] = None
     user_id: Optional[str] = "default"
+    system_prompt: Optional[str] = None
+    knowledge: Optional[List[Dict[str, Any]]] = None
+
+
+# ============ Knowledge API ============
+class KnowledgeItem(BaseModel):
+    content: str
+    source: str = "user"
+    timestamp: Optional[str] = None
+
+    model_config = ConfigDict(extra='ignore')
 
 
 # ============ Feedback Models ============
@@ -1641,27 +2708,32 @@ class StandardInferenceResponse(BaseModel):
     citations: List[Dict[str, Any]] = Field(default_factory=list)
 
 
-def load_model():
-    """Load the actual sloughgpt model."""
-    global model, tokenizer, model_type
+class LoadCheckpointRequest(BaseModel):
+    model_path: str
+
+
+def load_model(model_path: Optional[str] = None):
+    """Load the actual sloughgpt model. If model_path provided, load that specific checkpoint."""
+    global model, tokenizer, model_type, checkpoint
     try:
-        from pathlib import Path
         import torch
 
-        # Check for available models (relative to server directory)
-        model_paths = [
-            "../models/sloughgpt_finetuned.pt",
-            "../models/sloughgpt_lora.pt",
-            "../models/sloughgpt_variant.pt",
-        ]
+        if model_path:
+            if not Path(model_path).is_absolute():
+                model_path = str((_REPO_ROOT / model_path).resolve())
+        else:
+            default_paths = [
+                "models/sloughgpt_finetuned.pt",
+                "models/sloughgpt_lora.pt",
+                "models/sloughgpt_variant.pt",
+            ]
+            model_path = None
+            for path in default_paths:
+                if (_REPO_ROOT / path).exists():
+                    model_path = str((_REPO_ROOT / path).resolve())
+                    break
 
-        model_path = None
-        for path in model_paths:
-            if Path(path).exists():
-                model_path = path
-                break
-
-        if model_path is None:
+        if model_path is None or not Path(model_path).exists():
             # Fallback to demo mode
             model = None
             model_type = "demo"
@@ -1670,7 +2742,7 @@ def load_model():
 
         # Load the model checkpoint
         print(f"Loading model from {model_path}...")
-        checkpoint = torch.load(model_path, map_location="cpu")
+        checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
 
         # Extract model and tokenizer info
         if isinstance(checkpoint, dict):
@@ -1712,13 +2784,14 @@ def load_model():
 
 
 @app.post("/load")
-async def load_model_endpoint():
-    """Load the model on demand."""
-    global model, tokenizer, model_type
-    if model is not None:
+async def load_model_endpoint(request: Optional[LoadCheckpointRequest] = None):
+    """Load the model on demand. Optionally specify model_path in request body."""
+    global model, tokenizer, model_type, checkpoint
+    model_path = request.model_path if request else None
+    if model is not None and model_path is None:
         return {"status": "already_loaded", "model": model_type}
-    load_model()
-    return {"status": "loaded", "model": model_type}
+    load_model(model_path)
+    return {"status": "loaded", "model": model_type, "checkpoint": model_path}
 
 
 class LoadSoulRequest(BaseModel):
@@ -1921,6 +2994,15 @@ async def root():
     }
 
 
+@app.get("/model/logs")
+async def get_model_logs(limit: int = 50, model: Optional[str] = None):
+    """Get model request logs (for debugging/monitoring)."""
+    return {
+        "logs": model_request_logger.get_logs(limit=limit, model=model),
+        "stats": model_request_logger.get_stats(),
+    }
+
+
 @app.get("/info")
 async def info():
     """Get detailed server info (includes host CPU/RAM when psutil is available)."""
@@ -1933,6 +3015,7 @@ async def info():
         "model": {
             "type": model_type,
             "loaded": model is not None,
+            "request_stats": model_request_logger.get_stats(),
         },
         "pytorch_version": torch.__version__,
         "cuda_available": torch.cuda.is_available(),
@@ -2025,13 +3108,26 @@ async def update_generation_config(config: GenerationConfigUpdate):
 
 @app.get("/health")
 async def health():
-    return {
+    import torch
+    response = {
         "status": "healthy",
         "model_loaded": model is not None,
         "model_type": model_type,
         "soul_engine_active": soul_engine is not None and soul_engine.is_loaded,
         "soul_name": soul_engine.soul.name if soul_engine and soul_engine.soul else None,
     }
+    if model is not None:
+        try:
+            response["num_parameters"] = sum(p.numel() for p in model.parameters())
+        except Exception:
+            pass
+        try:
+            if hasattr(model, 'config'):
+                response["vocab_size"] = getattr(model.config, 'vocab_size', None)
+                response["block_size"] = getattr(model.config, 'n_ctx', getattr(model.config, 'max_position_embeddings', None))
+        except Exception:
+            pass
+    return response
 
 
 @app.get("/health/live", tags=["health"])
@@ -2328,8 +3424,19 @@ async def generate_demo(request: GenerateRequest):
 
 @app.post("/generate")
 async def generate(request: GenerateRequest, req: Request):
+    start_time = time.perf_counter()
     client_ip = req.client.host if req.client else "unknown"
-    return _generate_core(request, client_ip)
+    result = _generate_core(request, client_ip)
+    duration_ms = (time.perf_counter() - start_time) * 1000
+    model_request_logger.log_request(
+        endpoint="/generate",
+        model=result.get("model", "unknown"),
+        prompt=request.prompt,
+        params={"temperature": request.temperature, "max_tokens": request.max_new_tokens},
+        response=result.get("text", ""),
+        duration_ms=duration_ms,
+    )
+    return result
 
 
 @app.post("/v1/infer", tags=["inference"])
@@ -2480,8 +3587,10 @@ async def generate_stream(request: GenerateRequest):
                     generated = []
                     prev_tokens = list(idx[0].tolist())
                     rep_penalty = gen_config.repetition_penalty
+
+                    _gen_counter = 0
                     with torch.no_grad():
-                        for _ in range(max_gen):
+                        while _gen_counter < max_gen:
                             logits = model(idx, use_cache=True)[0]
                             logits = logits[:, -1, :]
 
@@ -2515,6 +3624,8 @@ async def generate_stream(request: GenerateRequest):
                             generated.append(token_id)
                             prev_tokens.append(token_id)
 
+                            _gen_counter += 1
+
                             if token_id == tokenizer.eos_token_id:
                                 break
 
@@ -2545,11 +3656,43 @@ async def generate_stream(request: GenerateRequest):
 @app.post("/chat", tags=["chat"])
 async def chat_completion(request: ChatRequest, req: Request):
     """Non-streaming chat completion using direct model access for speed."""
+    global _knowledge_store
     client_ip = req.client.host if req.client else "unknown"
     if not request.messages:
         raise HTTPException(status_code=400, detail="messages must not be empty")
 
-    prompt = _build_context_prompt(request.messages)
+    # Build knowledge context from store + request
+    knowledge_context = ""
+    all_knowledge = list(_knowledge_store)
+    if request.knowledge:
+        all_knowledge.extend(request.knowledge)
+    if all_knowledge:
+        knowledge_context = (
+            "\n[KNOWLEDGE]\n"
+            + "\n".join(f"- {k['content']}" for k in all_knowledge)
+            + "\n[/KNOWLEDGE]\n"
+        )
+
+    # Build prompt with optional system prompt
+    system_prefix = ""
+    if request.system_prompt:
+        system_prefix = request.system_prompt + "\n\n"
+    if knowledge_context:
+        system_prefix = system_prefix + knowledge_context
+
+    if system_prefix:
+        prompt = system_prefix
+        for m in request.messages:
+            if m.role == "system":
+                prompt += f"{m.content}\n\n"
+            elif m.role == "user":
+                prompt += f"User: {m.content}\n\n"
+            elif m.role == "assistant":
+                prompt += f"Assistant: {m.content}\n\n"
+        prompt += "Assistant:"
+    else:
+        prompt = _build_context_prompt(request.messages)
+
     max_tokens = input_validator.validate_max_tokens(request.max_new_tokens or 100)
     temperature = input_validator.validate_temperature(
         request.temperature if request.temperature is not None else 0.8
@@ -2603,6 +3746,9 @@ async def chat_completion(request: ChatRequest, req: Request):
 async def chat_stream(request: ChatRequest, req: Request):
     """Streaming chat completion using Server-Sent Events with meta-weight adjustment."""
     client_ip = req.client.host if req.client else "unknown"
+    
+    # Debug: log request details
+    logger.info(f"chat/stream: messages={len(request.messages)}, system_prompt={request.system_prompt[:30] if request.system_prompt else None}, knowledge={len(request.knowledge) if request.knowledge else 0}")
 
     if not rate_limiter.is_allowed(client_ip):
         retry_after = rate_limiter.get_retry_after(client_ip)
@@ -2616,7 +3762,35 @@ async def chat_stream(request: ChatRequest, req: Request):
     if not request.messages:
         raise HTTPException(status_code=400, detail="messages must not be empty")
 
-    prompt = _build_context_prompt(request.messages)
+    # Build knowledge context
+    global _knowledge_store
+    knowledge_context = ""
+    all_knowledge = list(_knowledge_store)
+    if request.knowledge:
+        all_knowledge.extend(request.knowledge)
+    if all_knowledge:
+        knowledge_context = "\n[KNOWLEDGE]\n" + "\n".join(f"- {k['content']}" for k in all_knowledge) + "\n[/KNOWLEDGE]\n"
+
+    # Build prompt
+    system_prefix = ""
+    if request.system_prompt:
+        system_prefix = request.system_prompt + "\n\n"
+    if knowledge_context:
+        system_prefix = system_prefix + knowledge_context
+
+    if system_prefix:
+        prompt = system_prefix
+        for m in request.messages:
+            if m.role == "system":
+                prompt += f"{m.content}\n\n"
+            elif m.role == "user":
+                prompt += f"User: {m.content}\n\n"
+            elif m.role == "assistant":
+                prompt += f"Assistant: {m.content}\n\n"
+        prompt += "Assistant:"
+    else:
+        prompt = _build_context_prompt(request.messages)
+
     require_non_empty_prompt(prompt, field_name="messages")
     max_gen = input_validator.validate_max_tokens(request.max_new_tokens or 100)
     temperature = input_validator.validate_temperature(
@@ -2703,7 +3877,8 @@ async def chat_stream(request: ChatRequest, req: Request):
             rep_penalty = gen_config.repetition_penalty
 
             with torch.no_grad():
-                for _ in range(max_gen):
+                _gen_idx = 0
+                while _gen_idx < max_gen:
                     logits = model_obj(idx, use_cache=True)[0]
                     logits = logits[:, -1, :]
 
@@ -2745,6 +3920,8 @@ async def chat_stream(request: ChatRequest, req: Request):
                     token_text = tokenizer.decode([token_id], skip_special_tokens=True)
                     if token_text.strip():
                         yield f"data: {json.dumps({'token': token_text, 'done': False})}\n\n"
+
+                    _gen_idx += 1
 
                     if token_id == tokenizer.eos_token_id:
                         break
@@ -4645,6 +5822,48 @@ async def search_github_repos(query: str, limit: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/datasets/search/books", tags=["datasets"])
+async def search_books(query: str, limit: int = 10):
+    """Search books by title or ISBN via Open Library."""
+    import urllib.request
+    import urllib.parse
+    import json
+    import re
+
+    try:
+        digits = re.sub(r"[-_\s]", "", query)
+        if len(digits) == 10 and digits.isdigit():
+            q = f"isbn:{digits}"
+        elif len(digits) == 13 and digits.isdigit():
+            q = f"isbn:{digits}"
+        else:
+            q = f"title:{urllib.parse.quote(query)}"
+
+        url = f"https://openlibrary.org/search.json?q={q}&limit={limit}"
+        req = urllib.request.Request(url, headers={"User-Agent": "SloughGPT/1.0"})
+
+        with urllib.request.urlopen(req, timeout=30) as response:
+            data = json.loads(response.read().decode())
+
+        books = []
+        for item in data.get("docs", [])[:limit]:
+            if item.get("title"):
+                books.append(
+                    {
+                        "key": item.get("key", ""),
+                        "title": item.get("title", ""),
+                        "author": item.get("author_name", [""])[0],
+                        "isbn": item.get("isbn", [""])[0],
+                        "year": item.get("first_publish_year"),
+                        "cover": item.get("cover_i"),
+                    }
+                )
+
+        return {"books": books}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 class DatasetExportRequest(BaseModel):
     format: str = "json"
     include_metadata: bool = True
@@ -5375,7 +6594,7 @@ async def compare_benchmarks():
 
                 benchmarker = Benchmarker(quantized, tokenizer, device="cpu")
                 result = benchmarker.benchmark_inference(
-                    "Hello world", max_new_tokens=20, num_runs=2
+                    "Hello world", max_new_tokens=15, num_runs=2
                 )
                 results[qtype] = result.to_dict()
             except Exception as e:

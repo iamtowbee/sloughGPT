@@ -219,15 +219,15 @@ export function SessionSidebar({
               {searchQuery ? 'No matching sessions' : 'No sessions yet'}
             </p>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {filteredSessions.map((session) => (
                 <div
                   key={session.id}
                   className={cn(
-                    "group relative rounded-lg p-2.5 transition-colors cursor-pointer",
+                    "group relative rounded-md p-2 transition-all cursor-pointer bg-card/50 border border-border/40",
                     session.id === currentSessionId
-                      ? "bg-secondary"
-                      : "hover:bg-secondary/50"
+                      ? "bg-secondary/50 border-primary/30"
+                      : "hover:bg-secondary/30 hover:border-border/60"
                   )}
                   onClick={() => {
                     if (session.id !== currentSessionId) {
@@ -236,12 +236,14 @@ export function SessionSidebar({
                   }}
                 >
                   <div className="flex items-start gap-2">
-                    <ChatIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">{session.name}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {session.messages.length} messages · {formatDate(session.updatedAt)}
-                      </p>
+                      <p className="text-xs font-medium truncate text-foreground">{session.name}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <ChatIcon className="h-3 w-3 text-muted-foreground/70" />
+                        <p className="text-[10px] text-muted-foreground/70">
+                          {session.messages.length} · {formatDate(session.updatedAt)}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -283,7 +285,7 @@ export function SessionSidebar({
             <Button
               onClick={handleClearAll}
               variant="outline"
-              className="w-full justify-start text-xs text-destructive hover:text-destructive"
+              className="w-full justify-center text-xs text-destructive hover:text-destructive"
               size="sm"
             >
               <TrashAllIcon className="h-4 w-4 mr-2" />

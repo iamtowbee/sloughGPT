@@ -193,6 +193,10 @@ html {
     @apply rounded-none border border-border bg-card text-card-foreground shadow-sm transition-colors duration-200 ease-smooth;
   }
 
+  /* Typography hierarchy: h1 > h2 > subtitle > body > caption */
+  /* Use these utility classes everywhere for consistency */
+  
+  /* Headings */
   .sl-h1 {
     @apply text-2xl md:text-3xl font-semibold tracking-tight text-foreground;
   }
@@ -201,11 +205,37 @@ html {
     @apply text-lg font-semibold text-foreground;
   }
 
-  .sl-muted {
-    @apply text-muted-foreground text-sm;
+  /* Text utilities - use these in components */
+  .sl-text-title {
+    @apply text-lg font-semibold text-foreground;
   }
 
+  .sl-text-subtitle {
+    @apply text-base font-medium text-foreground;
+  }
+
+  .sl-text-body {
+    @apply text-sm text-foreground;
+  }
+
+  .sl-text-caption {
+    @apply text-xs text-muted-foreground;
+  }
+
+  /* Shorthand aliases */
+  .sl-subtitle { @apply text-base font-medium text-foreground; }
+  .sl-body { @apply text-sm text-foreground; }
+  .sl-caption { @apply text-xs text-muted-foreground; }
+  .sl-muted { @apply text-muted-foreground text-sm; }
+
+  /* Label: form labels, small caps */
   .sl-label {
+    @apply block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider;
+  }
+
+  /* Input field */
+  .sl-input {
+    @apply w-full rounded-none border border-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground transition-colors duration-200 ease-smooth focus:outline-none;
     @apply block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider;
   }
 

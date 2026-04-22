@@ -55,6 +55,7 @@ __all__ = [
 # Data Utilities
 # =============================================================================
 
+
 class TextDataset(Dataset):
     """Character-level text dataset."""
 
@@ -77,9 +78,51 @@ class TextDataset(Dataset):
 
 
 def prepare_data(data_path, block_size=128):
-    """Prepare training data from text file."""
-    with open(data_path, "r", encoding="utf-8") as f:
-        text = f.read()
+    """Prepare training data from text file or multiple datasets with ratios."""
+    import os
+    from pathlib import Path
+
+    if isinstance(data_path, list) and data_path and isinstance(data_path[0], tuple):
+        datasets_with_ratios = data_path
+        all_texts = []
+        total_len = 0
+
+        for ds_name, ratio in datasets_with_ratios:
+            path = Path("datasets") / ds_name / "input.txt"
+            if path.exists():
+                text = path.read_text(encoding="utf-8")
+                target_len = int(len(text) * ratio)
+                all_texts.append((text, target_len))
+                total_len += target_len
+            else:
+                print(f"Warning: dataset {ds_name} not found, skipping")
+
+        if not all_texts:
+            raise ValueError("No valid datasets found")
+
+        text = ""
+        for text_chunk, target_len in all_texts:
+            text += text_chunk[:target_len]
+
+        print(f"Combined {len(datasets_with_ratios)} datasets: {total_len} chars")
+
+    elif isinstance(data_path, list):
+        datasets = data_path
+        texts = []
+        for ds_name in datasets:
+            path = Path("datasets") / ds_name / "input.txt"
+            if path.exists():
+                texts.append(path.read_text(encoding="utf-8"))
+            else:
+                print(f"Warning: dataset {ds_name} not found, skipping")
+        text = "".join(texts)
+
+    else:
+        path = Path(data_path)
+        if not path.exists():
+            path = Path("datasets") / data_path / "input.txt"
+        with open(path, "r", encoding="utf-8") as f:
+            text = f.read()
 
     chars = sorted(set(text))
     stoi = {c: i for i, c in enumerate(chars)}
@@ -93,6 +136,7 @@ def prepare_data(data_path, block_size=128):
 # =============================================================================
 # Training Configuration
 # =============================================================================
+
 
 @dataclass
 class TrainerConfig:
@@ -170,6 +214,7 @@ class TrainerConfig:
 # Checkpoint Manager
 # =============================================================================
 
+
 class CheckpointManager:
     """Manages model checkpointing with automatic cleanup."""
 
@@ -220,10 +265,9 @@ class CheckpointManager:
 
         model_path = self.checkpoint_dir / f"step_{step}.pt"
 
+        # Only save weights by default (much smaller files)
         save_dict = {
             "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "scheduler_state_dict": scheduler.state_dict() if scheduler else None,
             "step": step,
             "epoch": epoch,
             "metrics": metrics,
@@ -237,6 +281,7 @@ class CheckpointManager:
             },
         }
 
+        # Add vocab (needed for inference)
         if stoi is not None:
             save_dict["stoi"] = stoi
         if itos is not None:
@@ -268,8 +313,8 @@ class CheckpointManager:
         if len(self.checkpoints) <= self.max_checkpoints:
             return
 
-        to_remove = self.checkpoints[:-self.max_checkpoints]
-        self.checkpoints = self.checkpoints[-self.max_checkpoints:]
+        to_remove = self.checkpoints[: -self.max_checkpoints]
+        self.checkpoints = self.checkpoints[-self.max_checkpoints :]
 
         for ckpt in to_remove:
             path = Path(ckpt["path"])
@@ -279,8 +324,7 @@ class CheckpointManager:
     def load_latest(self) -> Optional[Dict[str, Any]]:
         """Load the latest checkpoint."""
         checkpoints = sorted(
-            self.checkpoint_dir.glob("step_*.pt"),
-            key=lambda p: int(p.stem.split("_")[1])
+            self.checkpoint_dir.glob("step_*.pt"), key=lambda p: int(p.stem.split("_")[1])
         )
         if not checkpoints:
             return None
@@ -300,6 +344,7 @@ class CheckpointManager:
 # =============================================================================
 # Main Trainer
 # =============================================================================
+
 
 class SloughGPTTrainer:
     """
@@ -587,7 +632,9 @@ class SloughGPTTrainer:
             return
 
         self.scaler = torch.cuda.amp.GradScaler()
-        self.mixed_precision_dtype = torch.bfloat16 if self.config.mixed_precision_dtype == "bf16" else torch.float16
+        self.mixed_precision_dtype = (
+            torch.bfloat16 if self.config.mixed_precision_dtype == "bf16" else torch.float16
+        )
         print(f"Mixed precision: {self.mixed_precision_dtype}")
 
     def _create_optimizer(self) -> torch.optim.Optimizer:
@@ -619,7 +666,9 @@ class SloughGPTTrainer:
         if self.config.max_steps:
             total_steps = self.config.max_steps
         else:
-            steps_per_epoch = len(self.train_data) // self.config.block_size // self.config.batch_size
+            steps_per_epoch = (
+                len(self.train_data) // self.config.block_size // self.config.batch_size
+            )
             total_steps = steps_per_epoch * self.config.epochs
 
         return create_scheduler(
@@ -652,7 +701,9 @@ class SloughGPTTrainer:
                 self._x_batch[i].copy_(data[start_idx : start_idx + block_size])
                 self._y_batch[i].copy_(data[start_idx + 1 : start_idx + block_size + 1])
 
-            return self._x_batch.to(self.device, non_blocking=True), self._y_batch.to(self.device, non_blocking=True)
+            return self._x_batch.to(self.device, non_blocking=True), self._y_batch.to(
+                self.device, non_blocking=True
+            )
 
         idx = torch.randint(0, len(data) - block_size, (batch_size,))
         x = torch.stack([data[i : i + block_size] for i in idx])
@@ -862,7 +913,9 @@ class SloughGPTTrainer:
             model.train()
 
             train_loss = 0.0
-            steps_per_epoch = len(self.train_data) // self.config.block_size // self.config.batch_size
+            steps_per_epoch = (
+                len(self.train_data) // self.config.block_size // self.config.batch_size
+            )
 
             if is_main and on_progress and steps_per_epoch > 0:
                 _emit_progress(steps_per_epoch=steps_per_epoch, train_loss=None)
@@ -876,7 +929,11 @@ class SloughGPTTrainer:
                 self.global_step += 1
 
                 if is_main and self.global_step % self.config.log_interval == 0:
-                    lr = self.scheduler.get_last_lr()[0] if self.scheduler else self.config.learning_rate
+                    lr = (
+                        self.scheduler.get_last_lr()[0]
+                        if self.scheduler
+                        else self.config.learning_rate
+                    )
                     logger.info(
                         f"Step {self.global_step} | Loss: {metrics['loss']:.4f} | LR: {lr:.2e}"
                     )
@@ -890,11 +947,10 @@ class SloughGPTTrainer:
                         )
 
                 if is_main and on_progress:
-                    if (
-                        self.global_step == 1
-                        or self.global_step % self.config.log_interval == 0
-                    ):
-                        _emit_progress(steps_per_epoch=steps_per_epoch, train_loss=float(metrics["loss"]))
+                    if self.global_step == 1 or self.global_step % self.config.log_interval == 0:
+                        _emit_progress(
+                            steps_per_epoch=steps_per_epoch, train_loss=float(metrics["loss"])
+                        )
 
                 # Evaluation
                 if self.global_step % self.config.eval_interval == 0:
@@ -971,6 +1027,7 @@ class SloughGPTTrainer:
     def save(self, path: str, format: str = "sou"):
         """Save model in specified format."""
         import os
+
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
 
         metadata = {
@@ -991,6 +1048,7 @@ class SloughGPTTrainer:
 
         if format == "sou":
             from domains.inference.sou_format import create_soul_profile, export_to_sou
+
             soul = create_soul_profile(
                 name=self.soul_name,
                 base_model="sloughgpt",
@@ -1004,6 +1062,7 @@ class SloughGPTTrainer:
             export_to_sou(self.model, output_path, soul_profile=soul)
         elif format == "safetensors":
             from domains.training.export import export_to_safetensors
+
             output_path = path + ".safetensors"
             export_to_safetensors(self.model, output_path, metadata)
         elif format == "torch":
@@ -1011,6 +1070,7 @@ class SloughGPTTrainer:
             torch.save({"model": self.model.state_dict(), **metadata}, output_path)
         else:
             from domains.training.export import export_to_safetensors
+
             output_path = path + ".safetensors"
             export_to_safetensors(self.model, output_path, metadata)
 
@@ -1031,6 +1091,7 @@ class SloughGPTTrainer:
 # =============================================================================
 # Entry Point
 # =============================================================================
+
 
 def main():
     """Main entry point for standalone training."""
@@ -1079,8 +1140,16 @@ def main():
     parser.add_argument("--lora-alpha", type=float, default=16.0)
     parser.add_argument("--dropout", type=float, default=0.1)
     parser.add_argument("--compile", action="store_true", help="Use torch.compile (PyTorch 2.0+)")
-    parser.add_argument("--compile-mode", type=str, default="reduce-overhead", choices=["default", "reduce-overhead", "max-autotune"], help="torch.compile mode")
-    parser.add_argument("--no-channels-last", action="store_true", help="Disable channels_last memory format")
+    parser.add_argument(
+        "--compile-mode",
+        type=str,
+        default="reduce-overhead",
+        choices=["default", "reduce-overhead", "max-autotune"],
+        help="torch.compile mode",
+    )
+    parser.add_argument(
+        "--no-channels-last", action="store_true", help="Disable channels_last memory format"
+    )
     args = parser.parse_args()
 
     if args.resume and args.resume_latest:

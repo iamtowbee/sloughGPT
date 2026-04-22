@@ -5,6 +5,8 @@ import { useApiHealth } from '@/hooks/useApiHealth'
 import { API_CHAT_ENDPOINT } from '@/lib/config'
 import { api } from '@/lib/api'
 import { useFeedbackStore } from '@/lib/feedback-store'
+import { devDebug } from '@/lib/dev-log'
+import { getAgentPrompt } from '@/lib/agents'
 import {
   ChatHeader,
   ChatSettings,
@@ -49,6 +51,7 @@ export default function ChatPage() {
   const [showSettings, setShowSettings] = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
   const [model, setModel] = useState('gpt2')
+  const [agent, setAgent] = useState('general')
   const [temperature, setTemperature] = useState(0.8)
   const [maxTokens, setMaxTokens] = useState(200)
   const [availableModels, setAvailableModels] = useState<string[]>([])
@@ -60,6 +63,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const sessionIdRef = useRef<string>('')
   const userIdRef = useRef<string>('default')
+  const lastSaveRef = useRef<number>(0)
   const { state: health, refresh: refreshHealth } = useApiHealth()
   
   // Feedback store
@@ -81,9 +85,9 @@ export default function ChatPage() {
     // Fetch initial feedback stats
     fetchStats()
     fetchAdapterStats()
-    // Fetch available models
+    // Fetch available models - only local models
     api.getModels().then((models) => {
-      setAvailableModels(models.map((m: { id: string }) => m.id))
+      setAvailableModels(models.filter((m: { type?: string }) => m.type === 'local').map((m: { id: string }) => m.id))
     }).catch(() => {})
     // Fetch generation config from server
     api.getGenerationConfig().then((config) => {
@@ -101,13 +105,19 @@ export default function ChatPage() {
     setToasts(prev => prev.filter(t => t.id !== id))
   }, [])
 
+  const MAX_MESSAGES_PER_SESSION = 50
+
   // Save to localStorage immediately (for crash recovery)
   const saveSessionToStorage = (msgs: ChatMessage[], sessionId: string) => {
     const sessionName = msgs[0]?.content?.slice(0, 30) || 'New Chat'
+    // Truncate old messages if exceeding limit
+    const truncatedMsgs = msgs.length > MAX_MESSAGES_PER_SESSION
+      ? msgs.slice(msgs.length - MAX_MESSAGES_PER_SESSION)
+      : msgs
     const session: ChatSession = {
       id: sessionId,
       name: sessionName,
-      messages: msgs,
+      messages: truncatedMsgs,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -134,10 +144,22 @@ export default function ChatPage() {
     const sessions = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as ChatSession[]
     const session = sessions.find(s => s.id === sessionId)
     if (session) {
-      setMessages(session.messages)
+      // Filter out empty assistant messages (from interrupted requests)
+      const filteredMessages = session.messages.filter((msg) => {
+        if (msg.role === 'assistant' && !msg.content.trim()) {
+          return false
+        }
+        return true
+      })
+      setMessages(filteredMessages)
       localStorage.setItem(CURRENT_SESSION_KEY, sessionId)
-      setSessionSaved(true)
-      showToast(`Loaded: ${session.name}`)
+      // Only mark as saved if last message is an assistant (response complete)
+      const isComplete = filteredMessages.length > 0 && 
+                        filteredMessages[filteredMessages.length - 1].role === 'assistant'
+      setSessionSaved(isComplete)
+      if (filteredMessages.length > 0) {
+        showToast(`Loaded: ${session.name}`)
+      }
     }
   }, [showToast])
 
@@ -170,22 +192,11 @@ export default function ChatPage() {
     }
   }, [messages, saveSession, sessionSaved])
 
+  // Load session on mount
   useEffect(() => {
     const currentId = localStorage.getItem(CURRENT_SESSION_KEY)
     if (currentId) {
       loadSession(currentId)
-    }
-  }, [])
-
-  // Check for incomplete requests on mount (e.g., after crash/reboot)
-  useEffect(() => {
-    if (messages.length > 0) {
-      const lastMsg = messages[messages.length - 1]
-      // If last message is a user message, the request was interrupted
-      if (lastMsg.role === 'user' && !lastMsg.content.includes('[incomplete]')) {
-        setLoading(false)
-        showToast('Previous request was interrupted. Edit and resend if needed.', 'info')
-      }
     }
   }, [])
 
@@ -407,6 +418,11 @@ export default function ChatPage() {
     setCurrentError(null)
     setLoading(true)
     
+    devDebug('Sending message', { model, agent, maxTokens, temperature, messageCount: messages.length + 1 })
+    
+    // Get agent instructions from single source
+    const systemPrompt = getAgentPrompt(agent)
+    
     // Save to localStorage immediately (crash recovery)
     const messagesWithNew = [...messages, userMessage, assistantMessage]
     saveSessionToStorage(messagesWithNew, sessionIdRef.current)
@@ -418,16 +434,18 @@ export default function ChatPage() {
         body: JSON.stringify({
           messages: [...messages, userMessage].map(m => ({ role: m.role, content: m.content })),
           model,
+          system_prompt: systemPrompt,
           max_new_tokens: maxTokens,
           temperature,
           user_id: userIdRef.current,
-          // Also send knowledge to API for storage
-          injected_knowledge: injectedKnowledge,
+          session_id: sessionIdRef.current,
+          knowledge: injectedKnowledge,
         }),
       })
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => '')
+        devDebug('API error', { status: response.status, errorText })
         setCurrentError(getErrorInfo(response.status, errorText))
         setMessages(prev => prev.filter(msg => msg.id !== assistantId))
         setLoading(false)
@@ -461,14 +479,19 @@ export default function ChatPage() {
                 }
                 if (data.token !== undefined && data.token) {
                   hasContent = true
+                  const now = Date.now()
+                  const shouldSave = now - lastSaveRef.current > 500
+                  if (shouldSave) lastSaveRef.current = now
                   setMessages(prev => {
                     const updated = prev.map(msg => 
                       msg.id === assistantId 
                         ? { ...msg, content: msg.content + data.token }
                         : msg
                     )
-                    // Save partial response for crash recovery
-                    saveSessionToStorage(updated, sessionIdRef.current)
+                    // Save partial response for crash recovery (throttled to every 500ms)
+                    if (shouldSave) {
+                      saveSessionToStorage(updated, sessionIdRef.current)
+                    }
                     return updated
                   })
                 }
@@ -526,7 +549,40 @@ export default function ChatPage() {
         onToggleSidebar={() => setShowSidebar(prev => !prev)}
         onNewChat={newChat}
         model={model}
-        onModelChange={setModel}
+        agent={agent}
+        onAgentChange={setAgent}
+        temperature={temperature}
+        maxTokens={maxTokens}
+        onTemperatureChange={setTemperature}
+        onMaxTokensChange={setMaxTokens}
+        onModelChange={async (newModel) => {
+          setModel(newModel)
+          try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+            let loadResult
+            // local/step_0 uses /load endpoint for .pt files
+            if (newModel.startsWith('local/') && !newModel.endsWith('.sou')) {
+              const res = await fetch(`${apiUrl}/load`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model_path: `models/${newModel.replace('local/', '')}.pt` }),
+              })
+              loadResult = await res.json()
+            } else {
+              // Use /models/load for HF models
+              const res = await fetch(`${apiUrl}/models/load`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model_id: newModel, mode: 'local' }),
+              })
+              loadResult = await res.json()
+            }
+            refreshHealth()
+            showToast(`Loaded ${newModel}`)
+          } catch (e) {
+            showToast(`Failed to load ${newModel}`, 'error')
+          }
+        }}
         models={availableModels}
       />
 

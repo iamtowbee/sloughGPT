@@ -14,34 +14,34 @@ function ChatBubbleIcon({ className }: { className?: string }) {
 
 export function EmptyState({ hasModel }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+    <div className="flex flex-col items-center justify-center gap-4 py-10 text-center">
       <div className="relative">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-          <ChatBubbleIcon className="h-8 w-8 text-primary/60" />
+        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm">
+          <ChatBubbleIcon className="h-7 w-7 text-primary/70" />
         </div>
-        <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-primary/20">
-          <span className="text-[10px] font-medium">AI</span>
+        <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 border-2 border-background">
+          <span className="text-[9px] font-semibold text-primary">AI</span>
         </div>
       </div>
-      <div className="space-y-1">
-        <p className="text-sm font-medium text-foreground">
-          {hasModel ? 'Ready to chat' : 'Model loading...'}
+      <div className="space-y-1.5">
+        <p className="text-sm font-semibold text-foreground">
+          {hasModel ? 'Ready to chat' : 'Loading model...'}
         </p>
-        <p className="text-xs text-muted-foreground max-w-[200px]">
+        <p className="text-xs text-muted-foreground/80 max-w-[220px]">
           {hasModel 
             ? 'Send a message to start a conversation' 
             : 'Please wait while the model initializes'}
         </p>
       </div>
-      <div className="flex items-center gap-4 text-[10px] text-muted-foreground/60">
+      <div className="flex items-center gap-2 text-[10px] text-muted-foreground/60 bg-muted/40 px-3 py-1.5 rounded-full">
         <span className="flex items-center gap-1">
-          <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">Enter</kbd>
-          to send
+          <kbd className="rounded bg-background px-1.5 py-0.5 font-mono text-[9px] shadow-sm border">↵</kbd>
+          <span>send</span>
         </span>
-        <span>•</span>
+        <span className="text-muted-foreground/40">|</span>
         <span className="flex items-center gap-1">
-          <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">Shift</kbd>
-          + Enter for new line
+          <kbd className="rounded bg-background px-1.5 py-0.5 font-mono text-[9px] shadow-sm border">Shift</kbd>
+          <span>+ Enter for new line</span>
         </span>
       </div>
     </div>

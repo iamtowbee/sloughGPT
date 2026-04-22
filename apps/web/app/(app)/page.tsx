@@ -20,6 +20,7 @@ import { PUBLIC_API_URL, WEB_UI_VERSION } from '@/lib/config'
 
 const features = [
   { title: 'Chat', Icon: IconChat, href: '/chat', desc: 'Talk to a loaded model' },
+  { title: 'Auto-Train', Icon: IconTraining, href: '/auto-train', desc: 'Model self-trains' },
   { title: 'Models', Icon: IconModels, href: '/models', desc: 'Load & manage models' },
   { title: 'Training', Icon: IconTraining, href: '/training', desc: 'Jobs via HTTP API' },
   { title: 'Datasets', Icon: IconDatasets, href: '/datasets', desc: 'Corpus listing' },

@@ -6,13 +6,6 @@ This module is deprecated. Use domains.cognitive.knowledge_graph_v2 instead.
 Canonical: KnowledgeGraphV2
 """
 
-import warnings
-warnings.warn(
-    "domains.cognitive.knowledge_graph is deprecated. Use domains.cognitive.knowledge_graph_v2 instead.",
-    DeprecationWarning,
-    stacklevel=2
-)
-
 # Re-export v2 as the canonical implementation
 from domains.cognitive.knowledge_graph_v2 import (
     KnowledgeGraph,

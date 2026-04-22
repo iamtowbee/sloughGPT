@@ -115,29 +115,36 @@ Run all commands from the repository root unless noted.
 
        make train-demo
 
-     Or a slightly longer char-LM run:
-
-       python3 cli.py train --dataset shakespeare --max-steps 80 --checkpoint-dir ckpts
-
   4. HTTP API (needed for the web console + `cli.py chat` against localhost):
 
-       python3 apps/api/server/main.py
-
-     Docs: http://localhost:8000/docs
+       python3 cli.py dev
 
   5. Web UI (separate terminal):
 
        cd apps/web && npm install && npm run dev
 
-     Open http://localhost:3000  (set NEXT_PUBLIC_API_URL if the API is not on :8000)
+      Open http://localhost:3000
 
-  6. Colab walkthrough: sloughgpt_colab.ipynb (README → Google Colab)
+  6. Colab walkthrough: sloughgpt_colab.ipynb
 
 Repository root detected: {root}
 
 More: python3 cli.py --help  ·  docs/STRUCTURE.md  ·  QUICKSTART.md
 """.strip()
     )
+
+
+def cmd_dev(args):
+    """Start API and Web servers - runs run_dev.py."""
+    root = _chat_repository_root()
+    model = getattr(args, "model", None)
+
+    if model:
+        os.environ["SLOUGHGT_MODEL_PATH"] = model
+
+    # Run the dev script
+    script = root / "run_dev.py"
+    os.execv(sys.executable, [str(script)])
 
 
 def _train_export_stem_slug(part: str, fallback: str) -> str:
@@ -512,10 +519,31 @@ def cmd_quick(args):
     print(f"  Mixed Precision: {'✅' if config.use_mixed_precision else '❌'}")
     print(f"  torch.compile: {'✅' if config.use_compile else '❌'}")
 
-    print(f"\nLoading data from {args.dataset}...")
+    if args.datasets:
+        datasets = [d.strip() for d in args.datasets.split(",") if d.strip()]
+        ratios = None
+        if args.ratios:
+            try:
+                ratios = [float(r.strip()) for r in args.ratios.split(",")]
+                if len(ratios) != len(datasets):
+                    print("Warning: ratios count != datasets count, ignoring ratios")
+                    ratios = None
+            except ValueError:
+                print("Warning: invalid ratios format, ignoring")
+                ratios = None
+
+        if ratios:
+            print(f"\nLoading data from {len(datasets)} datasets with ratios: {dict(zip(datasets, ratios))}")
+            data_path = list(zip(datasets, ratios))
+        else:
+            print(f"\nLoading data from {len(datasets)} datasets: {datasets}")
+            data_path = datasets
+    else:
+        print(f"\nLoading data from {args.dataset}...")
+        data_path = args.dataset
 
     trainer = SloughGPTTrainer(
-        data_path=args.dataset,
+        data_path=data_path,
         n_embed=args.embed,
         n_layer=args.layers,
         n_head=args.heads,
@@ -528,6 +556,21 @@ def cmd_quick(args):
         soul_name=getattr(args, "soul_name", "SloughGPT-Quick"),
         config=config,
     )
+
+    PRESETS = {
+        "tiny": {"embed": 64, "layers": 2, "heads": 2, "block": 64},
+        "small": {"embed": 128, "layers": 4, "heads": 4, "block": 128},
+        "medium": {"embed": 256, "layers": 6, "heads": 8, "block": 128},
+        "large": {"embed": 512, "layers": 12, "heads": 16, "block": 256},
+    }
+
+    if getattr(args, "preset", None) and args.preset in PRESETS:
+        p = PRESETS[args.preset]
+        trainer.config.n_embed = p["embed"]
+        trainer.config.n_layer = p["layers"]
+        trainer.config.n_head = p["heads"]
+        trainer.config.block_size = p["block"]
+        print(f"\nUsing preset {args.preset}: embed={p['embed']}, layers={p['layers']}, heads={p['heads']}")
 
     print(f"\nModel: {trainer.model.num_parameters():,} params")
 
@@ -610,6 +653,59 @@ def cmd_demo(args):
 
     print("\n" + "=" * 60)
     print("Demo complete!")
+
+
+def cmd_self_train(args):
+    """Run self-training loop."""
+    import subprocess
+    import sys
+    
+    script = Path("scripts/self_train.py")
+    if not script.exists():
+        print("Error: scripts/self_train.py not found")
+        sys.exit(1)
+    
+    cmd = [sys.executable, str(script)]
+    if args.forever:
+        cmd.append("--forever")
+    else:
+        cmd.extend(["--steps", str(args.steps)])
+    if args.model != "gpt2":
+        cmd.extend(["--model", args.model])
+    cmd.extend(["--temperature", str(args.temperature)])
+    cmd.extend(["--max_tokens", str(args.max_tokens)])
+    cmd.extend(["--seed", args.seed])
+    
+    print(f"Starting self-training: {' '.join(cmd)}")
+    print("Press Ctrl+C to stop\n")
+    
+    subprocess.run(cmd)
+
+
+def _autotrain_cmd(action: str, args):
+    """Control auto-training via API."""
+    import requests
+
+    host = getattr(args, 'host', '127.0.0.1')
+    port = getattr(args, 'port', 8000)
+    api_url = f"http://{host}:{port}"
+
+    if action == "start":
+        resp = requests.post(
+            f"{api_url}/auto-train/start",
+            json={
+                "teacher": getattr(args, "teacher", "gpt2"),
+                "temperature": getattr(args, "temperature", 0.8),
+                "max_steps": getattr(args, "steps", 1000),
+            }
+        )
+        print(f"Auto-train started: {resp.json()}")
+    elif action == "stop":
+        resp = requests.post(f"{api_url}/auto-train/stop")
+        print(f"Auto-train stopped: {resp.json()}")
+    elif action == "status":
+        resp = requests.get(f"{api_url}/auto-train/status")
+        print(f"Auto-train status: {resp.json()}")
 
 
 def cmd_rlhf_demo(args):
@@ -1155,34 +1251,52 @@ def cmd_train(args):
 def cmd_status(args):
     """Get system status - local version."""
     from pathlib import Path
-
-    print("=" * 50)
-    print("SloughGPT System Status")
-    print("=" * 50)
-
-    # Check models
-    models_dir = Path("models")
-    if models_dir.exists():
-        models = list(models_dir.rglob("*.pt")) + list(models_dir.rglob("*.pth"))
-        print(f"\nModels: {len(models)} found")
-        for m in models[:5]:
-            print(f"  - {m}")
+    import time
+    
+    def print_status():
+        print("\033[2J\033[H")  # Clear screen
+        print("=" * 50)
+        print("SloughGPT System Status")
+        print("=" * 50)
+        
+        # Check API
+        import requests
+        try:
+            r = requests.get(f"http://localhost:8000/health", timeout=2)
+            print(f"\nAPI: {'✓ Online' if r.status_code == 200 else '✗ Offline'}")
+        except:
+            print("\nAPI: ✗ Not running")
+        
+        # Check models
+        models_dir = Path("models")
+        if models_dir.exists():
+            models = list(models_dir.rglob("*.pt")) + list(models_dir.rglob("*.pth"))
+            print(f"Models: {len(models)} found")
+            for m in models[:3]:
+                print(f"  - {m}")
+        else:
+            print("Models: directory not found")
+        
+        # Check datasets
+        datasets_dir = Path("datasets")
+        if datasets_dir.exists():
+            datasets = list(datasets_dir.iterdir())
+            print(f"Datasets: {len(datasets)} found")
+            for d in datasets[:3]:
+                print(f"  - {d.name}")
+        else:
+            print("Datasets: directory not found")
+        
+        print("\n" + "=" * 50)
+    
+    if args.watch:
+        while True:
+            print_status()
+            time.sleep(args.interval)
     else:
-        print("\nModels: directory not found")
-
-    # Check datasets
-    datasets_dir = Path("datasets")
-    if datasets_dir.exists():
-        datasets = list(datasets_dir.iterdir())
-        print(f"\nDatasets: {len(datasets)} found")
-        for d in datasets[:5]:
-            print(f"  - {d.name}")
-    else:
-        print("\nDatasets: directory not found")
-
-    print("\n" + "=" * 50)
-    print("Run 'python3 cli.py quick --help' to train a model")
-    print("=" * 50)
+        print_status()
+        print("Use --watch to auto-refresh")
+        print("=" * 50)
 
 
 def cmd_health(args):
@@ -1497,12 +1611,17 @@ def cmd_soul(args):
 def cmd_datasets(args):
     """List datasets - local version."""
     from pathlib import Path
+    import json
 
     datasets_dir = Path("datasets")
-
-    if not datasets_dir.exists():
-        print("No datasets directory found")
-        return
+    registry_file = datasets_dir / "registry.json"
+    registry = {}
+    if registry_file.exists():
+        try:
+            with open(registry_file) as f:
+                registry = json.load(f)
+        except Exception:
+            pass
 
     print("=" * 60)
     print("Datasets")
@@ -1515,10 +1634,12 @@ def cmd_datasets(args):
             total_size += size
             size_kb = size / 1024
             size_mb = size_kb / 1024
+            reg_info = registry.get(ds.name, {})
+            vocab = reg_info.get("meta", {}).get("vocab_size", "?")
             if size_mb > 1:
-                print(f"  📁 {ds.name}: {size_mb:.1f} MB")
+                print(f"  📁 {ds.name}: {size_mb:.1f} MB | vocab={vocab}")
             else:
-                print(f"  📁 {ds.name}: {size_kb:.1f} KB")
+                print(f"  📁 {ds.name}: {size_kb:.1f} KB | vocab={vocab}")
         elif ds.is_file():
             size = ds.stat().st_size
             total_size += size
@@ -1530,6 +1651,186 @@ def cmd_datasets(args):
                 print(f"  📄 {ds.name}: {size_kb:.1f} KB")
 
     print(f"\nTotal: {total_size / (1024 * 1024):.1f} MB")
+
+
+def cmd_dataset_import(args, source: str):
+    """Import datasets from various sources."""
+    datasets_dir = Path("datasets")
+    datasets_dir.mkdir(exist_ok=True)
+
+    if source == "github":
+        url = args.url
+        name = args.name or url.split("/")[-1].replace(".git", "")
+        print(f"Importing from GitHub: {url}")
+        print(f"Name: {name}")
+
+        try:
+            from domains.training.data_import import RepoImporter
+
+            repo = RepoImporter()
+            result = repo.import_from_github(
+                url=url,
+                dataset_name=name,
+                output_path=f"datasets/{name}",
+            )
+
+            if result.success:
+                print(f"✅ Imported {result.files_imported} files ({result.total_chars} chars)")
+                print(f"   Location: {result.output_path}")
+            else:
+                print(f"❌ Failed: {result.error}")
+        except Exception as e:
+            print(f"❌ Error: {e}")
+
+    elif source == "hf":
+        dataset_id = args.dataset_id
+        name = args.name or dataset_id.split("/")[-1]
+        print(f"Importing from HuggingFace: {dataset_id}")
+
+        try:
+            from domains.training.data_import import HuggingFaceImporter
+
+            hf = HuggingFaceImporter()
+            result = hf.download_dataset(
+                dataset_id=dataset_id,
+                name=name,
+                output_dir="datasets",
+            )
+
+            if result.success:
+                print(f"✅ Imported {result.files_imported} files")
+                print(f"   Location: {result.output_path}")
+            else:
+                print(f"❌ Failed: {result.error}")
+        except Exception as e:
+            print(f"❌ Error: {e}")
+
+    elif source == "url":
+        import requests
+
+        url = args.url
+        name = args.name
+        output_dir = datasets_dir / name
+        output_dir.mkdir(exist_ok=True)
+
+        print(f"Downloading from URL: {url}")
+
+        try:
+            r = requests.get(url, timeout=30)
+            r.raise_for_status()
+
+            if url.endswith(".jsonl"):
+                output_file = output_dir / "corpus.jsonl"
+            else:
+                output_file = output_dir / "input.txt"
+
+            with open(output_file, "w") as f:
+                f.write(r.text)
+
+            size = len(r.text)
+            print(f"✅ Downloaded {size:,} chars")
+            print(f"   Location: {output_dir}")
+        except Exception as e:
+            print(f"❌ Error: {e}")
+
+
+def cmd_dataset_search(args):
+    """Search online for datasets."""
+    query = args.query
+    source = getattr(args, "source", "hf")
+
+    if source == "hf":
+        print(f"Searching HuggingFace for: {query}")
+        try:
+            from domains.training.data_import import HuggingFaceImporter
+            results = HuggingFaceImporter().search_datasets(query=query, limit=args.limit)
+            if results:
+                print(f"\nFound {len(results)} datasets:")
+                for r in results:
+                    print(f"  • {r['id']} ({r.get('downloads', 0):,} downloads)")
+            else:
+                print("No results found")
+        except ImportError as e:
+            print(f"Install huggingface_hub: {e}")
+        except Exception as e:
+            print(f"Error: {e}")
+    else:
+        print(f"Searching GitHub for: {query}")
+        try:
+            from domains.training.data_import import GitHubSearch
+            results = GitHubSearch().search_repos(query=query, limit=args.limit)
+            if results:
+                print(f"\nFound {len(results)} repositories:")
+                for r in results:
+                    print(f"  • {r['full_name']} - {r.get('description', '')[:60]}")
+                    print(f"    ⭐ {r.get('stargazers_count', 0)} | 🍴 {r.get('forks_count', 0)}")
+            else:
+                print("No results found")
+        except Exception as e:
+            print(f"Error: {e}")
+
+
+def cmd_dataset_export(args):
+    """Export dataset to zip archive."""
+    import shutil
+
+    name = args.name
+    output = args.output or f"{name}.zip"
+
+    dataset_path = Path("datasets") / name
+    if not dataset_path.exists():
+        print(f"Dataset not found: {name}")
+        return
+
+    print(f"Exporting {name} -> {output}")
+    shutil.make_archive(output.replace(".zip", ""), "zip", ".", dataset_path)
+    print(f"✅ Exported: {output}")
+
+
+def cmd_dataset_stats(args):
+    """Show detailed dataset statistics."""
+    name = args.name
+    dataset_path = Path("datasets") / name
+
+    if not dataset_path.exists():
+        print(f"Dataset not found: {name}")
+        return
+
+    print(f"\n📊 Dataset: {name}")
+    print("=" * 40)
+
+    corpus = dataset_path / "corpus.jsonl"
+    input_txt = dataset_path / "input.txt"
+
+    if corpus.exists():
+        size = corpus.stat().st_size
+        lines = sum(1 for _ in open(corpus))
+        chars = sum(len(l) for l in open(corpus))
+
+        print(f"Type: corpus (JSONL)")
+        print(f"Size: {size / (1024 * 1024):.2f} MB")
+        print(f"Lines: {lines}")
+        print(f"Chars: {chars:,}")
+
+        with open(corpus) as f:
+            first = f.readline()
+            import json
+
+            try:
+                obj = json.loads(first)
+                print(f"Fields: {', '.join(obj.keys())}")
+            except:
+                pass
+
+    elif input_txt.exists():
+        size = input_txt.stat().st_size
+        lines = sum(1 for _ in open(input_txt))
+        print(f"Type: text")
+        print(f"Size: {size / (1024 * 1024):.2f} MB")
+        print(f"Lines: {lines}")
+
+    else:
+        print("Empty dataset")
 
     print("\n💡 USAGE:")
     print("  python3 cli.py data stats <path>   # Get dataset statistics")
@@ -2937,6 +3238,14 @@ def main():
     )
     start_parser.set_defaults(func=cmd_start)
 
+    # Dev servers — run external dev script
+    dev_parser = subparsers.add_parser(
+        "dev",
+        help="Start API and Web servers (runs run_dev.py)",
+    )
+    dev_parser.add_argument("--model", default=None, help="Model path (env SLOUGHGT_MODEL_PATH)")
+    dev_parser.set_defaults(func=cmd_dev)
+
     # Chat — interactive session against the FastAPI stack (auto-starts dev server if needed)
     chat_parser = subparsers.add_parser(
         "chat",
@@ -3026,7 +3335,22 @@ def main():
     )
     tr_basic = train_parser.add_argument_group("Basics")
     tr_basic.add_argument(
-        "--dataset", default="shakespeare", help="Dataset folder name under datasets/"
+        "--dataset", default="shakespeare", help="Single dataset (use --datasets for multiple)"
+    )
+    tr_basic.add_argument(
+        "--datasets",
+        default="",
+        help="Multiple datasets (comma-separated, e.g., shakespeare,code,mydata)",
+    )
+    tr_basic.add_argument(
+        "--ratios",
+        default="",
+        help="Dataset ratios for multi-dataset (e.g., 0.7,0.3 for 2 datasets)",
+    )
+    tr_basic.add_argument(
+        "--preset",
+        choices=["tiny", "small", "medium", "large"],
+        help="Model size preset (overrides --embed/--layers/--heads)",
     )
     tr_basic.add_argument(
         "--epochs", type=int, default=3, help="Epochs (combined with --max-steps; see trainer)"
@@ -3237,6 +3561,22 @@ def main():
         ),
     )
     train_parser.set_defaults(func=cmd_train)
+
+    # Auto-train subcommand (controls API auto-train)
+    autotrain_parser = subparsers.add_parser(
+        "autotrain",
+        help="Control auto-training loop (via API server)",
+    )
+    autotrain_sub = autotrain_parser.add_subparsers(dest="autotrain_action", metavar="ACTION")
+    autotrain_start = autotrain_sub.add_parser("start", help="Start auto-training")
+    autotrain_start.add_argument("--teacher", default="gpt2", help="Teacher model")
+    autotrain_start.add_argument("--temperature", type=float, default=0.8)
+    autotrain_start.add_argument("--steps", type=int, default=1000, help="Max steps")
+    autotrain_start.set_defaults(func=lambda a: _autotrain_cmd("start", a))
+    autotrain_stop = autotrain_sub.add_parser("stop", help="Stop auto-training")
+    autotrain_stop.set_defaults(func=lambda a: _autotrain_cmd("stop", a))
+    autotrain_status = autotrain_sub.add_parser("status", help="Check auto-train status")
+    autotrain_status.set_defaults(func=lambda a: _autotrain_cmd("status", a))
 
     # Export command
     # =========================================================================
@@ -3474,6 +3814,19 @@ Examples:
     rlhf_parser.add_argument("--steps", type=int, default=20, help="Optimizer steps for the demo")
     rlhf_parser.set_defaults(func=cmd_rlhf_demo)
 
+    # Self-training command
+    self_train_parser = subparsers.add_parser(
+        "self-train",
+        help="Model talks to itself (gpt2 generates → output becomes next input)",
+    )
+    self_train_parser.add_argument("--steps", type=int, default=1000, help="Max generations")
+    self_train_parser.add_argument("--model", default="gpt2", help="Model to use")
+    self_train_parser.add_argument("--temperature", type=float, default=0.8)
+    self_train_parser.add_argument("--max-tokens", type=int, default=50, help="Max new tokens per generation")
+    self_train_parser.add_argument("--seed", default="Hello", help="Starting text")
+    self_train_parser.add_argument("--forever", action="store_true", help="Run until ctrl+c")
+    self_train_parser.set_defaults(func=cmd_self_train)
+
     cloud_parser = subparsers.add_parser(
         "cloud",
         help="Bootstrap Pinecone credentials for vector/RAG experiments",
@@ -3508,6 +3861,8 @@ Examples:
         "status",
         help="Print high-level runtime status strings from the toolkit",
     )
+    status_parser.add_argument("--watch", action="store_true", help="Auto-refresh status")
+    status_parser.add_argument("--interval", type=int, default=3, help="Refresh interval (seconds)")
     status_parser.set_defaults(func=cmd_status)
 
     info_parser = subparsers.add_parser(
@@ -3591,6 +3946,46 @@ Examples:
         help="List known dataset folders under datasets/",
     )
     datasets_parser.set_defaults(func=cmd_datasets)
+
+    # Datasets subcommands for import
+    ds_sub = datasets_parser.add_subparsers(dest="ds_cmd", metavar="IMPORT")
+    ds_sub.add_parser("list", help="List datasets").set_defaults(func=cmd_datasets)
+
+    # Search online datasets
+    ds_search = ds_sub.add_parser("search", help="Search online datasets")
+    ds_search.add_argument("query", help="Search query")
+    ds_search.add_argument("--limit", "-n", type=int, default=10, help="Max results")
+    ds_search.add_argument("--source", default="hf", choices=["hf", "github"], help="Search source")
+    ds_search.set_defaults(func=cmd_dataset_search)
+
+    # Import from GitHub
+    gh_imp = ds_sub.add_parser("github", help="Import from GitHub repository")
+    gh_imp.add_argument("url", help="GitHub repo URL")
+    gh_imp.add_argument("name", nargs="?", help="Dataset name")
+    gh_imp.set_defaults(func=lambda a: cmd_dataset_import(a, "github"))
+
+    # Import from HuggingFace  
+    hf_imp = ds_sub.add_parser("hf", help="Import from HuggingFace Hub")
+    hf_imp.add_argument("dataset_id", help="HuggingFace dataset ID")
+    hf_imp.add_argument("name", nargs="?", help="Dataset name")
+    hf_imp.set_defaults(func=lambda a: cmd_dataset_import(a, "hf"))
+
+    # URL import
+    url_imp = ds_sub.add_parser("url", help="Import from URL")
+    url_imp.add_argument("url", help="URL to download")
+    url_imp.add_argument("name", help="Dataset name")
+    url_imp.set_defaults(func=lambda a: cmd_dataset_import(a, "url"))
+
+    # Stats for a dataset
+    ds_stats = ds_sub.add_parser("stats", help="Show dataset statistics")
+    ds_stats.add_argument("name", help="Dataset name")
+    ds_stats.set_defaults(func=lambda a: cmd_dataset_stats(a))
+
+    # Export dataset
+    ds_export = ds_sub.add_parser("export", help="Export dataset to zip archive")
+    ds_export.add_argument("name", help="Dataset name")
+    ds_export.add_argument("--output", "-o", help="Output zip file (default: name.zip)")
+    ds_export.set_defaults(func=cmd_dataset_export)
 
     models_parser = subparsers.add_parser(
         "models",

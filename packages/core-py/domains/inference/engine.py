@@ -47,6 +47,19 @@ class BatchedRequest:
     position: int = 0
 
 
+@dataclass
+class GenerationConfig:
+    """Configuration for text generation."""
+
+    max_new_tokens: int = 100
+    temperature: float = 0.8
+    top_k: int = 50
+    top_p: float = 0.9
+    repetition_penalty: float = 1.0
+    do_sample: bool = True
+    seed: Optional[int] = None
+
+
 class KVCache:
     """Key-Value cache for transformer layers."""
 

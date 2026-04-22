@@ -101,7 +101,7 @@ export interface Dataset {
   path?: string
 }
 
-export type ImportSource = 'github' | 'huggingface' | 'url' | 'local' | 'kaggle' | 'csv'
+export type ImportSource = 'github' | 'huggingface' | 'url' | 'local' | 'kaggle' | 'csv' | 'isbn'
 
 export interface DatasetPreview {
   dataset_id: string
@@ -170,6 +170,15 @@ export interface GitHubRepo {
   language: string | null
 }
 
+export interface BookResult {
+  key: string
+  title: string
+  author: string
+  isbn: string
+  year: number | null
+  cover: number | null
+}
+
 export interface GenerateRequest {
   prompt: string
   model?: string
@@ -201,6 +210,8 @@ export interface ChatCompletionRequest {
   temperature?: number
   top_p?: number
   top_k?: number
+  system_prompt?: string
+  knowledge?: { content: string; source: string }[]
 }
 
 function buildChatPayload(req: ChatCompletionRequest) {
@@ -211,6 +222,8 @@ function buildChatPayload(req: ChatCompletionRequest) {
     top_p: req.top_p ?? 0.9,
     top_k: req.top_k ?? 50,
     ...(req.model != null && req.model !== '' ? { model: req.model } : {}),
+    ...(req.system_prompt ? { system_prompt: req.system_prompt } : {}),
+    ...(req.knowledge ? { knowledge: req.knowledge } : {}),
   }
 }
 
@@ -243,6 +256,9 @@ export interface ApiHealth {
   model_type: string
   soul_engine_active?: boolean
   soul_name?: string | null
+  vocab_size?: number
+  block_size?: number
+  num_parameters?: number
 }
 
 /** Body shape for `POST /inference/generate` and `/inference/generate/stream` (see server `GenerateRequest`). */
@@ -1000,6 +1016,26 @@ export const api = {
     return res.json()
   },
 
+  // Self-training
+  async startSelfTrain(params: { model?: string; temperature?: number; forever?: boolean } = {}) {
+    const res = await fetchWithAuth(`${API_URL}/self-train/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    })
+    return res.json()
+  },
+
+  async getSelfTrainStatus() {
+    const res = await fetchWithAuth(`${API_URL}/self-train/status`)
+    return res.json()
+  },
+
+  async stopSelfTrain() {
+    const res = await fetchWithAuth(`${API_URL}/self-train/stop`, { method: 'POST' })
+    return res.json()
+  },
+
   async inferV1(body: StandardInferRequest): Promise<StandardInferResponse> {
     const res = await fetchWithAuth(`${API_URL}/v1/infer`, {
       method: 'POST',
@@ -1057,7 +1093,7 @@ export const api = {
     }>
     message: string
   }> {
-    const res = await fetchWithAuth(`${API_URL}/training/recovery/check?timeout_seconds=${timeoutSeconds}`)
+    const res = await fetchWithAuth(`${API_URL}/recovery/check?timeout_seconds=${timeoutSeconds}`)
     if (!res.ok) {
       throw new Error(`Check crashed jobs failed (${res.status})`)
     }
@@ -1075,7 +1111,7 @@ export const api = {
       checkpoint_path?: string
     }>
   }> {
-    const res = await fetchWithAuth(`${API_URL}/training/recovery/recoverable`)
+    const res = await fetchWithAuth(`${API_URL}/recovery/recoverable`)
     if (!res.ok) {
       throw new Error(`Get recoverable jobs failed (${res.status})`)
     }
@@ -1089,7 +1125,7 @@ export const api = {
     checkpoint_path: string
     message: string
   }> {
-    const res = await fetchWithAuth(`${API_URL}/training/recovery/recover/${jobId}`, {
+    const res = await fetchWithAuth(`${API_URL}/recovery/recover/${jobId}`, {
       method: 'POST',
     })
     if (!res.ok) {
@@ -1103,7 +1139,7 @@ export const api = {
     job_id: string
     message: string
   }> {
-    const res = await fetchWithAuth(`${API_URL}/training/recovery/abandon/${jobId}`, {
+    const res = await fetchWithAuth(`${API_URL}/recovery/abandon/${jobId}`, {
       method: 'DELETE',
     })
     if (!res.ok) {
@@ -1121,7 +1157,7 @@ export const api = {
     crashed_jobs: number
     recoverable_jobs: number
   }> {
-    const res = await fetchWithAuth(`${API_URL}/training/recovery/stats`)
+    const res = await fetchWithAuth(`${API_URL}/recovery/stats`)
     if (!res.ok) {
       throw new Error(`Get recovery stats failed (${res.status})`)
     }
@@ -1420,6 +1456,14 @@ export const api = {
     const res = await fetchWithAuth(`${API_URL}/datasets/search/github?query=${encodeURIComponent(query)}&limit=${limit}`)
     if (!res.ok) {
       throw new Error(`GitHub search failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  async searchBooks(query: string, limit = 10): Promise<{ books: BookResult[] }> {
+    const res = await fetchWithAuth(`${API_URL}/datasets/search/books?query=${encodeURIComponent(query)}&limit=${limit}`)
+    if (!res.ok) {
+      throw new Error(`Books search failed (${res.status})`)
     }
     return res.json()
   },

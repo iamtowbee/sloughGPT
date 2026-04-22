@@ -195,11 +195,33 @@ export function ModelStatusBar({ health }: { health: ApiHealthSnapshot }) {
 
   if (health.model_loaded) {
     return (
-      <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1">
+      <div className="group relative flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1">
         <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
         <span className="font-mono text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
           {health.model_type}
         </span>
+        {health.vocab_size && (
+          <div className="invisible absolute right-0 top-full z-50 mt-2 min-w-32 rounded-lg border bg-background p-2 shadow-lg group-hover:visible">
+            <div className="text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Vocab</span>
+                <span className="font-mono">{health.vocab_size}</span>
+              </div>
+              {health.block_size && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Block</span>
+                  <span className="font-mono">{health.block_size}</span>
+                </div>
+              )}
+              {health.num_parameters && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Params</span>
+                  <span className="font-mono">{(health.num_parameters / 1000).toFixed(0)}K</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     )
   }

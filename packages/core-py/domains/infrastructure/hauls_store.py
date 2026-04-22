@@ -10,6 +10,7 @@ import sqlite3
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Any
 from dataclasses import dataclass
+from datetime import datetime
 import numpy as np
 
 
@@ -19,6 +20,31 @@ try:
     SENTENCE_TRANSFORMERS_AVAILABLE = True
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
+
+# Injection patterns to block
+INJECTION_PATTERNS = [
+    "ignore previous",
+    "disregard previous",
+    "ignore all rules",
+    "system prompt",
+    "you are now",
+    "new instructions",
+    "remove previous",
+    "forget everything",
+    "[important",
+]
+
+
+def sanitize(content: str) -> str:
+    """Sanitize content to prevent prompt injection."""
+    cleaned = content.strip()
+    lower = cleaned.lower()
+    for pattern in INJECTION_PATTERNS:
+        if pattern in lower:
+            raise ValueError(f"Blocked: suspicious pattern '{pattern}'")
+    if cleaned.startswith("[") and "IMPORTANT" in cleaned.upper():
+        raise ValueError("Blocked: potential prompt injection")
+    return cleaned
 
 
 @dataclass
@@ -112,16 +138,18 @@ class HaulsStore:
         return np.random.randn(self.dimension)
 
     def add_document(self, content: str, metadata: Optional[Dict] = None) -> str:
-        """Add a document to the store."""
-        doc_id = hashlib.sha256(content.encode()).hexdigest()[:16]
+        """Add a document to the store. Sanitizes content to prevent injection."""
+        safe_content = sanitize(content)
+        doc_id = hashlib.sha256(safe_content.encode()).hexdigest()[:16]
 
-        embedding = self._get_embedding(content)
+        embedding = self._get_embedding(safe_content)
 
         document = Document(
             id=doc_id,
-            content=content,
+            content=safe_content,
             metadata=metadata or {},
             embedding=embedding,
+            created_at=datetime.now().isoformat(),
         )
 
         self.documents[doc_id] = document
