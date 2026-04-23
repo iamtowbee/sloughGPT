@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 import { AppRouteHeader, AppRouteHeaderLead } from '@/components/AppRouteHeader'
 import {
@@ -22,45 +22,14 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { PUBLIC_API_URL } from '@/lib/config'
-
-interface Settings {
-  apiUrl: string
-  hfToken: string
-  defaultModel: string
-  defaultTemp: number
-  defaultMaxTokens: number
-  theme: 'dark' | 'light' | 'system'
-  streaming: boolean
-  customContext: string
-}
+import { useSettings, useUpdateSettings } from '@/lib/store'
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<Settings>({
-    apiUrl: PUBLIC_API_URL,
-    hfToken: '',
-    defaultModel: 'gpt2',
-    defaultTemp: 0.8,
-    defaultMaxTokens: 200,
-    theme: 'light',
-    streaming: true,
-    customContext: '',
-  })
+  const settings = useSettings()
+  const updateSettings = useUpdateSettings()
   const [saved, setSaved] = useState(false)
 
-  useEffect(() => {
-    const stored = localStorage.getItem('sloughgpt_settings')
-    if (stored) {
-      try {
-        setSettings((s) => ({ ...s, ...JSON.parse(stored) }))
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [])
-
   const saveSettings = () => {
-    localStorage.setItem('sloughgpt_settings', JSON.stringify(settings))
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -100,7 +69,7 @@ export default function SettingsPage() {
                   id="api-url"
                   type="text"
                   value={settings.apiUrl}
-                  onChange={(e) => setSettings({ ...settings, apiUrl: e.target.value })}
+                  onChange={(e) => updateSettings({ apiUrl: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -109,7 +78,7 @@ export default function SettingsPage() {
                   id="hf-token"
                   type="password"
                   value={settings.hfToken}
-                  onChange={(e) => setSettings({ ...settings, hfToken: e.target.value })}
+                  onChange={(e) => updateSettings({ hfToken: e.target.value })}
                   placeholder="hf_…"
                 />
               </div>
@@ -120,7 +89,7 @@ export default function SettingsPage() {
                 </div>
                 <Switch
                   checked={settings.streaming}
-                  onCheckedChange={(streaming) => setSettings({ ...settings, streaming })}
+                  onCheckedChange={(streaming) => updateSettings({ streaming })}
                 />
               </div>
             </CardContent>
@@ -138,7 +107,7 @@ export default function SettingsPage() {
                 <select
                   id="def-model"
                   value={settings.defaultModel}
-                  onChange={(e) => setSettings({ ...settings, defaultModel: e.target.value })}
+                  onChange={(e) => updateSettings({ defaultModel: e.target.value })}
                   className="sl-input"
                 >
                   <option value="gpt2">GPT-2</option>
@@ -156,7 +125,7 @@ export default function SettingsPage() {
                     max="2"
                     step="0.1"
                     value={settings.defaultTemp}
-                    onChange={(e) => setSettings({ ...settings, defaultTemp: parseFloat(e.target.value) })}
+                    onChange={(e) => updateSettings({ defaultTemp: parseFloat(e.target.value) })}
                     className="h-2 w-full cursor-pointer accent-primary"
                   />
                 </div>
@@ -169,7 +138,7 @@ export default function SettingsPage() {
                     max="1000"
                     step="50"
                     value={settings.defaultMaxTokens}
-                    onChange={(e) => setSettings({ ...settings, defaultMaxTokens: parseInt(e.target.value, 10) })}
+                    onChange={(e) => updateSettings({ defaultMaxTokens: parseInt(e.target.value, 10) })}
                     className="h-2 w-full cursor-pointer accent-primary"
                   />
                 </div>
@@ -191,7 +160,7 @@ export default function SettingsPage() {
                 className="min-h-[150px]"
                 placeholder="e.g., You are a helpful coding assistant. Keep responses concise..."
                 value={settings.customContext}
-                onChange={(e) => setSettings({ ...settings, customContext: e.target.value })}
+                onChange={(e) => updateSettings({ customContext: e.target.value })}
               />
             </CardContent>
           </Card>

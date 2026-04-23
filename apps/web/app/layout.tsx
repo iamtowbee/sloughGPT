@@ -4,6 +4,7 @@ import { JetBrains_Mono, Outfit } from 'next/font/google'
 
 import { Providers } from './Providers'
 import { MODE_STORAGE_KEY, THEME_IDS, THEME_STORAGE_KEY } from '@/lib/theme-storage'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -41,7 +42,9 @@ export default function RootLayout({
     <html lang="en" className={`${outfit.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <body className="font-sans antialiased">
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapInline }} />
-        <Providers>{children}</Providers>
+        <ErrorBoundary>
+          <Providers>{children}</Providers>
+        </ErrorBoundary>
       </body>
     </html>
   )

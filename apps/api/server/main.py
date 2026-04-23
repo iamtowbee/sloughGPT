@@ -1572,25 +1572,92 @@ def _sanitize_knowledge(text: str) -> str:
     return cleaned
 
 
+_knowledge_store = []
+_knowledge_id_counter = 0
+
+
+class KnowledgeItem(BaseModel):
+    id: str
+    content: str
+    category: str = "general"
+    tags: List[str] = []
+    created_at: str = ""
+    usage_count: int = 0
+
+
+# Initialize knowledge domain system
+_kb = None
+
+def _get_kb():
+    global _kb
+    if _kb is None:
+        from domains.knowledge import get_knowledge_system
+        _kb = get_knowledge_system()
+    return _kb
+
+
 @app.post("/knowledge", tags=["knowledge"])
 async def add_knowledge(body: dict):
-    """Add knowledge items to the knowledge store. DEBUG VERSION."""
-    global _knowledge_store
-    return {"debug": body, "status": "received"}
+    """Add knowledge items to the knowledge store."""
+    kb = _get_kb()
+    content = body.get("content", "")
+    if not content.strip():
+        raise HTTPException(status_code=400, detail="Content is required")
+
+    item = kb.add(
+        content=content.strip(),
+        category=body.get("category", "general"),
+        tags=body.get("tags", []),
+    )
+
+    return {"item": item.to_dict(), "status": "added"}
 
 
 @app.get("/knowledge", tags=["knowledge"])
 async def get_knowledge():
     """Get all knowledge items."""
-    return {"knowledge": _knowledge_store}
+    kb = _get_kb()
+    items = kb.get_all()
+    return {"items": [i.to_dict() for i in items], "count": len(items)}
+
+
+@app.delete("/knowledge/{item_id}", tags=["knowledge"])
+async def delete_knowledge(item_id: str):
+    """Delete a knowledge item by ID."""
+    kb = _get_kb()
+    if not kb.delete(item_id):
+        raise HTTPException(status_code=404, detail="Knowledge item not found")
+    return {"status": "deleted", "item_id": item_id}
 
 
 @app.delete("/knowledge", tags=["knowledge"])
 async def clear_knowledge():
     """Clear all knowledge."""
-    global _knowledge_store
-    _knowledge_store = []
+    kb = _get_kb()
+    kb.clear()
     return {"status": "cleared"}
+
+
+@app.get("/knowledge/search", tags=["knowledge"])
+async def search_knowledge(query: str):
+    """Search knowledge items by content."""
+    kb = _get_kb()
+    results = kb.search(query)
+    return {"results": [i.to_dict() for i in results], "count": len(results)}
+
+
+@app.get("/knowledge/context", tags=["knowledge"])
+async def get_knowledge_context():
+    """Get knowledge context for AI injection."""
+    kb = _get_kb()
+    return {"context": kb.get_context(), "count": len(kb.items)}
+
+
+@app.get("/knowledge/stats", tags=["knowledge"])
+async def get_knowledge_stats():
+    """Get knowledge statistics."""
+    kb = _get_kb()
+    return kb.stats()
 
 
 # ============ Auto-Train API (Teacher-Student) ============
