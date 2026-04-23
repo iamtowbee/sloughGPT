@@ -1921,6 +1921,39 @@ export const api = {
     if (!res.ok) throw new Error('Failed to update generation config')
     return res.json()
   },
+
+  // ===== PERSONALITIES =====
+
+  async getPersonalities(): Promise<Array<{
+    id: string
+    name: string
+    description: string
+    traits: string[]
+    emoji: string
+    temperature: number
+    top_p: number
+  }>> {
+    const res = await fetchWithAuth(`${API_URL}/personalities`)
+    return res.json()
+  },
+
+  // ===== RATE LIMIT =====
+
+  async getRateLimitStatus(): Promise<{
+    requests: number
+    window_seconds: number
+    remaining: number
+    reset: number
+  }> {
+    const res = await fetchWithAuth(`${API_URL}/rate-limit/status`)
+    return res.json()
+  },
+
+  async checkRateLimit(): Promise<{ allowed: boolean; remaining: number; reset: number }> {
+    const res = await fetchWithAuth(`${API_URL}/rate-limit/check`)
+    return res.json()
+  },
+
 }
 
 // ===== TYPE DEFINITIONS =====
