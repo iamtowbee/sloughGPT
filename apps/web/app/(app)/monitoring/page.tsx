@@ -9,8 +9,75 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
 import { api } from '@/lib/api'
+import { cn } from '@/lib/cn'
 
 import { mapInfoToSystemInfo, type SystemInfo, type InfoJson } from '@/lib/monitoring-info'
+
+function MetricCard({ label, value, subValue, color, icon }: {
+  label: string
+  value: string
+  subValue?: string
+  color: 'cpu' | 'memory' | 'gpu' | 'inference'
+  icon?: React.ReactNode
+}) {
+  const colors = {
+    cpu: 'from-blue-500/10 to-blue-600/5 border-blue-500/20',
+    memory: 'from-emerald-500/10 to-emerald-600/5 border-emerald-500/20',
+    gpu: 'from-violet-500/10 to-violet-600/5 border-violet-500/20',
+    inference: 'from-amber-500/10 to-amber-600/5 border-amber-500/20',
+  }
+  const valueColors = {
+    cpu: 'text-blue-600 dark:text-blue-400',
+    memory: 'text-emerald-600 dark:text-emerald-400',
+    gpu: 'text-violet-600 dark:text-violet-400',
+    inference: 'text-amber-600 dark:text-amber-400',
+  }
+  
+  return (
+    <Card className={cn("bg-gradient-to-br border-2", colors[color])}>
+      <CardHeader className="pb-2">
+        <div className="flex items-center gap-2 mb-1">
+          {icon && <span className="text-muted-foreground">{icon}</span>}
+          <CardDescription className="text-xs font-mono uppercase tracking-wider">{label}</CardDescription>
+        </div>
+        <p className={cn("text-2xl font-semibold tabular-nums", valueColors[color])}>
+          {value}
+        </p>
+        {subValue && (
+          <p className="text-xs text-muted-foreground mt-1">{subValue}</p>
+        )}
+      </CardHeader>
+    </Card>
+  )
+}
+
+function StatusIndicator({ status }: { status: 'online' | 'offline' | 'loading' }) {
+  const config = {
+    online: { color: 'bg-green-500', label: 'Online' },
+    offline: { color: 'bg-red-500', label: 'Offline' },
+    loading: { color: 'bg-yellow-500 animate-pulse', label: 'Loading' },
+  }
+  const { color, label } = config[status]
+  
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className={cn("h-2 w-2 rounded-full", color)} />
+      <span className="text-xs text-muted-foreground">{label}</span>
+    </span>
+  )
+}
+
+function HistoryBar({ value, maxValue, color }: { value: number; maxValue?: number; color: string }) {
+  const percentage = maxValue ? Math.min((value / maxValue) * 100, 100) : Math.min(value, 100)
+  return (
+    <div className="flex-1 overflow-hidden bg-muted/50 rounded">
+      <div
+        className={cn("h-4 rounded transition-all duration-500", color)}
+        style={{ width: `${percentage}%` }}
+      />
+    </div>
+  )
+}
 
 export default function MonitoringPage() {
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null)
@@ -145,46 +212,68 @@ export default function MonitoringPage() {
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Card>
+        <MetricCard
+          label="CPU Usage"
+          value={sysInfo?.cpu_percent != null ? `${sysInfo.cpu_percent.toFixed(0)}%` : '—'}
+          color="cpu"
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+            </svg>
+          }
+        />
+        <MetricCard
+          label="Memory"
+          value={
+            sysInfo?.host_metrics_available && sysInfo.memory_total > 0
+              ? `${sysInfo.memory_percent != null ? `${sysInfo.memory_percent.toFixed(0)}%` : '—'}`
+              : '—'
+          }
+          subValue={
+            sysInfo?.host_metrics_available && sysInfo.memory_total > 0
+              ? `${formatBytes(sysInfo.memory_used)} / ${formatBytes(sysInfo.memory_total)}`
+              : undefined
+          }
+          color="memory"
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          }
+        />
+        <MetricCard
+          label="GPU"
+          value={
+            !sysInfo?.gpu_available
+              ? 'N/A'
+              : sysInfo.gpu_percent != null
+                ? `${sysInfo.gpu_percent.toFixed(0)}%`
+                : sysInfo.gpu_memory != null && sysInfo.gpu_used != null
+                  ? `${formatBytes(sysInfo.gpu_used)} / ${formatBytes(sysInfo.gpu_memory)}`
+                  : '—'
+          }
+          subValue={sysInfo?.gpu_name}
+          color="gpu"
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+            </svg>
+          }
+        />
+        <Card className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border-2 border-amber-500/20">
           <CardHeader className="pb-2">
-            <CardDescription className="text-xs font-mono uppercase tracking-wider">CPU usage</CardDescription>
-            <p className="text-2xl font-semibold tabular-nums text-chart-1">
-              {sysInfo?.cpu_percent != null ? `${sysInfo.cpu_percent.toFixed(0)}%` : '—'}
-            </p>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription className="text-xs font-mono uppercase tracking-wider">Memory</CardDescription>
-            <p className="text-lg font-semibold leading-tight text-chart-2">
-              {sysInfo?.host_metrics_available && sysInfo.memory_total > 0
-                ? `${formatBytes(sysInfo.memory_used)} / ${formatBytes(sysInfo.memory_total)}${
-                    sysInfo.memory_percent != null ? ` (${sysInfo.memory_percent.toFixed(0)}%)` : ''
-                  }`
-                : '—'}
-            </p>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription className="text-xs font-mono uppercase tracking-wider">GPU</CardDescription>
-            <p className="text-2xl font-semibold tabular-nums text-chart-4">
-              {!sysInfo?.gpu_available
-                ? 'N/A'
-                : sysInfo.gpu_percent != null
-                  ? `${sysInfo.gpu_percent.toFixed(0)}%`
-                  : sysInfo.gpu_memory != null && sysInfo.gpu_used != null
-                    ? `${formatBytes(sysInfo.gpu_used)} / ${formatBytes(sysInfo.gpu_memory)}`
-                    : '—'}
-            </p>
-          </CardHeader>
-        </Card>
-        <Card title={inferenceTitle}>
-          <CardHeader className="pb-2">
-            <CardDescription className="text-xs font-mono uppercase tracking-wider">Inference</CardDescription>
-            <p className="break-words text-lg font-semibold leading-tight text-chart-3 md:text-2xl">
+            <div className="flex items-center gap-2 mb-1">
+              <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <CardDescription className="text-xs font-mono uppercase tracking-wider">Inference</CardDescription>
+            </div>
+            <p className="break-words text-lg font-semibold leading-tight text-amber-600 dark:text-amber-400 md:text-2xl">
               {inferenceSummary}
             </p>
+            <div className="mt-1">
+              <StatusIndicator status={health === 'offline' ? 'offline' : health === null ? 'loading' : 'online'} />
+            </div>
           </CardHeader>
         </Card>
       </div>
