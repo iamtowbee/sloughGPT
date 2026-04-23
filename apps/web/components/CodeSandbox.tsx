@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { executeCode } from '@/lib/piston-api'
 
 interface CodeExecutionResult {
   output: string
@@ -46,24 +47,12 @@ export function CodeSandbox({
           setError(e instanceof Error ? e.message : String(e))
         }
       } else if (language === 'python' || language === 'py') {
-        const response = await fetch('https://emkc.org/api/v2/piston/execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            language: 'python',
-            version: '3.10',
-            files: [{ content: code }],
-          }),
-        })
+        const result = await executeCode(code, 'python', '3.10')
 
-        const result = await response.json()
-
-        if (result.run?.output) {
-          setOutput(result.run.output)
-        } else if (result.run?.stderr) {
-          setError(result.run.stderr)
+        if (result.error) {
+          setError(result.error)
         } else {
-          setOutput('Code executed successfully (no output)')
+          setOutput(result.output || 'Code executed successfully (no output)')
         }
       } else {
         setOutput(`Language "${language}" execution not supported in browser. Supported: Python, JavaScript`)

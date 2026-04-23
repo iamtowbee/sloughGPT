@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
 import { PUBLIC_API_URL } from '@/lib/config'
 
 interface Settings {
@@ -31,6 +32,7 @@ interface Settings {
   defaultMaxTokens: number
   theme: 'dark' | 'light' | 'system'
   streaming: boolean
+  customContext: string
 }
 
 export default function SettingsPage() {
@@ -42,6 +44,7 @@ export default function SettingsPage() {
     defaultMaxTokens: 200,
     theme: 'light',
     streaming: true,
+    customContext: '',
   })
   const [saved, setSaved] = useState(false)
 
@@ -81,6 +84,7 @@ export default function SettingsPage() {
         <TabsList className="w-full justify-start">
           <TabsTrigger value="connection">Connection</TabsTrigger>
           <TabsTrigger value="defaults">Model defaults</TabsTrigger>
+          <TabsTrigger value="context">Context</TabsTrigger>
           <TabsTrigger value="data">Data</TabsTrigger>
         </TabsList>
 
@@ -170,6 +174,25 @@ export default function SettingsPage() {
                   />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="context" className="space-y-6 focus-visible:outline-none">
+          <Card>
+            <CardHeader>
+              <CardTitle>Custom Context</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Add facts, instructions, or context that will be included with every prompt.
+              </p>
+              <Textarea
+                className="min-h-[150px]"
+                placeholder="e.g., You are a helpful coding assistant. Keep responses concise..."
+                value={settings.customContext}
+                onChange={(e) => setSettings({ ...settings, customContext: e.target.value })}
+              />
             </CardContent>
           </Card>
         </TabsContent>

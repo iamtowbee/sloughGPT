@@ -27,8 +27,17 @@ def kill_port(port: int):
 def check_port(port: int) -> bool:
     try:
         import urllib.request
-
         urllib.request.urlopen(f"http://localhost:{port}/", timeout=1)
+        return True
+    except:
+        return False
+
+
+def check_api_ready(port: int) -> bool:
+    """Check if API is ready by hitting /health endpoint."""
+    try:
+        import urllib.request
+        urllib.request.urlopen(f"http://localhost:{port}/health", timeout=3)
         return True
     except:
         return False
@@ -45,6 +54,10 @@ def main():
 
     # Fall back to system python which has torch
     if not python.exists():
+        python = Path("/usr/bin/python3")
+    
+    # Ensure we use python3
+    if not str(python).endswith("python3"):
         python = Path("/usr/bin/python3")
 
     # Verify torch is available, otherwise use system python
@@ -76,14 +89,14 @@ def main():
     )
     api_pid = api_proc.pid
 
-    # Wait for API (max 30s)
+    # Wait for API (max 30s) - check health endpoint, not just port
     for i in range(30):
-        if check_port(API_PORT):
+        if check_api_ready(API_PORT):
             log("INF", f"API ready → http://localhost:{API_PORT}")
             break
         time.sleep(1)
     else:
-        log("ERR", "API failed to start")
+        log("ERR", "API failed to become ready")
         return
 
     # Start Web server

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
+import { api } from '@/lib/api'
 import { 
   TrainingMessages, 
   TrainingMessage, 
@@ -101,18 +102,14 @@ export default function AutoTrainPage() {
     setEvalResult(null)
 
     try {
-      const response = await fetch('http://localhost:8000/auto-train/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teacher_model: teacherModel,
-          temperature: parseFloat(temperature),
-          learning_rate: parseFloat(learningRate),
-          baby_model_path: modelPath,
-        }),
+      const response = await api.startAutoTrain({
+        teacher_model: teacherModel,
+        temperature: parseFloat(temperature),
+        learning_rate: parseFloat(learningRate),
+        baby_model_path: modelPath,
       })
 
-      console.log('Start response:', response.status)
+      console.log('Start response:', response)
       if (!response.ok) {
         setRunning(false)
         return
@@ -209,14 +206,12 @@ export default function AutoTrainPage() {
     if (esRef.current) {
       esRef.current.close()
     }
-    fetch('http://localhost:8000/auto-train/stop', { method: 'POST' })
+    api.stopAutoTrain()
     setRunning(false)
-    // Trigger evaluation after training stops
     setTimeout(async () => {
       try {
-        const res = await fetch('http://localhost:8000/auto-train/eval?prompt=Hello', { method: 'POST' })
-        const data = await res.json()
-        if (data.baby_output) {
+        const data = await api.evalAutoTrain('Hello') as { baby_output?: string }
+        if (data?.baby_output) {
           setEvalResult(data.baby_output)
         }
       } catch (e) {

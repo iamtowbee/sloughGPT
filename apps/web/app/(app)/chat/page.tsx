@@ -228,11 +228,7 @@ export default function ChatPage() {
       { ...prev[lastAssistantIdx], id: assistantId, content: '', timestamp: new Date() }
     ])
 
-    fetch(`${API_SESSION_CONTEXT_ENDPOINT}/${sessionIdRef.current}/regenerate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    })
-      .then(res => res.json())
+    api.regenerateSessionMessage(sessionIdRef.current)
       .then(data => {
         if (data.error) {
           showToast('Regeneration failed', 'error')
@@ -264,11 +260,7 @@ export default function ChatPage() {
 
   const storeSessionContext = async (sessionId: string, msgs: ChatMessage[]) => {
     try {
-      await fetch(`${API_SESSION_CONTEXT_ENDPOINT}/${sessionId}/context`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: msgs.map(m => ({ role: m.role, content: m.content })) }),
-      })
+      await api.saveSessionContext(sessionId, msgs.map(m => ({ role: m.role, content: m.content })))
     } catch {}
   }
 
@@ -381,7 +373,7 @@ export default function ChatPage() {
     
     const userImages = [...images]
     
-    // Get injected knowledge
+    // Get injected knowledge and custom context from settings
     const injectedKnowledge = (() => {
       try {
         const stored = localStorage.getItem(KNOWLEDGE_STORAGE_KEY)
@@ -391,10 +383,26 @@ export default function ChatPage() {
       }
     })()
     
+    // Get custom context from settings
+    let customContext = ''
+    try {
+      const settingsStored = localStorage.getItem('sloughgpt_settings')
+      if (settingsStored) {
+        const settings = JSON.parse(settingsStored)
+        customContext = settings.customContext || ''
+      }
+    } catch {
+      // ignore
+    }
+    
     // Build knowledge context
     let knowledgeContext = ''
-    if (injectedKnowledge.length > 0) {
-      knowledgeContext = `\n\n[IMPORTANT KNOWLEDGE - Use this information when responding:]\n${injectedKnowledge.map((k: { content: string }) => `• ${k.content}`).join('\n')}\n[/IMPORTANT KNOWLEDGE]`
+    const allKnowledge = [
+      ...customContext ? [{ content: customContext }] : [],
+      ...injectedKnowledge,
+    ]
+    if (allKnowledge.length > 0) {
+      knowledgeContext = `\n\n[IMPORTANT KNOWLEDGE - Use this information when responding:]\n${allKnowledge.map((k: { content: string }) => `• ${k.content}`).join('\n')}\n[/IMPORTANT KNOWLEDGE]`
     }
     
     const userMessage: ChatMessage = {
@@ -558,24 +566,11 @@ export default function ChatPage() {
         onModelChange={async (newModel) => {
           setModel(newModel)
           try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
             let loadResult
-            // local/step_0 uses /load endpoint for .pt files
             if (newModel.startsWith('local/') && !newModel.endsWith('.sou')) {
-              const res = await fetch(`${apiUrl}/load`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model_path: `models/${newModel.replace('local/', '')}.pt` }),
-              })
-              loadResult = await res.json()
+              loadResult = await api.loadModelPath(`models/${newModel.replace('local/', '')}.pt`)
             } else {
-              // Use /models/load for HF models
-              const res = await fetch(`${apiUrl}/models/load`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model_id: newModel, mode: 'local' }),
-              })
-              loadResult = await res.json()
+              loadResult = await api.loadModel(newModel, { mode: 'local' })
             }
             refreshHealth()
             showToast(`Loaded ${newModel}`)

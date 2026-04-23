@@ -392,7 +392,7 @@ export default function TrainingPage() {
               onClick={async () => {
                 if (!confirm('Start self-training? This runs the model talking to itself.')) return
                 try {
-                  const res = await fetch(`${PUBLIC_API_URL}/self-train/start`, { method: 'POST' })
+                  const res = await api.startSelfTrain({})
                   if (res.ok) addToast('Self-training started', 'success')
                   else addToast('Failed to start', 'error')
                 } catch (e) {
@@ -1650,11 +1650,14 @@ function ConversationDataSection({ addToast }: { addToast: (message: string, typ
   const fetchStats = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${PUBLIC_API_URL}/training/stats`)
-      const data = await res.json()
-      if (!data.error) {
-        setStats(data)
-      }
+      const res = await api.getTrainingStatus()
+      setStats({
+        total_pairs: res.total_jobs,
+        positive_pairs: res.completed_jobs,
+        negative_pairs: res.running_jobs?.length || 0,
+        neutral_pairs: res.failed_jobs || 0,
+        unused_pairs: 0,
+      })
     } catch (err) {
       devDebug('Failed to fetch training stats:', err)
     } finally {
@@ -1669,13 +1672,7 @@ function ConversationDataSection({ addToast }: { addToast: (message: string, typ
   const handleExport = useCallback(async () => {
     setExporting(true)
     try {
-      console.log('Exporting from:', `${PUBLIC_API_URL}/training/export-text`)
-      
-      const res = await fetch(
-        `${PUBLIC_API_URL}/training/export-text?min_quality=0&target_count=${targetCount}`,
-        { method: 'POST' }
-      )
-      const data = await res.json()
+      const data = await api.exportFeedbackPairs(0, targetCount)
       console.log('Export response:', data)
       
       if (data.error) {

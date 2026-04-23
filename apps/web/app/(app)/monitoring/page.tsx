@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { inferenceHealthLabel, useApiHealth } from '@/hooks/useApiHealth'
-import { PUBLIC_API_URL } from '@/lib/config'
+import { api } from '@/lib/api'
 
-import { mapInfoToSystemInfo, type SystemInfo } from '@/lib/monitoring-info'
+import { mapInfoToSystemInfo, type SystemInfo, type InfoJson } from '@/lib/monitoring-info'
 
 export default function MonitoringPage() {
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null)
@@ -30,9 +30,8 @@ export default function MonitoringPage() {
 
   const fetchInfo = useCallback(async () => {
     try {
-      const res = await fetch(`${PUBLIC_API_URL}/info`)
-      const data = await res.json()
-      setSysInfo(mapInfoToSystemInfo(data))
+      const data = await api.getSystemInfo()
+      setSysInfo(mapInfoToSystemInfo(data as InfoJson))
       setLoading(false)
       setLogTick((t) => t + 1)
     } catch {

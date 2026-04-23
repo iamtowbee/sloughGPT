@@ -20,7 +20,7 @@ export interface SystemInfo {
   host_metrics_available: boolean
 }
 
-type InfoJson = {
+export interface InfoJson {
   pytorch_version?: string
   cuda_available?: boolean
   host?: {
@@ -56,66 +56,49 @@ export function mapInfoToSystemInfo(data: InfoJson): SystemInfo {
   let gpuMemory: number | undefined
   let gpuUsed: number | undefined
   let gpuPercent: number | null = null
+  let gpuName: string | undefined
 
   if (cuda) {
-    if (typeof cuda.memory_total_bytes === 'number') {
+    if (cuda.memory_total_bytes && cuda.memory_used_bytes != null) {
       gpuMemory = cuda.memory_total_bytes
-    } else if (typeof cuda.memory_total === 'number') {
-      gpuMemory = Math.round(cuda.memory_total * 1e9)
-    }
-    if (typeof cuda.memory_used_bytes === 'number') {
       gpuUsed = cuda.memory_used_bytes
+      gpuPercent = memoryPercentFromBytes(cuda.memory_used_bytes, cuda.memory_total_bytes)
+    } else if (cuda.memory_total) {
+      gpuMemory = cuda.memory_total * 1024 * 1024 * 1024
+      gpuUsed = cuda.memory_total * 1024 * 1024 * 1024
+      gpuPercent = cuda.memory_percent ?? null
     }
-    if (typeof cuda.memory_percent === 'number') {
-      gpuPercent = cuda.memory_percent
-    }
+    gpuName = cuda.device
   }
 
-  if (host && typeof host.cpu_percent === 'number') {
-    const rss =
-      typeof host.process_rss_bytes === 'number' && host.process_rss_bytes >= 0
-        ? host.process_rss_bytes
-        : null
-    const memTotal = typeof host.memory_total_bytes === 'number' ? host.memory_total_bytes : 0
-    const memUsed = typeof host.memory_used_bytes === 'number' ? host.memory_used_bytes : 0
-    const memPctFromBytes = memoryPercentFromBytes(memUsed, memTotal)
-    return {
-      platform: [host.platform, host.platform_release].filter(Boolean).join(' '),
-      python: pytorch,
-      cpu_cores: typeof host.cpu_count_logical === 'number' ? host.cpu_count_logical : 0,
-      cpu_percent: host.cpu_percent,
-      memory_total: memTotal,
-      memory_used: memUsed,
-      memory_percent:
-        memPctFromBytes != null
-          ? memPctFromBytes
-          : typeof host.memory_percent === 'number'
-            ? host.memory_percent
-            : null,
-      gpu_available: Boolean(data.cuda_available),
-      gpu_name: typeof cuda?.device === 'string' ? cuda.device : undefined,
-      gpu_memory: gpuMemory,
-      gpu_used: gpuUsed,
-      gpu_percent: gpuPercent,
-      process_rss_bytes: rss,
-      host_metrics_available: true,
-    }
-  }
+  const cpuCores = host?.cpu_count_logical ?? 0
+  const cpuPercent = host?.cpu_percent ?? null
+
+  const hasHostMetrics = !!host
+  const memoryTotal = host?.memory_total_bytes ?? 0
+  const memoryUsed = host?.memory_used_bytes ?? 0
+  const memoryPercent = hasHostMetrics
+    ? host.memory_percent ?? memoryPercentFromBytes(memoryUsed, memoryTotal)
+    : null
+
+  const platform = host?.platform ?? 'Unavailable'
+  const processRss = host?.process_rss_bytes ?? null
+  const python = pytorch
 
   return {
-    platform: 'Unknown',
-    python: pytorch,
-    cpu_cores: typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 0 : 0,
-    cpu_percent: null,
-    memory_total: 0,
-    memory_used: 0,
-    memory_percent: null,
-    gpu_available: Boolean(data.cuda_available),
-    gpu_name: typeof cuda?.device === 'string' ? cuda.device : undefined,
+    platform,
+    python,
+    cpu_cores: cpuCores,
+    cpu_percent: cpuPercent,
+    memory_total: memoryTotal,
+    memory_used: memoryUsed,
+    memory_percent: memoryPercent,
+    gpu_available: !!data.cuda_available,
+    gpu_name: gpuName,
     gpu_memory: gpuMemory,
     gpu_used: gpuUsed,
     gpu_percent: gpuPercent,
-    process_rss_bytes: null,
-    host_metrics_available: false,
+    process_rss_bytes: processRss,
+    host_metrics_available: hasHostMetrics,
   }
 }

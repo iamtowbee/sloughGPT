@@ -431,6 +431,12 @@ export const api = {
     return res.json()
   },
 
+  /** Get system info from API /info endpoint */
+  async getSystemInfo(): Promise<Record<string, unknown>> {
+    const res = await fetch(`${API_URL}/info`)
+    return res.json()
+  },
+
   async login(username: string, password: string) {
     // Server expects query params, not JSON body
     const res = await fetch(`${API_URL}/auth/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, {
@@ -536,6 +542,40 @@ export const api = {
     if (res.status === 404) {
       throw new Error('Model unload is not implemented on this API build')
     }
+    return res.json()
+  },
+
+  /** Load local model by path (used for .pt files) */
+  async loadModelPath(modelPath: string): Promise<Record<string, unknown>> {
+    const res = await fetchWithAuth(`${API_URL}/load`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model_path: modelPath }),
+    })
+    return res.json()
+  },
+
+  async getKnowledge(): Promise<{ items: Array<{ id: string; content: string; category: string; tags: string[]; created_at: string; usage_count: number }> }> {
+    const res = await fetchWithAuth(`${API_URL}/knowledge`)
+    return res.json()
+  },
+
+  async addKnowledge(content: string, category: string = 'general', tags: string[] = []): Promise<{ item: { id: string; content: string; category: string; tags: string[]; created_at: string; usage_count: number } }> {
+    const res = await fetchWithAuth(`${API_URL}/knowledge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, category, tags }),
+    })
+    return res.json()
+  },
+
+  async deleteKnowledge(id: string): Promise<{ error?: string }> {
+    const res = await fetchWithAuth(`${API_URL}/knowledge/${id}`, { method: 'DELETE' })
+    return res.json()
+  },
+
+  async searchKnowledge(query: string): Promise<{ results: Array<{ id: string; content: string; category: string; tags: string[]; created_at: string; usage_count: number }> }> {
+    const res = await fetchWithAuth(`${API_URL}/knowledge/search?query=${encodeURIComponent(query)}`)
     return res.json()
   },
 
@@ -800,6 +840,28 @@ export const api = {
       ac.abort()
       finish()
     }
+  },
+
+  async getSessionContext(sessionId: string): Promise<{ messages?: Array<{ role: string; content: string }> }> {
+    const res = await fetchWithAuth(`${API_URL}/sessions/${sessionId}/context`)
+    return res.json()
+  },
+
+  async saveSessionContext(sessionId: string, messages: Array<{ role: string; content: string }>): Promise<{ error?: string }> {
+    const res = await fetchWithAuth(`${API_URL}/sessions/${sessionId}/context`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages }),
+    })
+    return res.json()
+  },
+
+  async regenerateSessionMessage(sessionId: string): Promise<{ error?: string; text?: string }> {
+    const res = await fetchWithAuth(`${API_URL}/sessions/${sessionId}/regenerate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    return res.json()
   },
 
   async getTrainingJobs(): Promise<TrainingJob[]> {
@@ -1790,6 +1852,38 @@ export const api = {
     return res.json()
   },
 
+  async getAutoTrainStatus(): Promise<Record<string, unknown>> {
+    const res = await fetchWithAuth(`${API_URL}/auto-train/status`)
+    return res.json()
+  },
+
+  async startAutoTrain(params?: {
+    teacher_model?: string
+    temperature?: number
+    learning_rate?: number
+    baby_model_path?: string
+    prompt?: string
+  }): Promise<Record<string, unknown>> {
+    const res = await fetchWithAuth(`${API_URL}/auto-train/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: params ? JSON.stringify(params) : '{}',
+    })
+    return res.json()
+  },
+
+  async stopAutoTrain(): Promise<Record<string, unknown>> {
+    const res = await fetchWithAuth(`${API_URL}/auto-train/stop`, { method: 'POST' })
+    return res.json()
+  },
+
+  async evalAutoTrain(prompt: string): Promise<Record<string, unknown>> {
+    const res = await fetchWithAuth(`${API_URL}/auto-train/eval?prompt=${encodeURIComponent(prompt)}`, {
+      method: 'POST',
+    })
+    return res.json()
+  },
+
   async exportTrainingData(format: 'dpo' | 'sft' | 'reward', filepath?: string): Promise<{ status: string; filepath: string; count: number }> {
     const body: Record<string, unknown> = { format }
     if (filepath) body.filepath = filepath
@@ -1797,6 +1891,13 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+    })
+    return res.json()
+  },
+
+  async exportFeedbackPairs(minQuality: number = 0, targetCount: number = 100): Promise<{ error?: string; pairs_count?: number; filepath?: string }> {
+    const res = await fetchWithAuth(`${API_URL}/training/export-text?min_quality=${minQuality}&target_count=${targetCount}`, {
+      method: 'POST',
     })
     return res.json()
   },
