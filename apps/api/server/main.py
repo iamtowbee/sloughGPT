@@ -6302,6 +6302,11 @@ def get_inference_engine():
     if model is None or tokenizer is None:
         return None
 
+    import torch
+    if not isinstance(model, torch.nn.Module):
+        logging.warning("get_inference_engine: model is not a nn.Module (got %s), skipping engine creation", type(model))
+        return None
+
     if _inference_engine is not None and getattr(_inference_engine, "model", None) is not model:
         _inference_engine = None
 

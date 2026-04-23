@@ -64,6 +64,8 @@ export interface Model {
   size_mb?: number
   /** HuggingFace model thumbnail URL */
   thumbnail?: string
+  /** Parameter count (e.g. "7B", "13B") */
+  params?: string
 }
 
 export interface TrainingJob {
