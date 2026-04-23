@@ -32,6 +32,66 @@ import { api, type Dataset } from '@/lib/api'
 import { devDebug } from '@/lib/dev-log'
 import { DatasetImportModal } from '@/components/DatasetImportModal'
 import { DatasetPreview } from '@/components/DatasetPreview'
+import { cn } from '@/lib/cn'
+
+function DatasetCardSkeleton() {
+  return (
+    <div className="animate-pulse rounded-xl bg-card/50 border border-border/50 overflow-hidden">
+      <div className="p-5">
+        <div className="flex items-start justify-between mb-3">
+          <div className="h-6 w-32 bg-muted rounded"></div>
+          <div className="h-5 w-16 bg-muted rounded-full"></div>
+        </div>
+        <div className="h-4 w-48 bg-muted rounded mb-2"></div>
+        <div className="flex gap-2">
+          <div className="h-5 w-16 bg-muted rounded-full"></div>
+          <div className="h-5 w-20 bg-muted rounded-full"></div>
+        </div>
+      </div>
+      <div className="px-5 py-3 border-t border-border/50 flex justify-between items-center bg-muted/30">
+        <div className="h-4 w-20 bg-muted rounded"></div>
+        <div className="flex gap-2">
+          <div className="h-8 w-16 bg-muted rounded-lg"></div>
+          <div className="h-8 w-16 bg-muted rounded-lg"></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DatasetIcon({ type }: { type: string }) {
+  const lowerType = (type || '').toLowerCase()
+  if (lowerType.includes('hf') || lowerType.includes('hugging')) {
+    return (
+      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center shadow-sm">
+        <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 0L1.5 6v12L12 24l10.5-6V6L12 0zm0 2.25l8.25 4.5v9L12 20.75l-8.25-4.5v-9L12 2.25z"/>
+        </svg>
+      </div>
+    )
+  }
+  if (lowerType.includes('json')) {
+    return (
+      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-sm">
+        <span className="text-white font-bold text-xs">JSON</span>
+      </div>
+    )
+  }
+  if (lowerType.includes('csv') || lowerType.includes('tabular')) {
+    return (
+      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-sm">
+        <span className="text-white font-bold text-xs">CSV</span>
+      </div>
+    )
+  }
+  return (
+    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-sm">
+      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+      </svg>
+    </div>
+  )
+}
 
 export default function DatasetsPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([])
@@ -316,11 +376,20 @@ export default function DatasetsPage() {
 
         <TabsContent value="list">
           {loading ? (
-            <div className="py-12 text-center sl-body text-muted-foreground">Loading datasets…</div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <DatasetCardSkeleton key={i} />
+              ))}
+            </div>
           ) : datasets.length === 0 ? (
-            <Card className="border-dashed bg-card/50">
+            <Card className="border-dashed">
               <CardContent className="py-12 text-center">
-                <p className="sl-subtitle mb-4">No datasets found.</p>
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted/50 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                  </svg>
+                </div>
+                <p className="text-muted-foreground mb-4">No datasets found.</p>
                 <Button type="button" onClick={() => setImportModalOpen(true)}>
                   Import your first dataset
                 </Button>
@@ -331,24 +400,44 @@ export default function DatasetsPage() {
               {datasets.map((dataset) => (
                 <Card
                   key={dataset.id}
-                  className="bg-card/50 border-border/40 hover:border-border/70 transition-colors"
+                  className={cn(
+                    "group transition-all duration-300 hover:shadow-lg hover:-translate-y-1",
+                    "border-border/60 hover:border-primary/30"
+                  )}
                 >
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="sl-text-subtitle">{dataset.name}</CardTitle>
-                      <span className="shrink-0 border border-border/50 bg-muted/30 px-2 py-0.5 font-mono sl-text-caption">
-                        {dataset.type}
-                      </span>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start gap-3">
+                      <DatasetIcon type={dataset.type} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <CardTitle className="text-base truncate">{dataset.name}</CardTitle>
+                          <span className="shrink-0 px-2 py-0.5 text-xs font-medium rounded-full border border-border/60 bg-muted/50 text-muted-foreground">
+                            {dataset.type}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
                     {dataset.path && (
-                      <p className="truncate font-mono sl-text-caption text-muted-foreground">{dataset.path}</p>
+                      <p className="truncate font-mono text-xs text-muted-foreground mb-3" title={dataset.path}>
+                        {dataset.path}
+                      </p>
+                    )}
+                    {dataset.samples && (
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          {dataset.samples.toLocaleString()} samples
+                        </span>
+                      </div>
                     )}
                   </CardContent>
-                  <CardFooter className="flex justify-between border-t border-border/40 pt-4">
-                    <span className="sl-text-body font-medium text-chart-3">{dataset.size}</span>
-                      <div className="flex gap-1">
+                  <CardFooter className="flex justify-between items-center border-t border-border/50 pt-4">
+                    <span className="text-sm font-medium text-muted-foreground">{dataset.size}</span>
+                    <div className="flex gap-1">
                         <Button type="button" variant="ghost" size="sm" onClick={() => handleViewDataset(dataset.id)}>
                           View
                         </Button>
