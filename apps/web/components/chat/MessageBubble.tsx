@@ -115,19 +115,17 @@ export function MessageBubble({
             </div>
           ) : isEditing ? (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 mb-2">
-                <svg className="h-4 w-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                <span className="text-xs font-medium text-primary">Edit message</span>
-              </div>
               <textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="w-full bg-primary-foreground/10 border border-input rounded-xl px-4 py-3 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
-                rows={2}
+                className="w-full bg-primary-foreground/10 border border-primary/30 rounded-xl px-3 py-2.5 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all min-h-[60px]"
+                rows={3}
                 autoFocus
                 onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleEditSave()
+                  }
                   if (e.key === 'Escape') {
                     handleEditCancel()
                   }
@@ -136,13 +134,13 @@ export function MessageBubble({
               <div className="flex justify-end gap-2">
                 <button
                   onClick={handleEditCancel}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-input bg-transparent hover:bg-accent hover:text-accent-foreground transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border/60 bg-background/50 hover:bg-background text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleEditSave}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-colors"
                 >
                   Resend
                 </button>
