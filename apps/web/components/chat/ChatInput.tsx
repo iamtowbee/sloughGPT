@@ -11,11 +11,17 @@ interface ChatInputProps {
   value: string
   onChange: (value: string) => void
   onSend: () => void
+  onStop?: () => void
   loading: boolean
   health: ApiHealthSnapshot
   images?: ImageAttachment[]
   onAddImage?: (dataUrl: string) => void
   onRemoveImage?: (id: string) => void
+  streamingStats?: {
+    tokens: number
+    timeElapsed: number
+    tokensPerSecond: number
+  }
 }
 
 function autoResize(textarea: HTMLTextAreaElement | null) {
@@ -29,11 +35,13 @@ export function ChatInput({
   value, 
   onChange, 
   onSend, 
+  onStop,
   loading, 
   health,
   images = [],
   onAddImage,
   onRemoveImage,
+  streamingStats,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -89,6 +97,25 @@ export function ChatInput({
       style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
     >
       <div className="mx-auto max-w-2xl space-y-2">
+        {/* Streaming stats indicator */}
+        {streamingStats && loading && (
+          <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-muted/50 text-xs text-muted-foreground animate-pulse">
+            <div className="flex items-center gap-2">
+              <div className="flex gap-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+              <span>Generating...</span>
+            </div>
+            <div className="flex items-center gap-3 font-mono">
+              <span>{streamingStats.tokens} tok</span>
+              <span>{streamingStats.timeElapsed}s</span>
+              <span>{streamingStats.tokensPerSecond} tok/s</span>
+            </div>
+          </div>
+        )}
+
         {images.length > 0 && (
           <div className="flex gap-2 flex-wrap">
             {images.map((img) => (
@@ -121,26 +148,29 @@ export function ChatInput({
           />
           
           <Button 
-            onClick={handleSend} 
-            disabled={isDisabled || (!value.trim() && images.length === 0)}
-            className="h-11 w-11 shrink-0 sm:h-12 sm:w-auto sm:px-5 hover:opacity-80 active:opacity-70 disabled:opacity-50 relative"
-            aria-label={loading ? "Sending message" : "Send message"}
+            onClick={loading ? onStop : handleSend} 
+            disabled={(!loading && !onStop && (isDisabled || (!value.trim() && images.length === 0)))}
+            className={cn(
+              "h-11 w-11 shrink-0 sm:h-12 sm:w-auto sm:px-5 hover:opacity-80 active:opacity-70 disabled:opacity-50 relative transition-all",
+              loading && "bg-destructive hover:bg-destructive/90"
+            )}
+            aria-label={loading ? "Stop generation" : "Send message"}
             data-send-button="true"
           >
-            <span className={cn("flex items-center justify-center gap-2", loading && "opacity-0")}>
-              <svg className="h-4 w-4 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-              <span className="hidden sm:inline">Send</span>
-            </span>
-            
-            {/* Loading overlay */}
-            {loading && (
-              <span className="absolute inset-0 flex items-center justify-center">
-                <svg className="h-5 w-5 animate-spin text-primary-foreground" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="h-4 w-4 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
                 </svg>
+                <span className="hidden sm:inline text-xs font-medium">Stop</span>
+              </span>
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="h-4 w-4 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+                <span className="hidden sm:inline">Send</span>
               </span>
             )}
           </Button>
